@@ -1,0 +1,27 @@
+export const CFG = {
+  TODAY_STR: "2026-05-02",
+  TODAY: new Date(2026, 4, 2),
+  DAY_START: "06:30",
+  DAY_END: "22:40",
+  END_CONFIRM: 2000,
+  LIVE_TICK: 1000,
+  REST_DURATIONS: { 5: 1, 25: 5, 60: 10, 90: 15, 120: 20 } as Record<number, number>,
+  POMO_DURATIONS: [5, 25, 60, 90],
+  COIN_TABLE: [
+    { min: 5, coins: 1 },
+    { min: 25, coins: 10 },
+    { min: 60, coins: 20 },
+    { min: 90, coins: 30 },
+    { min: 120, coins: 45 },
+    { min: 150, coins: 70 },
+    { min: 180, coins: 100 },
+  ],
+  MILESTONES: [
+    { mins: 180, coins: 30, label: "3小時" },
+    { mins: 240, coins: 50, label: "4小時" },
+    { mins: 300, coins: 100, label: "5小時" },
+    { mins: 360, coins: 200, label: "6小時" },
+    { mins: 420, coins: 500, label: "7小時" },
+  ],
+  TIME_RANGES: ["3天", "7天", "14天", "月", "季"],
+} as const;

@@ -1,0 +1,16 @@
+export const TH = {
+  bg: "#09090B",
+  card: "#111113",
+  border: "#1E1E24",
+  text: "#F4F4F5",
+  muted: "#52525B",
+  accent: "#F97316",
+  green: "#22C55E",
+  red: "#EF4444",
+  yellow: "#F59E0B",
+  blue: "#3B82F6",
+  purple: "#8B5CF6",
+  cyan: "#06B6D4",
+  gold: "#FBBF24",
+  pink: "#EC4899",
+} as const;
