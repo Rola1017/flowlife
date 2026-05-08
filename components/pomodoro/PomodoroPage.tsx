@@ -345,10 +345,13 @@ export function PomodoroPage({
               if (mode !== "focus") {
                 setDur(d);
                 setSecs(d * 60);
-                setMode("idle");
-                setShowRating(false);
-                setFocusReadyToBreak(false);
-                setFocusOverrunSecs(0);
+                // 未利用時間累計中時，切換時長不應打斷或重置累計流程
+                if (!idleTrackStart) {
+                  setMode("idle");
+                  setShowRating(false);
+                  setFocusReadyToBreak(false);
+                  setFocusOverrunSecs(0);
+                }
               }
             }}
             style={{
