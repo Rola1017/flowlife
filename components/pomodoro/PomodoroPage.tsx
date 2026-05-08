@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, type Dispatch, type SetStateAction } from "react";
+import { useState, useEffect, useMemo, useRef, type Dispatch, type SetStateAction } from "react";
 import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
@@ -247,9 +247,6 @@ export function PomodoroPage({
 
   const confirmRating = (r: string) => {
     setRated(true);
-    if (r === "😤") setFocused((c) => c + 1);
-    else if (r === "🙂") setNeutral((c) => c + 1);
-    else setDistracted((c) => c + 1);
 
     const el = elRef.current;
     const mins = Math.max(1, Math.round(el / 60));
@@ -274,11 +271,30 @@ export function PomodoroPage({
 
   const countedSessions = sessions.filter((s) => s.counted);
   const tot = countedSessions.reduce((s, p) => s + p.mins, 0);
+  const ratingSummary = useMemo(
+    () =>
+      sessions.reduce(
+        (acc, s) => {
+          if (s.rating === "😤") acc.focused += 1;
+          else if (s.rating === "🙂") acc.neutral += 1;
+          else if (s.rating === "😴") acc.distracted += 1;
+          return acc;
+        },
+        { focused: 0, neutral: 0, distracted: 0 },
+      ),
+    [sessions],
+  );
   const yLearn = MOCK.yesterdayPomos.filter((p) => p.cat1 === "學習").reduce((s, p) => s + p.mins, 0);
   const lineD = MOCK.lineData[linePeriod as keyof typeof MOCK.lineData] || MOCK.lineData["7天"];
   const isRestActive = restSecs > 0;
   const effectiveMode = isRestActive ? "rest" : mode;
   const idleTotalToday = idleTotalSecs + (idleTrackStart ? idleSecs : 0);
+
+  useEffect(() => {
+    setFocused(ratingSummary.focused);
+    setNeutral(ratingSummary.neutral);
+    setDistracted(ratingSummary.distracted);
+  }, [ratingSummary, setFocused, setNeutral, setDistracted]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, position: "relative" }}>
@@ -690,20 +706,6 @@ export function PomodoroPage({
               }}
             />
           </div>
-        </div>
-      )}
-      {!idleTrackStart && mode !== "focus" && !isRestActive && tot > 0 && (
-        <div
-          style={{
-            fontSize: 11,
-            color: tot < yLearn ? TH.yellow : TH.green,
-            background: tot < yLearn ? "#F59E0B11" : "#22C55E11",
-            padding: "4px 12px",
-            borderRadius: 20,
-            textAlign: "center",
-          }}
-        >
-          {tot < yLearn ? `🎯 再 ${fmt(yLearn - tot)} 超越昨天學習` : `✅ 已超越昨天！+${fmt(tot - yLearn)}`}
         </div>
       )}
       <Card style={{ width: "100%" }}>
