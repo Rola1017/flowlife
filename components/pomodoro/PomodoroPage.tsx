@@ -317,19 +317,43 @@ export function PomodoroPage({
           25% { transform: scale(1.06); opacity: 1; }
           100% { transform: scale(1); opacity: 0; }
         }
-        @keyframes flowlifeTomatoBurstThenAbsorb {
+        /* 總長 3s：0.5s 稍微右移 + 1.5s 停留 + 吸入右側 */
+        @keyframes flowlifeTomatoTimeline {
           0% { transform: translate(-50%, -50%) scale(0.35); opacity: 0; }
-          18% { transform: translate(-50%, -62%) scale(1.35); opacity: 1; }
-          28% { transform: translate(-50%, -46%) scale(1); opacity: 1; }
-          75% { transform: translate(-50%, -46%) scale(1); opacity: 1; } /* 停留再 +1 秒 */
-          100% { transform: translate(calc(-50% + 122px), calc(-50% - 64px)) scale(0.3); opacity: 0; }
+          16.67% { transform: translate(calc(-50% + 28px), calc(-50% - 46px)) scale(1.2); opacity: 1; } /* 0.5s */
+          66.67% { transform: translate(calc(-50% + 28px), calc(-50% - 46px)) scale(1); opacity: 1; } /* 停留 1.5s */
+          100% { transform: translate(calc(-50% + 122px), calc(-50% - 64px)) scale(0.3); opacity: 0; } /* 吸入右側 */
         }
-        @keyframes flowlifeCoinBurstThenAbsorb {
-          0% { transform: translate(-50%, -50%) scale(0.35); opacity: 0; }
-          18% { transform: translate(-50%, -62%) scale(1.25); opacity: 1; }
-          28% { transform: translate(-50%, -46%) scale(1); opacity: 1; }
-          75% { transform: translate(-50%, -46%) scale(1); opacity: 1; } /* 停留再 +1 秒 */
-          100% { transform: translate(calc(-50% - 122px), calc(-50% - 64px)) scale(0.3); opacity: 0; }
+        /* 單一大金幣：只在左上位置感顯示，不再跑第二條大軌跡 */
+        @keyframes flowlifeCoinMainPop {
+          0% { transform: translate(calc(-50% - 28px), calc(-50% - 46px)) scale(0.25); opacity: 0; }
+          16.67% { transform: translate(calc(-50% - 28px), calc(-50% - 46px)) scale(1.2); opacity: 1; } /* 0.5s */
+          66.67% { transform: translate(calc(-50% - 28px), calc(-50% - 46px)) scale(1); opacity: 1; } /* 停留 1.5s */
+          100% { transform: translate(calc(-50% - 122px), calc(-50% - 108px)) scale(0.3); opacity: 0; } /* 吸入左側 */
+        }
+        @keyframes flowlifeCoinCracker1 {
+          0% { transform: translate(calc(-50% - 28px), calc(-50% - 46px)) scale(0.1); opacity: 0; }
+          22% { transform: translate(calc(-50% - 54px), calc(-50% - 68px)) scale(1); opacity: 1; }
+          58% { transform: translate(calc(-50% - 66px), calc(-50% - 38px)) scale(0.85); opacity: 1; }
+          100% { transform: translate(calc(-50% - 122px), calc(-50% - 108px)) scale(0.2); opacity: 0; }
+        }
+        @keyframes flowlifeCoinCracker2 {
+          0% { transform: translate(calc(-50% - 28px), calc(-50% - 46px)) scale(0.1); opacity: 0; }
+          22% { transform: translate(calc(-50% + 46px), calc(-50% - 62px)) scale(1); opacity: 1; }
+          58% { transform: translate(calc(-50% + 62px), calc(-50% - 34px)) scale(0.85); opacity: 1; }
+          100% { transform: translate(calc(-50% - 122px), calc(-50% - 108px)) scale(0.2); opacity: 0; }
+        }
+        @keyframes flowlifeCoinCracker3 {
+          0% { transform: translate(calc(-50% - 28px), calc(-50% - 46px)) scale(0.1); opacity: 0; }
+          22% { transform: translate(calc(-50% - 42px), calc(-50% + 28px)) scale(1); opacity: 1; }
+          58% { transform: translate(calc(-50% - 52px), calc(-50% + 56px)) scale(0.85); opacity: 1; }
+          100% { transform: translate(calc(-50% - 122px), calc(-50% - 108px)) scale(0.2); opacity: 0; }
+        }
+        @keyframes flowlifeCoinCracker4 {
+          0% { transform: translate(calc(-50% - 28px), calc(-50% - 46px)) scale(0.1); opacity: 0; }
+          22% { transform: translate(calc(-50% + 34px), calc(-50% + 30px)) scale(1); opacity: 1; }
+          58% { transform: translate(calc(-50% + 46px), calc(-50% + 58px)) scale(0.85); opacity: 1; }
+          100% { transform: translate(calc(-50% - 122px), calc(-50% - 108px)) scale(0.2); opacity: 0; }
         }
       `}</style>
       {rewardFx && (
@@ -367,7 +391,7 @@ export function PomodoroPage({
             zIndex: 21,
             pointerEvents: "none",
             filter: "drop-shadow(0 0 10px rgba(249,115,22,0.45))",
-            animation: "flowlifeTomatoBurstThenAbsorb 4200ms cubic-bezier(.2,.7,.1,1) forwards",
+            animation: "flowlifeTomatoTimeline 3000ms cubic-bezier(.2,.7,.1,1) forwards",
           }}
         >
           🍅
@@ -378,18 +402,335 @@ export function PomodoroPage({
           key={`coin-main-${rewardFx.id}`}
           style={{
             position: "absolute",
-            top: 238,
+            top: 286,
             left: "50%",
             color: TH.gold,
-            fontSize: 18,
+            fontSize: 56,
             fontWeight: 900,
             textShadow: "0 0 10px rgba(251,191,36,0.35)",
             zIndex: 21,
             pointerEvents: "none",
-            animation: "flowlifeCoinBurstThenAbsorb 4200ms cubic-bezier(.2,.7,.1,1) forwards",
+            animation: "flowlifeCoinMainPop 3000ms cubic-bezier(.2,.7,.1,1) 1400ms both",
           }}
         >
-          +{rewardFx.amount} 🪙
+          <span style={{ fontSize: 56, lineHeight: 1 }}>🪙</span>
+          <span
+            style={{
+              position: "absolute",
+              right: -24,
+              top: -10,
+              fontSize: 16,
+              fontWeight: 900,
+              color: TH.gold,
+              textShadow: "0 0 8px rgba(251,191,36,0.35)",
+            }}
+          >
+            +{rewardFx.amount}
+          </span>
+        </div>
+      )}
+      {rewardFx && (
+        <div
+          key={`coin-cracker-1-${rewardFx.id}`}
+          style={{
+            position: "absolute",
+            top: 286,
+            left: "50%",
+            color: TH.gold,
+            fontSize: 28,
+            fontWeight: 900,
+            textShadow: "0 0 10px rgba(251,191,36,0.35)",
+            zIndex: 21,
+            pointerEvents: "none",
+            animation: "flowlifeCoinCracker1 1400ms cubic-bezier(.2,.7,.1,1) 750ms both",
+          }}
+        >
+          🪙
+        </div>
+      )}
+      {rewardFx && (
+        <div
+          key={`coin-cracker-2-${rewardFx.id}`}
+          style={{
+            position: "absolute",
+            top: 286,
+            left: "50%",
+            color: TH.gold,
+            fontSize: 28,
+            fontWeight: 900,
+            textShadow: "0 0 10px rgba(251,191,36,0.35)",
+            zIndex: 21,
+            pointerEvents: "none",
+            animation: "flowlifeCoinCracker2 1400ms cubic-bezier(.2,.7,.1,1) 780ms both",
+          }}
+        >
+          🪙
+        </div>
+      )}
+      {rewardFx && (
+        <div
+          key={`coin-cracker-3-${rewardFx.id}`}
+          style={{
+            position: "absolute",
+            top: 286,
+            left: "50%",
+            color: TH.gold,
+            fontSize: 26,
+            fontWeight: 900,
+            textShadow: "0 0 10px rgba(251,191,36,0.35)",
+            zIndex: 21,
+            pointerEvents: "none",
+            animation: "flowlifeCoinCracker3 1400ms cubic-bezier(.2,.7,.1,1) 810ms both",
+          }}
+        >
+          🪙
+        </div>
+      )}
+      {rewardFx && (
+        <div
+          key={`coin-cracker-4-${rewardFx.id}`}
+          style={{
+            position: "absolute",
+            top: 286,
+            left: "50%",
+            color: TH.gold,
+            fontSize: 26,
+            fontWeight: 900,
+            textShadow: "0 0 10px rgba(251,191,36,0.35)",
+            zIndex: 21,
+            pointerEvents: "none",
+            animation: "flowlifeCoinCracker4 1400ms cubic-bezier(.2,.7,.1,1) 840ms both",
+          }}
+        >
+          🪙
+        </div>
+      )}
+      {rewardFx && (
+        <div
+          key={`coin-cracker-5-${rewardFx.id}`}
+          style={{
+            position: "absolute",
+            top: 286,
+            left: "50%",
+            color: TH.gold,
+            fontSize: 28,
+            fontWeight: 900,
+            textShadow: "0 0 10px rgba(251,191,36,0.35)",
+            zIndex: 21,
+            pointerEvents: "none",
+            animation: "flowlifeCoinCracker1 1400ms cubic-bezier(.2,.7,.1,1) 870ms both",
+          }}
+        >
+          🪙
+        </div>
+      )}
+      {rewardFx && (
+        <div
+          key={`coin-cracker-6-${rewardFx.id}`}
+          style={{
+            position: "absolute",
+            top: 286,
+            left: "50%",
+            color: TH.gold,
+            fontSize: 28,
+            fontWeight: 900,
+            textShadow: "0 0 10px rgba(251,191,36,0.35)",
+            zIndex: 21,
+            pointerEvents: "none",
+            animation: "flowlifeCoinCracker2 1400ms cubic-bezier(.2,.7,.1,1) 900ms both",
+          }}
+        >
+          🪙
+        </div>
+      )}
+      {rewardFx && (
+        <div
+          key={`coin-cracker-7-${rewardFx.id}`}
+          style={{
+            position: "absolute",
+            top: 286,
+            left: "50%",
+            color: TH.gold,
+            fontSize: 26,
+            fontWeight: 900,
+            textShadow: "0 0 10px rgba(251,191,36,0.35)",
+            zIndex: 21,
+            pointerEvents: "none",
+            animation: "flowlifeCoinCracker3 1400ms cubic-bezier(.2,.7,.1,1) 930ms both",
+          }}
+        >
+          🪙
+        </div>
+      )}
+      {rewardFx && (
+        <div
+          key={`coin-cracker-8-${rewardFx.id}`}
+          style={{
+            position: "absolute",
+            top: 286,
+            left: "50%",
+            color: TH.gold,
+            fontSize: 26,
+            fontWeight: 900,
+            textShadow: "0 0 10px rgba(251,191,36,0.35)",
+            zIndex: 21,
+            pointerEvents: "none",
+            animation: "flowlifeCoinCracker4 1400ms cubic-bezier(.2,.7,.1,1) 960ms both",
+          }}
+        >
+          🪙
+        </div>
+      )}
+      {rewardFx && (
+        <div
+          key={`coin-cracker-9-${rewardFx.id}`}
+          style={{
+            position: "absolute",
+            top: 286,
+            left: "50%",
+            color: TH.gold,
+            fontSize: 28,
+            fontWeight: 900,
+            textShadow: "0 0 10px rgba(251,191,36,0.35)",
+            zIndex: 21,
+            pointerEvents: "none",
+            animation: "flowlifeCoinCracker1 1400ms cubic-bezier(.2,.7,.1,1) 990ms both",
+          }}
+        >
+          🪙
+        </div>
+      )}
+      {rewardFx && (
+        <div
+          key={`coin-cracker-10-${rewardFx.id}`}
+          style={{
+            position: "absolute",
+            top: 286,
+            left: "50%",
+            color: TH.gold,
+            fontSize: 28,
+            fontWeight: 900,
+            textShadow: "0 0 10px rgba(251,191,36,0.35)",
+            zIndex: 21,
+            pointerEvents: "none",
+            animation: "flowlifeCoinCracker2 1400ms cubic-bezier(.2,.7,.1,1) 1020ms both",
+          }}
+        >
+          🪙
+        </div>
+      )}
+      {rewardFx && (
+        <div
+          key={`coin-cracker-11-${rewardFx.id}`}
+          style={{
+            position: "absolute",
+            top: 286,
+            left: "50%",
+            color: TH.gold,
+            fontSize: 26,
+            fontWeight: 900,
+            textShadow: "0 0 10px rgba(251,191,36,0.35)",
+            zIndex: 21,
+            pointerEvents: "none",
+            animation: "flowlifeCoinCracker3 1400ms cubic-bezier(.2,.7,.1,1) 1050ms both",
+          }}
+        >
+          🪙
+        </div>
+      )}
+      {rewardFx && (
+        <div
+          key={`coin-cracker-12-${rewardFx.id}`}
+          style={{
+            position: "absolute",
+            top: 286,
+            left: "50%",
+            color: TH.gold,
+            fontSize: 26,
+            fontWeight: 900,
+            textShadow: "0 0 10px rgba(251,191,36,0.35)",
+            zIndex: 21,
+            pointerEvents: "none",
+            animation: "flowlifeCoinCracker4 1400ms cubic-bezier(.2,.7,.1,1) 1080ms both",
+          }}
+        >
+          🪙
+        </div>
+      )}
+      {rewardFx && (
+        <div
+          key={`coin-cracker-13-${rewardFx.id}`}
+          style={{
+            position: "absolute",
+            top: 286,
+            left: "50%",
+            color: TH.gold,
+            fontSize: 28,
+            fontWeight: 900,
+            textShadow: "0 0 10px rgba(251,191,36,0.35)",
+            zIndex: 21,
+            pointerEvents: "none",
+            animation: "flowlifeCoinCracker1 1400ms cubic-bezier(.2,.7,.1,1) 1110ms both",
+          }}
+        >
+          🪙
+        </div>
+      )}
+      {rewardFx && (
+        <div
+          key={`coin-cracker-14-${rewardFx.id}`}
+          style={{
+            position: "absolute",
+            top: 286,
+            left: "50%",
+            color: TH.gold,
+            fontSize: 28,
+            fontWeight: 900,
+            textShadow: "0 0 10px rgba(251,191,36,0.35)",
+            zIndex: 21,
+            pointerEvents: "none",
+            animation: "flowlifeCoinCracker2 1400ms cubic-bezier(.2,.7,.1,1) 1140ms both",
+          }}
+        >
+          🪙
+        </div>
+      )}
+      {rewardFx && (
+        <div
+          key={`coin-cracker-15-${rewardFx.id}`}
+          style={{
+            position: "absolute",
+            top: 286,
+            left: "50%",
+            color: TH.gold,
+            fontSize: 26,
+            fontWeight: 900,
+            textShadow: "0 0 10px rgba(251,191,36,0.35)",
+            zIndex: 21,
+            pointerEvents: "none",
+            animation: "flowlifeCoinCracker3 1400ms cubic-bezier(.2,.7,.1,1) 1170ms both",
+          }}
+        >
+          🪙
+        </div>
+      )}
+      {rewardFx && (
+        <div
+          key={`coin-cracker-16-${rewardFx.id}`}
+          style={{
+            position: "absolute",
+            top: 286,
+            left: "50%",
+            color: TH.gold,
+            fontSize: 26,
+            fontWeight: 900,
+            textShadow: "0 0 10px rgba(251,191,36,0.35)",
+            zIndex: 21,
+            pointerEvents: "none",
+            animation: "flowlifeCoinCracker4 1400ms cubic-bezier(.2,.7,.1,1) 1200ms both",
+          }}
+        >
+          🪙
         </div>
       )}
       <div style={{ display: "flex", gap: 6 }}>
@@ -519,7 +860,7 @@ export function PomodoroPage({
           )}
         </Card>
       )}
-      {mode !== "focus" && (
+      {mode !== "focus" && !(showRating && !rated) && (
         <button
           type="button"
           onClick={startFocus}
@@ -642,23 +983,6 @@ export function PomodoroPage({
       {rated && (
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 7, width: "100%" }}>
           <div style={{ fontSize: 11, color: TH.green }}>✓ 已記錄</div>
-          <button
-            type="button"
-            onClick={startFocus}
-            disabled={!canStart}
-            style={{
-              padding: "9px 20px",
-              borderRadius: 20,
-              border: `2px solid ${TH.accent}`,
-              background: TH.accent + "22",
-              color: TH.accent,
-              fontSize: 12,
-              fontWeight: 800,
-              cursor: "pointer",
-            }}
-          >
-            開始番茄鐘 🍅
-          </button>
         </div>
       )}
       {mode === "idle" && !idleTrackStart && !isRestActive && (
