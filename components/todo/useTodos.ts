@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { CFG } from "@/lib/config";
 import { nowStr } from "@/lib/utils";
+import { LS_KEYS, saveJSON } from "@/lib/storage";
 
 export type TodoState = Record<string, unknown>;
 
@@ -20,8 +21,27 @@ function makeTodo(raw: Record<string, unknown>): TodoState {
 
 export function useTodos(initial: Record<string, unknown>[]) {
   const [todos, setTodos] = useState<TodoState[]>(() => initial.map(makeTodo));
+  const [hydrated, setHydrated] = useState(false);
   const endTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
   const endProgTimers = useRef<Record<number, ReturnType<typeof setInterval>>>({});
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(LS_KEYS.todos);
+      if (raw) {
+        const p = JSON.parse(raw);
+        if (Array.isArray(p)) setTodos(p as TodoState[]);
+      }
+    } catch {
+      /* ignore corrupt */
+    }
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    saveJSON(LS_KEYS.todos, todos);
+  }, [todos, hydrated]);
 
   const clearEndTimers = (id: number) => {
     clearTimeout(endTimers.current[id]);

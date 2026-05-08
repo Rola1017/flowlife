@@ -11,6 +11,7 @@ import {
   coinsForSecs,
   playRestEnd,
 } from "@/lib/utils";
+import { LS_KEYS, saveJSON } from "@/lib/storage";
 import { Card, SL } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { CategorySelector } from "@/components/pomodoro/CategorySelector";
@@ -18,6 +19,15 @@ import { CatBadge } from "@/components/pomodoro/CatBadge";
 import { RingTimer } from "@/components/pomodoro/RingTimer";
 import { WeekHeat } from "@/components/charts/WeekHeat";
 import { LineChart } from "@/components/charts/LineChart";
+
+export type PomodoroSessionRow = {
+  mins: number;
+  rating: string;
+  cat1?: string;
+  cat2?: string;
+  cat3?: string;
+  name?: string;
+};
 
 export function PomodoroPage({
   coins,
@@ -50,9 +60,8 @@ export function PomodoroPage({
   const [showRating, setShowRating] = useState(false);
   const [rated, setRated] = useState(false);
   const [restSecs, setRestSecs] = useState(0);
-  const [sessions, setSessions] = useState<
-    { mins: number; rating: string; cat1?: string; cat2?: string; name?: string }[]
-  >([]);
+  const [sessions, setSessions] = useState<PomodoroSessionRow[]>([]);
+  const [sessionsLsReady, setSessionsLsReady] = useState(false);
   const [linePeriod, setLinePeriod] = useState("7天");
   const [taskName, setTaskName] = useState("");
   const [catSel, setCatSel] = useState({ cat1: "", cat2: "", cat3: "" });
@@ -65,6 +74,31 @@ export function PomodoroPage({
   const elRef = useRef(0);
   const hitRef = useRef(new Set<number>());
   const canStart = catSel.cat1 !== "";
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(LS_KEYS.pomodoroSessions);
+      if (raw) {
+        const p = JSON.parse(raw) as unknown;
+        if (Array.isArray(p)) {
+          const rows = p as PomodoroSessionRow[];
+          setSessions(rows);
+          const tot = rows.reduce((s, x) => s + (typeof x.mins === "number" ? x.mins : 0), 0);
+          CFG.MILESTONES.forEach((m) => {
+            if (tot >= m.mins) hitRef.current.add(m.mins);
+          });
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+    setSessionsLsReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!sessionsLsReady) return;
+    saveJSON(LS_KEYS.pomodoroSessions, sessions);
+  }, [sessions, sessionsLsReady]);
 
   useEffect(() => {
     if (mode === "focus") {
@@ -95,7 +129,7 @@ export function PomodoroPage({
             if (s <= 1) {
               if (restRef.current) clearInterval(restRef.current);
               playRestEnd();
-              setIdleTrackStart(Date.now());
+              queueMicrotask(() => setIdleTrackStart(Date.now()));
               return 0;
             }
             return s - 1;

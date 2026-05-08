@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { TH } from "@/lib/theme";
 import { MOCK } from "@/lib/mock";
 import { TABS } from "@/lib/tabs";
+import { LS_KEYS, loadJSON, loadNumber, saveJSON, saveNumber } from "@/lib/storage";
 import { Card } from "@/components/ui/Card";
 import { Header } from "@/components/Header";
 import { HomePage } from "@/components/home/HomePage";
@@ -15,17 +16,40 @@ import { SchedulePage } from "@/components/schedule/SchedulePage";
 import { ShopPage } from "@/components/shop/ShopPage";
 import { useTodos } from "@/components/todo/useTodos";
 
+const DEFAULT_COINS = 1240;
+const DEFAULT_RATINGS = { focused: 4, neutral: 1, distracted: 0 };
+
 export function App() {
   const [tab, setTab] = useState("home");
   const [subPage, setSubPage] = useState<{ type: string; props?: Record<string, unknown> } | null>(null);
   const [quote, setQuote] = useState("每一顆番茄鐘，都是打下江山的一刀。");
-  const [coins, setCoins] = useState(1240);
-  const [focused, setFocused] = useState(4);
-  const [neutral, setNeutral] = useState(1);
-  const [distracted, setDistracted] = useState(0);
+  const [coins, setCoins] = useState(DEFAULT_COINS);
+  const [focused, setFocused] = useState(DEFAULT_RATINGS.focused);
+  const [neutral, setNeutral] = useState(DEFAULT_RATINGS.neutral);
+  const [distracted, setDistracted] = useState(DEFAULT_RATINGS.distracted);
   const [idleTrackStart, setIdleTrackStart] = useState<number | null>(null);
+  const [lsReady, setLsReady] = useState(false);
 
   const { todos, handleStart, handleEnd, handleToggleDone } = useTodos(MOCK.initTodos);
+
+  useEffect(() => {
+    setCoins(loadNumber(LS_KEYS.coins, DEFAULT_COINS));
+    const r = loadJSON<Partial<typeof DEFAULT_RATINGS>>(LS_KEYS.ratingCounts, {});
+    setFocused(typeof r.focused === "number" ? r.focused : DEFAULT_RATINGS.focused);
+    setNeutral(typeof r.neutral === "number" ? r.neutral : DEFAULT_RATINGS.neutral);
+    setDistracted(typeof r.distracted === "number" ? r.distracted : DEFAULT_RATINGS.distracted);
+    setLsReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!lsReady) return;
+    saveNumber(LS_KEYS.coins, coins);
+  }, [coins, lsReady]);
+
+  useEffect(() => {
+    if (!lsReady) return;
+    saveJSON(LS_KEYS.ratingCounts, { focused, neutral, distracted });
+  }, [focused, neutral, distracted, lsReady]);
 
   const push = (type: string, props: Record<string, unknown> = {}) => setSubPage({ type, props });
   const pop = () => setSubPage(null);
