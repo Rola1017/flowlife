@@ -65,7 +65,7 @@ export function PomodoroPage({
   restEndAt: number | null;
   setRestEndAt: Dispatch<SetStateAction<number | null>>;
 }) {
-  const REWARD_FX_MS = 2200;
+  const REWARD_FX_MS = 3700;
 
   const [dur, setDur] = useState(1);
   const [secs, setSecs] = useState(1 * 60);
@@ -315,7 +315,7 @@ export function PomodoroPage({
             fontWeight: 900,
             zIndex: 20,
             pointerEvents: "none",
-            animation: "flowlifePulseDone 900ms ease-out",
+            animation: "flowlifePulseDone 2400ms ease-out",
           }}
         >
           🎉 完成！番茄與金幣入帳
@@ -333,7 +333,7 @@ export function PomodoroPage({
             fontWeight: 900,
             zIndex: 21,
             pointerEvents: "none",
-            animation: "flowlifeTomatoToRight 900ms ease-out forwards",
+            animation: "flowlifeTomatoToRight 2400ms ease-out forwards",
           }}
         >
           🍅
@@ -352,7 +352,7 @@ export function PomodoroPage({
             textShadow: "0 0 10px rgba(251,191,36,0.35)",
             zIndex: 21,
             pointerEvents: "none",
-            animation: "flowlifeCoinToLeft 900ms ease-out 850ms forwards",
+            animation: "flowlifeCoinToLeft 2400ms ease-out 1700ms forwards",
           }}
         >
           +{rewardFx.amount} 🪙
@@ -485,7 +485,7 @@ export function PomodoroPage({
           )}
         </Card>
       )}
-      {mode === "idle" && !isRestActive && (
+      {mode !== "focus" && (
         <button
           type="button"
           onClick={startFocus}
