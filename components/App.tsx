@@ -28,6 +28,7 @@ export function App() {
   const [neutral, setNeutral] = useState(DEFAULT_RATINGS.neutral);
   const [distracted, setDistracted] = useState(DEFAULT_RATINGS.distracted);
   const [idleTrackStart, setIdleTrackStart] = useState<number | null>(null);
+  const [restEndAt, setRestEndAt] = useState<number | null>(null);
   const [lsReady, setLsReady] = useState(false);
 
   const { todos, handleStart, handleEnd, handleToggleDone } = useTodos(MOCK.initTodos);
@@ -93,6 +94,8 @@ export function App() {
         setDistracted={setDistracted}
         idleTrackStart={idleTrackStart}
         setIdleTrackStart={setIdleTrackStart}
+        restEndAt={restEndAt}
+        setRestEndAt={setRestEndAt}
       />
     ),
     calendar: () => (

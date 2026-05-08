@@ -27,7 +27,7 @@ export function RingTimer({
   const rm = Math.floor(restSecs / 60),
     rs = restSecs % 60;
   const circ = 2 * Math.PI * 58;
-  const restTotal = (CFG.REST_DURATIONS[dur as keyof typeof CFG.REST_DURATIONS] ?? 5) * 60;
+  const restTotal = CFG.REST_SECONDS[dur] ?? 5 * 60;
   const prog = idleTrackStart
     ? Math.min(idleSecs / 3600, 1)
     : mode === "rest" && restSecs > 0

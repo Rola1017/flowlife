@@ -5,8 +5,10 @@ export const CFG = {
   DAY_END: "22:40",
   END_CONFIRM: 2000,
   LIVE_TICK: 1000,
-  REST_DURATIONS: { 5: 1, 25: 5, 60: 10, 90: 15, 120: 20 } as Record<number, number>,
-  POMO_DURATIONS: [5, 25, 60, 90],
+  /** 休息秒數（以番茄分鐘數作 key） */
+  REST_SECONDS: { 1: 10, 5: 60, 25: 5 * 60, 60: 10 * 60, 90: 15 * 60, 120: 20 * 60 } as Record<number, number>,
+  /** 顯示用番茄時長（分鐘） */
+  POMO_DURATIONS: [1, 5, 25, 60, 90],
   COIN_TABLE: [
     { min: 5, coins: 1 },
     { min: 25, coins: 10 },
