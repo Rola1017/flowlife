@@ -33,8 +33,9 @@ export function RingTimer({
   const cycleSeconds = Math.max(dur * 60, 1);
   const focusElapsed = Math.max(0, dur * 60 - secs + focusOverrunSecs);
   const focusCycle = Math.floor(focusElapsed / cycleSeconds) + 1;
-  const focusCycleProgress = (focusElapsed % cycleSeconds) / cycleSeconds;
-  const focusRingColors = [TH.accent, TH.green, TH.blue, TH.red, TH.yellow, TH.purple];
+  const focusCycleElapsed = focusElapsed % cycleSeconds;
+  const focusCycleProgress = 1 - focusCycleElapsed / cycleSeconds;
+  const focusRingColors = [TH.accent, TH.pink, TH.blue, TH.red, TH.yellow, TH.purple];
   const prog = idleTrackStart
     ? Math.min(idleSecs / 3600, 1)
     : mode === "focus"
