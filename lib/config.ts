@@ -10,6 +10,7 @@ export const CFG = {
   /** 顯示用番茄時長（分鐘） */
   POMO_DURATIONS: [1, 5, 25, 60, 90],
   COIN_TABLE: [
+    { min: 1, coins: 1 },
     { min: 5, coins: 1 },
     { min: 25, coins: 10 },
     { min: 60, coins: 20 },

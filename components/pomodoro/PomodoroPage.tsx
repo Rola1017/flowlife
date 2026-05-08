@@ -260,29 +260,27 @@ export function PomodoroPage({
     else setDistracted((c) => c + 1);
 
     const el = elRef.current;
-    if (el >= 5 * 60) {
-      const mins = Math.round(el / 60);
-      const counted = mins > 1;
-      const earned = counted ? coinsForSecs(el) : 0;
-      const ns = [...sessions, { ...confirmed!, mins, rating: r, counted }];
-      setSessions(ns);
+    const mins = Math.max(1, Math.round(el / 60));
+    const counted = mins > 1;
+    const earned = coinsForSecs(el);
+    const ns = [...sessions, { ...confirmed!, mins, rating: r, counted }];
+    setSessions(ns);
 
-      const tot = ns.filter((p) => p.counted).reduce((s, p) => s + p.mins, 0);
-      let milestoneBonus = 0;
-      CFG.MILESTONES.forEach((m) => {
-        if (tot >= m.mins && !hitRef.current.has(m.mins)) {
-          hitRef.current.add(m.mins);
-          milestoneBonus += m.coins;
-        }
-      });
-
-      const totalGain = earned + milestoneBonus;
-      if (totalGain > 0) {
-        setCoins((c) => c + totalGain);
-        setCoinGainFx({ id: Date.now(), amount: totalGain });
+    const tot = ns.filter((p) => p.counted).reduce((s, p) => s + p.mins, 0);
+    let milestoneBonus = 0;
+    CFG.MILESTONES.forEach((m) => {
+      if (tot >= m.mins && !hitRef.current.has(m.mins)) {
+        hitRef.current.add(m.mins);
+        milestoneBonus += m.coins;
       }
-      setShowFinishFx(true);
+    });
+
+    const totalGain = earned + milestoneBonus;
+    if (totalGain > 0) {
+      setCoins((c) => c + totalGain);
+      setCoinGainFx({ id: Date.now(), amount: totalGain });
     }
+    setShowFinishFx(true);
   };
 
   const countedSessions = sessions.filter((s) => s.counted);
@@ -417,7 +415,7 @@ export function PomodoroPage({
         />
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, minWidth: 52 }}>
           <div style={{ fontSize: 18 }}>🍅</div>
-          <div style={{ fontSize: 15, fontWeight: 900, color: TH.text }}>{countedSessions.length}</div>
+          <div style={{ fontSize: 15, fontWeight: 900, color: TH.text }}>{sessions.length}</div>
           <div style={{ fontSize: 8, color: TH.muted }}>今日顆數</div>
         </div>
       </div>
