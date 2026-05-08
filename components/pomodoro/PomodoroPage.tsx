@@ -388,6 +388,7 @@ export function PomodoroPage({
           idleTrackStart={idleTrackStart}
           idleSecs={idleSecs}
           confirmed={confirmed}
+          focusOverrunSecs={focusOverrunSecs}
         />
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, minWidth: 52 }}>
           <div style={{ fontSize: 18 }}>🍅</div>
@@ -526,9 +527,6 @@ export function PomodoroPage({
           }}
         >
           ⏰ 已到預定時長，正在持續專注中。按下「休息」才會進入休息畫面。
-          <div style={{ marginTop: 4, fontSize: 12, fontWeight: 900, color: TH.accent }}>
-            已超時 {fmtMs(focusOverrunSecs * 1000)}
-          </div>
         </div>
       )}
       {showRating && !rated && (

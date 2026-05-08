@@ -3,7 +3,7 @@
 import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
-import { fmtIdleTime } from "@/lib/utils";
+import { fmtIdleTime, fmtMs } from "@/lib/utils";
 
 export function RingTimer({
   mode,
@@ -13,6 +13,7 @@ export function RingTimer({
   idleTrackStart,
   idleSecs,
   confirmed,
+  focusOverrunSecs = 0,
 }: {
   mode: string;
   secs: number;
@@ -21,6 +22,7 @@ export function RingTimer({
   idleTrackStart: number | null;
   idleSecs: number;
   confirmed: { cat1: string; cat2?: string; name?: string } | null;
+  focusOverrunSecs?: number;
 }) {
   const m = Math.floor(secs / 60),
     s = secs % 60;
@@ -28,14 +30,21 @@ export function RingTimer({
     rs = restSecs % 60;
   const circ = 2 * Math.PI * 58;
   const restTotal = CFG.REST_SECONDS[dur] ?? 5 * 60;
+  const cycleSeconds = Math.max(dur * 60, 1);
+  const focusElapsed = Math.max(0, dur * 60 - secs + focusOverrunSecs);
+  const focusCycle = Math.floor(focusElapsed / cycleSeconds) + 1;
+  const focusCycleProgress = (focusElapsed % cycleSeconds) / cycleSeconds;
+  const focusRingColors = [TH.accent, TH.green, TH.blue, TH.red, TH.yellow, TH.purple];
   const prog = idleTrackStart
     ? Math.min(idleSecs / 3600, 1)
+    : mode === "focus"
+      ? focusCycleProgress
     : mode === "rest" && restSecs > 0
       ? restSecs / restTotal
       : secs / (dur * 60);
   const ringColor =
     mode === "focus"
-      ? TH.accent
+      ? focusRingColors[(focusCycle - 1) % focusRingColors.length]
       : mode === "rest" && restSecs > 0
         ? TH.green
         : idleTrackStart
@@ -91,10 +100,15 @@ export function RingTimer({
           </>
         ) : (
           <>
-            <div style={{ fontSize: 22, fontWeight: 900, color: TH.text }}>
-              {String(m).padStart(2, "0")}:{String(s).padStart(2, "0")}
-            </div>
+            {mode === "focus" && focusOverrunSecs > 0 ? (
+              <div style={{ fontSize: 24, fontWeight: 900, color: ringColor }}>{fmtMs(focusOverrunSecs * 1000)}</div>
+            ) : (
+              <div style={{ fontSize: 22, fontWeight: 900, color: TH.text }}>
+                {String(m).padStart(2, "0")}:{String(s).padStart(2, "0")}
+              </div>
+            )}
             <div style={{ fontSize: 9, color: TH.muted }}>{mode === "focus" ? "🔥 專注中" : "⏸ 待機"}</div>
+            {mode === "focus" && <div style={{ fontSize: 8, color: ringColor, fontWeight: 800 }}>第 {focusCycle} 圈</div>}
             {mode === "focus" && confirmed && (
               <div style={{ fontSize: 8, color: CAT.cat1Color(confirmed.cat1), marginTop: 3 }}>
                 {confirmed.cat1}
