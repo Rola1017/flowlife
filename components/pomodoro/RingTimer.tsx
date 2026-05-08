@@ -99,7 +99,7 @@ export function RingTimer({
             >
               {fmtIdleTime(idleSecs)}
             </div>
-            <div style={{ fontSize: 8, color: TH.muted, marginTop: 2 }}>⏳ 未利用</div>
+            <div style={{ fontSize: 8, color: TH.muted, marginTop: 2 }}>⏳ 距上次休息</div>
           </>
         ) : (
           <>

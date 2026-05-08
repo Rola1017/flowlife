@@ -4,6 +4,7 @@ export const LS_KEYS = {
   coins: "flowlife_coins",
   pomodoroSessions: "flowlife_pomodoro_sessions",
   ratingCounts: "flowlife_rating_counts",
+  idleTotalSecs: "flowlife_idle_total_secs",
 } as const;
 
 export function loadJSON<T>(key: string, fallback: T): T {

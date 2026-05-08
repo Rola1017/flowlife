@@ -44,6 +44,8 @@ export function PomodoroPage({
   setDistracted,
   idleTrackStart,
   setIdleTrackStart,
+  idleTotalSecs,
+  setIdleTotalSecs,
   restEndAt,
   setRestEndAt,
 }: {
@@ -58,6 +60,8 @@ export function PomodoroPage({
   setDistracted: Dispatch<SetStateAction<number>>;
   idleTrackStart: number | null;
   setIdleTrackStart: Dispatch<SetStateAction<number | null>>;
+  idleTotalSecs: number;
+  setIdleTotalSecs: Dispatch<SetStateAction<number>>;
   restEndAt: number | null;
   setRestEndAt: Dispatch<SetStateAction<number | null>>;
 }) {
@@ -90,6 +94,14 @@ export function PomodoroPage({
   const restWasActiveRef = useRef(false);
   const focusReadyToBreakRef = useRef(false);
   const canStart = catSel.cat1 !== "";
+
+  const stopIdleAndAccumulate = () => {
+    if (!idleTrackStart) return;
+    const elapsed = Math.max(0, Math.floor((Date.now() - idleTrackStart) / 1000));
+    if (elapsed > 0) setIdleTotalSecs((v) => v + elapsed);
+    setIdleTrackStart(null);
+    setIdleSecs(0);
+  };
 
   useEffect(() => {
     try {
@@ -210,8 +222,7 @@ export function PomodoroPage({
     setRated(false);
     setFocusReadyToBreak(false);
     setFocusOverrunSecs(0);
-    setIdleTrackStart(null);
-    setIdleSecs(0);
+    stopIdleAndAccumulate();
     setRestEndAt(null);
     setRestTotalSecs(0);
   };
@@ -225,13 +236,12 @@ export function PomodoroPage({
     const baseRest = getRestSeconds(dur);
     setRestTotalSecs(baseRest);
     setRestEndAt(Date.now() + baseRest * 1000);
-    setIdleTrackStart(null);
+    stopIdleAndAccumulate();
   };
 
   const addRestTime = (mins: number) => {
     const addSecs = mins * 60;
-    setIdleTrackStart(null);
-    setIdleSecs(0);
+    stopIdleAndAccumulate();
     setRestTotalSecs((prev) => {
       const stillResting = !!(restEndAt && restEndAt > Date.now());
       return (stillResting ? prev : 0) + addSecs;
@@ -280,6 +290,7 @@ export function PomodoroPage({
   const lineD = MOCK.lineData[linePeriod as keyof typeof MOCK.lineData] || MOCK.lineData["7天"];
   const isRestActive = restSecs > 0;
   const effectiveMode = isRestActive ? "rest" : mode;
+  const idleTotalToday = idleTotalSecs + (idleTrackStart ? idleSecs : 0);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, position: "relative" }}>
@@ -642,10 +653,10 @@ export function PomodoroPage({
             <span style={{ fontSize: 16 }}>⏳</span>
             <div>
               <div style={{ fontSize: 10, color: TH.red, fontWeight: 700 }}>未利用時間累積中</div>
-              <div style={{ fontSize: 9, color: TH.muted }}>距上次休息結束</div>
+              <div style={{ fontSize: 9, color: TH.muted }}>距離上次休息時間</div>
             </div>
             <div style={{ marginLeft: "auto", fontSize: 20, fontWeight: 900, color: TH.red }}>
-              {fmtIdleTime(idleSecs)}
+              {fmtIdleTime(idleTotalToday)}
             </div>
           </div>
           <div style={{ height: 3, background: "#0D0D0F", borderRadius: 2, overflow: "hidden" }}>
@@ -658,9 +669,6 @@ export function PomodoroPage({
                 transition: "width 1s linear",
               }}
             />
-          </div>
-          <div style={{ fontSize: 9, color: TH.muted, marginTop: 5, textAlign: "center" }}>
-            點擊「開始番茄鐘」即停止計算
           </div>
         </div>
       )}

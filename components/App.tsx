@@ -18,6 +18,7 @@ import { useTodos } from "@/components/todo/useTodos";
 
 const DEFAULT_COINS = 1240;
 const DEFAULT_RATINGS = { focused: 4, neutral: 1, distracted: 0 };
+const DEFAULT_IDLE_TOTAL_SECS = 0;
 
 export function App() {
   const [tab, setTab] = useState("home");
@@ -28,6 +29,7 @@ export function App() {
   const [neutral, setNeutral] = useState(DEFAULT_RATINGS.neutral);
   const [distracted, setDistracted] = useState(DEFAULT_RATINGS.distracted);
   const [idleTrackStart, setIdleTrackStart] = useState<number | null>(null);
+  const [idleTotalSecs, setIdleTotalSecs] = useState(DEFAULT_IDLE_TOTAL_SECS);
   const [restEndAt, setRestEndAt] = useState<number | null>(null);
   const [lsReady, setLsReady] = useState(false);
 
@@ -39,6 +41,7 @@ export function App() {
     setFocused(typeof r.focused === "number" ? r.focused : DEFAULT_RATINGS.focused);
     setNeutral(typeof r.neutral === "number" ? r.neutral : DEFAULT_RATINGS.neutral);
     setDistracted(typeof r.distracted === "number" ? r.distracted : DEFAULT_RATINGS.distracted);
+    setIdleTotalSecs(loadNumber(LS_KEYS.idleTotalSecs, DEFAULT_IDLE_TOTAL_SECS));
     setLsReady(true);
   }, []);
 
@@ -51,6 +54,11 @@ export function App() {
     if (!lsReady) return;
     saveJSON(LS_KEYS.ratingCounts, { focused, neutral, distracted });
   }, [focused, neutral, distracted, lsReady]);
+
+  useEffect(() => {
+    if (!lsReady) return;
+    saveNumber(LS_KEYS.idleTotalSecs, idleTotalSecs);
+  }, [idleTotalSecs, lsReady]);
 
   const push = (type: string, props: Record<string, unknown> = {}) => setSubPage({ type, props });
   const pop = () => setSubPage(null);
@@ -94,6 +102,8 @@ export function App() {
         setDistracted={setDistracted}
         idleTrackStart={idleTrackStart}
         setIdleTrackStart={setIdleTrackStart}
+        idleTotalSecs={idleTotalSecs}
+        setIdleTotalSecs={setIdleTotalSecs}
         restEndAt={restEndAt}
         setRestEndAt={setRestEndAt}
       />
