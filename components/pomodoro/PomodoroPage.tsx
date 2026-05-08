@@ -536,6 +536,10 @@ export function PomodoroPage({
               setShowRating(false);
               setFocusReadyToBreak(false);
               setFocusOverrunSecs(0);
+              setRestEndAt(null);
+              setRestTotalSecs(0);
+              setIdleSecs(0);
+              setIdleTrackStart(Date.now());
             }}
             style={{
               padding: "9px 14px",
