@@ -54,6 +54,9 @@ export function PomodoroPage({
   idleTrackStart: number | null;
   setIdleTrackStart: Dispatch<SetStateAction<number | null>>;
 }) {
+  const FINISH_ANIM_MS = 850;
+  const COIN_ANIM_MS = 1400;
+
   const [dur, setDur] = useState(25);
   const [secs, setSecs] = useState(25 * 60);
   const [mode, setMode] = useState("idle");
@@ -69,6 +72,8 @@ export function PomodoroPage({
     null,
   );
   const [idleSecs, setIdleSecs] = useState(0);
+  const [showFinishFx, setShowFinishFx] = useState(false);
+  const [coinGainFx, setCoinGainFx] = useState<{ id: number; amount: number } | null>(null);
   const intRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const restRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const elRef = useRef(0);
@@ -99,6 +104,18 @@ export function PomodoroPage({
     if (!sessionsLsReady) return;
     saveJSON(LS_KEYS.pomodoroSessions, sessions);
   }, [sessions, sessionsLsReady]);
+
+  useEffect(() => {
+    if (!showFinishFx) return;
+    const t = setTimeout(() => setShowFinishFx(false), FINISH_ANIM_MS);
+    return () => clearTimeout(t);
+  }, [showFinishFx]);
+
+  useEffect(() => {
+    if (!coinGainFx) return;
+    const t = setTimeout(() => setCoinGainFx(null), COIN_ANIM_MS);
+    return () => clearTimeout(t);
+  }, [coinGainFx]);
 
   useEffect(() => {
     if (mode === "focus") {
@@ -183,21 +200,29 @@ export function PomodoroPage({
     setRated(true);
     const el = elRef.current;
     if (el >= 5 * 60) {
-      const mins = Math.round(el / 60),
-        earned = coinsForSecs(el);
+      const mins = Math.round(el / 60);
+      const earned = coinsForSecs(el);
       const ns = [...sessions, { ...confirmed!, mins, rating: r }];
       setSessions(ns);
       if (r === "😤") setFocused((c) => c + 1);
       else if (r === "🙂") setNeutral((c) => c + 1);
       else setDistracted((c) => c + 1);
-      setCoins((c) => c + earned);
+
       const tot = ns.reduce((s, p) => s + p.mins, 0);
+      let milestoneBonus = 0;
       CFG.MILESTONES.forEach((m) => {
         if (tot >= m.mins && !hitRef.current.has(m.mins)) {
           hitRef.current.add(m.mins);
-          setCoins((c) => c + m.coins);
+          milestoneBonus += m.coins;
         }
       });
+
+      const totalGain = earned + milestoneBonus;
+      if (totalGain > 0) {
+        setCoins((c) => c + totalGain);
+        setCoinGainFx({ id: Date.now(), amount: totalGain });
+      }
+      setShowFinishFx(true);
     }
   };
 
@@ -206,7 +231,60 @@ export function PomodoroPage({
   const lineD = MOCK.lineData[linePeriod as keyof typeof MOCK.lineData] || MOCK.lineData["7天"];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, position: "relative" }}>
+      <style>{`
+        @keyframes flowlifePulseDone {
+          0% { transform: scale(0.92); opacity: 0; }
+          25% { transform: scale(1.06); opacity: 1; }
+          100% { transform: scale(1); opacity: 0; }
+        }
+        @keyframes flowlifeFloatCoins {
+          0% { transform: translateY(0); opacity: 0; }
+          20% { opacity: 1; }
+          100% { transform: translateY(-34px); opacity: 0; }
+        }
+      `}</style>
+      {showFinishFx && (
+        <div
+          style={{
+            position: "absolute",
+            top: 86,
+            left: "50%",
+            transform: "translateX(-50%)",
+            padding: "8px 16px",
+            borderRadius: 999,
+            border: `1px solid ${TH.green}55`,
+            background: `${TH.green}22`,
+            color: TH.green,
+            fontSize: 12,
+            fontWeight: 900,
+            zIndex: 20,
+            pointerEvents: "none",
+            animation: `flowlifePulseDone ${FINISH_ANIM_MS}ms ease-out`,
+          }}
+        >
+          ✅ 番茄完成
+        </div>
+      )}
+      {coinGainFx && (
+        <div
+          key={coinGainFx.id}
+          style={{
+            position: "absolute",
+            top: 138,
+            left: "calc(50% - 118px)",
+            color: TH.gold,
+            fontSize: 14,
+            fontWeight: 900,
+            textShadow: "0 0 10px rgba(251,191,36,0.35)",
+            zIndex: 21,
+            pointerEvents: "none",
+            animation: `flowlifeFloatCoins ${COIN_ANIM_MS}ms ease-out`,
+          }}
+        >
+          +{coinGainFx.amount} 🪙
+        </div>
+      )}
       <div style={{ display: "flex", gap: 6 }}>
         {CFG.POMO_DURATIONS.map((d) => (
           <button
