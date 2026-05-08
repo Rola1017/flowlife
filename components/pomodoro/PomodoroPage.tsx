@@ -70,6 +70,7 @@ export function PomodoroPage({
   const [showRating, setShowRating] = useState(false);
   const [rated, setRated] = useState(false);
   const [restSecs, setRestSecs] = useState(0);
+  const [restTotalSecs, setRestTotalSecs] = useState(0);
   const [sessions, setSessions] = useState<PomodoroSessionRow[]>([]);
   const [sessionsLsReady, setSessionsLsReady] = useState(false);
   const [linePeriod, setLinePeriod] = useState("7天");
@@ -212,6 +213,7 @@ export function PomodoroPage({
     setIdleTrackStart(null);
     setIdleSecs(0);
     setRestEndAt(null);
+    setRestTotalSecs(0);
   };
 
   const endFocus = () => {
@@ -220,16 +222,23 @@ export function PomodoroPage({
     setShowRating(true);
     setFocusReadyToBreak(false);
     setFocusOverrunSecs(0);
-    setRestEndAt(Date.now() + getRestSeconds(dur) * 1000);
+    const baseRest = getRestSeconds(dur);
+    setRestTotalSecs(baseRest);
+    setRestEndAt(Date.now() + baseRest * 1000);
     setIdleTrackStart(null);
   };
 
   const addRestTime = (mins: number) => {
+    const addSecs = mins * 60;
     setIdleTrackStart(null);
     setIdleSecs(0);
+    setRestTotalSecs((prev) => {
+      const stillResting = !!(restEndAt && restEndAt > Date.now());
+      return (stillResting ? prev : 0) + addSecs;
+    });
     setRestEndAt((prev) => {
       const base = prev && prev > Date.now() ? prev : Date.now();
-      return base + mins * 60 * 1000;
+      return base + addSecs * 1000;
     });
     if (mode !== "rest") setMode("rest");
   };
@@ -385,6 +394,7 @@ export function PomodoroPage({
           secs={secs}
           dur={dur}
           restSecs={restSecs}
+          restTotalSecs={restTotalSecs}
           idleTrackStart={idleTrackStart}
           idleSecs={idleSecs}
           confirmed={confirmed}

@@ -10,6 +10,7 @@ export function RingTimer({
   secs,
   dur,
   restSecs,
+  restTotalSecs = 0,
   idleTrackStart,
   idleSecs,
   confirmed,
@@ -19,6 +20,7 @@ export function RingTimer({
   secs: number;
   dur: number;
   restSecs: number;
+  restTotalSecs?: number;
   idleTrackStart: number | null;
   idleSecs: number;
   confirmed: { cat1: string; cat2?: string; name?: string } | null;
@@ -29,7 +31,7 @@ export function RingTimer({
   const rm = Math.floor(restSecs / 60),
     rs = restSecs % 60;
   const circ = 2 * Math.PI * 58;
-  const restTotal = CFG.REST_SECONDS[dur] ?? 5 * 60;
+  const restTotal = restTotalSecs > 0 ? restTotalSecs : (CFG.REST_SECONDS[dur] ?? 5 * 60);
   const cycleSeconds = Math.max(dur * 60, 1);
   const focusElapsed = Math.max(0, dur * 60 - secs + focusOverrunSecs);
   const focusCycle = Math.floor(focusElapsed / cycleSeconds) + 1;
