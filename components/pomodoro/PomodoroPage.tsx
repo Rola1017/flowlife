@@ -66,6 +66,7 @@ export function PomodoroPage({
   setRestEndAt: Dispatch<SetStateAction<number | null>>;
 }) {
   const REWARD_FX_MS = 3700;
+  const SESSIONS_RESET_FLAG = "flowlife_sessions_reset_once_v1";
 
   const [dur, setDur] = useState(1);
   const [secs, setSecs] = useState(1 * 60);
@@ -103,6 +104,16 @@ export function PomodoroPage({
 
   useEffect(() => {
     try {
+      const hasReset = localStorage.getItem(SESSIONS_RESET_FLAG);
+      if (!hasReset) {
+        localStorage.removeItem(LS_KEYS.pomodoroSessions);
+        localStorage.setItem(SESSIONS_RESET_FLAG, "1");
+        setSessions([]);
+        hitRef.current.clear();
+        setSessionsLsReady(true);
+        return;
+      }
+
       const raw = localStorage.getItem(LS_KEYS.pomodoroSessions);
       if (raw) {
         const p = JSON.parse(raw) as unknown;
@@ -271,6 +282,8 @@ export function PomodoroPage({
 
   const countedSessions = sessions.filter((s) => s.counted);
   const tot = countedSessions.reduce((s, p) => s + p.mins, 0);
+  const focusElapsedSecs = Math.max(0, dur * 60 - secs + focusOverrunSecs);
+  const canShowRestBtn = focusElapsedSecs > 60;
   const ratingSummary = useMemo(
     () =>
       sessions.reduce(
@@ -528,22 +541,24 @@ export function PomodoroPage({
       )}
       {mode === "focus" && (
         <div style={{ display: "flex", gap: 8 }}>
-          <button
-            type="button"
-            onClick={endFocus}
-            style={{
-              padding: "9px 14px",
-              borderRadius: 20,
-              border: `2px solid ${TH.green}`,
-              background: TH.green + "22",
-              color: TH.green,
-              fontSize: 12,
-              fontWeight: 800,
-              cursor: "pointer",
-            }}
-          >
-            休息
-          </button>
+          {canShowRestBtn && (
+            <button
+              type="button"
+              onClick={endFocus}
+              style={{
+                padding: "9px 14px",
+                borderRadius: 20,
+                border: `2px solid ${TH.green}`,
+                background: TH.green + "22",
+                color: TH.green,
+                fontSize: 12,
+                fontWeight: 800,
+                cursor: "pointer",
+              }}
+            >
+              休息
+            </button>
+          )}
           <button
             type="button"
             onClick={() => {
