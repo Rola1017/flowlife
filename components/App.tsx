@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import { TH } from "@/lib/theme";
 import { MOCK } from "@/lib/mock";
 import { TABS } from "@/lib/tabs";
@@ -32,6 +32,7 @@ export function App() {
   const [idleTotalSecs, setIdleTotalSecs] = useState(DEFAULT_IDLE_TOTAL_SECS);
   const [restEndAt, setRestEndAt] = useState<number | null>(null);
   const [lsReady, setLsReady] = useState(false);
+  const lastAutoIdleKeyRef = useRef<string>("");
 
   const { todos, handleStart, handleEnd, handleToggleDone } = useTodos(MOCK.initTodos);
 
@@ -59,6 +60,26 @@ export function App() {
     if (!lsReady) return;
     saveNumber(LS_KEYS.idleTotalSecs, idleTotalSecs);
   }, [idleTotalSecs, lsReady]);
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      const now = new Date();
+      const dow = now.getDay(); // 1~5 => Mon~Fri
+      if (dow < 1 || dow > 5) return;
+      const h = now.getHours();
+      const m = now.getMinutes();
+      const isTargetTime = (h === 8 && m === 0) || (h === 13 && m === 30);
+      if (!isTargetTime) return;
+
+      const slot = `${h}:${String(m).padStart(2, "0")}`;
+      const dateKey = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}-${slot}`;
+      if (lastAutoIdleKeyRef.current === dateKey) return;
+      lastAutoIdleKeyRef.current = dateKey;
+
+      setIdleTrackStart((prev) => prev ?? Date.now());
+    }, 1000);
+    return () => clearInterval(t);
+  }, []);
 
   const push = (type: string, props: Record<string, unknown> = {}) => setSubPage({ type, props });
   const pop = () => setSubPage(null);
