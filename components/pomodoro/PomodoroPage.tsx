@@ -255,6 +255,10 @@ export function PomodoroPage({
 
   const confirmRating = (r: string) => {
     setRated(true);
+    if (r === "😤") setFocused((c) => c + 1);
+    else if (r === "🙂") setNeutral((c) => c + 1);
+    else setDistracted((c) => c + 1);
+
     const el = elRef.current;
     if (el >= 5 * 60) {
       const mins = Math.round(el / 60);
@@ -262,9 +266,6 @@ export function PomodoroPage({
       const earned = counted ? coinsForSecs(el) : 0;
       const ns = [...sessions, { ...confirmed!, mins, rating: r, counted }];
       setSessions(ns);
-      if (r === "😤") setFocused((c) => c + 1);
-      else if (r === "🙂") setNeutral((c) => c + 1);
-      else setDistracted((c) => c + 1);
 
       const tot = ns.filter((p) => p.counted).reduce((s, p) => s + p.mins, 0);
       let milestoneBonus = 0;
