@@ -65,8 +65,7 @@ export function PomodoroPage({
   restEndAt: number | null;
   setRestEndAt: Dispatch<SetStateAction<number | null>>;
 }) {
-  const FINISH_ANIM_MS = 850;
-  const COIN_ANIM_MS = 1400;
+  const REWARD_FX_MS = 2200;
 
   const [dur, setDur] = useState(1);
   const [secs, setSecs] = useState(1 * 60);
@@ -84,8 +83,7 @@ export function PomodoroPage({
     null,
   );
   const [idleSecs, setIdleSecs] = useState(0);
-  const [showFinishFx, setShowFinishFx] = useState(false);
-  const [coinGainFx, setCoinGainFx] = useState<{ id: number; amount: number } | null>(null);
+  const [rewardFx, setRewardFx] = useState<{ id: number; amount: number } | null>(null);
   const [focusReadyToBreak, setFocusReadyToBreak] = useState(false);
   const [focusOverrunSecs, setFocusOverrunSecs] = useState(0);
   const intRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -134,16 +132,10 @@ export function PomodoroPage({
   }, [sessions, sessionsLsReady]);
 
   useEffect(() => {
-    if (!showFinishFx) return;
-    const t = setTimeout(() => setShowFinishFx(false), FINISH_ANIM_MS);
+    if (!rewardFx) return;
+    const t = setTimeout(() => setRewardFx(null), REWARD_FX_MS);
     return () => clearTimeout(t);
-  }, [showFinishFx]);
-
-  useEffect(() => {
-    if (!coinGainFx) return;
-    const t = setTimeout(() => setCoinGainFx(null), COIN_ANIM_MS);
-    return () => clearTimeout(t);
-  }, [coinGainFx]);
+  }, [rewardFx]);
 
   useEffect(() => {
     focusReadyToBreakRef.current = focusReadyToBreak;
@@ -276,11 +268,8 @@ export function PomodoroPage({
     });
 
     const totalGain = earned + milestoneBonus;
-    if (totalGain > 0) {
-      setCoins((c) => c + totalGain);
-      setCoinGainFx({ id: Date.now(), amount: totalGain });
-    }
-    setShowFinishFx(true);
+    if (totalGain > 0) setCoins((c) => c + totalGain);
+    setRewardFx({ id: Date.now(), amount: totalGain });
   };
 
   const countedSessions = sessions.filter((s) => s.counted);
@@ -299,13 +288,18 @@ export function PomodoroPage({
           25% { transform: scale(1.06); opacity: 1; }
           100% { transform: scale(1); opacity: 0; }
         }
-        @keyframes flowlifeFloatCoins {
-          0% { transform: translateY(0); opacity: 0; }
-          20% { opacity: 1; }
-          100% { transform: translateY(-34px); opacity: 0; }
+        @keyframes flowlifeTomatoToRight {
+          0% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+          15% { opacity: 1; }
+          100% { transform: translate(calc(-50% + 120px), calc(-50% - 62px)) scale(0.35); opacity: 0; }
+        }
+        @keyframes flowlifeCoinToLeft {
+          0% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+          15% { opacity: 1; }
+          100% { transform: translate(calc(-50% - 120px), calc(-50% - 62px)) scale(0.35); opacity: 0; }
         }
       `}</style>
-      {showFinishFx && (
+      {rewardFx && (
         <div
           style={{
             position: "absolute",
@@ -321,29 +315,47 @@ export function PomodoroPage({
             fontWeight: 900,
             zIndex: 20,
             pointerEvents: "none",
-            animation: `flowlifePulseDone ${FINISH_ANIM_MS}ms ease-out`,
+            animation: "flowlifePulseDone 900ms ease-out",
           }}
         >
-          ✅ 番茄完成
+          🎉 完成！番茄與金幣入帳
         </div>
       )}
-      {coinGainFx && (
+      {rewardFx && (
         <div
-          key={coinGainFx.id}
+          key={`tomato-${rewardFx.id}`}
           style={{
             position: "absolute",
-            top: 138,
-            left: "calc(50% - 118px)",
+            top: 236,
+            left: "50%",
+            color: TH.accent,
+            fontSize: 28,
+            fontWeight: 900,
+            zIndex: 21,
+            pointerEvents: "none",
+            animation: "flowlifeTomatoToRight 900ms ease-out forwards",
+          }}
+        >
+          🍅
+        </div>
+      )}
+      {rewardFx && (
+        <div
+          key={`coin-${rewardFx.id}`}
+          style={{
+            position: "absolute",
+            top: 236,
+            left: "50%",
             color: TH.gold,
-            fontSize: 14,
+            fontSize: 18,
             fontWeight: 900,
             textShadow: "0 0 10px rgba(251,191,36,0.35)",
             zIndex: 21,
             pointerEvents: "none",
-            animation: `flowlifeFloatCoins ${COIN_ANIM_MS}ms ease-out`,
+            animation: "flowlifeCoinToLeft 900ms ease-out 850ms forwards",
           }}
         >
-          +{coinGainFx.amount} 🪙
+          +{rewardFx.amount} 🪙
         </div>
       )}
       <div style={{ display: "flex", gap: 6 }}>
