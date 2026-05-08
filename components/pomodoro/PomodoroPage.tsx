@@ -7,6 +7,7 @@ import { CAT } from "@/lib/categories";
 import { MOCK } from "@/lib/mock";
 import {
   fmt,
+  fmtMs,
   fmtIdleTime,
   coinsForSecs,
   playRestEnd,
@@ -81,6 +82,7 @@ export function PomodoroPage({
   const [showFinishFx, setShowFinishFx] = useState(false);
   const [coinGainFx, setCoinGainFx] = useState<{ id: number; amount: number } | null>(null);
   const [focusReadyToBreak, setFocusReadyToBreak] = useState(false);
+  const [focusOverrunSecs, setFocusOverrunSecs] = useState(0);
   const intRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const elRef = useRef(0);
   const hitRef = useRef(new Set<number>());
@@ -143,6 +145,9 @@ export function PomodoroPage({
             if (!focusReadyToBreakRef.current) {
               playRestEnd();
               setFocusReadyToBreak(true);
+              setFocusOverrunSecs(0);
+            } else {
+              setFocusOverrunSecs((v) => v + 1);
             }
             return 0;
           }
@@ -203,6 +208,7 @@ export function PomodoroPage({
     setShowRating(false);
     setRated(false);
     setFocusReadyToBreak(false);
+    setFocusOverrunSecs(0);
     setIdleTrackStart(null);
     setIdleSecs(0);
     setRestEndAt(null);
@@ -213,6 +219,7 @@ export function PomodoroPage({
     setMode("rest");
     setShowRating(true);
     setFocusReadyToBreak(false);
+    setFocusOverrunSecs(0);
     setRestEndAt(Date.now() + getRestSeconds(dur) * 1000);
     setIdleTrackStart(null);
   };
@@ -332,6 +339,7 @@ export function PomodoroPage({
                 setMode("idle");
                 setShowRating(false);
                 setFocusReadyToBreak(false);
+                setFocusOverrunSecs(0);
               }
             }}
             style={{
@@ -486,6 +494,7 @@ export function PomodoroPage({
               setMode("idle");
               setShowRating(false);
               setFocusReadyToBreak(false);
+              setFocusOverrunSecs(0);
             }}
             style={{
               padding: "9px 14px",
@@ -517,6 +526,9 @@ export function PomodoroPage({
           }}
         >
           ⏰ 已到預定時長，正在持續專注中。按下「休息」才會進入休息畫面。
+          <div style={{ marginTop: 4, fontSize: 12, fontWeight: 900, color: TH.accent }}>
+            已超時 {fmtMs(focusOverrunSecs * 1000)}
+          </div>
         </div>
       )}
       {showRating && !rated && (
