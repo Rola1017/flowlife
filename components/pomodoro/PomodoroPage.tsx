@@ -288,15 +288,19 @@ export function PomodoroPage({
           25% { transform: scale(1.06); opacity: 1; }
           100% { transform: scale(1); opacity: 0; }
         }
-        @keyframes flowlifeTomatoToRight {
-          0% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
-          15% { opacity: 1; }
-          100% { transform: translate(calc(-50% + 120px), calc(-50% - 62px)) scale(0.35); opacity: 0; }
+        @keyframes flowlifeTomatoBurstThenAbsorb {
+          0% { transform: translate(-50%, -50%) scale(0.35); opacity: 0; }
+          18% { transform: translate(-50%, -62%) scale(1.35); opacity: 1; }
+          28% { transform: translate(-50%, -46%) scale(1); opacity: 1; }
+          75% { transform: translate(-50%, -46%) scale(1); opacity: 1; } /* 停留再 +1 秒 */
+          100% { transform: translate(calc(-50% + 122px), calc(-50% - 64px)) scale(0.3); opacity: 0; }
         }
-        @keyframes flowlifeCoinToLeft {
-          0% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
-          15% { opacity: 1; }
-          100% { transform: translate(calc(-50% - 120px), calc(-50% - 62px)) scale(0.35); opacity: 0; }
+        @keyframes flowlifeCoinBurstThenAbsorb {
+          0% { transform: translate(-50%, -50%) scale(0.35); opacity: 0; }
+          18% { transform: translate(-50%, -62%) scale(1.25); opacity: 1; }
+          28% { transform: translate(-50%, -46%) scale(1); opacity: 1; }
+          75% { transform: translate(-50%, -46%) scale(1); opacity: 1; } /* 停留再 +1 秒 */
+          100% { transform: translate(calc(-50% - 122px), calc(-50% - 64px)) scale(0.3); opacity: 0; }
         }
       `}</style>
       {rewardFx && (
@@ -326,14 +330,15 @@ export function PomodoroPage({
           key={`tomato-${rewardFx.id}`}
           style={{
             position: "absolute",
-            top: 236,
+            top: 238,
             left: "50%",
             color: TH.accent,
-            fontSize: 28,
+            fontSize: 34,
             fontWeight: 900,
             zIndex: 21,
             pointerEvents: "none",
-            animation: "flowlifeTomatoToRight 2400ms ease-out forwards",
+            filter: "drop-shadow(0 0 10px rgba(249,115,22,0.45))",
+            animation: "flowlifeTomatoBurstThenAbsorb 4200ms cubic-bezier(.2,.7,.1,1) forwards",
           }}
         >
           🍅
@@ -341,10 +346,10 @@ export function PomodoroPage({
       )}
       {rewardFx && (
         <div
-          key={`coin-${rewardFx.id}`}
+          key={`coin-main-${rewardFx.id}`}
           style={{
             position: "absolute",
-            top: 236,
+            top: 238,
             left: "50%",
             color: TH.gold,
             fontSize: 18,
@@ -352,7 +357,7 @@ export function PomodoroPage({
             textShadow: "0 0 10px rgba(251,191,36,0.35)",
             zIndex: 21,
             pointerEvents: "none",
-            animation: "flowlifeCoinToLeft 2400ms ease-out 1700ms forwards",
+            animation: "flowlifeCoinBurstThenAbsorb 4200ms cubic-bezier(.2,.7,.1,1) forwards",
           }}
         >
           +{rewardFx.amount} 🪙
