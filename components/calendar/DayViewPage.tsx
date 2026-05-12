@@ -29,8 +29,8 @@ export function DayViewPage({
     (t: { phase?: string; startTime?: string }) => t.phase !== "done" && t.startTime,
   ) as { id: number; text: string; startTime: string; endTime: string }[];
   const doneTL = dateTodos.filter(
-    (t: { phase?: string; startTime?: string }) => t.phase === "done" && t.startTime,
-  ) as { id: number; text: string; startTime: string; endTime: string }[];
+    (t: { phase?: string; endAt?: string }) => t.phase === "done" && t.endAt,
+  ) as { id: number; text: string; startTime: string; endTime: string; endAt?: string }[];
 
   const now = new Date(),
     nowMins = now.getHours() * 60 + now.getMinutes();

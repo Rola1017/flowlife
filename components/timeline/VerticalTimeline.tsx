@@ -8,6 +8,7 @@ type TodoOverlay = {
   text: string;
   startTime: string;
   endTime: string;
+  endAt?: string;
 };
 
 export function VerticalTimeline({
@@ -27,6 +28,12 @@ export function VerticalTimeline({
     const mins = toM(todo.startTime);
     const pos = pctPos(todo.startTime);
     return mins >= DS && mins <= DE && pos >= 0 && pos <= 100;
+  };
+  const getVisibleDoneTime = (todo: TodoOverlay) => {
+    const endTime = todo.endAt?.slice(0, 5);
+    if (!endTime) return null;
+    const top = pctPos(endTime);
+    return top >= 0 && top <= 100 ? { endTime, top } : null;
   };
 
   return (
@@ -106,7 +113,7 @@ export function VerticalTimeline({
                 position: "absolute",
                 top: `${top}%`,
                 height: hasRange ? `${spanH}%` : "auto",
-                left: "26%",
+                left: "35%",
                 transform: "translateX(-50%)",
                 width: "fit-content",
                 maxWidth: "44%",
@@ -199,18 +206,17 @@ export function VerticalTimeline({
           );
         })}
 
-        {doneTodos?.filter(isVisibleTodo).map((todo) => {
-          const top = pctPos(todo.startTime);
-          const hasRange = todo.endTime && todo.endTime !== todo.startTime;
-          const spanH = hasRange ? Math.max(pctH(todo.startTime, todo.endTime), 2) : 0;
+        {doneTodos?.map((todo) => {
+          const doneTime = getVisibleDoneTime(todo);
+          if (!doneTime) return null;
           return (
             <div
               key={`tdd-${todo.id}`}
               style={{
                 position: "absolute",
-                top: `${top}%`,
-                height: hasRange ? `${spanH}%` : "auto",
-                left: "73%",
+                top: `${doneTime.top}%`,
+                height: "auto",
+                left: "65%",
                 transform: "translateX(-50%)",
                 width: "fit-content",
                 maxWidth: "44%",
@@ -243,26 +249,8 @@ export function VerticalTimeline({
                 >
                   {todo.text}
                 </div>
-                {todo.startTime && (
-                  <div style={{ fontSize: 7, color: "#4B5563" }}>
-                    {todo.startTime}
-                    {todo.endTime ? `～${todo.endTime}` : ""}
-                  </div>
-                )}
+                <div style={{ fontSize: 7, color: "#4B5563" }}>{doneTime.endTime}</div>
               </div>
-              {hasRange && (
-                <div
-                  style={{
-                    flex: 1,
-                    width: 2,
-                    background: "#3A3A45",
-                    marginTop: 1,
-                    borderRadius: 1,
-                    marginLeft: "auto",
-                    marginRight: "auto",
-                  }}
-                />
-              )}
             </div>
           );
         })}

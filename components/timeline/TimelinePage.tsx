@@ -43,8 +43,8 @@ export function TimelinePage({
     (t: { startTime?: string }) => t.startTime,
   ) as { id: number; text: string; startTime: string; endTime: string }[];
   const doneTL = done.filter(
-    (t: { startTime?: string }) => t.startTime,
-  ) as { id: number; text: string; startTime: string; endTime: string }[];
+    (t: { endAt?: string }) => t.endAt,
+  ) as { id: number; text: string; startTime: string; endTime: string; endAt?: string }[];
   const { ACT } = MOCK.schedule;
 
   const submitTodo = () => {
