@@ -2,7 +2,7 @@ export const CFG = {
   TODAY_STR: new Date().toISOString().slice(0, 10),
   TODAY: new Date(),
   DAY_START: "06:30",
-  DAY_END: "22:40",
+  DAY_END: "23:00",
   END_CONFIRM: 2000,
   LIVE_TICK: 1000,
   /** 休息秒數（以番茄分鐘數作 key） */

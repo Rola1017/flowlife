@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, SL } from "@/components/ui/Card";
 import { TodoCard } from "@/components/todo/TodoCard";
 import { VerticalTimeline } from "@/components/timeline/VerticalTimeline";
@@ -9,6 +9,11 @@ import { TH } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { MOCK } from "@/lib/mock";
 import { DS, DT, toM } from "@/lib/utils";
+
+const getCurrentMinutes = () => {
+  const now = new Date();
+  return now.getHours() * 60 + now.getMinutes();
+};
 
 export function TimelinePage({
   todos,
@@ -31,8 +36,15 @@ export function TimelinePage({
     cat: CAT.cat1List()[0] as string,
     mustDo: true,
   });
-  const now = 15 * 60 + 30,
-    nowPct = ((now - DS) / DT) * 100;
+  const [now, setNow] = useState(getCurrentMinutes);
+  const nowPct = ((now - DS) / DT) * 100;
+
+  useEffect(() => {
+    const syncNow = () => setNow(getCurrentMinutes());
+    syncNow();
+    const timer = setInterval(syncNow, 60 * 1000);
+    return () => clearInterval(timer);
+  }, []);
   const active = todos.filter(
     (t: { date?: string; phase?: string }) => t.date === CFG.TODAY_STR && t.phase !== "done",
   );
