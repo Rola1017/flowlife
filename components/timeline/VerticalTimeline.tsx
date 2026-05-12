@@ -1,7 +1,7 @@
 import { TH } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { MOCK } from "@/lib/mock";
-import { pctPos, pctH, buildTimelineHours } from "@/lib/utils";
+import { pctPos, pctH, buildTimelineHours, DS, DE, toM } from "@/lib/utils";
 
 type TodoOverlay = {
   id: number;
@@ -23,6 +23,11 @@ export function VerticalTimeline({
 }) {
   const hours = buildTimelineHours();
   const { PLN, ACT } = MOCK.schedule;
+  const isVisibleTodo = (todo: TodoOverlay) => {
+    const mins = toM(todo.startTime);
+    const pos = pctPos(todo.startTime);
+    return mins >= DS && mins <= DE && pos >= 0 && pos <= 100;
+  };
 
   return (
     <div style={{ display: "flex" }}>
@@ -66,7 +71,7 @@ export function VerticalTimeline({
                 top: `${top}%`,
                 height: `${h}%`,
                 left: 4,
-                right: "44%",
+                right: "47%",
                 background: col ? col + "2E" : "#1F293777",
                 borderRadius: 5,
                 padding: "2px 5px",
@@ -90,7 +95,7 @@ export function VerticalTimeline({
           );
         })}
 
-        {pendingTodos?.map((todo) => {
+        {pendingTodos?.filter(isVisibleTodo).map((todo) => {
           const top = pctPos(todo.startTime);
           const hasRange = todo.endTime && todo.endTime !== todo.startTime;
           const spanH = hasRange ? Math.max(pctH(todo.startTime, todo.endTime), 2) : 0;
@@ -101,12 +106,14 @@ export function VerticalTimeline({
                 position: "absolute",
                 top: `${top}%`,
                 height: hasRange ? `${spanH}%` : "auto",
-                left: 4,
-                right: "44%",
+                left: "26%",
+                transform: "translateX(-50%)",
+                width: "fit-content",
+                maxWidth: "44%",
                 zIndex: 6,
                 display: "flex",
                 flexDirection: "column",
-                alignItems: "center",
+                overflow: "hidden",
                 pointerEvents: "none",
               }}
             >
@@ -116,7 +123,6 @@ export function VerticalTimeline({
                   borderRadius: 4,
                   padding: "2px 6px",
                   background: "rgba(9,9,11,0.9)",
-                  alignSelf: "stretch",
                   marginLeft: 2,
                   marginRight: 2,
                 }}
@@ -148,7 +154,8 @@ export function VerticalTimeline({
                     background: TH.yellow,
                     marginTop: 1,
                     borderRadius: 1,
-                    alignSelf: "center",
+                    marginLeft: "auto",
+                    marginRight: "auto",
                   }}
                 />
               )}
@@ -167,7 +174,7 @@ export function VerticalTimeline({
                 position: "absolute",
                 top: `${top}%`,
                 height: `${h}%`,
-                left: "44%",
+                left: "47%",
                 right: 4,
                 background: col,
                 borderRadius: 5,
@@ -192,7 +199,7 @@ export function VerticalTimeline({
           );
         })}
 
-        {doneTodos?.map((todo) => {
+        {doneTodos?.filter(isVisibleTodo).map((todo) => {
           const top = pctPos(todo.startTime);
           const hasRange = todo.endTime && todo.endTime !== todo.startTime;
           const spanH = hasRange ? Math.max(pctH(todo.startTime, todo.endTime), 2) : 0;
@@ -203,22 +210,23 @@ export function VerticalTimeline({
                 position: "absolute",
                 top: `${top}%`,
                 height: hasRange ? `${spanH}%` : "auto",
-                left: "44%",
-                right: 4,
+                left: "73%",
+                transform: "translateX(-50%)",
+                width: "fit-content",
+                maxWidth: "44%",
                 zIndex: 6,
                 display: "flex",
                 flexDirection: "column",
-                alignItems: "center",
+                overflow: "hidden",
                 pointerEvents: "none",
               }}
             >
               <div
                 style={{
-                  border: "1.5px solid #333",
+                  border: "1px solid #3A3A45",
                   borderRadius: 4,
                   padding: "2px 6px",
-                  background: "rgba(240,240,240,0.95)",
-                  alignSelf: "stretch",
+                  background: "rgba(15,15,18,0.88)",
                   marginLeft: 2,
                   marginRight: 2,
                 }}
@@ -226,7 +234,7 @@ export function VerticalTimeline({
                 <div
                   style={{
                     fontSize: 8,
-                    color: "#111",
+                    color: "#6B7280",
                     fontWeight: 800,
                     whiteSpace: "nowrap",
                     overflow: "hidden",
@@ -236,7 +244,7 @@ export function VerticalTimeline({
                   {todo.text}
                 </div>
                 {todo.startTime && (
-                  <div style={{ fontSize: 7, color: "#555" }}>
+                  <div style={{ fontSize: 7, color: "#4B5563" }}>
                     {todo.startTime}
                     {todo.endTime ? `～${todo.endTime}` : ""}
                   </div>
@@ -247,10 +255,11 @@ export function VerticalTimeline({
                   style={{
                     flex: 1,
                     width: 2,
-                    background: "#444",
+                    background: "#3A3A45",
                     marginTop: 1,
                     borderRadius: 1,
-                    alignSelf: "center",
+                    marginLeft: "auto",
+                    marginRight: "auto",
                   }}
                 />
               )}
@@ -261,7 +270,7 @@ export function VerticalTimeline({
         <div
           style={{
             position: "absolute",
-            left: "49%",
+            left: "50%",
             top: 0,
             bottom: 0,
             width: 1,

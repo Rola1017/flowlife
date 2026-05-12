@@ -39,6 +39,12 @@ export function TimelinePage({
   const done = todos.filter(
     (t: { date?: string; phase?: string }) => t.date === CFG.TODAY_STR && t.phase === "done",
   );
+  const pendingTL = active.filter(
+    (t: { startTime?: string }) => t.startTime,
+  ) as { id: number; text: string; startTime: string; endTime: string }[];
+  const doneTL = done.filter(
+    (t: { startTime?: string }) => t.startTime,
+  ) as { id: number; text: string; startTime: string; endTime: string }[];
   const { ACT } = MOCK.schedule;
 
   const submitTodo = () => {
@@ -235,7 +241,7 @@ export function TimelinePage({
           })}
         </div>
       </Card>
-      <VerticalTimeline nowPct={nowPct} />
+      <VerticalTimeline nowPct={nowPct} pendingTodos={pendingTL} doneTodos={doneTL} />
     </div>
   );
 }
