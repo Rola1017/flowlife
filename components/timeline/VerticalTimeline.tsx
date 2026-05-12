@@ -294,7 +294,7 @@ export function VerticalTimeline({
               left: 0,
               right: 0,
               height: 2,
-              background: TH.red,
+              background: TH.red + "80",
               zIndex: 10,
               pointerEvents: "none",
             }}
@@ -307,7 +307,7 @@ export function VerticalTimeline({
                 width: 10,
                 height: 10,
                 borderRadius: "50%",
-                background: TH.red,
+                background: TH.red + "80",
               }}
             />
           </div>
