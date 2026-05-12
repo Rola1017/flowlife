@@ -86,7 +86,7 @@ function AppContent() {
   const [resetVersion, setResetVersion] = useState(0);
   const lastAutoIdleKeyRef = useRef<string>("");
 
-  const { todos, handleStart, handleEnd, handleToggleDone, resetTodos } = useTodos(MOCK.initTodos);
+  const { todos, handleStart, handleEnd, handleToggleDone, addTodo, resetTodos } = useTodos(MOCK.initTodos);
 
   useEffect(() => {
     const r = loadJSON<Partial<typeof DEFAULT_RATINGS>>(LS_KEYS.ratingCounts, {});
@@ -157,6 +157,7 @@ function AppContent() {
     onStart: handleStart,
     onEnd: handleEnd,
     onToggleDone: handleToggleDone,
+    onAddTodo: addTodo,
   };
 
   const SUB_PAGE_MAP: Record<string, (props?: Record<string, unknown>) => ReactNode> = {

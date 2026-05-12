@@ -1,10 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { TH } from "@/lib/theme";
 import { MOCK } from "@/lib/mock";
+import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 import { Card } from "@/components/ui/Card";
 import { BackBtn } from "@/components/ui/BackBtn";
+
+type PurchaseLogRow = {
+  id: number;
+  name: string;
+  amount: number;
+  date: string;
+  time: string;
+  at: string;
+};
+
+function localDateParts(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  const h = String(date.getHours()).padStart(2, "0");
+  const min = String(date.getMinutes()).padStart(2, "0");
+  return { date: `${y}-${m}-${d}`, time: `${h}:${min}`, at: `${y}-${m}-${d} ${h}:${min}` };
+}
 
 export function ShopPage({
   coins,
@@ -19,10 +38,42 @@ export function ShopPage({
   const [addOpen, setAddOpen] = useState(false);
   const [draft, setDraft] = useState({ name: "", price: "", desc: "" });
   const [notice, setNotice] = useState("");
+  const [purchaseLog, setPurchaseLog] = useState<PurchaseLogRow[]>([]);
+  const [purchaseLogReady, setPurchaseLogReady] = useState(false);
 
   const showNotice = (message: string) => {
     setNotice(message);
     window.setTimeout(() => setNotice(""), 1800);
+  };
+
+  useEffect(() => {
+    const saved = loadJSON<unknown>(LS_KEYS.purchaseLog, []);
+    if (Array.isArray(saved)) setPurchaseLog(saved as PurchaseLogRow[]);
+    setPurchaseLogReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!purchaseLogReady) return;
+    saveJSON(LS_KEYS.purchaseLog, purchaseLog);
+  }, [purchaseLog, purchaseLogReady]);
+
+  const purchaseGroups = useMemo(() => {
+    const grouped = purchaseLog.reduce<Record<string, PurchaseLogRow[]>>((acc, row) => {
+      acc[row.date] = [...(acc[row.date] ?? []), row];
+      return acc;
+    }, {});
+    return Object.entries(grouped)
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([date, rows]) => ({
+        date,
+        rows: rows.sort((a, b) => b.at.localeCompare(a.at)),
+        total: rows.reduce((sum, row) => sum + row.amount, 0),
+      }));
+  }, [purchaseLog]);
+
+  const recordPurchase = (name: string, amount: number) => {
+    const now = localDateParts();
+    setPurchaseLog((log) => [{ id: Date.now(), name, amount, ...now }, ...log]);
   };
 
   return (
@@ -159,7 +210,11 @@ export function ShopPage({
               className="flowlife-pressable"
               type="button"
               onClick={() => {
-                if (!onSpend(item.price)) showNotice("金幣不足");
+                if (!onSpend(item.price)) {
+                  showNotice("金幣不足");
+                  return;
+                }
+                recordPurchase(item.name, item.price);
               }}
               style={{
                 padding: "6px 16px",
@@ -179,6 +234,44 @@ export function ShopPage({
           </div>
         </Card>
       ))}
+      <Card>
+        <div style={{ fontSize: 12, fontWeight: 900, color: TH.text, marginBottom: 10 }}>購買記錄</div>
+        {purchaseGroups.length === 0 ? (
+          <div style={{ fontSize: 11, color: TH.muted, textAlign: "center", padding: 10 }}>尚無購買記錄</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {purchaseGroups.map((group) => (
+              <div key={group.date} style={{ background: "#0A0A0C", borderRadius: 12, padding: 10 }}>
+                <div style={{ fontSize: 10, color: TH.muted, fontWeight: 800, marginBottom: 6 }}>{group.date}</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {group.rows.map((row) => (
+                    <div key={row.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 11, color: TH.text, fontWeight: 800 }}>{row.name}</div>
+                        <div style={{ fontSize: 9, color: TH.muted }}>{row.time}</div>
+                      </div>
+                      <div style={{ fontSize: 11, color: TH.red, fontWeight: 900 }}>-{row.amount} 🪙</div>
+                    </div>
+                  ))}
+                </div>
+                <div
+                  style={{
+                    marginTop: 8,
+                    paddingTop: 8,
+                    borderTop: `1px solid ${TH.border}`,
+                    textAlign: "right",
+                    fontSize: 10,
+                    color: TH.gold,
+                    fontWeight: 900,
+                  }}
+                >
+                  當日合計 -{group.total} 🪙
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
     </div>
   );
 }

@@ -20,6 +20,23 @@ export type PomodoroSessionRow = {
 type CatSelection = { cat1: string; cat2: string; cat3: string };
 type ConfirmedPomodoro = { name: string; cat1: string; cat2: string; cat3: string };
 type RewardFx = { id: number; amount: number };
+export type CoinIncomeLogRow = {
+  id: number;
+  date: string;
+  time: string;
+  at: string;
+  taskName: string;
+  amount: number;
+};
+
+function localDateParts(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  const h = String(date.getHours()).padStart(2, "0");
+  const min = String(date.getMinutes()).padStart(2, "0");
+  return { date: `${y}-${m}-${d}`, time: `${h}:${min}`, at: `${y}-${m}-${d} ${h}:${min}` };
+}
 
 export function usePomodoro({
   setCoins,
@@ -63,6 +80,8 @@ export function usePomodoro({
   const [confirmed, setConfirmed] = useState<ConfirmedPomodoro | null>(null);
   const [idleSecs, setIdleSecs] = useState(0);
   const [rewardFx, setRewardFx] = useState<RewardFx | null>(null);
+  const [coinIncomeLog, setCoinIncomeLog] = useState<CoinIncomeLogRow[]>([]);
+  const [coinIncomeLogReady, setCoinIncomeLogReady] = useState(false);
   const [focusReadyToBreak, setFocusReadyToBreak] = useState(false);
   const [focusOverrunSecs, setFocusOverrunSecs] = useState(0);
 
@@ -106,6 +125,17 @@ export function usePomodoro({
   }, [sessions, sessionsLsReady]);
 
   useEffect(() => {
+    const saved = loadJSON<unknown>(LS_KEYS.coinIncomeLog, []);
+    if (Array.isArray(saved)) setCoinIncomeLog(saved as CoinIncomeLogRow[]);
+    setCoinIncomeLogReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!coinIncomeLogReady) return;
+    saveJSON(LS_KEYS.coinIncomeLog, coinIncomeLog);
+  }, [coinIncomeLog, coinIncomeLogReady]);
+
+  useEffect(() => {
     if (resetVersion === lastHandledResetVersionRef.current) return;
     lastHandledResetVersionRef.current = resetVersion;
     if (intRef.current) clearInterval(intRef.current);
@@ -117,6 +147,7 @@ export function usePomodoro({
     setRestSecs(0);
     setRestTotalSecs(0);
     setSessions([]);
+    setCoinIncomeLog([]);
     setTaskName("");
     setCatSel({ cat1: "", cat2: "", cat3: "" });
     setConfirmed(null);
@@ -263,7 +294,19 @@ export function usePomodoro({
     });
 
     const totalGain = earned + milestoneBonus;
-    if (totalGain > 0) setCoins((c) => c + totalGain);
+    if (totalGain > 0) {
+      setCoins((c) => c + totalGain);
+      const now = localDateParts();
+      setCoinIncomeLog((log) => [
+        {
+          id: Date.now(),
+          ...now,
+          taskName: confirmed?.name || "番茄鐘",
+          amount: totalGain,
+        },
+        ...log,
+      ]);
+    }
     setRewardFx({ id: Date.now(), amount: totalGain });
   };
 
@@ -314,6 +357,12 @@ export function usePomodoro({
   const isRestActive = restSecs > 0;
   const effectiveMode = isRestActive ? "rest" : mode;
   const idleTotalToday = idleTotalSecs + (idleTrackStart ? idleSecs : 0);
+  const todayDate = localDateParts().date;
+  const todayCoinIncomeLog = coinIncomeLog
+    .filter((row) => row.date === todayDate)
+    .sort((a, b) => b.at.localeCompare(a.at));
+  const todayCoinIncomeTotal = todayCoinIncomeLog.reduce((sum, row) => sum + row.amount, 0);
+  const recentCoinIncomeLog = [...coinIncomeLog].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 5);
 
   useEffect(() => {
     setFocused(ratingSummary.focused);
@@ -350,6 +399,8 @@ export function usePomodoro({
     effectiveMode,
     isRestActive,
     idleTotalToday,
+    todayCoinIncomeTotal,
+    recentCoinIncomeLog,
     startFocus,
     endFocus,
     addRestTime,

@@ -84,6 +84,8 @@ export function PomodoroPage({
     effectiveMode,
     isRestActive,
     idleTotalToday,
+    todayCoinIncomeTotal,
+    recentCoinIncomeLog,
     startFocus,
     endFocus,
     addRestTime,
@@ -570,6 +572,48 @@ export function PomodoroPage({
         <div style={{ fontSize: 10, color: TH.muted, textAlign: "center" }}>
           {countedSessions.length} 顆 · 共 {fmt(tot)}
         </div>
+      </Card>
+      <Card style={{ width: "100%" }}>
+        <SL>金幣收支</SL>
+        <div
+          style={{
+            background: "#0A0A0C",
+            borderRadius: 10,
+            padding: "9px 10px",
+            marginBottom: 8,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <span style={{ fontSize: 10, color: TH.muted, fontWeight: 800 }}>今日總收入</span>
+          <span style={{ fontSize: 14, color: TH.gold, fontWeight: 900 }}>+{todayCoinIncomeTotal} 🪙</span>
+        </div>
+        {recentCoinIncomeLog.length === 0 ? (
+          <div style={{ fontSize: 10, color: TH.muted, textAlign: "center", padding: 8 }}>尚無金幣收入</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {recentCoinIncomeLog.map((row) => (
+              <div
+                key={row.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  background: "#0A0A0C",
+                  borderRadius: 8,
+                  padding: "7px 9px",
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 10, color: TH.text, fontWeight: 800 }}>{row.taskName}</div>
+                  <div style={{ fontSize: 9, color: TH.muted }}>{row.time}</div>
+                </div>
+                <div style={{ fontSize: 11, color: TH.gold, fontWeight: 900 }}>+{row.amount} 🪙</div>
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
       <Card style={{ width: "100%" }}>
         <SL>番茄鐘分佈</SL>

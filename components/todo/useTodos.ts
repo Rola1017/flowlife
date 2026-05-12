@@ -27,7 +27,13 @@ export function useTodos(initial: Record<string, unknown>[]) {
 
   useEffect(() => {
     const saved = loadJSON<unknown>(LS_KEYS.todos, null);
-    if (Array.isArray(saved)) setTodos(saved as TodoState[]);
+    if (Array.isArray(saved)) {
+      setTodos(
+        (saved as TodoState[]).map((todo) =>
+          todo.date === CFG.TODAY_STR ? todo : { ...todo, date: CFG.TODAY_STR },
+        ),
+      );
+    }
     setHydrated(true);
   }, []);
 
