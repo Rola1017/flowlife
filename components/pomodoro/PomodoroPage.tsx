@@ -12,7 +12,7 @@ import {
   coinsForSecs,
   playRestEnd,
 } from "@/lib/utils";
-import { LS_KEYS, saveJSON } from "@/lib/storage";
+import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 import { Card, SL } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { CategorySelector } from "@/components/pomodoro/CategorySelector";
@@ -68,7 +68,6 @@ export function PomodoroPage({
   resetVersion: number;
 }) {
   const REWARD_FX_MS = 3700;
-  const SESSIONS_RESET_FLAG = "flowlife_sessions_reset_once_v1";
 
   const [dur, setDur] = useState(1);
   const [secs, setSecs] = useState(1 * 60);
@@ -106,36 +105,19 @@ export function PomodoroPage({
   };
 
   useEffect(() => {
-    try {
-      const hasReset = localStorage.getItem(SESSIONS_RESET_FLAG);
-      if (!hasReset) {
-        localStorage.removeItem(LS_KEYS.pomodoroSessions);
-        localStorage.setItem(SESSIONS_RESET_FLAG, "1");
-        setSessions([]);
-        hitRef.current.clear();
-        setSessionsLsReady(true);
-        return;
-      }
-
-      const raw = localStorage.getItem(LS_KEYS.pomodoroSessions);
-      if (raw) {
-        const p = JSON.parse(raw) as unknown;
-        if (Array.isArray(p)) {
-          const rows = (p as PomodoroSessionRow[]).map((r) => ({
-            ...r,
-            counted: typeof r.counted === "boolean" ? r.counted : (r.mins ?? 0) > 1,
-          }));
-          setSessions(rows);
-          const tot = rows
-            .filter((x) => x.counted)
-            .reduce((s, x) => s + (typeof x.mins === "number" ? x.mins : 0), 0);
-          CFG.MILESTONES.forEach((m) => {
-            if (tot >= m.mins) hitRef.current.add(m.mins);
-          });
-        }
-      }
-    } catch {
-      /* ignore */
+    const saved = loadJSON<unknown>(LS_KEYS.pomodoroSessions, null);
+    if (Array.isArray(saved)) {
+      const rows = (saved as PomodoroSessionRow[]).map((r) => ({
+        ...r,
+        counted: typeof r.counted === "boolean" ? r.counted : (r.mins ?? 0) > 1,
+      }));
+      setSessions(rows);
+      const tot = rows
+        .filter((x) => x.counted)
+        .reduce((s, x) => s + (typeof x.mins === "number" ? x.mins : 0), 0);
+      CFG.MILESTONES.forEach((m) => {
+        if (tot >= m.mins) hitRef.current.add(m.mins);
+      });
     }
     setSessionsLsReady(true);
   }, []);

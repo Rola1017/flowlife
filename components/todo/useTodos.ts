@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { CFG } from "@/lib/config";
 import { nowStr } from "@/lib/utils";
-import { LS_KEYS, saveJSON } from "@/lib/storage";
+import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 
 export type TodoState = Record<string, unknown>;
 
@@ -26,15 +26,8 @@ export function useTodos(initial: Record<string, unknown>[]) {
   const endProgTimers = useRef<Record<number, ReturnType<typeof setInterval>>>({});
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(LS_KEYS.todos);
-      if (raw) {
-        const p = JSON.parse(raw);
-        if (Array.isArray(p)) setTodos(p as TodoState[]);
-      }
-    } catch {
-      /* ignore corrupt */
-    }
+    const saved = loadJSON<unknown>(LS_KEYS.todos, null);
+    if (Array.isArray(saved)) setTodos(saved as TodoState[]);
     setHydrated(true);
   }, []);
 
