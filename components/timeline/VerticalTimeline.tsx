@@ -60,7 +60,7 @@ export function VerticalTimeline({
 
   return (
     <div style={{ display: "flex" }}>
-      <div style={{ width: 34, flexShrink: 0, position: "relative", height: 560 }}>
+      <div style={{ width: 34, flexShrink: 0, position: "relative", height: 840 }}>
         {hours.map((h) => (
           <div
             key={h.label}
@@ -82,7 +82,7 @@ export function VerticalTimeline({
         style={{
           flex: 1,
           position: "relative",
-          height: 560,
+          height: 840,
           background: "#0D0D0F",
           borderRadius: 8,
           border: `1px solid ${TH.border}`,
