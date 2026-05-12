@@ -13,11 +13,12 @@ import { PomodoroPage } from "@/components/pomodoro/PomodoroPage";
 import { CalendarPage } from "@/components/calendar/CalendarPage";
 import { DayViewPage } from "@/components/calendar/DayViewPage";
 import { SchedulePage } from "@/components/schedule/SchedulePage";
+import { SettingsPage } from "@/components/settings/SettingsPage";
 import { ShopPage } from "@/components/shop/ShopPage";
 import { useTodos } from "@/components/todo/useTodos";
 
 const DEFAULT_COINS = 1240;
-const DEFAULT_RATINGS = { focused: 4, neutral: 1, distracted: 0 };
+const DEFAULT_RATINGS = { focused: 0, neutral: 0, distracted: 0 };
 const DEFAULT_IDLE_TOTAL_SECS = 0;
 
 export function App() {
@@ -32,9 +33,10 @@ export function App() {
   const [idleTotalSecs, setIdleTotalSecs] = useState(DEFAULT_IDLE_TOTAL_SECS);
   const [restEndAt, setRestEndAt] = useState<number | null>(null);
   const [lsReady, setLsReady] = useState(false);
+  const [resetVersion, setResetVersion] = useState(0);
   const lastAutoIdleKeyRef = useRef<string>("");
 
-  const { todos, handleStart, handleEnd, handleToggleDone } = useTodos(MOCK.initTodos);
+  const { todos, handleStart, handleEnd, handleToggleDone, resetTodos } = useTodos(MOCK.initTodos);
 
   useEffect(() => {
     setCoins(loadNumber(LS_KEYS.coins, DEFAULT_COINS));
@@ -84,6 +86,28 @@ export function App() {
   const push = (type: string, props: Record<string, unknown> = {}) => setSubPage({ type, props });
   const pop = () => setSubPage(null);
 
+  const clearFlowLifeStorage = () => {
+    if (typeof window === "undefined") return;
+    Object.keys(localStorage)
+      .filter((key) => key.startsWith("flowlife_"))
+      .forEach((key) => localStorage.removeItem(key));
+  };
+
+  const handleResetAllData = () => {
+    clearFlowLifeStorage();
+    setCoins(DEFAULT_COINS);
+    setFocused(DEFAULT_RATINGS.focused);
+    setNeutral(DEFAULT_RATINGS.neutral);
+    setDistracted(DEFAULT_RATINGS.distracted);
+    setIdleTrackStart(null);
+    setIdleTotalSecs(DEFAULT_IDLE_TOTAL_SECS);
+    setRestEndAt(null);
+    resetTodos();
+    setResetVersion((v) => v + 1);
+    setTab("home");
+    setSubPage(null);
+  };
+
   const todoProps = {
     todos,
     onStart: handleStart,
@@ -93,6 +117,7 @@ export function App() {
 
   const SUB_PAGE_MAP: Record<string, (props?: Record<string, unknown>) => ReactNode> = {
     schedule: () => <SchedulePage onBack={pop} />,
+    settings: () => <SettingsPage onBack={pop} onResetAllData={handleResetAllData} />,
     shop: () => <ShopPage coins={coins} onSpend={(n) => setCoins((c) => c - n)} onBack={pop} />,
     dayView: (props = {}) => (
       <DayViewPage
@@ -127,6 +152,7 @@ export function App() {
         setIdleTotalSecs={setIdleTotalSecs}
         restEndAt={restEndAt}
         setRestEndAt={setRestEndAt}
+        resetVersion={resetVersion}
       />
     ),
     calendar: () => (
@@ -161,7 +187,7 @@ export function App() {
         flexDirection: "column",
       }}
     >
-      <Header quote={quote} setQuote={setQuote} focused={focused} neutral={neutral} distracted={distracted} />
+      <Header quote={quote} setQuote={setQuote} onShowSettings={() => push("settings")} />
       <div style={{ flex: 1, overflowY: "auto", padding: 14, paddingBottom: 90 }}>
         {subPage ? SUB_PAGE_MAP[subPage.type]?.(subPage.props) : MAIN_PAGE_MAP[tab]?.()}
       </div>

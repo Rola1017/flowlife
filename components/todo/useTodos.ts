@@ -112,5 +112,9 @@ export function useTodos(initial: Record<string, unknown>[]) {
     setTodos((ts) => ts.filter((t) => t.id !== id));
   }, []);
 
-  return { todos, handleStart, handleEnd, handleToggleDone, addTodo, deleteTodo };
+  const resetTodos = useCallback(() => {
+    setTodos(initial.map(makeTodo));
+  }, [initial]);
+
+  return { todos, handleStart, handleEnd, handleToggleDone, addTodo, deleteTodo, resetTodos };
 }

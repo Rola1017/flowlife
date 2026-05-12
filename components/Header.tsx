@@ -6,15 +6,11 @@ import { TH } from "@/lib/theme";
 export function Header({
   quote,
   setQuote,
-  focused,
-  neutral,
-  distracted,
+  onShowSettings,
 }: {
   quote: string;
   setQuote: (q: string) => void;
-  focused: number;
-  neutral: number;
-  distracted: number;
+  onShowSettings: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(quote);
@@ -45,26 +41,25 @@ export function Header({
           </div>
           <div style={{ fontSize: 10, color: TH.muted, marginTop: 1 }}>2026年5月2日 週六</div>
         </div>
-        <div
+        <button
+          type="button"
+          onClick={onShowSettings}
           style={{
             background: "#1C1C24",
             borderRadius: 20,
-            padding: "4px 10px",
+            border: `1px solid ${TH.border}`,
+            padding: "6px 12px",
             display: "flex",
-            gap: 6,
             alignItems: "center",
+            gap: 5,
+            color: TH.text,
+            fontSize: 11,
+            fontWeight: 800,
+            cursor: "pointer",
           }}
         >
-          <span style={{ fontSize: 11 }}>
-            😤 <b style={{ color: TH.text }}>{focused}</b>
-          </span>
-          <span style={{ fontSize: 11 }}>
-            🙂 <b style={{ color: TH.text }}>{neutral}</b>
-          </span>
-          <span style={{ fontSize: 11 }}>
-            😴 <b style={{ color: TH.text }}>{distracted}</b>
-          </span>
-        </div>
+          ⚙️ 設定
+        </button>
       </div>
       <div style={{ marginTop: 6, borderTop: `1px solid ${TH.border}`, paddingTop: 6 }}>
         {editing ? (

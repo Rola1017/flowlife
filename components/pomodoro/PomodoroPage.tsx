@@ -48,6 +48,7 @@ export function PomodoroPage({
   setIdleTotalSecs,
   restEndAt,
   setRestEndAt,
+  resetVersion,
 }: {
   coins: number;
   setCoins: Dispatch<SetStateAction<number>>;
@@ -64,6 +65,7 @@ export function PomodoroPage({
   setIdleTotalSecs: Dispatch<SetStateAction<number>>;
   restEndAt: number | null;
   setRestEndAt: Dispatch<SetStateAction<number | null>>;
+  resetVersion: number;
 }) {
   const REWARD_FX_MS = 3700;
   const SESSIONS_RESET_FLAG = "flowlife_sessions_reset_once_v1";
@@ -92,6 +94,7 @@ export function PomodoroPage({
   const hitRef = useRef(new Set<number>());
   const restWasActiveRef = useRef(false);
   const focusReadyToBreakRef = useRef(false);
+  const lastHandledResetVersionRef = useRef(resetVersion);
   const canStart = catSel.cat1 !== "";
 
   const stopIdleAndAccumulate = () => {
@@ -141,6 +144,31 @@ export function PomodoroPage({
     if (!sessionsLsReady) return;
     saveJSON(LS_KEYS.pomodoroSessions, sessions);
   }, [sessions, sessionsLsReady]);
+
+  useEffect(() => {
+    if (resetVersion === lastHandledResetVersionRef.current) return;
+    lastHandledResetVersionRef.current = resetVersion;
+    if (intRef.current) clearInterval(intRef.current);
+    setDur(1);
+    setSecs(60);
+    setMode("idle");
+    setShowRating(false);
+    setRated(false);
+    setRestSecs(0);
+    setRestTotalSecs(0);
+    setSessions([]);
+    setTaskName("");
+    setCatSel({ cat1: "", cat2: "", cat3: "" });
+    setConfirmed(null);
+    setIdleSecs(0);
+    setRewardFx(null);
+    setFocusReadyToBreak(false);
+    setFocusOverrunSecs(0);
+    elRef.current = 0;
+    hitRef.current.clear();
+    restWasActiveRef.current = false;
+    focusReadyToBreakRef.current = false;
+  }, [resetVersion]);
 
   useEffect(() => {
     if (!rewardFx) return;
