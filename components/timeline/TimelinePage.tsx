@@ -94,6 +94,44 @@ export function TimelinePage({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <div
+          style={{
+            height: 10,
+            borderRadius: 5,
+            overflow: "hidden",
+            background: "#1C1C22",
+            position: "relative",
+            marginTop: 8,
+          }}
+        >
+          {ACT.map((item, i) => {
+            const l = ((toM(item.start) - DS) / DT) * 100,
+              w = ((toM(item.end) - toM(item.start)) / DT) * 100;
+            return (
+              <div
+                key={i}
+                style={{
+                  position: "absolute",
+                  left: `${l}%`,
+                  width: `${w}%`,
+                  height: "100%",
+                  background: item.deep ? "#1F2937" : item.idle ? "#374151" : CAT.cat1Color(item.cat1 ?? "") || "#6B7280",
+                }}
+              />
+            );
+          })}
+        </div>
+        <VerticalTimeline
+          nowPct={nowPct}
+          pendingTodos={pendingTL}
+          doneTodos={doneTL}
+          date={CFG.TODAY_STR}
+          onTimeClick={(time) =>
+            setQuickDraft({ text: "", startTime: time, endTime: "", cat: "未分類", mustDo: true })
+          }
+        />
+      </div>
       <Card style={{ padding: "8px 12px" }}>
         <SL>今日待辦</SL>
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 6 }}>
@@ -244,43 +282,7 @@ export function TimelinePage({
             </button>
           </div>
         )}
-        <div
-          style={{
-            height: 10,
-            borderRadius: 5,
-            overflow: "hidden",
-            background: "#1C1C22",
-            position: "relative",
-            marginTop: 8,
-          }}
-        >
-          {ACT.map((item, i) => {
-            const l = ((toM(item.start) - DS) / DT) * 100,
-              w = ((toM(item.end) - toM(item.start)) / DT) * 100;
-            return (
-              <div
-                key={i}
-                style={{
-                  position: "absolute",
-                  left: `${l}%`,
-                  width: `${w}%`,
-                  height: "100%",
-                  background: item.deep ? "#1F2937" : item.idle ? "#374151" : CAT.cat1Color(item.cat1 ?? "") || "#6B7280",
-                }}
-              />
-            );
-          })}
-        </div>
       </Card>
-      <VerticalTimeline
-        nowPct={nowPct}
-        pendingTodos={pendingTL}
-        doneTodos={doneTL}
-        date={CFG.TODAY_STR}
-        onTimeClick={(time) =>
-          setQuickDraft({ text: "", startTime: time, endTime: "", cat: "未分類", mustDo: true })
-        }
-      />
       {quickDraft && (
         <Card style={{ padding: 10 }}>
           <SL>快速新增 {quickDraft.startTime}</SL>
