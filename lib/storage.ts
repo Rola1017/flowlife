@@ -10,6 +10,7 @@ export const LS_KEYS = {
   idleTotalSecs: `${STORAGE_PREFIX}idle_total_secs`,
   purchaseLog: `${STORAGE_PREFIX}purchase_log`,
   coinIncomeLog: `${STORAGE_PREFIX}coin_income_log`,
+  dailyOverride: `${STORAGE_PREFIX}daily_override_`,
 } as const;
 
 function assertVersionedKey(key: string): void {

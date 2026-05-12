@@ -36,6 +36,13 @@ export function TimelinePage({
     cat: CAT.cat1List()[0] as string,
     mustDo: true,
   });
+  const [quickDraft, setQuickDraft] = useState<{
+    text: string;
+    startTime: string;
+    endTime: string;
+    cat: string;
+    mustDo: boolean;
+  } | null>(null);
   const [now, setNow] = useState(getCurrentMinutes);
   const nowPct = ((now - DS) / DT) * 100;
 
@@ -71,6 +78,18 @@ export function TimelinePage({
     });
     setDraft({ text: "", startTime: "", endTime: "", cat: CAT.cat1List()[0] as string, mustDo: true });
     setAddOpen(false);
+  };
+  const submitQuickTodo = () => {
+    const text = quickDraft?.text.trim();
+    if (!quickDraft || !text) return;
+    onAddTodo({
+      text,
+      startTime: quickDraft.startTime,
+      endTime: quickDraft.endTime,
+      cat: quickDraft.cat,
+      mustDo: quickDraft.mustDo,
+    });
+    setQuickDraft(null);
   };
 
   return (
@@ -253,7 +272,141 @@ export function TimelinePage({
           })}
         </div>
       </Card>
-      <VerticalTimeline nowPct={nowPct} pendingTodos={pendingTL} doneTodos={doneTL} />
+      <VerticalTimeline
+        nowPct={nowPct}
+        pendingTodos={pendingTL}
+        doneTodos={doneTL}
+        date={CFG.TODAY_STR}
+        onTimeClick={(time) =>
+          setQuickDraft({ text: "", startTime: time, endTime: "", cat: "未分類", mustDo: true })
+        }
+      />
+      {quickDraft && (
+        <Card style={{ padding: 10 }}>
+          <SL>快速新增 {quickDraft.startTime}</SL>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <input
+              value={quickDraft.text}
+              onChange={(e) => setQuickDraft((v) => (v ? { ...v, text: e.target.value } : v))}
+              placeholder="輸入待辦名稱..."
+              autoFocus
+              style={{
+                background: "#15151B",
+                border: `1px solid ${TH.border}`,
+                borderRadius: 8,
+                padding: "8px 10px",
+                color: TH.text,
+                fontSize: 12,
+                outline: "none",
+              }}
+            />
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                type="time"
+                value={quickDraft.startTime}
+                onChange={(e) => setQuickDraft((v) => (v ? { ...v, startTime: e.target.value } : v))}
+                style={{
+                  flex: 1,
+                  background: "#15151B",
+                  border: `1px solid ${TH.border}`,
+                  borderRadius: 8,
+                  padding: "8px 10px",
+                  color: TH.text,
+                  fontSize: 12,
+                  outline: "none",
+                }}
+              />
+              <input
+                type="time"
+                value={quickDraft.endTime}
+                onChange={(e) => setQuickDraft((v) => (v ? { ...v, endTime: e.target.value } : v))}
+                style={{
+                  flex: 1,
+                  background: "#15151B",
+                  border: `1px solid ${TH.border}`,
+                  borderRadius: 8,
+                  padding: "8px 10px",
+                  color: TH.text,
+                  fontSize: 12,
+                  outline: "none",
+                }}
+              />
+            </div>
+            <select
+              value={quickDraft.cat}
+              onChange={(e) => setQuickDraft((v) => (v ? { ...v, cat: e.target.value } : v))}
+              style={{
+                background: "#15151B",
+                border: `1px solid ${TH.border}`,
+                borderRadius: 8,
+                padding: "8px 10px",
+                color: TH.text,
+                fontSize: 12,
+                outline: "none",
+              }}
+            >
+              {CAT.cat1List().map((cat) => (
+                <option key={cat as string} value={cat as string}>
+                  {cat as string}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => setQuickDraft((v) => (v ? { ...v, mustDo: !v.mustDo } : v))}
+              style={{
+                padding: "8px 10px",
+                borderRadius: 10,
+                border: `1px solid ${quickDraft.mustDo ? TH.red : TH.border}`,
+                background: quickDraft.mustDo ? TH.red + "16" : "transparent",
+                color: quickDraft.mustDo ? TH.red : TH.muted,
+                fontSize: 12,
+                fontWeight: 800,
+                cursor: "pointer",
+              }}
+            >
+              {quickDraft.mustDo ? "🔴 必做" : "⚪ 非必做"}
+            </button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                className="flowlife-pressable"
+                type="button"
+                onClick={submitQuickTodo}
+                disabled={!quickDraft.text.trim()}
+                style={{
+                  flex: 1,
+                  padding: "9px 10px",
+                  borderRadius: 10,
+                  border: "none",
+                  background: quickDraft.text.trim() ? TH.accent : "#374151",
+                  color: quickDraft.text.trim() ? "#fff" : "#6B7280",
+                  fontSize: 12,
+                  fontWeight: 900,
+                  cursor: quickDraft.text.trim() ? "pointer" : "not-allowed",
+                }}
+              >
+                新增待辦
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuickDraft(null)}
+                style={{
+                  padding: "9px 12px",
+                  borderRadius: 10,
+                  border: `1px solid ${TH.border}`,
+                  background: "transparent",
+                  color: TH.muted,
+                  fontSize: 12,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </Card>
+      )}
     </div>
   );
 }

@@ -172,6 +172,7 @@ function AppContent() {
         onStart={handleStart}
         onEnd={handleEnd}
         onToggleDone={handleToggleDone}
+        onAddTodo={addTodo}
         onBack={pop}
       />
     ),
