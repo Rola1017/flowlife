@@ -11,6 +11,12 @@ type TodoOverlay = {
   endAt?: string;
 };
 
+type DoneTodoMarker = {
+  todo: TodoOverlay;
+  doneEndTime: string;
+  top: number;
+};
+
 export function VerticalTimeline({
   nowPct,
   showNowLine = true,
@@ -35,6 +41,22 @@ export function VerticalTimeline({
     const top = pctPos(endTime);
     return top >= 0 && top <= 100 ? { endTime, top } : null;
   };
+  const doneTodoGroups = (doneTodos ?? []).reduce<{ top: number; items: DoneTodoMarker[] }[]>((groups, todo) => {
+    const doneTime = getVisibleDoneTime(todo);
+    if (!doneTime) return groups;
+
+    const group = groups.find((g) => Math.abs(g.top - doneTime.top) < 3);
+    const marker = {
+      todo,
+      doneEndTime: doneTime.endTime,
+      top: doneTime.top,
+    };
+
+    if (group) group.items.push(marker);
+    else groups.push({ top: doneTime.top, items: [marker] });
+
+    return groups;
+  }, []);
 
   return (
     <div style={{ display: "flex" }}>
@@ -206,51 +228,47 @@ export function VerticalTimeline({
           );
         })}
 
-        {doneTodos?.map((todo) => {
-          const doneTime = getVisibleDoneTime(todo);
-          if (!doneTime) return null;
+        {doneTodoGroups.map((group, groupIndex) => {
           return (
             <div
-              key={`tdd-${todo.id}`}
+              key={`tdd-group-${groupIndex}-${group.top}`}
               style={{
                 position: "absolute",
-                top: `${doneTime.top}%`,
-                height: "auto",
+                top: `${group.top}%`,
                 left: "65%",
                 transform: "translateX(-50%)",
-                width: "fit-content",
-                maxWidth: "44%",
                 zIndex: 6,
                 display: "flex",
-                flexDirection: "column",
-                overflow: "hidden",
+                flexDirection: "row",
+                gap: 0,
                 pointerEvents: "none",
               }}
             >
-              <div
-                style={{
-                  border: "1px solid #3A3A45",
-                  borderRadius: 4,
-                  padding: "2px 6px",
-                  background: "rgba(15,15,18,0.88)",
-                  marginLeft: 2,
-                  marginRight: 2,
-                }}
-              >
+              {group.items.map((marker) => (
                 <div
+                  key={`tdd-${marker.todo.id}`}
                   style={{
-                    fontSize: 8,
-                    color: "#6B7280",
-                    fontWeight: 800,
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
+                    border: "1px solid #3A3A45",
+                    borderRadius: 4,
+                    padding: "2px 6px",
+                    background: "rgba(15,15,18,0.88)",
                   }}
                 >
-                  {todo.text}
+                  <div
+                    style={{
+                      fontSize: 8,
+                      color: "#6B7280",
+                      fontWeight: 800,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {marker.todo.text}
+                  </div>
+                  <div style={{ fontSize: 7, color: "#4B5563" }}>{marker.doneEndTime}</div>
                 </div>
-                <div style={{ fontSize: 7, color: "#4B5563" }}>{doneTime.endTime}</div>
-              </div>
+              ))}
             </div>
           );
         })}
