@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, type ReactNode } from "react";
+import { Component, useState, useEffect, useRef, type ErrorInfo, type ReactNode } from "react";
 import { TH } from "@/lib/theme";
 import { MOCK } from "@/lib/mock";
 import { TABS } from "@/lib/tabs";
@@ -21,7 +21,57 @@ const DEFAULT_COINS = 1240;
 const DEFAULT_RATINGS = { focused: 0, neutral: 0, distracted: 0 };
 const DEFAULT_IDLE_TOTAL_SECS = 0;
 
+class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("FlowLife crashed:", error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div
+          style={{
+            background: TH.bg,
+            color: TH.text,
+            fontFamily: "-apple-system,'Noto Sans TC',sans-serif",
+            maxWidth: 430,
+            margin: "0 auto",
+            minHeight: "100vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+            textAlign: "center",
+          }}
+        >
+          <Card>
+            <div style={{ fontSize: 28, marginBottom: 10 }}>⚠️</div>
+            <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 6 }}>出了點問題，請重新整理</div>
+            <div style={{ color: TH.muted, fontSize: 12 }}>資料仍保存在本機，重新整理後會重新載入。</div>
+          </Card>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 export function App() {
+  return (
+    <ErrorBoundary>
+      <AppContent />
+    </ErrorBoundary>
+  );
+}
+
+function AppContent() {
   const [tab, setTab] = useState("home");
   const [subPage, setSubPage] = useState<{ type: string; props?: Record<string, unknown> } | null>(null);
   const [quote, setQuote] = useState("每一顆番茄鐘，都是打下江山的一刀。");
