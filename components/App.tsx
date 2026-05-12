@@ -15,9 +15,9 @@ import { DayViewPage } from "@/components/calendar/DayViewPage";
 import { SchedulePage } from "@/components/schedule/SchedulePage";
 import { SettingsPage } from "@/components/settings/SettingsPage";
 import { ShopPage } from "@/components/shop/ShopPage";
+import { useCoins } from "@/components/useCoins";
 import { useTodos } from "@/components/todo/useTodos";
 
-const DEFAULT_COINS = 1240;
 const DEFAULT_RATINGS = { focused: 0, neutral: 0, distracted: 0 };
 const DEFAULT_IDLE_TOTAL_SECS = 0;
 
@@ -75,7 +75,7 @@ function AppContent() {
   const [tab, setTab] = useState("home");
   const [subPage, setSubPage] = useState<{ type: string; props?: Record<string, unknown> } | null>(null);
   const [quote, setQuote] = useState("每一顆番茄鐘，都是打下江山的一刀。");
-  const [coins, setCoins] = useState(DEFAULT_COINS);
+  const { coins, setCoins, resetCoins, spendCoins } = useCoins();
   const [focused, setFocused] = useState(DEFAULT_RATINGS.focused);
   const [neutral, setNeutral] = useState(DEFAULT_RATINGS.neutral);
   const [distracted, setDistracted] = useState(DEFAULT_RATINGS.distracted);
@@ -89,7 +89,6 @@ function AppContent() {
   const { todos, handleStart, handleEnd, handleToggleDone, resetTodos } = useTodos(MOCK.initTodos);
 
   useEffect(() => {
-    setCoins(loadNumber(LS_KEYS.coins, DEFAULT_COINS));
     const r = loadJSON<Partial<typeof DEFAULT_RATINGS>>(LS_KEYS.ratingCounts, {});
     setFocused(typeof r.focused === "number" ? r.focused : DEFAULT_RATINGS.focused);
     setNeutral(typeof r.neutral === "number" ? r.neutral : DEFAULT_RATINGS.neutral);
@@ -97,11 +96,6 @@ function AppContent() {
     setIdleTotalSecs(loadNumber(LS_KEYS.idleTotalSecs, DEFAULT_IDLE_TOTAL_SECS));
     setLsReady(true);
   }, []);
-
-  useEffect(() => {
-    if (!lsReady) return;
-    saveNumber(LS_KEYS.coins, coins);
-  }, [coins, lsReady]);
 
   useEffect(() => {
     if (!lsReady) return;
@@ -145,7 +139,7 @@ function AppContent() {
 
   const handleResetAllData = () => {
     clearFlowLifeStorage();
-    setCoins(DEFAULT_COINS);
+    resetCoins();
     setFocused(DEFAULT_RATINGS.focused);
     setNeutral(DEFAULT_RATINGS.neutral);
     setDistracted(DEFAULT_RATINGS.distracted);
@@ -168,7 +162,7 @@ function AppContent() {
   const SUB_PAGE_MAP: Record<string, (props?: Record<string, unknown>) => ReactNode> = {
     schedule: () => <SchedulePage onBack={pop} />,
     settings: () => <SettingsPage onBack={pop} onResetAllData={handleResetAllData} />,
-    shop: () => <ShopPage coins={coins} onSpend={(n) => setCoins((c) => c - n)} onBack={pop} />,
+    shop: () => <ShopPage coins={coins} onSpend={spendCoins} onBack={pop} />,
     dayView: (props = {}) => (
       <DayViewPage
         date={props.date as string}
