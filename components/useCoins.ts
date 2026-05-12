@@ -3,7 +3,7 @@
 import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { LS_KEYS, loadNumber, saveNumber } from "@/lib/storage";
 
-export const DEFAULT_COINS = 1240;
+export const DEFAULT_COINS = 0;
 
 export function useCoins() {
   const [coins, setCoins] = useState(DEFAULT_COINS);

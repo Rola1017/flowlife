@@ -3,6 +3,12 @@
 import { useState } from "react";
 import { TH } from "@/lib/theme";
 
+const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
+
+function formatTodayLabel(date = new Date()) {
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 週${WEEKDAYS[date.getDay()]}`;
+}
+
 export function Header({
   quote,
   setQuote,
@@ -14,6 +20,7 @@ export function Header({
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(quote);
+  const todayLabel = formatTodayLabel();
   return (
     <div
       style={{
@@ -39,7 +46,7 @@ export function Header({
           >
             FlowLife
           </div>
-          <div style={{ fontSize: 10, color: TH.muted, marginTop: 1 }}>2026年5月2日 週六</div>
+          <div style={{ fontSize: 10, color: TH.muted, marginTop: 1 }}>{todayLabel}</div>
         </div>
         <button
           type="button"

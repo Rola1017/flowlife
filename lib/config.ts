@@ -1,6 +1,6 @@
 export const CFG = {
-  TODAY_STR: "2026-05-02",
-  TODAY: new Date(2026, 4, 2),
+  TODAY_STR: new Date().toISOString().slice(0, 10),
+  TODAY: new Date(),
   DAY_START: "06:30",
   DAY_END: "22:40",
   END_CONFIRM: 2000,
