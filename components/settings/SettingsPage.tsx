@@ -32,6 +32,7 @@ export function SettingsPage({ onBack, onResetAllData }: { onBack: () => void; o
 
         {!confirming ? (
           <button
+            className="flowlife-pressable"
             type="button"
             onClick={() => setConfirming(true)}
             style={{
@@ -44,6 +45,7 @@ export function SettingsPage({ onBack, onResetAllData }: { onBack: () => void; o
               fontSize: 13,
               fontWeight: 900,
               cursor: "pointer",
+              transition: "transform .12s, filter .12s",
             }}
           >
             重置所有資料
@@ -54,6 +56,7 @@ export function SettingsPage({ onBack, onResetAllData }: { onBack: () => void; o
               請再次確認：真的要刪除所有本機資料？
             </div>
             <button
+              className="flowlife-pressable"
               type="button"
               onClick={onResetAllData}
               style={{
@@ -66,6 +69,7 @@ export function SettingsPage({ onBack, onResetAllData }: { onBack: () => void; o
                 fontSize: 13,
                 fontWeight: 900,
                 cursor: "pointer",
+                transition: "transform .12s, filter .12s",
               }}
             >
               確認重置，清空所有資料
@@ -90,6 +94,7 @@ export function SettingsPage({ onBack, onResetAllData }: { onBack: () => void; o
           </div>
         )}
       </Card>
+      <div style={{ fontSize: 9, color: TH.muted, textAlign: "center" }}>版本 v1.0.0 · FlowLife</div>
     </div>
   );
 }

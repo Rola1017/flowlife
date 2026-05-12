@@ -24,3 +24,12 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.flowlife-pressable {
+  transform-origin: center;
+}
+
+.flowlife-pressable:active:not(:disabled) {
+  transform: scale(0.95);
+  filter: brightness(0.78);
+}

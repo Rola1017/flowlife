@@ -12,12 +12,18 @@ export function ShopPage({
   onBack,
 }: {
   coins: number;
-  onSpend: (n: number) => void;
+  onSpend: (n: number) => boolean;
   onBack: () => void;
 }) {
   const [items, setItems] = useState(MOCK.shopItems);
   const [addOpen, setAddOpen] = useState(false);
   const [draft, setDraft] = useState({ name: "", price: "", desc: "" });
+  const [notice, setNotice] = useState("");
+
+  const showNotice = (message: string) => {
+    setNotice(message);
+    window.setTimeout(() => setNotice(""), 1800);
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -28,6 +34,22 @@ export function ShopPage({
           <span style={{ fontSize: 18, fontWeight: 900, color: TH.gold }}>{coins.toLocaleString()}</span>
         </div>
       </div>
+      {notice && (
+        <div
+          style={{
+            border: `1px solid ${TH.red}55`,
+            background: TH.red + "14",
+            color: TH.red,
+            borderRadius: 10,
+            padding: "8px 10px",
+            fontSize: 12,
+            fontWeight: 800,
+            textAlign: "center",
+          }}
+        >
+          {notice}
+        </div>
+      )}
       <button
         type="button"
         onClick={() => setAddOpen(!addOpen)}
@@ -134,10 +156,10 @@ export function ShopPage({
               <span style={{ fontSize: 17, fontWeight: 900, color: TH.gold }}>{item.price}</span>
             </div>
             <button
+              className="flowlife-pressable"
               type="button"
               onClick={() => {
-                if (coins >= item.price) onSpend(item.price);
-                else alert("金幣不足！");
+                if (!onSpend(item.price)) showNotice("金幣不足");
               }}
               style={{
                 padding: "6px 16px",
@@ -149,6 +171,7 @@ export function ShopPage({
                 fontSize: 11,
                 fontWeight: 800,
                 cursor: "pointer",
+                transition: "transform .12s, filter .12s",
               }}
             >
               {coins >= item.price ? "兌換" : "金幣不足"}

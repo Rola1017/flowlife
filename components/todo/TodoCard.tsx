@@ -150,6 +150,7 @@ export function TodoCard({
       </div>
       <div style={{ display: "flex", gap: 8 }}>
         <button
+          className="flowlife-pressable"
           type="button"
           onClick={() => onStart(id)}
           style={{
@@ -162,12 +163,13 @@ export function TodoCard({
             border: `2px solid ${isStarted ? TH.green : "#4B5563"}`,
             background: isStarted ? TH.green + "1A" : "#1C1C24",
             color: isStarted ? TH.green : "#6B7280",
-            transition: "all .2s",
+            transition: "all .2s, transform .12s, filter .12s",
           }}
         >
           {isStarted ? "▶ 進行中（取消）" : "▶ 開始"}
         </button>
         <button
+          className="flowlife-pressable"
           type="button"
           onClick={() => onEnd(id)}
           style={{
@@ -182,7 +184,7 @@ export function TodoCard({
             color: isEnding ? TH.red : TH.accent,
             position: "relative",
             overflow: "hidden",
-            transition: "border-color .2s,color .2s",
+            transition: "border-color .2s,color .2s,transform .12s,filter .12s",
           }}
         >
           {isEnding && (

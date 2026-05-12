@@ -65,7 +65,9 @@ export function HomePage({
       <Card>
         <SL>🔴 今日必做</SL>
         {mustDo.length === 0 && (
-          <div style={{ fontSize: 11, color: TH.muted, textAlign: "center", padding: 8 }}>🎉 必做全部完成！</div>
+          <div style={{ fontSize: 11, color: TH.muted, textAlign: "center", padding: 8 }}>
+            🎉 今日必做已全部完成！
+          </div>
         )}
         {(["早", "午", "晚"] as const).map((p) => {
           const items = grouped[p];

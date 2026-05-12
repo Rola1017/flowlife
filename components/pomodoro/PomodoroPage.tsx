@@ -13,6 +13,13 @@ import { usePomodoro } from "@/components/pomodoro/usePomodoro";
 import { WeekHeat } from "@/components/charts/WeekHeat";
 import { LineChart } from "@/components/charts/LineChart";
 
+const COIN_CRACKERS = Array.from({ length: 16 }, (_, idx) => ({
+  id: idx + 1,
+  animationName: `flowlifeCoinCracker${(idx % 4) + 1}`,
+  delayMs: 750 + idx * 30,
+  fontSize: idx % 4 < 2 ? 28 : 26,
+}));
+
 export function PomodoroPage({
   coins,
   setCoins,
@@ -217,310 +224,26 @@ export function PomodoroPage({
           </span>
         </div>
       )}
-      {rewardFx && (
-        <div
-          key={`coin-cracker-1-${rewardFx.id}`}
-          style={{
-            position: "absolute",
-            top: 286,
-            left: "50%",
-            color: TH.gold,
-            fontSize: 28,
-            fontWeight: 900,
-            textShadow: "0 0 10px rgba(251,191,36,0.35)",
-            zIndex: 21,
-            pointerEvents: "none",
-            animation: "flowlifeCoinCracker1 1400ms cubic-bezier(.2,.7,.1,1) 750ms both",
-          }}
-        >
-          🪙
-        </div>
-      )}
-      {rewardFx && (
-        <div
-          key={`coin-cracker-2-${rewardFx.id}`}
-          style={{
-            position: "absolute",
-            top: 286,
-            left: "50%",
-            color: TH.gold,
-            fontSize: 28,
-            fontWeight: 900,
-            textShadow: "0 0 10px rgba(251,191,36,0.35)",
-            zIndex: 21,
-            pointerEvents: "none",
-            animation: "flowlifeCoinCracker2 1400ms cubic-bezier(.2,.7,.1,1) 780ms both",
-          }}
-        >
-          🪙
-        </div>
-      )}
-      {rewardFx && (
-        <div
-          key={`coin-cracker-3-${rewardFx.id}`}
-          style={{
-            position: "absolute",
-            top: 286,
-            left: "50%",
-            color: TH.gold,
-            fontSize: 26,
-            fontWeight: 900,
-            textShadow: "0 0 10px rgba(251,191,36,0.35)",
-            zIndex: 21,
-            pointerEvents: "none",
-            animation: "flowlifeCoinCracker3 1400ms cubic-bezier(.2,.7,.1,1) 810ms both",
-          }}
-        >
-          🪙
-        </div>
-      )}
-      {rewardFx && (
-        <div
-          key={`coin-cracker-4-${rewardFx.id}`}
-          style={{
-            position: "absolute",
-            top: 286,
-            left: "50%",
-            color: TH.gold,
-            fontSize: 26,
-            fontWeight: 900,
-            textShadow: "0 0 10px rgba(251,191,36,0.35)",
-            zIndex: 21,
-            pointerEvents: "none",
-            animation: "flowlifeCoinCracker4 1400ms cubic-bezier(.2,.7,.1,1) 840ms both",
-          }}
-        >
-          🪙
-        </div>
-      )}
-      {rewardFx && (
-        <div
-          key={`coin-cracker-5-${rewardFx.id}`}
-          style={{
-            position: "absolute",
-            top: 286,
-            left: "50%",
-            color: TH.gold,
-            fontSize: 28,
-            fontWeight: 900,
-            textShadow: "0 0 10px rgba(251,191,36,0.35)",
-            zIndex: 21,
-            pointerEvents: "none",
-            animation: "flowlifeCoinCracker1 1400ms cubic-bezier(.2,.7,.1,1) 870ms both",
-          }}
-        >
-          🪙
-        </div>
-      )}
-      {rewardFx && (
-        <div
-          key={`coin-cracker-6-${rewardFx.id}`}
-          style={{
-            position: "absolute",
-            top: 286,
-            left: "50%",
-            color: TH.gold,
-            fontSize: 28,
-            fontWeight: 900,
-            textShadow: "0 0 10px rgba(251,191,36,0.35)",
-            zIndex: 21,
-            pointerEvents: "none",
-            animation: "flowlifeCoinCracker2 1400ms cubic-bezier(.2,.7,.1,1) 900ms both",
-          }}
-        >
-          🪙
-        </div>
-      )}
-      {rewardFx && (
-        <div
-          key={`coin-cracker-7-${rewardFx.id}`}
-          style={{
-            position: "absolute",
-            top: 286,
-            left: "50%",
-            color: TH.gold,
-            fontSize: 26,
-            fontWeight: 900,
-            textShadow: "0 0 10px rgba(251,191,36,0.35)",
-            zIndex: 21,
-            pointerEvents: "none",
-            animation: "flowlifeCoinCracker3 1400ms cubic-bezier(.2,.7,.1,1) 930ms both",
-          }}
-        >
-          🪙
-        </div>
-      )}
-      {rewardFx && (
-        <div
-          key={`coin-cracker-8-${rewardFx.id}`}
-          style={{
-            position: "absolute",
-            top: 286,
-            left: "50%",
-            color: TH.gold,
-            fontSize: 26,
-            fontWeight: 900,
-            textShadow: "0 0 10px rgba(251,191,36,0.35)",
-            zIndex: 21,
-            pointerEvents: "none",
-            animation: "flowlifeCoinCracker4 1400ms cubic-bezier(.2,.7,.1,1) 960ms both",
-          }}
-        >
-          🪙
-        </div>
-      )}
-      {rewardFx && (
-        <div
-          key={`coin-cracker-9-${rewardFx.id}`}
-          style={{
-            position: "absolute",
-            top: 286,
-            left: "50%",
-            color: TH.gold,
-            fontSize: 28,
-            fontWeight: 900,
-            textShadow: "0 0 10px rgba(251,191,36,0.35)",
-            zIndex: 21,
-            pointerEvents: "none",
-            animation: "flowlifeCoinCracker1 1400ms cubic-bezier(.2,.7,.1,1) 990ms both",
-          }}
-        >
-          🪙
-        </div>
-      )}
-      {rewardFx && (
-        <div
-          key={`coin-cracker-10-${rewardFx.id}`}
-          style={{
-            position: "absolute",
-            top: 286,
-            left: "50%",
-            color: TH.gold,
-            fontSize: 28,
-            fontWeight: 900,
-            textShadow: "0 0 10px rgba(251,191,36,0.35)",
-            zIndex: 21,
-            pointerEvents: "none",
-            animation: "flowlifeCoinCracker2 1400ms cubic-bezier(.2,.7,.1,1) 1020ms both",
-          }}
-        >
-          🪙
-        </div>
-      )}
-      {rewardFx && (
-        <div
-          key={`coin-cracker-11-${rewardFx.id}`}
-          style={{
-            position: "absolute",
-            top: 286,
-            left: "50%",
-            color: TH.gold,
-            fontSize: 26,
-            fontWeight: 900,
-            textShadow: "0 0 10px rgba(251,191,36,0.35)",
-            zIndex: 21,
-            pointerEvents: "none",
-            animation: "flowlifeCoinCracker3 1400ms cubic-bezier(.2,.7,.1,1) 1050ms both",
-          }}
-        >
-          🪙
-        </div>
-      )}
-      {rewardFx && (
-        <div
-          key={`coin-cracker-12-${rewardFx.id}`}
-          style={{
-            position: "absolute",
-            top: 286,
-            left: "50%",
-            color: TH.gold,
-            fontSize: 26,
-            fontWeight: 900,
-            textShadow: "0 0 10px rgba(251,191,36,0.35)",
-            zIndex: 21,
-            pointerEvents: "none",
-            animation: "flowlifeCoinCracker4 1400ms cubic-bezier(.2,.7,.1,1) 1080ms both",
-          }}
-        >
-          🪙
-        </div>
-      )}
-      {rewardFx && (
-        <div
-          key={`coin-cracker-13-${rewardFx.id}`}
-          style={{
-            position: "absolute",
-            top: 286,
-            left: "50%",
-            color: TH.gold,
-            fontSize: 28,
-            fontWeight: 900,
-            textShadow: "0 0 10px rgba(251,191,36,0.35)",
-            zIndex: 21,
-            pointerEvents: "none",
-            animation: "flowlifeCoinCracker1 1400ms cubic-bezier(.2,.7,.1,1) 1110ms both",
-          }}
-        >
-          🪙
-        </div>
-      )}
-      {rewardFx && (
-        <div
-          key={`coin-cracker-14-${rewardFx.id}`}
-          style={{
-            position: "absolute",
-            top: 286,
-            left: "50%",
-            color: TH.gold,
-            fontSize: 28,
-            fontWeight: 900,
-            textShadow: "0 0 10px rgba(251,191,36,0.35)",
-            zIndex: 21,
-            pointerEvents: "none",
-            animation: "flowlifeCoinCracker2 1400ms cubic-bezier(.2,.7,.1,1) 1140ms both",
-          }}
-        >
-          🪙
-        </div>
-      )}
-      {rewardFx && (
-        <div
-          key={`coin-cracker-15-${rewardFx.id}`}
-          style={{
-            position: "absolute",
-            top: 286,
-            left: "50%",
-            color: TH.gold,
-            fontSize: 26,
-            fontWeight: 900,
-            textShadow: "0 0 10px rgba(251,191,36,0.35)",
-            zIndex: 21,
-            pointerEvents: "none",
-            animation: "flowlifeCoinCracker3 1400ms cubic-bezier(.2,.7,.1,1) 1170ms both",
-          }}
-        >
-          🪙
-        </div>
-      )}
-      {rewardFx && (
-        <div
-          key={`coin-cracker-16-${rewardFx.id}`}
-          style={{
-            position: "absolute",
-            top: 286,
-            left: "50%",
-            color: TH.gold,
-            fontSize: 26,
-            fontWeight: 900,
-            textShadow: "0 0 10px rgba(251,191,36,0.35)",
-            zIndex: 21,
-            pointerEvents: "none",
-            animation: "flowlifeCoinCracker4 1400ms cubic-bezier(.2,.7,.1,1) 1200ms both",
-          }}
-        >
-          🪙
-        </div>
-      )}
+      {rewardFx &&
+        COIN_CRACKERS.map((coin) => (
+          <div
+            key={`coin-cracker-${coin.id}-${rewardFx.id}`}
+            style={{
+              position: "absolute",
+              top: 286,
+              left: "50%",
+              color: TH.gold,
+              fontSize: coin.fontSize,
+              fontWeight: 900,
+              textShadow: "0 0 10px rgba(251,191,36,0.35)",
+              zIndex: 21,
+              pointerEvents: "none",
+              animation: `${coin.animationName} 1400ms cubic-bezier(.2,.7,.1,1) ${coin.delayMs}ms both`,
+            }}
+          >
+            🪙
+          </div>
+        ))}
       <div style={{ display: "flex", gap: 6 }}>
         {CFG.POMO_DURATIONS.map((d) => (
           <button
@@ -638,6 +361,7 @@ export function PomodoroPage({
       )}
       {mode !== "focus" && !(showRating && !rated) && (
         <button
+          className="flowlife-pressable"
           type="button"
           onClick={startFocus}
           disabled={!canStart}
@@ -650,7 +374,7 @@ export function PomodoroPage({
             fontSize: 15,
             fontWeight: 800,
             cursor: canStart ? "pointer" : "not-allowed",
-            transition: "all .2s",
+            transition: "all .2s, transform .12s, filter .12s",
           }}
         >
           {canStart ? "開始專注 🍅" : "請先選擇大分類"}
@@ -660,6 +384,7 @@ export function PomodoroPage({
         <div style={{ display: "flex", gap: 8 }}>
           {canShowRestBtn && (
             <button
+              className="flowlife-pressable"
               type="button"
               onClick={endFocus}
               style={{
@@ -671,12 +396,14 @@ export function PomodoroPage({
                 fontSize: 12,
                 fontWeight: 800,
                 cursor: "pointer",
+                transition: "transform .12s, filter .12s",
               }}
             >
               休息
             </button>
           )}
           <button
+            className="flowlife-pressable"
             type="button"
             onClick={abandonFocus}
             style={{
@@ -688,6 +415,7 @@ export function PomodoroPage({
               fontSize: 11,
               fontWeight: 700,
               cursor: "pointer",
+              transition: "transform .12s, filter .12s",
             }}
           >
             放棄

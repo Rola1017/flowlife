@@ -179,26 +179,6 @@ function AppContent() {
   const MAIN_PAGE_MAP: Record<string, () => ReactNode> = {
     home: () => <HomePage {...todoProps} />,
     timeline: () => <TimelinePage {...todoProps} />,
-    pomodoro: () => (
-      <PomodoroPage
-        coins={coins}
-        setCoins={setCoins}
-        onShowShop={() => push("shop")}
-        focused={focused}
-        setFocused={setFocused}
-        neutral={neutral}
-        setNeutral={setNeutral}
-        distracted={distracted}
-        setDistracted={setDistracted}
-        idleTrackStart={idleTrackStart}
-        setIdleTrackStart={setIdleTrackStart}
-        idleTotalSecs={idleTotalSecs}
-        setIdleTotalSecs={setIdleTotalSecs}
-        restEndAt={restEndAt}
-        setRestEndAt={setRestEndAt}
-        resetVersion={resetVersion}
-      />
-    ),
     calendar: () => (
       <CalendarPage
         todos={todos}
@@ -218,6 +198,27 @@ function AppContent() {
     ),
   };
 
+  const pomodoroPage = (
+    <PomodoroPage
+      coins={coins}
+      setCoins={setCoins}
+      onShowShop={() => push("shop")}
+      focused={focused}
+      setFocused={setFocused}
+      neutral={neutral}
+      setNeutral={setNeutral}
+      distracted={distracted}
+      setDistracted={setDistracted}
+      idleTrackStart={idleTrackStart}
+      setIdleTrackStart={setIdleTrackStart}
+      idleTotalSecs={idleTotalSecs}
+      setIdleTotalSecs={setIdleTotalSecs}
+      restEndAt={restEndAt}
+      setRestEndAt={setRestEndAt}
+      resetVersion={resetVersion}
+    />
+  );
+
   return (
     <div
       style={{
@@ -233,7 +234,9 @@ function AppContent() {
     >
       <Header quote={quote} setQuote={setQuote} onShowSettings={() => push("settings")} />
       <div style={{ flex: 1, overflowY: "auto", padding: 14, paddingBottom: 90 }}>
-        {subPage ? SUB_PAGE_MAP[subPage.type]?.(subPage.props) : MAIN_PAGE_MAP[tab]?.()}
+        <div style={{ display: !subPage && tab === "pomodoro" ? "block" : "none" }}>{pomodoroPage}</div>
+        {(subPage || tab !== "pomodoro") &&
+          (subPage ? SUB_PAGE_MAP[subPage.type]?.(subPage.props) : MAIN_PAGE_MAP[tab]?.())}
       </div>
       <nav
         style={{
