@@ -17,6 +17,7 @@ import { SettingsPage } from "@/components/settings/SettingsPage";
 import { ShopPage } from "@/components/shop/ShopPage";
 import { useCoins } from "@/components/useCoins";
 import { useTodos } from "@/components/todo/useTodos";
+import { TodoEditSheet } from "@/components/todo/TodoEditSheet";
 
 const DEFAULT_RATINGS = { focused: 0, neutral: 0, distracted: 0 };
 const DEFAULT_IDLE_TOTAL_SECS = 0;
@@ -86,7 +87,14 @@ function AppContent() {
   const [resetVersion, setResetVersion] = useState(0);
   const lastAutoIdleKeyRef = useRef<string>("");
 
-  const { todos, handleStart, handleEnd, handleToggleDone, addTodo, resetTodos } = useTodos(MOCK.initTodos);
+  const { todos, handleStart, handleEnd, handleToggleDone, addTodo, updateTodo, resetTodos } = useTodos(MOCK.initTodos);
+
+  const [editTodoId, setEditTodoId] = useState<number | null>(null);
+  const editingTodo = editTodoId == null ? null : todos.find((x) => x.id === editTodoId);
+
+  useEffect(() => {
+    if (editTodoId != null && !todos.some((t) => t.id === editTodoId)) setEditTodoId(null);
+  }, [todos, editTodoId]);
 
   useEffect(() => {
     const r = loadJSON<Partial<typeof DEFAULT_RATINGS>>(LS_KEYS.ratingCounts, {});
@@ -150,6 +158,7 @@ function AppContent() {
     setResetVersion((v) => v + 1);
     setTab("home");
     setSubPage(null);
+    setEditTodoId(null);
   };
 
   const todoProps = {
@@ -158,6 +167,7 @@ function AppContent() {
     onEnd: handleEnd,
     onToggleDone: handleToggleDone,
     onAddTodo: addTodo,
+    onEditTodo: (id: number) => setEditTodoId(id),
   };
 
   const SUB_PAGE_MAP: Record<string, (props?: Record<string, unknown>) => ReactNode> = {
@@ -173,6 +183,7 @@ function AppContent() {
         onEnd={handleEnd}
         onToggleDone={handleToggleDone}
         onAddTodo={addTodo}
+        onEditTodo={todoProps.onEditTodo}
         onBack={pop}
       />
     ),
@@ -285,6 +296,17 @@ function AppContent() {
           </button>
         ))}
       </nav>
+      {editingTodo && (
+        <TodoEditSheet
+          key={editTodoId}
+          todo={editingTodo}
+          onClose={() => setEditTodoId(null)}
+          onSave={(id, patch) => {
+            updateTodo(id, patch);
+            setEditTodoId(null);
+          }}
+        />
+      )}
     </div>
   );
 }

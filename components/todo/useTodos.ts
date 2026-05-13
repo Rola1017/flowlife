@@ -121,6 +121,10 @@ export function useTodos(initial: Record<string, unknown>[]) {
     setTodos((ts) => [...ts, makeTodo({ ...raw, id: Date.now() })]);
   }, []);
 
+  const updateTodo = useCallback((id: number, patch: Record<string, unknown>) => {
+    setTodos((ts) => ts.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+  }, []);
+
   const deleteTodo = useCallback((id: number) => {
     setTodos((ts) => ts.filter((t) => t.id !== id));
   }, []);
@@ -129,5 +133,5 @@ export function useTodos(initial: Record<string, unknown>[]) {
     setTodos(initial.map(makeTodo));
   }, [initial]);
 
-  return { todos, handleStart, handleEnd, handleToggleDone, addTodo, deleteTodo, resetTodos };
+  return { todos, handleStart, handleEnd, handleToggleDone, addTodo, updateTodo, deleteTodo, resetTodos };
 }

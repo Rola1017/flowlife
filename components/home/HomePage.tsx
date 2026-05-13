@@ -14,11 +14,13 @@ export function HomePage({
   onStart,
   onEnd,
   onToggleDone,
+  onEditTodo,
 }: {
   todos: Record<string, unknown>[];
   onStart: (id: number) => void;
   onEnd: (id: number) => void;
   onToggleDone: (id: number) => void;
+  onEditTodo: (id: number) => void;
 }) {
   const [expandReview, setExpandReview] = useState(false);
   const yTot = MOCK.yesterdayPomos.reduce((s, p) => s + p.mins, 0);
@@ -83,6 +85,7 @@ export function HomePage({
                     onStart={onStart}
                     onEnd={onEnd}
                     onToggleDone={onToggleDone}
+                    onEdit={onEditTodo}
                   />
                 ))}
               </div>

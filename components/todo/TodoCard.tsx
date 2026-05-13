@@ -11,11 +11,13 @@ export function TodoCard({
   onStart,
   onEnd,
   onToggleDone,
+  onEdit,
 }: {
   todo: Record<string, unknown>;
   onStart: (id: number) => void;
   onEnd: (id: number) => void;
   onToggleDone: (id: number) => void;
+  onEdit?: (id: number) => void;
 }) {
   const { id, text, cat, startTime, endTime, mustDo, phase, startAt, startTs } = todo as {
     id: number;
@@ -31,6 +33,7 @@ export function TodoCard({
   const col = CAT_COLOR[cat] || TH.muted;
   const isStarted = phase === "started",
     isEnding = phase === "ending";
+  const canEdit = Boolean(onEdit) && (phase === "pending" || phase === "done");
   const [live, setLive] = useState("00:00");
 
   useEffect(() => {
@@ -54,7 +57,10 @@ export function TodoCard({
       >
         <button
           type="button"
-          onClick={() => onToggleDone(id)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleDone(id);
+          }}
           title="點擊取消完成"
           style={{
             width: 26,
@@ -80,7 +86,26 @@ export function TodoCard({
         >
           <span style={{ fontSize: 12, color: "#fff", pointerEvents: "none" }}>✓</span>
         </button>
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          role={canEdit ? "button" : undefined}
+          tabIndex={canEdit ? 0 : undefined}
+          onClick={() => canEdit && onEdit!(id)}
+          onKeyDown={(e) => {
+            if (!canEdit || !onEdit) return;
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onEdit(id);
+            }
+          }}
+          title={canEdit ? "點擊修改待辦" : undefined}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            cursor: canEdit ? "pointer" : undefined,
+            borderRadius: 8,
+            outline: "none",
+          }}
+        >
           <div style={{ fontSize: 11, fontWeight: 700, color: "#6B7280", textDecoration: "line-through" }}>
             {text}
           </div>
@@ -125,7 +150,26 @@ export function TodoCard({
       }}
     >
       <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 10 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          role={canEdit ? "button" : undefined}
+          tabIndex={canEdit ? 0 : undefined}
+          onClick={() => canEdit && onEdit!(id)}
+          onKeyDown={(e) => {
+            if (!canEdit || !onEdit) return;
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onEdit(id);
+            }
+          }}
+          title={canEdit ? "點擊修改待辦" : undefined}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            cursor: canEdit ? "pointer" : undefined,
+            borderRadius: 8,
+            outline: "none",
+          }}
+        >
           <div style={{ fontSize: 12, fontWeight: 700, color: TH.text, marginBottom: 4 }}>{text}</div>
           <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
             {startTime && (
@@ -153,7 +197,7 @@ export function TodoCard({
           <span style={{ fontSize: 13, fontWeight: 800, color: TH.green, flexShrink: 0 }}>{live}</span>
         )}
       </div>
-      <div style={{ display: "flex", gap: 8 }}>
+      <div style={{ display: "flex", gap: 8 }} onClick={(e) => e.stopPropagation()}>
         <button
           className="flowlife-pressable"
           type="button"

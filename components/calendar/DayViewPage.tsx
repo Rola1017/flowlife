@@ -16,6 +16,7 @@ export function DayViewPage({
   onEnd,
   onToggleDone,
   onAddTodo,
+  onEditTodo,
   onBack,
 }: {
   date: string;
@@ -25,6 +26,7 @@ export function DayViewPage({
   onEnd: (id: number) => void;
   onToggleDone: (id: number) => void;
   onAddTodo: (todo: Record<string, unknown>) => void;
+  onEditTodo: (id: number) => void;
   onBack: () => void;
 }) {
   const [quickDraft, setQuickDraft] = useState<{ time: string; text: string } | null>(null);
@@ -60,7 +62,14 @@ export function DayViewPage({
         <SL>📅 待辦事項</SL>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {dateTodos.map((t) => (
-            <TodoCard key={t.id as number} todo={t} onStart={onStart} onEnd={onEnd} onToggleDone={onToggleDone} />
+            <TodoCard
+              key={t.id as number}
+              todo={t}
+              onStart={onStart}
+              onEnd={onEnd}
+              onToggleDone={onToggleDone}
+              onEdit={onEditTodo}
+            />
           ))}
           {dateTodos.length === 0 && (
             <div style={{ fontSize: 11, color: TH.muted, textAlign: "center", padding: 12 }}>尚無待辦</div>
