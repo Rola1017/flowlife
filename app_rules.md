@@ -1,269 +1,225 @@
-# FlowLife 習慣追蹤 APP — Cursor 專案交接手冊
+# FlowLife 習慣追蹤 APP — 專案規則手冊 v2.0
 
-> **版本**：v13（2026-05-06）  
-> **原型環境**：Claude.ai Artifacts（React JSX 單檔）  
-> **目標環境**：Next.js 14 App Router + TypeScript + Tailwind  
-> **部署目標**：Vercel
+> **版本**：v2.0（2026-05-12）
+> **環境**：Next.js 16 App Router + TypeScript
+> **部署**：Vercel · `https://flowlife-iota.vercel.app`
+> **GitHub**：`https://github.com/Rola1017/flowlife`
+> **localStorage 前綴**：`flowlife_v1_`
 
 ---
 
 ## 一、APP 核心定位
 
-**FlowLife** 是一款個人時間掌控工具，核心理念是：
-
-> 「讓每一分鐘都被看見、被選擇、被記錄。」
-
-不只是番茄鐘，而是一套**從計畫 → 執行 → 覆盤**的完整閉環：
-- 早上：看今天的預定行程 + 必做清單
-- 執行中：番茄鐘計時 + 即時分類
-- 休息後：追蹤未利用時間
-- 晚上：行事曆覆盤 + 金幣獎勵
+FlowLife 是個人時間掌控工具，核心閉環：
+> 計畫（課表）→ 執行（番茄鐘）→ 記錄（待辦）→ 覆盤（行事曆）
 
 ---
 
-## 二、目前已完成的功能模組（v13 原型）
+## 二、現在的檔案結構
 
-### 📱 導航頁籤（6個）
-| 頁籤 | 狀態 | 說明 |
-|------|------|------|
-| 🏠 主頁 | ✅ 完成 | 昨今對戰卡 + 必做清單 + 覆盤方針 |
-| 📅 時段 | ✅ 完成 | 待辦卡片 + 直式行程表（預定/實際雙欄） |
-| 🍅 番茄 | ✅ 完成 | 完整番茄鐘系統（見下方詳述） |
-| 📆 行事曆 | ✅ 完成 | 月曆 + 點日期進入當天詳情頁 |
-| 💪 健康 | 🔲 佔位 | 尚未開發 |
-| 📚 閱讀 | 🔲 佔位 | 尚未開發 |
-
-### 🍅 番茄鐘系統（最核心）
-- **時長選擇**：5分 / 25分 / 60分 / 90分
-- **分類系統**：大 → 中 → 小三層（學習/事業/閱讀/健康/兼差/活動/未分類）
-- **圓環計時器**：專注/休息遞減，未利用時間遞增
-- **休息加時**：+1/3/5/10/20/30分鐘按鈕
-- **未利用時間追蹤**：休息結束未開始下一顆 → 自動計時，灰色圓環 + 紅字橫幅
-- **評分機制**：每顆結束評 😤專心 / 🙂一般 / 😴分心
-- **金幣獎勵**：依時長計算，達里程碑額外獎勵
-- **跨頁面持久**：未利用時間狀態提升至 App 層，切頁面不中斷
-
-### 📅 時段 & 日期詳情頁
-- 直式行程表共用元件 `VerticalTimeline`（時段頁 & 行事曆詳情頁共用）
-- **待辦疊加**：未完成 → PLN預定欄（黃框黃字 + 黃線）；已完成 → ACT實際欄（白底黑字 + 黑線）
-- 有時間段（含開始+結束時間）的待辦會延伸垂直線
-
-### 🗓️ 行事曆
-- 月曆視圖：每天圓環顯示當日專注量
-- 分類篩選：大分類 + 中分類
-- 點擊任意日期 → 進入詳情頁（待辦卡片 + 行程表）
-- 圖表：圓餅圖 / 橫條圖 / 折線趨勢圖
-
-### 📋 週課表（子頁面）
-- 週一～週五固定課程格子
-- 週六/日可切換早班/晚班模式（對應不同可用時段）
-
-### 🏪 金幣商店（子頁面）
-- 顯示可兌換獎勵 + 自訂新增商品
-- 金幣餘額全域共享
-
----
-
-## 三、UI 設計規範
-
-### 色彩系統（全部使用 inline style，不用 Tailwind class）
-```typescript
-const TH = {
-  bg: "#09090B",      // 最深背景
-  card: "#111113",    // 卡片背景
-  border: "#1E1E24",  // 邊框
-  text: "#F4F4F5",    // 主文字
-  muted: "#52525B",   // 次要文字
-  accent: "#F97316",  // 主色（橘）
-  green: "#22C55E",   // 休息 / 完成
-  red: "#EF4444",     // 警示 / 未利用時間
-  yellow: "#F59E0B",  // 待辦 / 提醒
-  gold: "#FBBF24",    // 金幣
-  // + blue / purple / cyan / pink（各分類用）
-};
-```
-
-### 設計原則
-- **暗色系**為主，不使用白色背景頁面
-- **圓角**：卡片 14px，按鈕 20px（膠囊），小元素 8px
-- **字體**：`-apple-system, 'Noto Sans TC', sans-serif`
-- **全部用 inline style**，不依賴 Tailwind（方便未來遷移）
-- 手機寬度優先（maxWidth: 430px，置中）
-- 避免過多標題層級，資訊用小標籤（`SL` 元件）帶過
-
-### 分類顏色規則
-每個大分類有固定主色，中分類有子色，全部集中在 `CATEGORY_TREE` 物件管理，**不要分散在各元件裡 hardcode**。
-
----
-
-## 四、假資料清單（尚未接上資料庫的部分）
-
-以下所有資料目前都是 `MOCK` 物件裡的靜態假資料，**頁面刷新就會消失**：
-
-| 假資料項目 | 變數位置 | 說明 |
-|-----------|---------|------|
-| 今日/昨日番茄鐘紀錄 | `MOCK.todayPomos` / `MOCK.yesterdayPomos` | 含分類、時長、評分 |
-| 預定行程 | `MOCK.schedule.PLN` | 每日固定預定時段 |
-| 實際行程 | `MOCK.schedule.ACT` | 每日實際執行紀錄 |
-| 熱力圖資料 | `MOCK.heat` | 過去7天各時段分類 |
-| 折線趨勢圖 | `MOCK.lineData` | 3天/7天/14天/月/季 |
-| 月曆資料 | `genMonthData()` | 用種子亂數假造，非真實 |
-| 週課表 | `MOCK.weekdaySchedule` | 固定課程安排 |
-| 商店商品 | `MOCK.shopItems` | 可兌換獎勵清單 |
-| 今日待辦 | `MOCK.initTodos` | 初始4筆待辦 |
-| 金幣餘額 | `useState(1240)` | 每次刷新重置 |
-| 日期鎖定 | `CFG.TODAY_STR = "2026-05-02"` | 寫死的今天，非動態 |
-
-**唯一真實運作的狀態**（頁面不刷新時有效）：
-- 番茄鐘倒數計時
-- 未利用時間計時
-- 待辦開始/結束/完成操作
-- 金幣增減（session 內有效）
-
----
-
-## 五、程式架構說明（給 Cursor AI 看）
-
-### 檔案結構（現在是單檔原型）
-```
-habit-tracker-v13.jsx  ← 全部塞在這一個檔案
-```
-
-### 遷移後建議的元件拆分
 ```
 app/
-├── page.tsx                  ← 主框架（Header + Nav + 頁面路由）
-├── layout.tsx                ← 根 Layout
+├── page.tsx              ← "use client" 必須第一行，只有 8 行，引入 App 元件
+├── layout.tsx
+├── globals.css
+
 components/
+├── App.tsx               ← 根元件，管理全域狀態 + 頁面路由（subPage state）
+├── Header.tsx            ← 固定頂部，顯示今天日期（動態）、設定按鈕
+├── useCoins.ts           ← 金幣全域 Hook
+│
 ├── ui/
-│   ├── Card.tsx
+│   ├── Card.tsx          ← 也 re-export SL（export { SL } from "./SL"）
 │   ├── Chip.tsx
-│   └── BackBtn.tsx
+│   ├── BackBtn.tsx
+│   └── SL.tsx            ← 小標籤元件
+│
 ├── charts/
 │   ├── LineChart.tsx
 │   ├── PieChart.tsx
-│   └── CatBars.tsx
+│   ├── CatBars.tsx
+│   ├── TriCharts.tsx
+│   └── WeekHeat.tsx
+│
+├── home/
+│   ├── HomePage.tsx
+│   └── BattleCard.tsx
+│
 ├── pomodoro/
 │   ├── PomodoroPage.tsx
 │   ├── RingTimer.tsx
 │   └── CategorySelector.tsx
+│   └── CatBadge.tsx
+│
 ├── timeline/
-│   ├── TimelinePage.tsx
-│   └── VerticalTimeline.tsx   ← 行程表（含待辦疊加）
+│   ├── TimelinePage.tsx   ← 版面：直式行程表在上，待辦清單在下
+│   └── VerticalTimeline.tsx ← 共用元件，時段頁和行事曆詳情頁都用
+│
 ├── calendar/
 │   ├── CalendarPage.tsx
 │   └── DayViewPage.tsx
+│
 ├── todo/
-│   ├── TodoCard.tsx
-│   └── useTodos.ts            ← 自訂 Hook
+│   ├── TodoCard.tsx       ← phase: pending/started/ending/done，結束有 2 秒防抖
+│   └── useTodos.ts        ← localStorage 持久化，key: flowlife_v1_todos
+│
+├── schedule/
+│   └── SchedulePage.tsx   ← 週課表，可編輯
+│
+├── settings/
+│   └── SettingsPage.tsx   ← 重置資料按鈕，顯示 v1.0.0
+│
 └── shop/
-    └── ShopPage.tsx
+    └── ShopPage.tsx       ← 購買記錄，key: flowlife_v1_purchase_log
+
 lib/
-├── theme.ts                   ← TH 色彩常數
-├── categories.ts              ← CATEGORY_TREE + CAT helpers
-├── config.ts                  ← CFG 設定
-└── utils.ts                   ← fmt / fmtMs / pctPos 等工具函式
+├── theme.ts               ← TH 色彩常數（唯一來源，不要在元件 hardcode）
+├── categories.ts          ← CATEGORY_TREE + CAT helpers
+├── config.ts              ← CFG，TODAY_STR 和 TODAY 都是動態 new Date()
+├── mock.ts                ← MOCK 假資料（PLN/ACT 行程、昨日番茄等）
+├── utils.ts               ← fmt / pctPos / pctH / buildTimelineHours / DS / DE / DT / toM
+├── tabs.ts                ← TABS 導航頁籤設定
+└── storage.ts             ← LS_KEYS 常數 + loadJSON / saveJSON 工具函式
 ```
 
-### 狀態管理現況
-- **全局狀態**（在 App 根層）：`coins`、`focused/neutral/distracted`、`idleTrackStart`、`todos`
-- **頁面狀態**（各頁元件內）：番茄倒數、休息秒數、分類選擇、月份偏移等
-- 目前無 Context / Zustand / Redux，規模夠小可先保持
-- 若待辦需要跨頁操作，`useTodos` Hook 已抽出可直接共用
+---
 
-### 關鍵設計模式
-- **子頁面路由**：用 `subPage` state 模擬，不用 Next.js router（原型方便）→ **遷移後應改為真實路由**
-- **`VerticalTimeline`**：時段頁 & 日期詳情頁共用，傳入 `date` prop 決定顯示哪天的待辦
+## 三、全域狀態（在 App.tsx）
+
+| 狀態 | 說明 | 持久化 |
+|------|------|--------|
+| `coins` / `setCoins` | 金幣餘額 | ✅ localStorage |
+| `focused/neutral/distracted` | 番茄評分計數 | ✅ localStorage |
+| `idleTrackStart` | 未利用時間起始點（timestamp） | ❌ session only |
+| `todos` | 待辦清單（useTodos Hook） | ✅ localStorage |
+| `subPage` | 子頁面路由（schedule/shop/dayView） | ❌ state only |
 
 ---
 
-## 六、Cursor 應該優先知道的事
+## 四、localStorage 鍵值一覽
 
-1. **`"use client"` 必須在 page.tsx 第一行**，否則 App Router 環境報錯
-2. **日期今天是動態的**，`CFG.TODAY_STR` 現在寫死，需要改成 `new Date().toISOString().slice(0,10)`
-3. **所有圖表用純 SVG 手刻**，不用任何圖表庫（recharts/chart.js 都不用），遷移時不需安裝
-4. **待辦的 `phase` 欄位**有四個值：`"pending"` / `"started"` / `"ending"` / `"done"`，結束有 2 秒防抖
-5. **金幣計算有兩套**：按時長的 `COIN_TABLE` + 達里程碑的 `MILESTONES`，別只接一套
-6. **番茄鐘評分**不是只有記錄，它同時更新 Header 的 😤🙂😴 計數器
-7. **`VerticalTimeline` 的 zIndex 層序**：PLN背景(2) → ACT背景(3) → 分隔線(4) → 待辦浮層(6) → 紅線(10)
+所有 key 定義在 `lib/storage.ts` 的 `LS_KEYS`：
+
+| Key | 內容 |
+|-----|------|
+| `flowlife_v1_todos` | 待辦清單陣列 |
+| `flowlife_v1_coins` | 金幣餘額數字 |
+| `flowlife_v1_sessions` | 番茄鐘歷史紀錄 |
+| `flowlife_v1_focused/neutral/distracted` | 評分計數 |
+| `flowlife_v1_purchase_log` | 商店購買記錄 |
+| `flowlife_v1_coin_income_log` | 金幣收入記錄 |
+| `flowlife_v1_daily_override_YYYY-MM-DD` | 當天行程表的個別修改 |
 
 ---
 
-## 七、進入 Cursor 後的優先實作步驟
+## 五、VerticalTimeline 關鍵規格
 
-### Step 1：把假資料接上 localStorage（1-2小時）
-先不用真資料庫，用 `localStorage` 讓資料在刷新後還在。
-優先順序：① 待辦清單 → ② 番茄鐘歷史紀錄 → ③ 金幣餘額
+**高度**：840px（1.5 倍，方便看密集時段）
 
+**欄位劃分**：
+- PLN 預定欄：`left: 4, right: "47%"`
+- ACT 實際欄：`left: "47%", right: 4`
+- 分隔線：`left: "50%"`
+
+**待辦疊加**：
+- 未完成（pendingTodos）→ PLN 欄中心（`left: "35%", transform: translateX(-50%)`），黃框黃字
+- 已完成（doneTodos）→ ACT 欄中心（`left: "65%", transform: translateX(-50%)`），暗色低調
+- 已完成待辦用 `endAt`（實際完成時間）定位，不用 `startTime`
+- 同一時間多個 done todo → flex row 並排，gap: 0
+
+**zIndex 層序**：
+PLN 背景(2) → ACT 背景(3) → 分隔線(4) → 待辦浮層(6) → 紅線(10) → override popup(20)
+
+**點擊功能**：
+- 點擊空白處 → 計算對應時間 → 觸發 `onTimeClick(time)` → 快速新增待辦面板
+- 點擊 PLN 區塊 → 彈出 override popup（可改名稱、分類、時間，只改今天）
+- 點擊 ACT 區塊 → 同上，存入 `act_${item.start}` key
+
+**daily override 邏輯**：
+- key：`flowlife_v1_daily_override_YYYY-MM-DD`
+- 不影響週課表範本，只覆蓋今天的顯示
+
+---
+
+## 六、UI 設計規範
+
+### 色彩系統（從 lib/theme.ts 引入，不要 hardcode）
 ```typescript
-// 範例：useTodos.ts 加上持久化
-useEffect(() => {
-  localStorage.setItem('todos', JSON.stringify(todos));
-}, [todos]);
+TH.bg      = "#09090B"  // 最深背景
+TH.card    = "#111113"  // 卡片
+TH.border  = "#1E1E24"  // 邊框
+TH.text    = "#F4F4F5"  // 主文字
+TH.muted   = "#52525B"  // 次要
+TH.accent  = "#F97316"  // 橘色主色
+TH.green   = "#22C55E"  // 休息/完成
+TH.red     = "#EF4444"  // 警示/未利用時間
+TH.yellow  = "#F59E0B"  // 待辦/提醒
+TH.gold    = "#FBBF24"  // 金幣
 ```
 
-### Step 2：把路由改成真正的 Next.js 路由（2-3小時）
-目前 subPage 是用 state 模擬的假路由，改成真實路由後：
-- 瀏覽器上下頁按鈕才能用
-- 每個頁面有獨立 URL（方便 Vercel 分享）
-- 推薦路由結構：
-  ```
-  /                → 主頁
-  /timeline        → 時段
-  /pomodoro        → 番茄鐘
-  /calendar        → 行事曆
-  /calendar/[date] → 日期詳情頁
-  /shop            → 商店
-  ```
-
-### Step 3：接上 Supabase 資料庫（4-6小時）
-建議用 Supabase（有免費方案 + Next.js 官方支援）。
-
-最小可行資料表：
-```sql
--- 番茄鐘紀錄
-CREATE TABLE pomodoro_sessions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id TEXT,
-  started_at TIMESTAMPTZ,
-  duration_mins INT,
-  cat1 TEXT, cat2 TEXT, cat3 TEXT,
-  task_name TEXT,
-  rating TEXT, -- '😤' | '🙂' | '😴'
-  coins_earned INT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- 待辦事項
-CREATE TABLE todos (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id TEXT,
-  text TEXT,
-  cat TEXT,
-  start_time TEXT,
-  end_time TEXT,
-  must_do BOOLEAN DEFAULT FALSE,
-  date DATE,
-  phase TEXT DEFAULT 'pending',
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-```
+### 原則
+- 全部用 inline style，不用 Tailwind class
+- 手機優先，maxWidth: 430px
+- 暗色系，不用白色背景頁面
+- 圓角：卡片 14px，按鈕 20px，小元素 8px
 
 ---
 
-## 八、快速參考：元件對照表
+## 七、重要注意事項（Cursor 必讀）
 
-| 元件名稱 | 功能 | 重要 props |
-|---------|------|-----------|
-| `PomodoroPage` | 番茄鐘主頁 | `idleTrackStart`, `setIdleTrackStart`（從App傳入） |
-| `VerticalTimeline` | 直式行程表 | `todos`, `date`（決定哪天的待辦） |
-| `DayViewPage` | 行事曆日期詳情 | `date`, `label`, `todos`, `onBack` |
-| `CategorySelector` | 三層分類選擇 | `cat1/cat2/cat3`, `onChange` |
-| `TodoCard` | 待辦卡片 | `todo`, `onStart`, `onEnd`, `onToggleDone` |
-| `useTodos` | 待辦狀態管理 Hook | 回傳 `{todos, handleStart, handleEnd, handleToggleDone}` |
-| `BattleCard` | 昨今對戰卡 | `pomos`, `prevMins`, `prevCount` |
+1. **`SL` 元件**從 `@/components/ui/Card` 引入（Card.tsx 有 re-export），不要從 SL.tsx 直接引
+2. **日期全部動態**：`CFG.TODAY_STR = new Date().toISOString().slice(0,10)`，不要寫死
+3. **金幣有兩套計算**：COIN_TABLE（時長）+ MILESTONES（里程碑），不能只接一套
+4. **待辦 phase**：`pending → started → ending（2秒防抖）→ done`
+5. **圖表純 SVG 手刻**，不用任何圖表庫
+6. **TimelinePage 版面順序**（由上到下）：直式行程表 → 橫向行程條 → 待辦清單卡片
+7. **番茄鐘評分**同時更新 Header 的 😤🙂😴 計數器（不只是記錄）
+8. **next.config.ts** 已設定 `ignoreBuildErrors: true` 和 `ignoreDuringBuilds: true`
 
 ---
 
-*最後更新：2026-05-06 by Claude Sonnet*  
-*對應原型檔案：habit-tracker-v13.jsx*
+## 八、目前仍是假資料的部分（日後接 Supabase）
+
+| 項目 | 位置 | 說明 |
+|------|------|------|
+| PLN 預定行程 | `MOCK.schedule.PLN` | 靜態，尚未串聯週課表 |
+| ACT 實際行程 | `MOCK.schedule.ACT` | 靜態假資料 |
+| 昨日番茄鐘 | `MOCK.yesterdayPomos` | 假資料，對戰卡用 |
+| 熱力圖 | `MOCK.heat` | 假資料 |
+| 折線趨勢圖 | `MOCK.lineData` | 假資料 |
+| 月曆資料 | `genMonthData()` | 種子亂數產生 |
+
+---
+
+## 九、已確認完成的功能
+
+- ✅ localStorage 持久化（todos/coins/sessions/評分）
+- ✅ 元件拆分（33個檔案）
+- ✅ 設定頁（重置資料、v1.0.0版本標記）
+- ✅ 動態日期
+- ✅ ErrorBoundary
+- ✅ 新增待辦功能（時段頁）
+- ✅ 購買記錄 + 金幣收入記錄
+- ✅ 直式行程表點擊新增待辦
+- ✅ 預定/實際區塊點擊編輯（daily override）
+- ✅ 已完成待辦用實際完成時間定位
+- ✅ 紅線對應真實時間（每分鐘更新）
+- ✅ 行程表延伸至 23:00
+- ✅ 行程表高度 840px
+
+---
+
+## 十、待完成的事項
+
+- ⬜ 週課表串聯直式行程表（PLN 改為動態讀取今天的課）
+- ⬜ TimelinePage 版面修正（直式行程表要在待辦清單上面）
+- ⬜ 健康模組
+- ⬜ 閱讀模組
+- ⬜ Supabase 接入（等確定多人使用再做）
+- ⬜ PWA 圖示設定（手機安裝用）
+- ⬜ Git 功能分支習慣
+
+---
+
+*最後更新：2026-05-12*
+*維護原則：每次完成重要功能，更新「已完成」和「待完成」兩個表格*
