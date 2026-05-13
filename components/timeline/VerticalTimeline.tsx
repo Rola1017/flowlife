@@ -249,6 +249,7 @@ export function VerticalTimeline({
                   color: TH.text,
                   fontSize: 11,
                   outline: "none",
+                  colorScheme: "dark",
                 }}
               />
               <input
@@ -265,6 +266,7 @@ export function VerticalTimeline({
                   color: TH.text,
                   fontSize: 11,
                   outline: "none",
+                  colorScheme: "dark",
                 }}
               />
             </div>

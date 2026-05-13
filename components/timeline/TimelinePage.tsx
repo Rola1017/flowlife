@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { Card, SL } from "@/components/ui/Card";
 import { TodoCard } from "@/components/todo/TodoCard";
 import { VerticalTimeline } from "@/components/timeline/VerticalTimeline";
-import { CFG } from "@/lib/config";
+import { CFG, TODO_REMINDER_OPTIONS, type TodoReminderId } from "@/lib/config";
 import { TH } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { MOCK } from "@/lib/mock";
@@ -13,6 +13,35 @@ import { DS, DT, toM } from "@/lib/utils";
 const getCurrentMinutes = () => {
   const now = new Date();
   return now.getHours() * 60 + now.getMinutes();
+};
+
+const fieldBase: CSSProperties = {
+  background: "#15151B",
+  border: `1px solid ${TH.border}`,
+  borderRadius: 8,
+  padding: "8px 10px",
+  color: TH.text,
+  fontSize: 12,
+  outline: "none",
+  colorScheme: "dark",
+};
+
+const timeRowField: CSSProperties = {
+  ...fieldBase,
+  flex: 1,
+  minWidth: 0,
+};
+
+const fullRowField: CSSProperties = {
+  ...fieldBase,
+  width: "100%",
+  boxSizing: "border-box",
+};
+
+const selectFieldStyle: CSSProperties = {
+  ...fieldBase,
+  width: "100%",
+  boxSizing: "border-box",
 };
 
 export function TimelinePage({
@@ -31,17 +60,21 @@ export function TimelinePage({
   const [addOpen, setAddOpen] = useState(false);
   const [draft, setDraft] = useState({
     text: "",
+    date: CFG.TODAY_STR,
     startTime: "",
     endTime: "",
     cat: CAT.cat1List()[0] as string,
     mustDo: true,
+    reminder: "none" as TodoReminderId,
   });
   const [quickDraft, setQuickDraft] = useState<{
     text: string;
+    date: string;
     startTime: string;
     endTime: string;
     cat: string;
     mustDo: boolean;
+    reminder: TodoReminderId;
   } | null>(null);
   const [now, setNow] = useState(getCurrentMinutes);
   const nowPct = ((now - DS) / DT) * 100;
@@ -71,12 +104,22 @@ export function TimelinePage({
     if (!text) return;
     onAddTodo({
       text,
+      date: draft.date,
       startTime: draft.startTime,
       endTime: draft.endTime,
       cat: draft.cat,
       mustDo: draft.mustDo,
+      reminder: draft.reminder,
     });
-    setDraft({ text: "", startTime: "", endTime: "", cat: CAT.cat1List()[0] as string, mustDo: true });
+    setDraft({
+      text: "",
+      date: CFG.TODAY_STR,
+      startTime: "",
+      endTime: "",
+      cat: CAT.cat1List()[0] as string,
+      mustDo: true,
+      reminder: "none",
+    });
     setAddOpen(false);
   };
   const submitQuickTodo = () => {
@@ -84,10 +127,12 @@ export function TimelinePage({
     if (!quickDraft || !text) return;
     onAddTodo({
       text,
+      date: quickDraft.date,
       startTime: quickDraft.startTime,
       endTime: quickDraft.endTime,
       cat: quickDraft.cat,
       mustDo: quickDraft.mustDo,
+      reminder: quickDraft.reminder,
     });
     setQuickDraft(null);
   };
@@ -128,7 +173,15 @@ export function TimelinePage({
           doneTodos={doneTL}
           date={CFG.TODAY_STR}
           onTimeClick={(time) =>
-            setQuickDraft({ text: "", startTime: time, endTime: "", cat: "未分類", mustDo: true })
+            setQuickDraft({
+              text: "",
+              date: CFG.TODAY_STR,
+              startTime: time,
+              endTime: "",
+              cat: "未分類",
+              mustDo: true,
+              reminder: "none",
+            })
           }
         />
       </div>
@@ -194,50 +247,44 @@ export function TimelinePage({
                 outline: "none",
               }}
             />
+            <input
+              type="date"
+              value={draft.date}
+              onChange={(e) => setDraft((v) => ({ ...v, date: e.target.value }))}
+              style={fullRowField}
+            />
             <div style={{ display: "flex", gap: 8 }}>
               <input
                 type="time"
                 value={draft.startTime}
                 onChange={(e) => setDraft((v) => ({ ...v, startTime: e.target.value }))}
-                style={{
-                  flex: 1,
-                  background: "#15151B",
-                  border: `1px solid ${TH.border}`,
-                  borderRadius: 8,
-                  padding: "8px 10px",
-                  color: TH.text,
-                  fontSize: 12,
-                  outline: "none",
-                }}
+                style={timeRowField}
               />
               <input
                 type="time"
                 value={draft.endTime}
                 onChange={(e) => setDraft((v) => ({ ...v, endTime: e.target.value }))}
-                style={{
-                  flex: 1,
-                  background: "#15151B",
-                  border: `1px solid ${TH.border}`,
-                  borderRadius: 8,
-                  padding: "8px 10px",
-                  color: TH.text,
-                  fontSize: 12,
-                  outline: "none",
-                }}
+                style={timeRowField}
               />
             </div>
+            <label style={{ fontSize: 10, color: TH.muted, marginBottom: -4 }}>提醒</label>
+            <select
+              value={draft.reminder}
+              onChange={(e) =>
+                setDraft((v) => ({ ...v, reminder: e.target.value as TodoReminderId }))
+              }
+              style={selectFieldStyle}
+            >
+              {TODO_REMINDER_OPTIONS.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
             <select
               value={draft.cat}
               onChange={(e) => setDraft((v) => ({ ...v, cat: e.target.value }))}
-              style={{
-                background: "#15151B",
-                border: `1px solid ${TH.border}`,
-                borderRadius: 8,
-                padding: "8px 10px",
-                color: TH.text,
-                fontSize: 12,
-                outline: "none",
-              }}
+              style={selectFieldStyle}
             >
               {CAT.cat1List().map((cat) => (
                 <option key={cat as string} value={cat as string}>
@@ -285,7 +332,10 @@ export function TimelinePage({
       </Card>
       {quickDraft && (
         <Card style={{ padding: 10 }}>
-          <SL>快速新增 {quickDraft.startTime}</SL>
+          <SL>
+            快速新增 {quickDraft.date} {quickDraft.startTime}
+            {quickDraft.endTime ? `～${quickDraft.endTime}` : ""}
+          </SL>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <input
               value={quickDraft.text}
@@ -302,50 +352,46 @@ export function TimelinePage({
                 outline: "none",
               }}
             />
+            <input
+              type="date"
+              value={quickDraft.date}
+              onChange={(e) => setQuickDraft((v) => (v ? { ...v, date: e.target.value } : v))}
+              style={fullRowField}
+            />
             <div style={{ display: "flex", gap: 8 }}>
               <input
                 type="time"
                 value={quickDraft.startTime}
                 onChange={(e) => setQuickDraft((v) => (v ? { ...v, startTime: e.target.value } : v))}
-                style={{
-                  flex: 1,
-                  background: "#15151B",
-                  border: `1px solid ${TH.border}`,
-                  borderRadius: 8,
-                  padding: "8px 10px",
-                  color: TH.text,
-                  fontSize: 12,
-                  outline: "none",
-                }}
+                style={timeRowField}
               />
               <input
                 type="time"
                 value={quickDraft.endTime}
                 onChange={(e) => setQuickDraft((v) => (v ? { ...v, endTime: e.target.value } : v))}
-                style={{
-                  flex: 1,
-                  background: "#15151B",
-                  border: `1px solid ${TH.border}`,
-                  borderRadius: 8,
-                  padding: "8px 10px",
-                  color: TH.text,
-                  fontSize: 12,
-                  outline: "none",
-                }}
+                style={timeRowField}
               />
             </div>
+            <label style={{ fontSize: 10, color: TH.muted, marginBottom: -4 }}>提醒</label>
+            <select
+              value={quickDraft.reminder}
+              onChange={(e) =>
+                setQuickDraft((v) =>
+                  v ? { ...v, reminder: e.target.value as TodoReminderId } : v,
+                )
+              }
+              style={selectFieldStyle}
+            >
+              {TODO_REMINDER_OPTIONS.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
             <select
               value={quickDraft.cat}
               onChange={(e) => setQuickDraft((v) => (v ? { ...v, cat: e.target.value } : v))}
-              style={{
-                background: "#15151B",
-                border: `1px solid ${TH.border}`,
-                borderRadius: 8,
-                padding: "8px 10px",
-                color: TH.text,
-                fontSize: 12,
-                outline: "none",
-              }}
+              style={selectFieldStyle}
             >
               {CAT.cat1List().map((cat) => (
                 <option key={cat as string} value={cat as string}>

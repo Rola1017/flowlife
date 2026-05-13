@@ -1,13 +1,24 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { CFG } from "@/lib/config";
+import { CFG, type TodoReminderId, TODO_REMINDER_OPTIONS } from "@/lib/config";
 import { nowStr } from "@/lib/utils";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 
 export type TodoState = Record<string, unknown>;
 
+function normalizeReminder(r: unknown): TodoReminderId {
+  const s = typeof r === "string" ? r : "none";
+  return TODO_REMINDER_OPTIONS.some((o) => o.id === s) ? (s as TodoReminderId) : "none";
+}
+
+function normalizeDate(d: unknown): string {
+  return typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : CFG.TODAY_STR;
+}
+
 function makeTodo(raw: Record<string, unknown>): TodoState {
+  const date = normalizeDate(raw.date);
+  const reminder = normalizeReminder(raw.reminder);
   return {
     ...raw,
     phase: "pending",
@@ -15,7 +26,8 @@ function makeTodo(raw: Record<string, unknown>): TodoState {
     endAt: null,
     startTs: null,
     elapsed: null,
-    date: CFG.TODAY_STR,
+    date,
+    reminder,
   };
 }
 
@@ -29,9 +41,11 @@ export function useTodos(initial: Record<string, unknown>[]) {
     const saved = loadJSON<unknown>(LS_KEYS.todos, null);
     if (Array.isArray(saved)) {
       setTodos(
-        (saved as TodoState[]).map((todo) =>
-          todo.date === CFG.TODAY_STR ? todo : { ...todo, date: CFG.TODAY_STR },
-        ),
+        (saved as TodoState[]).map((todo) => ({
+          ...todo,
+          date: normalizeDate(todo.date),
+          reminder: normalizeReminder(todo.reminder),
+        })),
       );
     }
     setHydrated(true);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { CFG } from "@/lib/config";
+import { CFG, reminderLabel } from "@/lib/config";
 import { TH } from "@/lib/theme";
 import { CAT_COLOR } from "@/lib/categories";
 import { fmtMs, fmtElapsed } from "@/lib/utils";
@@ -132,6 +132,11 @@ export function TodoCard({
               <span style={{ fontSize: 9, color: TH.muted }}>
                 🕐 {startTime}
                 {endTime && `~${endTime}`}
+              </span>
+            )}
+            {typeof todo.reminder === "string" && todo.reminder !== "none" && (
+              <span style={{ fontSize: 9, color: TH.muted }} title="提醒（尚未推播）">
+                🔔 {reminderLabel(todo.reminder)}
               </span>
             )}
             <span style={{ fontSize: 9, color: col, background: col + "22", padding: "1px 6px", borderRadius: 8 }}>

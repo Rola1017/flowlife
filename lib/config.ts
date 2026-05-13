@@ -1,3 +1,35 @@
+/** 待辦提醒（存 localStorage）；觸發通知尚未實作，僅儲存使用者選擇 */
+export type TodoReminderId =
+  | "none"
+  | "at_start"
+  | "m5"
+  | "m10"
+  | "m15"
+  | "m30"
+  | "h1"
+  | "h2"
+  | "d1"
+  | "d2";
+
+export const TODO_REMINDER_OPTIONS: { id: TodoReminderId; label: string }[] = [
+  { id: "none", label: "無" },
+  { id: "at_start", label: "事件發生時" },
+  { id: "m5", label: "5 分鐘前" },
+  { id: "m10", label: "10 分鐘前" },
+  { id: "m15", label: "15 分鐘前" },
+  { id: "m30", label: "30 分鐘前" },
+  { id: "h1", label: "1 小時前" },
+  { id: "h2", label: "2 小時前" },
+  { id: "d1", label: "1 天前" },
+  { id: "d2", label: "2 天前" },
+];
+
+export function reminderLabel(id: unknown): string {
+  const s = typeof id === "string" ? id : "none";
+  const row = TODO_REMINDER_OPTIONS.find((o) => o.id === s);
+  return row?.label ?? "無";
+}
+
 export const CFG = {
   TODAY_STR: new Date().toISOString().slice(0, 10),
   TODAY: new Date(),
