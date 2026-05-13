@@ -45,6 +45,7 @@ function draftFromTodo(todo: Record<string, unknown>) {
     cat: String(todo.cat ?? CAT.cat1List()[0]),
     mustDo: Boolean(todo.mustDo),
     reminder: normalizeReminder(todo.reminder),
+    error: "",
   };
 }
 
@@ -68,6 +69,10 @@ export function TodoEditSheet({
   const submit = () => {
     const text = draft.text.trim();
     if (!text) return;
+    if (draft.startDateTime && draft.endDateTime && draft.endDateTime <= draft.startDateTime) {
+      setDraft((v) => ({ ...v, error: "結束時間不能早於開始時間" }));
+      return;
+    }
     const { date, startTime, endTime } = splitTodoDateTime(draft.startDateTime, draft.endDateTime);
     onSave(id, {
       text,
@@ -126,11 +131,12 @@ export function TodoEditSheet({
               onToggle={() =>
                 setDraft((v) => ({
                   ...v,
+                  error: "",
                   startDateTime:
                     v.startDateTime === null ? `${CFG.TODAY_STR} 09:00` : null,
                 }))
               }
-              onChange={(val) => setDraft((v) => ({ ...v, startDateTime: val }))}
+              onChange={(val) => setDraft((v) => ({ ...v, startDateTime: val, error: "" }))}
             />
             <DateTimePicker
               label="結束時間"
@@ -139,10 +145,11 @@ export function TodoEditSheet({
               onToggle={() =>
                 setDraft((v) => ({
                   ...v,
+                  error: "",
                   endDateTime: v.endDateTime === null ? `${CFG.TODAY_STR} 10:00` : null,
                 }))
               }
-              onChange={(val) => setDraft((v) => ({ ...v, endDateTime: val }))}
+              onChange={(val) => setDraft((v) => ({ ...v, endDateTime: val, error: "" }))}
             />
             <label style={{ fontSize: 10, color: TH.muted }}>提醒</label>
             <select
@@ -185,6 +192,9 @@ export function TodoEditSheet({
             >
               {draft.mustDo ? "🔴 必做" : "⚪ 非必做"}
             </button>
+            {draft.error && (
+              <div style={{ fontSize: 11, color: TH.red, textAlign: "center" }}>⚠️ {draft.error}</div>
+            )}
             <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
               <button
                 type="button"

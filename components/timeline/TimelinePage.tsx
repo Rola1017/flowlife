@@ -19,6 +19,12 @@ function normalizeTimelineTime(time: string): string {
   return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
 }
 
+const DATETIME_RANGE_ERR = "結束時間不能早於開始時間";
+
+function isDateTimeRangeInvalid(start: string | null, end: string | null): boolean {
+  return Boolean(start && end && end <= start);
+}
+
 const getCurrentMinutes = () => {
   const now = new Date();
   return now.getHours() * 60 + now.getMinutes();
@@ -60,6 +66,7 @@ export function TimelinePage({
     cat: CAT.cat1List()[0] as string,
     mustDo: true,
     reminder: "none" as TodoReminderId,
+    error: "",
   });
   const [quickDraft, setQuickDraft] = useState<{
     text: string;
@@ -68,6 +75,7 @@ export function TimelinePage({
     cat: string;
     mustDo: boolean;
     reminder: TodoReminderId;
+    error: string;
   } | null>(null);
   const [now, setNow] = useState(getCurrentMinutes);
   const nowPct = ((now - DS) / DT) * 100;
@@ -95,6 +103,10 @@ export function TimelinePage({
   const submitTodo = () => {
     const text = draft.text.trim();
     if (!text) return;
+    if (isDateTimeRangeInvalid(draft.startDateTime, draft.endDateTime)) {
+      setDraft((v) => ({ ...v, error: DATETIME_RANGE_ERR }));
+      return;
+    }
     const { date, startTime, endTime } = splitTodoDateTime(draft.startDateTime, draft.endDateTime);
     onAddTodo({
       text,
@@ -112,12 +124,17 @@ export function TimelinePage({
       cat: CAT.cat1List()[0] as string,
       mustDo: true,
       reminder: "none",
+      error: "",
     });
     setAddOpen(false);
   };
   const submitQuickTodo = () => {
     const text = quickDraft?.text.trim();
     if (!quickDraft || !text) return;
+    if (isDateTimeRangeInvalid(quickDraft.startDateTime, quickDraft.endDateTime)) {
+      setQuickDraft((v) => (v ? { ...v, error: DATETIME_RANGE_ERR } : v));
+      return;
+    }
     const { date, startTime, endTime } = splitTodoDateTime(quickDraft.startDateTime, quickDraft.endDateTime);
     onAddTodo({
       text,
@@ -186,6 +203,7 @@ export function TimelinePage({
               cat: "未分類",
               mustDo: true,
               reminder: "none",
+              error: "",
             });
           }}
         />
@@ -223,7 +241,12 @@ export function TimelinePage({
         )}
         <button
           type="button"
-          onClick={() => setAddOpen((v) => !v)}
+          onClick={() => {
+            setAddOpen((o) => {
+              if (!o) setDraft((d) => ({ ...d, error: "" }));
+              return !o;
+            });
+          }}
           style={{
             width: "100%",
             marginTop: 8,
@@ -273,11 +296,12 @@ export function TimelinePage({
               onToggle={() =>
                 setDraft((v) => ({
                   ...v,
+                  error: "",
                   startDateTime:
                     v.startDateTime === null ? `${CFG.TODAY_STR} 09:00` : null,
                 }))
               }
-              onChange={(val) => setDraft((v) => ({ ...v, startDateTime: val }))}
+              onChange={(val) => setDraft((v) => ({ ...v, startDateTime: val, error: "" }))}
             />
             <DateTimePicker
               label="結束時間"
@@ -286,10 +310,11 @@ export function TimelinePage({
               onToggle={() =>
                 setDraft((v) => ({
                   ...v,
+                  error: "",
                   endDateTime: v.endDateTime === null ? `${CFG.TODAY_STR} 10:00` : null,
                 }))
               }
-              onChange={(val) => setDraft((v) => ({ ...v, endDateTime: val }))}
+              onChange={(val) => setDraft((v) => ({ ...v, endDateTime: val, error: "" }))}
             />
             <label style={{ fontSize: 10, color: TH.muted, marginBottom: -4 }}>提醒</label>
             <select
@@ -332,6 +357,9 @@ export function TimelinePage({
             >
               {draft.mustDo ? "🔴 必做" : "⚪ 非必做"}
             </button>
+            {draft.error && (
+              <div style={{ fontSize: 11, color: TH.red, textAlign: "center" }}>⚠️ {draft.error}</div>
+            )}
             <button
               className="flowlife-pressable"
               type="button"
@@ -382,13 +410,16 @@ export function TimelinePage({
                   v
                     ? {
                         ...v,
+                        error: "",
                         startDateTime:
                           v.startDateTime === null ? `${CFG.TODAY_STR} 09:00` : null,
                       }
                     : v,
                 )
               }
-              onChange={(val) => setQuickDraft((v) => (v ? { ...v, startDateTime: val } : v))}
+              onChange={(val) =>
+                setQuickDraft((v) => (v ? { ...v, startDateTime: val, error: "" } : v))
+              }
             />
             <DateTimePicker
               label="結束時間"
@@ -399,12 +430,15 @@ export function TimelinePage({
                   v
                     ? {
                         ...v,
+                        error: "",
                         endDateTime: v.endDateTime === null ? `${CFG.TODAY_STR} 10:00` : null,
                       }
                     : v,
                 )
               }
-              onChange={(val) => setQuickDraft((v) => (v ? { ...v, endDateTime: val } : v))}
+              onChange={(val) =>
+                setQuickDraft((v) => (v ? { ...v, endDateTime: val, error: "" } : v))
+              }
             />
             <label style={{ fontSize: 10, color: TH.muted, marginBottom: -4 }}>提醒</label>
             <select
@@ -449,6 +483,9 @@ export function TimelinePage({
             >
               {quickDraft.mustDo ? "🔴 必做" : "⚪ 非必做"}
             </button>
+            {quickDraft.error && (
+              <div style={{ fontSize: 11, color: TH.red, textAlign: "center" }}>⚠️ {quickDraft.error}</div>
+            )}
             <div style={{ display: "flex", gap: 8 }}>
               <button
                 className="flowlife-pressable"
