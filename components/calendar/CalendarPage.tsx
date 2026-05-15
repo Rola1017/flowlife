@@ -12,9 +12,9 @@ import { TriCharts } from "@/components/charts/TriCharts";
 const DOW = ["一", "二", "三", "四", "五", "六", "日"] as const;
 
 const WEEK_SLOTS = [
-  { id: "morning" as const, label: "早 06-12" },
-  { id: "noon" as const, label: "午 12-18" },
-  { id: "evening" as const, label: "晚 18-23" },
+  { id: "morning" as const, bg: "#F59E0B08" },
+  { id: "noon" as const, bg: "#22C55E08" },
+  { id: "evening" as const, bg: "#3B82F608" },
 ];
 
 type WeekSlotId = (typeof WEEK_SLOTS)[number]["id"];
@@ -305,6 +305,7 @@ export function CalendarPage({
                         style={{
                           height: 60,
                           borderTop: `1px solid ${TH.border}`,
+                          background: slot.bg,
                           padding: "2px",
                           display: "flex",
                           flexDirection: "column",
@@ -312,9 +313,6 @@ export function CalendarPage({
                           overflow: "hidden",
                         }}
                       >
-                        <div style={{ fontSize: 7, color: TH.muted, padding: "2px 4px", flexShrink: 0 }}>
-                          {slot.label}
-                        </div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minHeight: 0 }}>
                           {visible.map((todo) => {
                             const t = todo as {
