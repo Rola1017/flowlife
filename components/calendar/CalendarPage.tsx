@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
@@ -9,20 +9,72 @@ import { fmt, getDaysInMonth, getFirstDow, genMonthData } from "@/lib/utils";
 import { Chip } from "@/components/ui/Chip";
 import { TriCharts } from "@/components/charts/TriCharts";
 
+const DOW = ["一", "二", "三", "四", "五", "六", "日"] as const;
+
+const WEEK_SLOTS = [
+  { id: "morning" as const, label: "早 06-12" },
+  { id: "noon" as const, label: "午 12-18" },
+  { id: "evening" as const, label: "晚 18-23" },
+];
+
+type WeekSlotId = (typeof WEEK_SLOTS)[number]["id"];
+
+function getWeekDates(weekOffset: number): string[] {
+  const anchor = new Date();
+  anchor.setDate(anchor.getDate() + weekOffset * 7);
+  const dow = anchor.getDay();
+  const toMon = dow === 0 ? -6 : 1 - dow;
+  const monday = new Date(anchor);
+  monday.setDate(anchor.getDate() + toMon);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  });
+}
+
+function formatWeekNavRange(weekDates: string[]): string {
+  const [sy, sm, sd] = weekDates[0].split("-");
+  const [, em, ed] = weekDates[6].split("-");
+  return `${sy}/${sm}/${sd}（一）～ ${em}/${ed}（日）`;
+}
+
+function dayLabel(dateStr: string): string {
+  const d = new Date(dateStr + "T12:00:00");
+  const dow = d.getDay();
+  const dowLabel = dow === 0 ? "日" : DOW[dow - 1];
+  return `${d.getDate()} ${dowLabel}`;
+}
+
+function dayViewLabel(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return `${y}年${m}月${d}日`;
+}
+
+function getWeekSlot(startTime: string): WeekSlotId | null {
+  if (!startTime?.trim()) return null;
+  const h = parseInt(startTime.split(":")[0], 10);
+  if (Number.isNaN(h)) return null;
+  if (h >= 6 && h < 12) return "morning";
+  if (h >= 12 && h < 18) return "noon";
+  if (h >= 18 && h <= 23) return "evening";
+  return null;
+}
+
 export function CalendarPage({
-  todos: _todos,
+  todos,
   onShowDay,
   onShowSchedule,
 }: {
-  todos: unknown[];
+  todos: Record<string, unknown>[];
   onShowDay: (date: string, label: string) => void;
   onShowSchedule: () => void;
 }) {
-  void _todos;
   const [calView, setCalView] = useState("month");
   const [selCat1, setSelCat1] = useState("");
   const [selCat2, setSelCat2] = useState("");
   const [monthOffset, setMonthOffset] = useState(1);
+  const [weekOffset, setWeekOffset] = useState(0);
   const [period, setPeriod] = useState("月");
   const filterLevel = selCat2 ? "cat2" : selCat1 ? "cat1" : "all";
   const chartData = CAT.chartDataFor(filterLevel, selCat1, selCat2);
@@ -40,9 +92,26 @@ export function CalendarPage({
   const pctVsLast = prevTot ? Math.round(((mTot - prevTot) / prevTot) * 100) : 0;
   const dayCount = mData.filter((v) => v > 0).length,
     dayAvg = dayCount ? Math.round(mTot / dayCount) : 0;
-  const DOW = ["一", "二", "三", "四", "五", "六", "日"];
   const lineD = MOCK.lineData[period as keyof typeof MOCK.lineData] || MOCK.lineData["月"];
   const MAX_AVAIL = (22.67 - 6.5) * 60;
+
+  const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
+  const weekNavLabel = useMemo(() => formatWeekNavRange(weekDates), [weekDates]);
+
+  const todosByDateSlot = useMemo(() => {
+    const map: Record<string, Record<WeekSlotId, Record<string, unknown>[]>> = {};
+    for (const dateStr of weekDates) {
+      map[dateStr] = { morning: [], noon: [], evening: [] };
+    }
+    for (const todo of todos) {
+      const t = todo as { date?: string; startTime?: string };
+      if (!t.date || !map[t.date]) continue;
+      const slot = getWeekSlot(t.startTime ?? "");
+      if (!slot) continue;
+      map[t.date][slot].push(todo);
+    }
+    return map;
+  }, [todos, weekDates]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -122,21 +191,23 @@ export function CalendarPage({
           ))}
         </div>
       )}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 5 }}>
-        {(
-          [
-            ["時長", fmt(mTot), activeColor],
-            ["日均", fmt(dayAvg), TH.text],
-            ["有效天", `${dayCount}天`, TH.text],
-            ["番茄數", `${dayCount * 3}`, TH.text],
-          ] as const
-        ).map(([l, v, col]) => (
-          <div key={l} style={{ background: TH.card, border: `1px solid ${TH.border}`, borderRadius: 10, padding: "6px 8px" }}>
-            <div style={{ fontSize: 8, color: TH.muted }}>{l}</div>
-            <div style={{ fontSize: 12, fontWeight: 800, color: col }}>{v}</div>
-          </div>
-        ))}
-      </div>
+      {calView === "month" && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 5 }}>
+          {(
+            [
+              ["時長", fmt(mTot), activeColor],
+              ["日均", fmt(dayAvg), TH.text],
+              ["有效天", `${dayCount}天`, TH.text],
+              ["番茄數", `${dayCount * 3}`, TH.text],
+            ] as const
+          ).map(([l, v, col]) => (
+            <div key={l} style={{ background: TH.card, border: `1px solid ${TH.border}`, borderRadius: 10, padding: "6px 8px" }}>
+              <div style={{ fontSize: 8, color: TH.muted }}>{l}</div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: col }}>{v}</div>
+            </div>
+          ))}
+        </div>
+      )}
       {calView !== "week" && (
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <button type="button" onClick={() => setMonthOffset((m) => m - 1)} style={{ background: "none", border: "none", color: TH.muted, fontSize: 22, cursor: "pointer" }}>
@@ -149,6 +220,157 @@ export function CalendarPage({
             ›
           </button>
         </div>
+      )}
+      {calView === "week" && (
+        <>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <button
+              type="button"
+              onClick={() => setWeekOffset((w) => w - 1)}
+              style={{ background: "none", border: "none", color: TH.muted, fontSize: 22, cursor: "pointer" }}
+            >
+              ‹
+            </button>
+            <div style={{ fontSize: 12, fontWeight: 700, color: TH.text, textAlign: "center", flex: 1 }}>
+              {weekNavLabel}
+            </div>
+            <button
+              type="button"
+              onClick={() => setWeekOffset((w) => w + 1)}
+              style={{ background: "none", border: "none", color: TH.muted, fontSize: 22, cursor: "pointer" }}
+            >
+              ›
+            </button>
+          </div>
+          <div style={{ display: "flex", gap: 4, overflowX: "auto" }}>
+            {weekDates.map((dateStr) => {
+              const isToday = dateStr === CFG.TODAY_STR;
+              const label = dayViewLabel(dateStr);
+              return (
+                <div
+                  key={dateStr}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onShowDay(dateStr, label)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") onShowDay(dateStr, label);
+                  }}
+                  style={{
+                    flex: 1,
+                    minWidth: 44,
+                    display: "flex",
+                    flexDirection: "column",
+                    borderRadius: 8,
+                    overflow: "hidden",
+                    cursor: "pointer",
+                    background: isToday ? TH.accent + "12" : TH.card,
+                    border: isToday ? `1px solid ${TH.accent}` : `1px solid ${TH.border}`,
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: "6px 4px",
+                      textAlign: "center",
+                      position: "relative",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 11,
+                        fontWeight: isToday ? 900 : 600,
+                        color: isToday ? TH.accent : TH.text,
+                      }}
+                    >
+                      {dayLabel(dateStr)}
+                    </div>
+                    {isToday && (
+                      <div
+                        style={{
+                          width: 4,
+                          height: 4,
+                          borderRadius: "50%",
+                          background: TH.accent,
+                          margin: "2px auto 0",
+                        }}
+                      />
+                    )}
+                  </div>
+                  {WEEK_SLOTS.map((slot) => {
+                    const slotTodos = todosByDateSlot[dateStr]?.[slot.id] ?? [];
+                    const visible = slotTodos.slice(0, 3);
+                    const extra = slotTodos.length - visible.length;
+                    return (
+                      <div
+                        key={slot.id}
+                        style={{
+                          height: 60,
+                          borderTop: `1px solid ${TH.border}`,
+                          padding: "2px",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 2,
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div style={{ fontSize: 7, color: TH.muted, padding: "2px 4px", flexShrink: 0 }}>
+                          {slot.label}
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minHeight: 0 }}>
+                          {visible.map((todo) => {
+                            const t = todo as {
+                              id?: number;
+                              text?: string;
+                              cat?: string;
+                              phase?: string;
+                            };
+                            const done = t.phase === "done";
+                            const col = CAT.cat1Color(t.cat ?? "") || TH.muted;
+                            return (
+                              <div
+                                key={t.id ?? `${dateStr}-${slot.id}-${t.text}`}
+                                title={t.text}
+                                style={{
+                                  height: 20,
+                                  borderRadius: 3,
+                                  background: col,
+                                  opacity: done ? 0.4 : 1,
+                                  padding: "0 3px",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  overflow: "hidden",
+                                  flexShrink: 0,
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    fontSize: 7,
+                                    color: "#fff",
+                                    fontWeight: 700,
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    width: "100%",
+                                  }}
+                                >
+                                  {t.text}
+                                </span>
+                              </div>
+                            );
+                          })}
+                          {extra > 0 && (
+                            <div style={{ fontSize: 7, color: TH.muted, textAlign: "center", fontWeight: 800 }}>
+                              +{extra}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
       {calView === "month" && (
         <>
@@ -238,7 +460,9 @@ export function CalendarPage({
           )}
         </>
       )}
-      <TriCharts chartData={chartData} lineD={lineD} period={period} onPeriodChange={setPeriod} label={chartLabel} />
+      {calView === "month" && (
+        <TriCharts chartData={chartData} lineD={lineD} period={period} onPeriodChange={setPeriod} label={chartLabel} />
+      )}
     </div>
   );
 }
