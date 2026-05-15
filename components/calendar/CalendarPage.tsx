@@ -342,7 +342,7 @@ export function CalendarPage({
                                 <span
                                   style={{
                                     fontSize: 7,
-                                    color: "#fff",
+                                    color: "#111111",
                                     fontWeight: 700,
                                     whiteSpace: "nowrap",
                                     overflow: "hidden",

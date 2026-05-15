@@ -188,7 +188,7 @@ export function VerticalTimeline({
               <div
                 style={{
                   fontSize: 9,
-                  color: col || "#9CA3AF",
+                  color: col ? "#111111" : "#9CA3AF",
                   fontWeight: 700,
                   overflow: "hidden",
                   textOverflow: "ellipsis",
@@ -442,7 +442,7 @@ export function VerticalTimeline({
               <div
                 style={{
                   fontSize: 9,
-                  color: override ? "#fff" : item.deep || item.idle ? "#4B5563" : "#fff",
+                  color: override ? "#fff" : item.deep || item.idle ? "#4B5563" : "#111111",
                   fontWeight: 600,
                   overflow: "hidden",
                   textOverflow: "ellipsis",
