@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { Card, SL } from "@/components/ui/Card";
 import { BackBtn } from "@/components/ui/BackBtn";
 import { DateTimePicker, formatDateTimeDisplay, splitTodoDateTime } from "@/components/ui/DateTimePicker";
@@ -9,7 +9,8 @@ import { VerticalTimeline } from "@/components/timeline/VerticalTimeline";
 import { CFG, TODO_REMINDER_OPTIONS, type TodoReminderId } from "@/lib/config";
 import { TH } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
-import { DS, DT } from "@/lib/utils";
+import { MOCK } from "@/lib/mock";
+import { DS, DT, toM } from "@/lib/utils";
 
 function normalizeTimelineTime(time: string): string {
   const m = time.trim().match(/^(\d{1,2}):(\d{1,2})$/);
@@ -24,6 +25,11 @@ const DATETIME_RANGE_ERR = "結束時間不能早於開始時間";
 function isDateTimeRangeInvalid(start: string | null, end: string | null): boolean {
   return Boolean(start && end && end <= start);
 }
+
+const getCurrentMinutes = () => {
+  const now = new Date();
+  return now.getHours() * 60 + now.getMinutes();
+};
 
 const selectFieldStyle: CSSProperties = {
   background: "#15151B",
@@ -78,18 +84,29 @@ export function DayViewPage({
     reminder: TodoReminderId;
     error: string;
   } | null>(null);
+  const [now, setNow] = useState(getCurrentMinutes);
+  const nowPct = ((now - DS) / DT) * 100;
 
-  const dateTodos = todos.filter((t: { date?: string }) => t.date === date);
-  const pendingTL = dateTodos.filter(
-    (t: { phase?: string; startTime?: string }) => t.phase !== "done" && t.startTime,
+  useEffect(() => {
+    const syncNow = () => setNow(getCurrentMinutes());
+    syncNow();
+    const timer = setInterval(syncNow, 60 * 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const active = todos.filter(
+    (t: { date?: string; phase?: string }) => t.date === date && t.phase !== "done",
+  );
+  const done = todos.filter(
+    (t: { date?: string; phase?: string }) => t.date === date && t.phase === "done",
+  );
+  const pendingTL = active.filter(
+    (t: { startTime?: string }) => t.startTime,
   ) as { id: number; text: string; startTime: string; endTime: string }[];
-  const doneTL = dateTodos.filter(
-    (t: { phase?: string; endAt?: string }) => t.phase === "done" && t.endAt,
+  const doneTL = done.filter(
+    (t: { endAt?: string }) => t.endAt,
   ) as { id: number; text: string; startTime: string; endTime: string; endAt?: string }[];
-
-  const now = new Date(),
-    nowMins = now.getHours() * 60 + now.getMinutes();
-  const nowPct = ((nowMins - DS) / DT) * 100;
+  const { ACT } = MOCK.schedule;
 
   const submitTodo = () => {
     const text = draft.text.trim();
@@ -161,10 +178,59 @@ export function DayViewPage({
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <BackBtn onBack={onBack} label={label} />
 
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <div
+          style={{
+            height: 10,
+            borderRadius: 5,
+            overflow: "hidden",
+            background: "#1C1C22",
+            position: "relative",
+            marginTop: 8,
+          }}
+        >
+          {ACT.map((item, i) => {
+            const l = ((toM(item.start) - DS) / DT) * 100,
+              w = ((toM(item.end) - toM(item.start)) / DT) * 100;
+            return (
+              <div
+                key={i}
+                style={{
+                  position: "absolute",
+                  left: `${l}%`,
+                  width: `${w}%`,
+                  height: "100%",
+                  background: item.deep ? "#1F2937" : item.idle ? "#374151" : CAT.cat1Color(item.cat1 ?? "") || "#6B7280",
+                }}
+              />
+            );
+          })}
+        </div>
+        <VerticalTimeline
+          nowPct={nowPct}
+          showNowLine={date === CFG.TODAY_STR}
+          pendingTodos={pendingTL}
+          doneTodos={doneTL}
+          date={date}
+          onTimeClick={(time) => {
+            const hm = normalizeTimelineTime(time);
+            setQuickDraft({
+              text: "",
+              startDateTime: `${date} ${hm}`,
+              endDateTime: null,
+              cat: "未分類",
+              mustDo: true,
+              reminder: "none",
+              error: "",
+            });
+          }}
+        />
+      </div>
+
       <Card style={{ padding: "8px 12px" }}>
-        <SL>📅 待辦事項</SL>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {dateTodos.map((t) => (
+        <SL>待辦事項</SL>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 6 }}>
+          {active.map((t) => (
             <TodoCard
               key={t.id as number}
               todo={t}
@@ -174,12 +240,24 @@ export function DayViewPage({
               onEdit={onEditTodo}
             />
           ))}
-          {dateTodos.length === 0 && (
-            <div style={{ fontSize: 11, color: TH.muted, textAlign: "center", padding: 12 }}>
-              尚無待辦
-            </div>
-          )}
         </div>
+        {done.length > 0 && (
+          <>
+            <div style={{ fontSize: 9, color: TH.muted, marginBottom: 4 }}>✅ 已完成</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+              {done.map((t) => (
+                <TodoCard
+                  key={t.id as number}
+                  todo={t}
+                  onStart={onStart}
+                  onEnd={onEnd}
+                  onToggleDone={onToggleDone}
+                  onEdit={onEditTodo}
+                />
+              ))}
+            </div>
+          </>
+        )}
         <button
           type="button"
           onClick={() => {
@@ -322,26 +400,6 @@ export function DayViewPage({
           </div>
         )}
       </Card>
-
-      <VerticalTimeline
-        nowPct={nowPct}
-        showNowLine={date === CFG.TODAY_STR}
-        pendingTodos={pendingTL}
-        doneTodos={doneTL}
-        date={date}
-        onTimeClick={(time) => {
-          const hm = normalizeTimelineTime(time);
-          setQuickDraft({
-            text: "",
-            startDateTime: `${date} ${hm}`,
-            endDateTime: null,
-            cat: "未分類",
-            mustDo: true,
-            reminder: "none",
-            error: "",
-          });
-        }}
-      />
       {quickDraft && (
         <Card style={{ padding: 10 }}>
           <SL>{quickHeader}</SL>
@@ -443,9 +501,7 @@ export function DayViewPage({
               {quickDraft.mustDo ? "🔴 必做" : "⚪ 非必做"}
             </button>
             {quickDraft.error && (
-              <div style={{ fontSize: 11, color: TH.red, textAlign: "center" }}>
-                ⚠️ {quickDraft.error}
-              </div>
+              <div style={{ fontSize: 11, color: TH.red, textAlign: "center" }}>⚠️ {quickDraft.error}</div>
             )}
             <div style={{ display: "flex", gap: 8 }}>
               <button
