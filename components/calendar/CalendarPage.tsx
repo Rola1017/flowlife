@@ -242,6 +242,20 @@ export function CalendarPage({
               ›
             </button>
           </div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              gap: 16,
+              padding: "2px 0 4px",
+            }}
+          >
+            {([["早", "06-12"], ["午", "12-18"], ["晚", "18-23"]] as const).map(([label, range]) => (
+              <span key={label} style={{ fontSize: 9, color: TH.muted }}>
+                {label} {range}
+              </span>
+            ))}
+          </div>
           <div style={{ display: "flex", gap: 4, overflowX: "auto" }}>
             {weekDates.map((dateStr) => {
               const isToday = dateStr === CFG.TODAY_STR;
