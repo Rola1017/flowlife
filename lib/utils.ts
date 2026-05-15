@@ -63,6 +63,28 @@ export function genMonthData(y: number, m: number, days: number) {
   });
 }
 
+/** 計算某日的可用分鐘數（扣除深灰時段後） */
+export function getAvailableMinutes(
+  dateStr: string,
+  weekendShift?: "早班" | "晚班",
+): number {
+  const d = new Date(dateStr + "T12:00:00");
+  const dow = d.getDay(); // 0=日, 6=六
+  const isWeekend = dow === 0 || dow === 6;
+
+  if (!isWeekend) {
+    // 週一~五深灰：00:00-06:30(390) + 12:00-13:30(90) + 17:00-22:00(300) + 23:00-24:00(60) = 840
+    return 1440 - 840; // 600 min = 10h
+  }
+  if (weekendShift === "早班") {
+    // 00:00-06:30(390) + 07:15-14:15(420) + 23:00-24:00(60) = 870
+    return 1440 - 870; // 570 min = 9.5h
+  }
+  // 晚班（預設）
+  // 00:00-06:30(390) + 13:45-22:15(510) + 23:00-24:00(60) = 960
+  return 1440 - 960; // 480 min = 8h
+}
+
 export const coinsForSecs = (s: number) => {
   const m = s / 60;
   const row = [...CFG.COIN_TABLE].reverse().find((r) => m >= r.min);

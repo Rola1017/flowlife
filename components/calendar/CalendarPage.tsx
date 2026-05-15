@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { MOCK } from "@/lib/mock";
-import { fmt, getDaysInMonth, getFirstDow, genMonthData } from "@/lib/utils";
+import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
+import { fmt, getAvailableMinutes, getDaysInMonth, getFirstDow, genMonthData } from "@/lib/utils";
 import { Chip } from "@/components/ui/Chip";
 import { TriCharts } from "@/components/charts/TriCharts";
 
@@ -18,6 +19,22 @@ const WEEK_SLOTS = [
 ];
 
 type WeekSlotId = (typeof WEEK_SLOTS)[number]["id"];
+type WeekendShift = "早班" | "晚班";
+
+function cycleWeekendShift(current?: WeekendShift): WeekendShift {
+  return current === "早班" ? "晚班" : "早班";
+}
+
+function shiftShortLabel(shift?: WeekendShift): string {
+  if (shift === "早班") return "早";
+  if (shift === "晚班") return "晚";
+  return "—";
+}
+
+function isWeekendDate(dateStr: string): boolean {
+  const dow = new Date(dateStr + "T12:00:00").getDay();
+  return dow === 0 || dow === 6;
+}
 
 function getWeekDates(weekOffset: number): string[] {
   const anchor = new Date();
@@ -93,7 +110,13 @@ export function CalendarPage({
   const dayCount = mData.filter((v) => v > 0).length,
     dayAvg = dayCount ? Math.round(mTot / dayCount) : 0;
   const lineD = MOCK.lineData[period as keyof typeof MOCK.lineData] || MOCK.lineData["月"];
-  const MAX_AVAIL = (22.67 - 6.5) * 60;
+  const [weekendShifts, setWeekendShifts] = useState<Record<string, WeekendShift>>(() =>
+    loadJSON<Record<string, WeekendShift>>(LS_KEYS.weekendShifts, {}),
+  );
+
+  useEffect(() => {
+    saveJSON(LS_KEYS.weekendShifts, weekendShifts);
+  }, [weekendShifts]);
 
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
   const weekNavLabel = useMemo(() => formatWeekNavRange(weekDates), [weekDates]);
@@ -260,6 +283,8 @@ export function CalendarPage({
             {weekDates.map((dateStr) => {
               const isToday = dateStr === CFG.TODAY_STR;
               const label = dayViewLabel(dateStr);
+              const weekend = isWeekendDate(dateStr);
+              const shift = weekendShifts[dateStr];
               return (
                 <div
                   key={dateStr}
@@ -307,6 +332,32 @@ export function CalendarPage({
                           margin: "2px auto 0",
                         }}
                       />
+                    )}
+                    {weekend && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setWeekendShifts((prev) => ({
+                            ...prev,
+                            [dateStr]: cycleWeekendShift(prev[dateStr]),
+                          }));
+                        }}
+                        style={{
+                          marginTop: 2,
+                          fontSize: 8,
+                          fontWeight: 700,
+                          border: "none",
+                          borderRadius: 4,
+                          padding: "1px 4px",
+                          cursor: "pointer",
+                          color: shift ? "#111111" : TH.muted,
+                          background:
+                            shift === "早班" ? "#F59E0B33" : shift === "晚班" ? "#3B82F633" : TH.border + "88",
+                        }}
+                      >
+                        {shiftShortLabel(shift)}
+                      </button>
                     )}
                   </div>
                   {WEEK_SLOTS.map((slot) => {
@@ -399,11 +450,14 @@ export function CalendarPage({
             ))}
             {mData.map((mins, i) => {
               const day = i + 1,
-                circ = 2 * Math.PI * 13,
-                dash = circ * Math.min(mins / MAX_AVAIL, 1);
+                circ = 2 * Math.PI * 13;
               const isToday =
                 day === CFG.TODAY.getDate() && curM === CFG.TODAY.getMonth() + 1 && curY === CFG.TODAY.getFullYear();
               const dateStr = `${curY}-${String(curM).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+              const isWeekend = new Date(dateStr + "T12:00:00").getDay() % 6 === 0;
+              const shift = isWeekend ? weekendShifts[dateStr] : undefined;
+              const availMins = getAvailableMinutes(dateStr, shift);
+              const dash = circ * Math.min(mins / availMins, 1);
               return (
                 <div
                   key={i}
@@ -460,6 +514,11 @@ export function CalendarPage({
                       />
                     )}
                   </div>
+                  {isWeekend && shift && (
+                    <div style={{ fontSize: 7, color: TH.muted, marginTop: 1, fontWeight: 700 }}>
+                      {shiftShortLabel(shift)}
+                    </div>
+                  )}
                 </div>
               );
             })}

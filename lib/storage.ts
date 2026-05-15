@@ -11,6 +11,7 @@ export const LS_KEYS = {
   purchaseLog: `${STORAGE_PREFIX}purchase_log`,
   coinIncomeLog: `${STORAGE_PREFIX}coin_income_log`,
   dailyOverride: `${STORAGE_PREFIX}daily_override_`,
+  weekendShifts: `${STORAGE_PREFIX}weekend_shifts`,
 } as const;
 
 function assertVersionedKey(key: string): void {
