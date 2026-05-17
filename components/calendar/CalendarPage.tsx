@@ -285,6 +285,34 @@ export function CalendarPage({
               const label = dayViewLabel(dateStr);
               const weekend = isWeekendDate(dateStr);
               const shift = weekendShifts[dateStr];
+              const [yr, mo] = dateStr.split("-").map(Number);
+              const dayIdx = new Date(dateStr + "T12:00:00").getDate() - 1;
+              const dayFocus = genMonthData(yr, mo, getDaysInMonth(yr, mo))[dayIdx] ?? 0;
+              const availMins = getAvailableMinutes(dateStr, weekendShifts[dateStr]);
+              const pct = Math.round(Math.min(dayFocus / availMins, 1) * 100);
+              const displayPct = isToday ? Math.max(pct, 3) : pct;
+              const SEG = [
+                { x1: 5, y1: 0.75, x2: 9.25, y2: 0.75, len: 4.25 },
+                { x1: 9.25, y1: 0.75, x2: 9.25, y2: 99.25, len: 98.5 },
+                { x1: 9.25, y1: 99.25, x2: 0.75, y2: 99.25, len: 8.5 },
+                { x1: 0.75, y1: 99.25, x2: 0.75, y2: 0.75, len: 98.5 },
+                { x1: 0.75, y1: 0.75, x2: 5, y2: 0.75, len: 4.25 },
+              ];
+              const TARGET = (214 * displayPct) / 100;
+              let rem = TARGET;
+              const drawnLines: { x1: number; y1: number; x2: number; y2: number }[] = [];
+              for (const seg of SEG) {
+                if (rem <= 0) break;
+                const d = Math.min(rem, seg.len);
+                const r = d / seg.len;
+                drawnLines.push({
+                  x1: seg.x1,
+                  y1: seg.y1,
+                  x2: seg.x1 + (seg.x2 - seg.x1) * r,
+                  y2: seg.y1 + (seg.y2 - seg.y1) * r,
+                });
+                rem -= d;
+              }
               return (
                 <div
                   key={dateStr}
@@ -302,10 +330,48 @@ export function CalendarPage({
                     borderRadius: 8,
                     overflow: "hidden",
                     cursor: "pointer",
+                    position: "relative",
                     background: isToday ? TH.accent + "12" : TH.card,
-                    border: isToday ? `1px solid ${TH.accent}` : `1px solid ${TH.border}`,
                   }}
                 >
+                  <svg
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      height: "100%",
+                      pointerEvents: "none",
+                      zIndex: 10,
+                    }}
+                    viewBox="0 0 10 100"
+                    preserveAspectRatio="none"
+                  >
+                    {SEG.map((seg, i) => (
+                      <line
+                        key={`bg-${i}`}
+                        x1={seg.x1}
+                        y1={seg.y1}
+                        x2={seg.x2}
+                        y2={seg.y2}
+                        stroke={TH.border}
+                        strokeWidth="1"
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    ))}
+                    {drawnLines.map((ln, i) => (
+                      <line
+                        key={`fg-${i}`}
+                        x1={ln.x1}
+                        y1={ln.y1}
+                        x2={ln.x2}
+                        y2={ln.y2}
+                        stroke={isToday ? activeColor : activeColor + "66"}
+                        strokeWidth={isToday ? 1.5 : 1}
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    ))}
+                  </svg>
                   <div
                     style={{
                       padding: "6px 4px",
