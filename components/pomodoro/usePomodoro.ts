@@ -19,6 +19,8 @@ export type CoinIncomeLogRow = {
   at: string;
   taskName: string;
   amount: number;
+  cat1?: string;
+  cat2?: string;
 };
 
 function localDateParts(date = new Date()) {
@@ -313,6 +315,8 @@ export function usePomodoro({
           ...now,
           taskName: confirmed?.name || "番茄鐘",
           amount: totalGain,
+          cat1: confirmed?.cat1,
+          cat2: confirmed?.cat2,
         },
         ...log,
       ]);
@@ -415,6 +419,7 @@ export function usePomodoro({
     idleTotalToday,
     todayCoinIncomeTotal,
     recentCoinIncomeLog,
+    setCoinIncomeLog,
     startFocus,
     endFocus,
     addRestTime,
