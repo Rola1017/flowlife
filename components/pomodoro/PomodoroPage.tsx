@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, type CSSProperties, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type Dispatch, type SetStateAction } from "react";
 import { CFG } from "@/lib/config";
 import { CAT } from "@/lib/categories";
 import { TH } from "@/lib/theme";
+import { LS_KEYS, loadJSON } from "@/lib/storage";
 import { fmt, fmtIdleTime } from "@/lib/utils";
 import { Card, SL } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
@@ -116,10 +117,37 @@ export function PomodoroPage({
     resetVersion,
   });
 
+  const [showAllHistory, setShowAllHistory] = useState(false);
   const [editingCoinId, setEditingCoinId] = useState<number | null>(null);
   const [editTaskName, setEditTaskName] = useState("");
   const [editCat1, setEditCat1] = useState("");
   const [editCat2, setEditCat2] = useState("");
+  const [coinIncomeLog, setCoinIncomeLogSnapshot] = useState<CoinIncomeLogRow[]>([]);
+
+  useEffect(() => {
+    const saved = loadJSON<unknown>(LS_KEYS.coinIncomeLog, []);
+    if (Array.isArray(saved)) setCoinIncomeLogSnapshot(saved as CoinIncomeLogRow[]);
+  }, []); // 只在 mount 時執行一次，不依賴任何 state
+
+  const groupedLog = useMemo(
+    () =>
+      coinIncomeLog.reduce(
+        (acc, row) => {
+          if (!acc[row.date]) acc[row.date] = [];
+          acc[row.date].push(row);
+          return acc;
+        },
+        {} as Record<string, CoinIncomeLogRow[]>,
+      ),
+    [coinIncomeLog],
+  );
+
+  const sortedDates = useMemo(() => Object.keys(groupedLog).sort((a, b) => b.localeCompare(a)), [groupedLog]);
+
+  const formatCoinDateLabel = (date: string) => {
+    const [y, m, d] = date.split("-");
+    return y && m && d ? `${y}/${m}/${d}` : date;
+  };
 
   const coinFieldStyle: CSSProperties = {
     width: "100%",
@@ -159,6 +187,129 @@ export function PomodoroPage({
       ),
     );
     setEditingCoinId(null);
+  };
+
+  const renderCoinIncomeRow = (row: CoinIncomeLogRow) => {
+    const isEditing = editingCoinId === row.id;
+    const cat2Options = editCat1 ? CAT.cat2List(editCat1) : [];
+    return (
+      <div key={row.id}>
+        <button
+          type="button"
+          onClick={() => openCoinEdit(row)}
+          style={{
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            background: "#0A0A0C",
+            borderRadius: 8,
+            padding: "7px 9px",
+            border: "none",
+            cursor: "pointer",
+            textAlign: "left",
+          }}
+        >
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 10, color: TH.text, fontWeight: 800 }}>{row.taskName}</div>
+            <div style={{ fontSize: 9, color: TH.muted }}>
+              {row.time}
+              {row.cat1 ? ` · ${row.cat1}${row.cat2 ? ` / ${row.cat2}` : ""}` : ""}
+            </div>
+          </div>
+          <div style={{ fontSize: 11, color: TH.gold, fontWeight: 900 }}>+{row.amount} 🪙</div>
+        </button>
+        {isEditing && (
+          <div
+            style={{
+              background: TH.bg,
+              borderRadius: 8,
+              padding: "8px 9px",
+              marginTop: 4,
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <input
+              value={editTaskName}
+              onChange={(e) => setEditTaskName(e.target.value)}
+              placeholder="事件名稱"
+              style={coinFieldStyle}
+            />
+            <select
+              value={editCat1}
+              onChange={(e) => {
+                const next = e.target.value;
+                setEditCat1(next);
+                const mids = CAT.cat2List(next);
+                setEditCat2(mids[0] ?? "");
+              }}
+              style={coinFieldStyle}
+            >
+              {CAT.cat1List().map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <select
+              value={editCat2}
+              onChange={(e) => setEditCat2(e.target.value)}
+              disabled={cat2Options.length === 0}
+              style={coinFieldStyle}
+            >
+              {cat2Options.length === 0 ? (
+                <option value="">—</option>
+              ) : (
+                cat2Options.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))
+              )}
+            </select>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button
+                type="button"
+                onClick={() => saveCoinEdit(row.id)}
+                style={{
+                  flex: 1,
+                  padding: "6px 0",
+                  borderRadius: 8,
+                  border: "none",
+                  background: TH.accent,
+                  color: "#fff",
+                  fontSize: 11,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+              >
+                儲存
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditingCoinId(null)}
+                style={{
+                  flex: 1,
+                  padding: "6px 0",
+                  borderRadius: 8,
+                  border: `1px solid ${TH.border}`,
+                  background: "transparent",
+                  color: TH.muted,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -635,7 +786,24 @@ export function PomodoroPage({
         </div>
       </Card>
       <Card style={{ width: "100%" }}>
-        <SL>金幣收支</SL>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <SL style={{ marginBottom: 0 }}>金幣收支</SL>
+          <button
+            type="button"
+            onClick={() => setShowAllHistory((v) => !v)}
+            style={{
+              background: showAllHistory ? TH.accent + "22" : "none",
+              border: showAllHistory ? `1px solid ${TH.accent}` : "none",
+              borderRadius: 6,
+              padding: "2px 8px",
+              cursor: "pointer",
+              fontSize: 14,
+            }}
+            title={showAllHistory ? "收起歷史" : "查看全部歷史"}
+          >
+            ⌚
+          </button>
+        </div>
         <div
           style={{
             background: "#0A0A0C",
@@ -650,133 +818,38 @@ export function PomodoroPage({
           <span style={{ fontSize: 10, color: TH.muted, fontWeight: 800 }}>今日總收入</span>
           <span style={{ fontSize: 14, color: TH.gold, fontWeight: 900 }}>+{todayCoinIncomeTotal} 🪙</span>
         </div>
-        {recentCoinIncomeLog.length === 0 ? (
+        {showAllHistory ? (
+          coinIncomeLog.length === 0 ? (
+            <div style={{ fontSize: 10, color: TH.muted, textAlign: "center", padding: 8 }}>尚無金幣收入</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {sortedDates.map((date) => {
+                const rows = [...groupedLog[date]].sort((a, b) => b.at.localeCompare(a.at));
+                const dayTotal = rows.reduce((sum, row) => sum + row.amount, 0);
+                return (
+                  <div key={date}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: 4,
+                      }}
+                    >
+                      <span style={{ fontSize: 9, color: TH.muted }}>{formatCoinDateLabel(date)}</span>
+                      <span style={{ fontSize: 9, color: TH.gold }}>+{dayTotal} 🪙</span>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>{rows.map(renderCoinIncomeRow)}</div>
+                  </div>
+                );
+              })}
+            </div>
+          )
+        ) : recentCoinIncomeLog.length === 0 ? (
           <div style={{ fontSize: 10, color: TH.muted, textAlign: "center", padding: 8 }}>尚無金幣收入</div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {recentCoinIncomeLog.map((row) => {
-              const isEditing = editingCoinId === row.id;
-              const cat2Options = editCat1 ? CAT.cat2List(editCat1) : [];
-              return (
-                <div key={row.id}>
-                  <button
-                    type="button"
-                    onClick={() => openCoinEdit(row)}
-                    style={{
-                      width: "100%",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      background: "#0A0A0C",
-                      borderRadius: 8,
-                      padding: "7px 9px",
-                      border: "none",
-                      cursor: "pointer",
-                      textAlign: "left",
-                    }}
-                  >
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 10, color: TH.text, fontWeight: 800 }}>{row.taskName}</div>
-                      <div style={{ fontSize: 9, color: TH.muted }}>
-                        {row.time}
-                        {row.cat1 ? ` · ${row.cat1}${row.cat2 ? ` / ${row.cat2}` : ""}` : ""}
-                      </div>
-                    </div>
-                    <div style={{ fontSize: 11, color: TH.gold, fontWeight: 900 }}>+{row.amount} 🪙</div>
-                  </button>
-                  {isEditing && (
-                    <div
-                      style={{
-                        background: TH.bg,
-                        borderRadius: 8,
-                        padding: "8px 9px",
-                        marginTop: 4,
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 6,
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <input
-                        value={editTaskName}
-                        onChange={(e) => setEditTaskName(e.target.value)}
-                        placeholder="事件名稱"
-                        style={coinFieldStyle}
-                      />
-                      <select
-                        value={editCat1}
-                        onChange={(e) => {
-                          const next = e.target.value;
-                          setEditCat1(next);
-                          const mids = CAT.cat2List(next);
-                          setEditCat2(mids[0] ?? "");
-                        }}
-                        style={coinFieldStyle}
-                      >
-                        {CAT.cat1List().map((c) => (
-                          <option key={c} value={c}>
-                            {c}
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        value={editCat2}
-                        onChange={(e) => setEditCat2(e.target.value)}
-                        disabled={cat2Options.length === 0}
-                        style={coinFieldStyle}
-                      >
-                        {cat2Options.length === 0 ? (
-                          <option value="">—</option>
-                        ) : (
-                          cat2Options.map((c) => (
-                            <option key={c} value={c}>
-                              {c}
-                            </option>
-                          ))
-                        )}
-                      </select>
-                      <div style={{ display: "flex", gap: 6 }}>
-                        <button
-                          type="button"
-                          onClick={() => saveCoinEdit(row.id)}
-                          style={{
-                            flex: 1,
-                            padding: "6px 0",
-                            borderRadius: 8,
-                            border: "none",
-                            background: TH.accent,
-                            color: "#fff",
-                            fontSize: 11,
-                            fontWeight: 800,
-                            cursor: "pointer",
-                          }}
-                        >
-                          儲存
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEditingCoinId(null)}
-                          style={{
-                            flex: 1,
-                            padding: "6px 0",
-                            borderRadius: 8,
-                            border: `1px solid ${TH.border}`,
-                            background: "transparent",
-                            color: TH.muted,
-                            fontSize: 11,
-                            fontWeight: 700,
-                            cursor: "pointer",
-                          }}
-                        >
-                          取消
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-
+            {recentCoinIncomeLog.map((row) => renderCoinIncomeRow(row))}
           </div>
         )}
       </Card>
