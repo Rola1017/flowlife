@@ -6,6 +6,8 @@ export const LS_KEYS = {
   todos: `${STORAGE_PREFIX}todos`,
   coins: `${STORAGE_PREFIX}coins`,
   pomodoroSessions: `${STORAGE_PREFIX}pomodoro_sessions`,
+  /** @alias pomodoroSessions */
+  sessions: `${STORAGE_PREFIX}pomodoro_sessions`,
   ratingCounts: `${STORAGE_PREFIX}rating_counts`,
   idleTotalSecs: `${STORAGE_PREFIX}idle_total_secs`,
   purchaseLog: `${STORAGE_PREFIX}purchase_log`,

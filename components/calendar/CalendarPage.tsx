@@ -118,6 +118,33 @@ export function CalendarPage({
     saveJSON(LS_KEYS.weekendShifts, weekendShifts);
   }, [weekendShifts]);
 
+  const [sessions, setSessions] = useState<{ date: string; mins: number }[]>(() =>
+    loadJSON<{ date: string; mins: number }[]>(LS_KEYS.sessions, []),
+  );
+
+  useEffect(() => {
+    const sync = () => {
+      setSessions(loadJSON<{ date: string; mins: number }[]>(LS_KEYS.sessions, []));
+    };
+    window.addEventListener("storage", sync);
+    window.addEventListener("flowlife-sessions-updated", sync);
+    const timer = setInterval(sync, 10000);
+    return () => {
+      window.removeEventListener("storage", sync);
+      window.removeEventListener("flowlife-sessions-updated", sync);
+      clearInterval(timer);
+    };
+  }, []);
+
+  const focusByDate = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const s of sessions) {
+      if (!s.date) continue;
+      map[s.date] = (map[s.date] ?? 0) + (s.mins ?? 0);
+    }
+    return map;
+  }, [sessions]);
+
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
   const weekNavLabel = useMemo(() => formatWeekNavRange(weekDates), [weekDates]);
 
@@ -285,9 +312,7 @@ export function CalendarPage({
               const label = dayViewLabel(dateStr);
               const weekend = isWeekendDate(dateStr);
               const shift = weekendShifts[dateStr];
-              const [yr, mo] = dateStr.split("-").map(Number);
-              const dayIdx = new Date(dateStr + "T12:00:00").getDate() - 1;
-              const dayFocus = genMonthData(yr, mo, getDaysInMonth(yr, mo))[dayIdx] ?? 0;
+              const dayFocus = focusByDate[dateStr] ?? 0;
               const availMins = getAvailableMinutes(dateStr, weekendShifts[dateStr]);
               const pct = Math.round(Math.min(dayFocus / availMins, 1) * 100);
               const displayPct = isToday ? Math.max(pct, 3) : pct;

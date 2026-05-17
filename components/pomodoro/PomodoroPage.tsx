@@ -1,6 +1,6 @@
 "use client";
 
-import { type Dispatch, type SetStateAction } from "react";
+import { type Dispatch, type SetStateAction, useEffect } from "react";
 import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
 import { fmt, fmtIdleTime } from "@/lib/utils";
@@ -10,6 +10,7 @@ import { CategorySelector } from "@/components/pomodoro/CategorySelector";
 import { CatBadge } from "@/components/pomodoro/CatBadge";
 import { RingTimer } from "@/components/pomodoro/RingTimer";
 import { usePomodoro } from "@/components/pomodoro/usePomodoro";
+import { LS_KEYS, saveJSON } from "@/lib/storage";
 import { WeekHeat } from "@/components/charts/WeekHeat";
 import { LineChart } from "@/components/charts/LineChart";
 
@@ -105,6 +106,10 @@ export function PomodoroPage({
     setRestEndAt,
     resetVersion,
   });
+
+  useEffect(() => {
+    saveJSON(LS_KEYS.sessions, sessions);
+  }, [sessions]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, position: "relative" }}>

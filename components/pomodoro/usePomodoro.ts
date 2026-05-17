@@ -7,6 +7,7 @@ import { coinsForSecs, playRestEnd } from "@/lib/utils";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 
 export type PomodoroSessionRow = {
+  date?: string;
   mins: number;
   rating: string;
   cat1?: string;
@@ -72,7 +73,14 @@ export function usePomodoro({
   const [rated, setRated] = useState(false);
   const [restSecs, setRestSecs] = useState(0);
   const [restTotalSecs, setRestTotalSecs] = useState(0);
-  const [sessions, setSessions] = useState<PomodoroSessionRow[]>([]);
+  const [sessions, setSessions] = useState<PomodoroSessionRow[]>(() => {
+    const saved = loadJSON<unknown>(LS_KEYS.sessions, null);
+    if (!Array.isArray(saved)) return [];
+    return (saved as PomodoroSessionRow[]).map((r) => ({
+      ...r,
+      counted: typeof r.counted === "boolean" ? r.counted : (r.mins ?? 0) > 1,
+    }));
+  });
   const [sessionsLsReady, setSessionsLsReady] = useState(false);
   const [linePeriod, setLinePeriod] = useState("7天");
   const [taskName, setTaskName] = useState("");
@@ -102,26 +110,19 @@ export function usePomodoro({
   };
 
   useEffect(() => {
-    const saved = loadJSON<unknown>(LS_KEYS.pomodoroSessions, null);
-    if (Array.isArray(saved)) {
-      const rows = (saved as PomodoroSessionRow[]).map((r) => ({
-        ...r,
-        counted: typeof r.counted === "boolean" ? r.counted : (r.mins ?? 0) > 1,
-      }));
-      setSessions(rows);
-      const tot = rows
-        .filter((x) => x.counted)
-        .reduce((s, x) => s + (typeof x.mins === "number" ? x.mins : 0), 0);
-      CFG.MILESTONES.forEach((m) => {
-        if (tot >= m.mins) hitRef.current.add(m.mins);
-      });
-    }
+    const tot = sessions
+      .filter((x) => x.counted)
+      .reduce((s, x) => s + (typeof x.mins === "number" ? x.mins : 0), 0);
+    CFG.MILESTONES.forEach((m) => {
+      if (tot >= m.mins) hitRef.current.add(m.mins);
+    });
     setSessionsLsReady(true);
   }, []);
 
   useEffect(() => {
     if (!sessionsLsReady) return;
-    saveJSON(LS_KEYS.pomodoroSessions, sessions);
+    saveJSON(LS_KEYS.sessions, sessions);
+    window.dispatchEvent(new CustomEvent("flowlife-sessions-updated"));
   }, [sessions, sessionsLsReady]);
 
   useEffect(() => {
@@ -281,7 +282,8 @@ export function usePomodoro({
     const mins = Math.max(1, Math.round(el / 60));
     const counted = mins > 1;
     const earned = coinsForSecs(el);
-    const ns = [...sessions, { ...confirmed!, mins, rating: r, counted }];
+    const { date } = localDateParts();
+    const ns = [...sessions, { ...confirmed!, date, mins, rating: r, counted }];
     setSessions(ns);
 
     const tot = ns.filter((p) => p.counted).reduce((s, p) => s + p.mins, 0);
