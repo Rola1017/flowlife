@@ -6,24 +6,28 @@ import { TodoCard } from "@/components/todo/TodoCard";
 import { BattleCard } from "@/components/home/BattleCard";
 import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
-import { MOCK } from "@/lib/mock";
 import { getPeriod } from "@/lib/utils";
+import type { Session } from "@/lib/types";
 
 export function HomePage({
   todos,
+  todaySessions,
+  yesterdaySessions,
   onStart,
   onEnd,
   onToggleDone,
   onEditTodo,
 }: {
   todos: Record<string, unknown>[];
+  todaySessions: Session[];
+  yesterdaySessions: Session[];
   onStart: (id: number) => void;
   onEnd: (id: number) => void;
   onToggleDone: (id: number) => void;
   onEditTodo: (id: number) => void;
 }) {
   const [expandReview, setExpandReview] = useState(false);
-  const yTot = MOCK.yesterdayPomos.reduce((s, p) => s + p.mins, 0);
+  const yTot = yesterdaySessions.reduce((s, p) => s + p.mins, 0);
   const mustDo = todos.filter(
     (t: { date?: string; mustDo?: boolean; phase?: string }) =>
       t.date === CFG.TODAY_STR && t.mustDo && t.phase !== "done",
@@ -39,14 +43,14 @@ export function HomePage({
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ display: "flex", gap: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <BattleCard title="昨日" pomos={MOCK.yesterdayPomos} prevMins={350} prevCount={6} />
+          <BattleCard title="昨日" pomos={yesterdaySessions} prevMins={350} prevCount={6} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <BattleCard
             title="今日"
-            pomos={MOCK.todayPomos}
+            pomos={todaySessions}
             prevMins={yTot}
-            prevCount={MOCK.yesterdayPomos.length}
+            prevCount={yesterdaySessions.length}
           />
         </div>
       </div>

@@ -6,7 +6,8 @@ import { TH } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { MOCK } from "@/lib/mock";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
-import { fmt, getAvailableMinutes, getDaysInMonth, getFirstDow, genMonthData } from "@/lib/utils";
+import type { Session } from "@/lib/types";
+import { fmt, getAvailableMinutes, getDaysInMonth, getFirstDow } from "@/lib/utils";
 import { Chip } from "@/components/ui/Chip";
 import { TriCharts } from "@/components/charts/TriCharts";
 
@@ -68,6 +69,14 @@ function dayViewLabel(dateStr: string): string {
   return `${y}年${m}月${d}日`;
 }
 
+function sessionsInMonth(sessions: Session[], y: number, m: number) {
+  return sessions.filter((s) => {
+    if (!s.date) return false;
+    const [sy, sm] = s.date.split("-").map(Number);
+    return sy === y && sm === m;
+  });
+}
+
 function getWeekSlot(startTime: string): WeekSlotId | null {
   if (!startTime?.trim()) return null;
   const h = parseInt(startTime.split(":")[0], 10);
@@ -80,10 +89,12 @@ function getWeekSlot(startTime: string): WeekSlotId | null {
 
 export function CalendarPage({
   todos,
+  sessions,
   onShowDay,
   onShowSchedule,
 }: {
   todos: Record<string, unknown>[];
+  sessions: Session[];
   onShowDay: (date: string, label: string) => void;
   onShowSchedule: () => void;
 }) {
@@ -102,13 +113,8 @@ export function CalendarPage({
     curM = (totalM % 12) + 1;
   const dim = getDaysInMonth(curY, curM),
     fdow = getFirstDow(curY, curM);
-  const mData = genMonthData(curY, curM, dim);
-  const mTot = mData.reduce((s, v) => s + v, 0);
-  const prevRaw = genMonthData(curY, curM === 1 ? 12 : curM - 1, getDaysInMonth(curY, curM === 1 ? 12 : curM - 1));
-  const prevTot = prevRaw.reduce((s, v) => s + v, 0);
-  const pctVsLast = prevTot ? Math.round(((mTot - prevTot) / prevTot) * 100) : 0;
-  const dayCount = mData.filter((v) => v > 0).length,
-    dayAvg = dayCount ? Math.round(mTot / dayCount) : 0;
+  const prevM = curM === 1 ? 12 : curM - 1;
+  const prevY = curM === 1 ? curY - 1 : curY;
   const lineD = MOCK.lineData[period as keyof typeof MOCK.lineData] || MOCK.lineData["月"];
   const [weekendShifts, setWeekendShifts] = useState<Record<string, WeekendShift>>(() =>
     loadJSON<Record<string, WeekendShift>>(LS_KEYS.weekendShifts, {}),
@@ -118,24 +124,6 @@ export function CalendarPage({
     saveJSON(LS_KEYS.weekendShifts, weekendShifts);
   }, [weekendShifts]);
 
-  const [sessions, setSessions] = useState<{ date: string; mins: number }[]>(() =>
-    loadJSON<{ date: string; mins: number }[]>(LS_KEYS.sessions, []),
-  );
-
-  useEffect(() => {
-    const sync = () => {
-      setSessions(loadJSON<{ date: string; mins: number }[]>(LS_KEYS.sessions, []));
-    };
-    window.addEventListener("storage", sync);
-    window.addEventListener("flowlife-sessions-updated", sync);
-    const timer = setInterval(sync, 10000);
-    return () => {
-      window.removeEventListener("storage", sync);
-      window.removeEventListener("flowlife-sessions-updated", sync);
-      clearInterval(timer);
-    };
-  }, []);
-
   const focusByDate = useMemo(() => {
     const map: Record<string, number> = {};
     for (const s of sessions) {
@@ -144,6 +132,25 @@ export function CalendarPage({
     }
     return map;
   }, [sessions]);
+
+  const mData = useMemo(
+    () =>
+      Array.from({ length: dim }, (_, i) => {
+        const ds = `${curY}-${String(curM).padStart(2, "0")}-${String(i + 1).padStart(2, "0")}`;
+        return focusByDate[ds] ?? 0;
+      }),
+    [dim, curY, curM, focusByDate],
+  );
+
+  const monthSessions = useMemo(() => sessionsInMonth(sessions, curY, curM), [sessions, curY, curM]);
+  const mTot = useMemo(() => monthSessions.reduce((s, x) => s + (x.mins ?? 0), 0), [monthSessions]);
+  const dayCount = useMemo(() => new Set(monthSessions.map((s) => s.date).filter(Boolean)).size, [monthSessions]);
+  const dayAvg = dayCount ? Math.round(mTot / dayCount) : 0;
+  const pomodoroCount = monthSessions.length;
+  const prevTot = useMemo(() => {
+    return sessionsInMonth(sessions, prevY, prevM).reduce((s, x) => s + (x.mins ?? 0), 0);
+  }, [sessions, prevY, prevM]);
+  const pctVsLast = prevTot ? Math.round(((mTot - prevTot) / prevTot) * 100) : 0;
 
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
   const weekNavLabel = useMemo(() => formatWeekNavRange(weekDates), [weekDates]);
@@ -248,7 +255,7 @@ export function CalendarPage({
               ["時長", fmt(mTot), activeColor],
               ["日均", fmt(dayAvg), TH.text],
               ["有效天", `${dayCount}天`, TH.text],
-              ["番茄數", `${dayCount * 3}`, TH.text],
+              ["番茄數", `${pomodoroCount}`, TH.text],
             ] as const
           ).map(([l, v, col]) => (
             <div key={l} style={{ background: TH.card, border: `1px solid ${TH.border}`, borderRadius: 10, padding: "6px 8px" }}>

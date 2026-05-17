@@ -1,6 +1,6 @@
 "use client";
 
-import { type Dispatch, type SetStateAction, useEffect } from "react";
+import { type Dispatch, type SetStateAction } from "react";
 import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
 import { fmt, fmtIdleTime } from "@/lib/utils";
@@ -10,7 +10,7 @@ import { CategorySelector } from "@/components/pomodoro/CategorySelector";
 import { CatBadge } from "@/components/pomodoro/CatBadge";
 import { RingTimer } from "@/components/pomodoro/RingTimer";
 import { usePomodoro } from "@/components/pomodoro/usePomodoro";
-import { LS_KEYS, saveJSON } from "@/lib/storage";
+import type { Session } from "@/lib/types";
 import { WeekHeat } from "@/components/charts/WeekHeat";
 import { LineChart } from "@/components/charts/LineChart";
 
@@ -22,6 +22,8 @@ const COIN_CRACKERS = Array.from({ length: 16 }, (_, idx) => ({
 }));
 
 export function PomodoroPage({
+  sessions,
+  setSessions,
   coins,
   setCoins,
   onShowShop,
@@ -39,6 +41,8 @@ export function PomodoroPage({
   setRestEndAt,
   resetVersion,
 }: {
+  sessions: Session[];
+  setSessions: Dispatch<SetStateAction<Session[]>>;
   coins: number;
   setCoins: Dispatch<SetStateAction<number>>;
   onShowShop: () => void;
@@ -64,7 +68,6 @@ export function PomodoroPage({
     rated,
     restSecs,
     restTotalSecs,
-    sessions,
     linePeriod,
     setLinePeriod,
     taskName,
@@ -94,6 +97,8 @@ export function PomodoroPage({
     selectDuration,
     abandonFocus,
   } = usePomodoro({
+    sessions,
+    setSessions,
     setCoins,
     setFocused,
     setNeutral,
@@ -106,10 +111,6 @@ export function PomodoroPage({
     setRestEndAt,
     resetVersion,
   });
-
-  useEffect(() => {
-    saveJSON(LS_KEYS.sessions, sessions);
-  }, [sessions]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, position: "relative" }}>

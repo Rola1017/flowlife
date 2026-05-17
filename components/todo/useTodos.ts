@@ -129,9 +129,9 @@ export function useTodos(initial: Record<string, unknown>[]) {
     setTodos((ts) => ts.filter((t) => t.id !== id));
   }, []);
 
-  const resetTodos = useCallback(() => {
-    setTodos(initial.map(makeTodo));
-  }, [initial]);
+  const resetTodos = useCallback((next: Record<string, unknown>[] = []) => {
+    setTodos(next.map(makeTodo));
+  }, []);
 
   return { todos, handleStart, handleEnd, handleToggleDone, addTodo, updateTodo, deleteTodo, resetTodos };
 }

@@ -5,7 +5,15 @@ import { BackBtn } from "@/components/ui/BackBtn";
 import { Card, SL } from "@/components/ui/Card";
 import { TH } from "@/lib/theme";
 
-export function SettingsPage({ onBack, onResetAllData }: { onBack: () => void; onResetAllData: () => void }) {
+export function SettingsPage({
+  onBack,
+  onResetAllData,
+  onResetTodos,
+}: {
+  onBack: () => void;
+  onResetAllData: () => void;
+  onResetTodos: (todos: Record<string, unknown>[]) => void;
+}) {
   const [confirming, setConfirming] = useState(false);
 
   return (
@@ -58,7 +66,10 @@ export function SettingsPage({ onBack, onResetAllData }: { onBack: () => void; o
             <button
               className="flowlife-pressable"
               type="button"
-              onClick={onResetAllData}
+              onClick={() => {
+                onResetTodos([]);
+                onResetAllData();
+              }}
               style={{
                 width: "100%",
                 padding: "12px 14px",

@@ -1,10 +1,11 @@
 "use client";
 
-import { Component, useState, useEffect, useRef, type ErrorInfo, type ReactNode } from "react";
+import { Component, useState, useEffect, useMemo, useRef, type ErrorInfo, type ReactNode } from "react";
+import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
-import { MOCK } from "@/lib/mock";
 import { TABS } from "@/lib/tabs";
 import { LS_KEYS, loadJSON, loadNumber, saveJSON, saveNumber } from "@/lib/storage";
+import type { Session } from "@/lib/types";
 import { Card } from "@/components/ui/Card";
 import { Header } from "@/components/Header";
 import { HomePage } from "@/components/home/HomePage";
@@ -87,7 +88,29 @@ function AppContent() {
   const [resetVersion, setResetVersion] = useState(0);
   const lastAutoIdleKeyRef = useRef<string>("");
 
-  const { todos, handleStart, handleEnd, handleToggleDone, addTodo, updateTodo, resetTodos } = useTodos(MOCK.initTodos);
+  const { todos, handleStart, handleEnd, handleToggleDone, addTodo, updateTodo, resetTodos } = useTodos([]);
+
+  const [sessions, setSessions] = useState<Session[]>(() => loadJSON<Session[]>(LS_KEYS.sessions, []));
+
+  useEffect(() => {
+    saveJSON(LS_KEYS.sessions, sessions);
+  }, [sessions]);
+
+  const todaySessions = useMemo(
+    () => sessions.filter((s) => s.date === CFG.TODAY_STR),
+    [sessions],
+  );
+
+  const yesterdayStr = useMemo(() => {
+    const yd = new Date(CFG.TODAY_STR + "T12:00:00");
+    yd.setDate(yd.getDate() - 1);
+    return `${yd.getFullYear()}-${String(yd.getMonth() + 1).padStart(2, "0")}-${String(yd.getDate()).padStart(2, "0")}`;
+  }, []);
+
+  const yesterdaySessions = useMemo(
+    () => sessions.filter((s) => s.date === yesterdayStr),
+    [sessions, yesterdayStr],
+  );
 
   const [editTodoId, setEditTodoId] = useState<number | null>(null);
   const editingTodo = editTodoId == null ? null : todos.find((x) => x.id === editTodoId);
@@ -154,7 +177,8 @@ function AppContent() {
     setIdleTrackStart(null);
     setIdleTotalSecs(DEFAULT_IDLE_TOTAL_SECS);
     setRestEndAt(null);
-    resetTodos();
+    resetTodos([]);
+    setSessions([]);
     setResetVersion((v) => v + 1);
     setTab("home");
     setSubPage(null);
@@ -172,7 +196,9 @@ function AppContent() {
 
   const SUB_PAGE_MAP: Record<string, (props?: Record<string, unknown>) => ReactNode> = {
     schedule: () => <SchedulePage onBack={pop} />,
-    settings: () => <SettingsPage onBack={pop} onResetAllData={handleResetAllData} />,
+    settings: () => (
+      <SettingsPage onBack={pop} onResetAllData={handleResetAllData} onResetTodos={resetTodos} />
+    ),
     shop: () => <ShopPage coins={coins} onSpend={spendCoins} onBack={pop} />,
     dayView: (props = {}) => (
       <DayViewPage
@@ -190,11 +216,12 @@ function AppContent() {
   };
 
   const MAIN_PAGE_MAP: Record<string, () => ReactNode> = {
-    home: () => <HomePage {...todoProps} />,
+    home: () => <HomePage {...todoProps} todaySessions={todaySessions} yesterdaySessions={yesterdaySessions} />,
     timeline: () => <TimelinePage {...todoProps} />,
     calendar: () => (
       <CalendarPage
         todos={todos}
+        sessions={sessions}
         onShowDay={(d, l) => push("dayView", { date: d, label: l })}
         onShowSchedule={() => push("schedule")}
       />
@@ -213,6 +240,8 @@ function AppContent() {
 
   const pomodoroPage = (
     <PomodoroPage
+      sessions={sessions}
+      setSessions={setSessions}
       coins={coins}
       setCoins={setCoins}
       onShowShop={() => push("shop")}
