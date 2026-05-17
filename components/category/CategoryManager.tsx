@@ -51,11 +51,11 @@ function ColorPicker({
   return (
     <div
       style={{
-        position: "absolute",
-        top: "100%",
-        left: 0,
-        marginTop: 6,
-        zIndex: 50,
+        position: "fixed",
+        top: "50%",
+        left: "50%",
+        transform: "translate(-50%, -50%)",
+        zIndex: 200,
         background: TH.card,
         border: `1px solid ${TH.border}`,
         borderRadius: 10,
@@ -65,7 +65,14 @@ function ColorPicker({
       }}
       onClick={(e) => e.stopPropagation()}
     >
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 36px)", gap: 6, marginBottom: 8 }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(5, 32px)",
+          gap: 6,
+          marginBottom: 8,
+        }}
+      >
         {COLOR_PALETTE.map((c) => (
           <button
             key={c}
@@ -75,9 +82,9 @@ function ColorPicker({
               onClose();
             }}
             style={{
-              width: 36,
-              height: 36,
-              borderRadius: 8,
+              width: 32,
+              height: 32,
+              borderRadius: 6,
               border: "none",
               outline: value === c ? "2px solid white" : "none",
               background: c,
@@ -271,7 +278,7 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }} onClick={() => setColorPickerBig(null)}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <BackBtn onBack={onBack} label="分類管理" />
 
       <Card>
@@ -328,11 +335,21 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
                     }}
                   />
                   {colorPickerBig === bi && (
-                    <ColorPicker
-                      value={big.color}
-                      onChange={(c) => updateBigColor(bi, c)}
-                      onClose={() => setColorPickerBig(null)}
-                    />
+                    <>
+                      <div
+                        style={{
+                          position: "fixed",
+                          inset: 0,
+                          zIndex: 199,
+                        }}
+                        onClick={() => setColorPickerBig(null)}
+                      />
+                      <ColorPicker
+                        value={big.color}
+                        onChange={(c) => updateBigColor(bi, c)}
+                        onClose={() => setColorPickerBig(null)}
+                      />
+                    </>
                   )}
                 </div>
                 <RenameInput value={big.name} onCommit={(n) => updateBigName(bi, n)} />
