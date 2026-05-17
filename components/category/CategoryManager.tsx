@@ -12,27 +12,27 @@ import {
   saveCategories,
 } from "@/lib/categories";
 
-const PRESET_COLORS = [
-  "#EF4444",
-  "#F97316",
-  "#F59E0B",
-  "#84CC16",
-  "#22C55E",
-  "#10B981",
-  "#06B6D4",
-  "#3B82F6",
-  "#6366F1",
-  "#8B5CF6",
-  "#A855F7",
-  "#EC4899",
-  "#F43F5E",
-  "#78716C",
-  "#64748B",
-  "#0EA5E9",
-  "#14B8A6",
-  "#EAB308",
-  "#FB923C",
-  "#DC2626",
+const COLOR_PALETTE = [
+  "#EA0000",
+  "#FFAAD5",
+  "#FF00FF",
+  "#9F35FF",
+  "#0000E3",
+  "#46A3FF",
+  "#4DFFFF",
+  "#4EFEB3",
+  "#28FF28",
+  "#C2FF68",
+  "#FFFF37",
+  "#EAC100",
+  "#FF8000",
+  "#FF5809",
+  "#AD5A5A",
+  "#AFAF61",
+  "#81C0C0",
+  "#9999CC",
+  "#AE57A4",
+  "#9D9D9D",
 ];
 
 function cloneData(data: CategoryData): CategoryData {
@@ -65,8 +65,8 @@ function ColorPicker({
       }}
       onClick={(e) => e.stopPropagation()}
     >
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6, marginBottom: 8 }}>
-        {PRESET_COLORS.map((c) => (
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 36px)", gap: 6, marginBottom: 8 }}>
+        {COLOR_PALETTE.map((c) => (
           <button
             key={c}
             type="button"
@@ -75,10 +75,11 @@ function ColorPicker({
               onClose();
             }}
             style={{
-              width: 28,
-              height: 28,
-              borderRadius: 6,
-              border: value === c ? `2px solid ${TH.text}` : "1px solid transparent",
+              width: 36,
+              height: 36,
+              borderRadius: 8,
+              border: "none",
+              outline: value === c ? "2px solid white" : "none",
               background: c,
               cursor: "pointer",
               padding: 0,
