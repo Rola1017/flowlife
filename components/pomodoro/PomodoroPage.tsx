@@ -27,6 +27,7 @@ export function PomodoroPage({
   coins,
   setCoins,
   onShowShop,
+  onShowCategoryManager,
   focused,
   setFocused,
   neutral,
@@ -46,6 +47,7 @@ export function PomodoroPage({
   coins: number;
   setCoins: Dispatch<SetStateAction<number>>;
   onShowShop: () => void;
+  onShowCategoryManager: () => void;
   focused: number;
   setFocused: Dispatch<SetStateAction<number>>;
   neutral: number;
@@ -350,7 +352,13 @@ export function PomodoroPage({
       )}
       {mode !== "focus" && (
         <Card style={{ width: "100%", padding: 10 }}>
-          <CategorySelector cat1={catSel.cat1} cat2={catSel.cat2} cat3={catSel.cat3} onChange={setCatSel} />
+          <CategorySelector
+            cat1={catSel.cat1}
+            cat2={catSel.cat2}
+            cat3={catSel.cat3}
+            onChange={setCatSel}
+            onShowCategoryManager={onShowCategoryManager}
+          />
           {catSel.cat1 && (
             <div
               style={{

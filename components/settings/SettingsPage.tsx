@@ -7,12 +7,10 @@ import { TH } from "@/lib/theme";
 
 export function SettingsPage({
   onBack,
-  onShowCategoryManager,
   onResetAllData,
   onResetTodos,
 }: {
   onBack: () => void;
-  onShowCategoryManager: () => void;
   onResetAllData: () => void;
   onResetTodos: (todos: Record<string, unknown>[]) => void;
 }) {
@@ -23,35 +21,9 @@ export function SettingsPage({
       <BackBtn onBack={onBack} label="設定" />
 
       <Card>
-        <SL>資料管理</SL>
-        <button
-          type="button"
-          onClick={onShowCategoryManager}
-          style={{
-            width: "100%",
-            padding: "12px 14px",
-            borderRadius: 12,
-            border: `1px solid ${TH.border}`,
-            background: TH.card,
-            color: TH.text,
-            fontSize: 13,
-            fontWeight: 800,
-            cursor: "pointer",
-            marginBottom: 12,
-          }}
-        >
-          📂 分類管理
-        </button>
-      </Card>
-
-      <Card>
         <SL>危險操作</SL>
         <div
           style={{
-            border: `1px solid ${TH.red}66`,
-            background: TH.red + "12",
-            borderRadius: 12,
-            padding: 12,
             color: TH.red,
             fontSize: 12,
             fontWeight: 800,

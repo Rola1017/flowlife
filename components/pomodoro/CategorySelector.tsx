@@ -7,11 +7,13 @@ export function CategorySelector({
   cat2,
   cat3,
   onChange,
+  onShowCategoryManager,
 }: {
   cat1: string;
   cat2: string;
   cat3: string;
   onChange: (next: { cat1: string; cat2: string; cat3: string }) => void;
+  onShowCategoryManager: () => void;
 }) {
   const cat2List = CAT.cat2List(cat1);
   const cat3List = cat2 ? CAT.cat3List(cat1, cat2) : [];
@@ -21,8 +23,26 @@ export function CategorySelector({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <div>
-        <div style={{ fontSize: 9, color: TH.muted, marginBottom: 4 }}>
-          大分類 <span style={{ color: TH.red }}>必填</span>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+          <div style={{ fontSize: 9, color: TH.muted }}>
+            大分類 <span style={{ color: TH.red }}>必填</span>
+          </div>
+          <button
+            type="button"
+            onClick={onShowCategoryManager}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 3,
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: 0,
+            }}
+          >
+            <span style={{ fontSize: 9, color: TH.muted }}>分類管理</span>
+            <span style={{ fontSize: 13 }}>⚙️</span>
+          </button>
         </div>
         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
           {CAT.cat1List().map((c) => (

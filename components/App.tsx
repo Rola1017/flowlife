@@ -198,12 +198,7 @@ function AppContent() {
   const SUB_PAGE_MAP: Record<string, (props?: Record<string, unknown>) => ReactNode> = {
     schedule: () => <SchedulePage onBack={pop} />,
     settings: () => (
-      <SettingsPage
-        onBack={pop}
-        onShowCategoryManager={() => push("categoryManager")}
-        onResetAllData={handleResetAllData}
-        onResetTodos={resetTodos}
-      />
+      <SettingsPage onBack={pop} onResetAllData={handleResetAllData} onResetTodos={resetTodos} />
     ),
     categoryManager: () => <CategoryManager onBack={pop} />,
     shop: () => <ShopPage coins={coins} onSpend={spendCoins} onBack={pop} />,
@@ -252,6 +247,7 @@ function AppContent() {
       coins={coins}
       setCoins={setCoins}
       onShowShop={() => push("shop")}
+      onShowCategoryManager={() => push("categoryManager")}
       focused={focused}
       setFocused={setFocused}
       neutral={neutral}
