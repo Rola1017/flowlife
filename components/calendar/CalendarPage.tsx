@@ -22,6 +22,35 @@ const WEEK_SLOTS = [
 type WeekSlotId = (typeof WEEK_SLOTS)[number]["id"];
 type WeekendShift = "早班" | "晚班";
 
+const WEEK_BORDER_PERIM = 214;
+const WEEK_BORDER_SEG = [
+  { x1: 5, y1: 0.75, x2: 9.25, y2: 0.75, len: 4.25 },
+  { x1: 9.25, y1: 0.75, x2: 9.25, y2: 99.25, len: 98.5 },
+  { x1: 9.25, y1: 99.25, x2: 0.75, y2: 99.25, len: 8.5 },
+  { x1: 0.75, y1: 99.25, x2: 0.75, y2: 0.75, len: 98.5 },
+  { x1: 0.75, y1: 0.75, x2: 5, y2: 0.75, len: 4.25 },
+] as const;
+
+type ProgressLine = { x1: number; y1: number; x2: number; y2: number };
+
+function calcProgressLines(target: number): ProgressLine[] {
+  let rem = target;
+  const drawnLines: ProgressLine[] = [];
+  for (const seg of WEEK_BORDER_SEG) {
+    if (rem <= 0) break;
+    const d = Math.min(rem, seg.len);
+    const r = d / seg.len;
+    drawnLines.push({
+      x1: seg.x1,
+      y1: seg.y1,
+      x2: seg.x1 + (seg.x2 - seg.x1) * r,
+      y2: seg.y1 + (seg.y2 - seg.y1) * r,
+    });
+    rem -= d;
+  }
+  return drawnLines;
+}
+
 function cycleWeekendShift(current?: WeekendShift): WeekendShift {
   return current === "早班" ? "晚班" : "早班";
 }
@@ -321,30 +350,12 @@ export function CalendarPage({
               const shift = weekendShifts[dateStr];
               const dayFocus = focusByDate[dateStr] ?? 0;
               const availMins = getAvailableMinutes(dateStr, weekendShifts[dateStr]);
-              const pct = Math.round(Math.min(dayFocus / availMins, 1) * 100);
-              const displayPct = pct;
-              const SEG = [
-                { x1: 5, y1: 0.75, x2: 9.25, y2: 0.75, len: 4.25 },
-                { x1: 9.25, y1: 0.75, x2: 9.25, y2: 99.25, len: 98.5 },
-                { x1: 9.25, y1: 99.25, x2: 0.75, y2: 99.25, len: 8.5 },
-                { x1: 0.75, y1: 99.25, x2: 0.75, y2: 0.75, len: 98.5 },
-                { x1: 0.75, y1: 0.75, x2: 5, y2: 0.75, len: 4.25 },
-              ];
-              const TARGET = (214 * displayPct) / 100;
-              let rem = TARGET;
-              const drawnLines: { x1: number; y1: number; x2: number; y2: number }[] = [];
-              for (const seg of SEG) {
-                if (rem <= 0) break;
-                const d = Math.min(rem, seg.len);
-                const r = d / seg.len;
-                drawnLines.push({
-                  x1: seg.x1,
-                  y1: seg.y1,
-                  x2: seg.x1 + (seg.x2 - seg.x1) * r,
-                  y2: seg.y1 + (seg.y2 - seg.y1) * r,
-                });
-                rem -= d;
-              }
+              const pct = availMins > 0 ? Math.round((dayFocus / availMins) * 100) : 0;
+              const firstTarget = (WEEK_BORDER_PERIM * Math.min(pct, 100)) / 100;
+              const overflowPct = Math.max(pct - 100, 0);
+              const overflowTarget = (WEEK_BORDER_PERIM * Math.min(overflowPct, 100)) / 100;
+              const orangeLines = calcProgressLines(firstTarget);
+              const blueLines = overflowPct > 0 ? calcProgressLines(overflowTarget) : [];
               return (
                 <div
                   key={dateStr}
@@ -379,7 +390,7 @@ export function CalendarPage({
                     viewBox="0 0 10 100"
                     preserveAspectRatio="none"
                   >
-                    {SEG.map((seg, i) => (
+                    {WEEK_BORDER_SEG.map((seg, i) => (
                       <line
                         key={`bg-${i}`}
                         x1={seg.x1}
@@ -391,7 +402,7 @@ export function CalendarPage({
                         vectorEffect="non-scaling-stroke"
                       />
                     ))}
-                    {drawnLines.map((ln, i) => (
+                    {orangeLines.map((ln, i) => (
                       <line
                         key={`fg-${i}`}
                         x1={ln.x1}
@@ -399,6 +410,18 @@ export function CalendarPage({
                         x2={ln.x2}
                         y2={ln.y2}
                         stroke={isToday ? activeColor : activeColor + "66"}
+                        strokeWidth={isToday ? 1.5 : 1}
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    ))}
+                    {blueLines.map((ln, i) => (
+                      <line
+                        key={`ov-${i}`}
+                        x1={ln.x1}
+                        y1={ln.y1}
+                        x2={ln.x2}
+                        y2={ln.y2}
+                        stroke="#3B82F6"
                         strokeWidth={isToday ? 1.5 : 1}
                         vectorEffect="non-scaling-stroke"
                       />
@@ -555,7 +578,9 @@ export function CalendarPage({
               const isWeekend = new Date(dateStr + "T12:00:00").getDay() % 6 === 0;
               const shift = isWeekend ? weekendShifts[dateStr] : undefined;
               const availMins = getAvailableMinutes(dateStr, shift);
-              const dash = circ * Math.min(mins / availMins, 1);
+              const pct = availMins > 0 ? Math.round((mins / availMins) * 100) : 0;
+              const firstDash = circ * Math.min(pct / 100, 1);
+              const overflowDash = circ * Math.min(Math.max(pct - 100, 0) / 100, 1);
               return (
                 <div
                   key={i}
@@ -570,7 +595,7 @@ export function CalendarPage({
                   <div style={{ position: "relative", width: 32, height: 32 }}>
                     <svg width={32} height={32} style={{ transform: "rotate(-90deg)" }}>
                       <circle cx={16} cy={16} r={13} fill="none" stroke={TH.border} strokeWidth={2.5} />
-                      {mins > 0 && (
+                      {firstDash > 0 && (
                         <circle
                           cx={16}
                           cy={16}
@@ -579,7 +604,19 @@ export function CalendarPage({
                           stroke={activeColor}
                           strokeWidth={2.5}
                           strokeLinecap="round"
-                          strokeDasharray={`${dash} ${circ}`}
+                          strokeDasharray={`${firstDash} ${circ}`}
+                        />
+                      )}
+                      {pct > 100 && (
+                        <circle
+                          cx={16}
+                          cy={16}
+                          r={13}
+                          fill="none"
+                          stroke="#3B82F6"
+                          strokeWidth={2.5}
+                          strokeLinecap="round"
+                          strokeDasharray={`${overflowDash} ${circ}`}
                         />
                       )}
                     </svg>
