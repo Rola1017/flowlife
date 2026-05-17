@@ -63,7 +63,7 @@ export function CategorySelector({
                 key={c}
                 label={c}
                 active={cat3 === c}
-                color={CAT.cat3Color(cat1, cat2)}
+                color={CAT.cat3Color(cat1, cat2, c)}
                 onClick={() => setC3(c)}
                 style={{ fontSize: 9 }}
               />

@@ -15,6 +15,7 @@ import { CalendarPage } from "@/components/calendar/CalendarPage";
 import { DayViewPage } from "@/components/calendar/DayViewPage";
 import { SchedulePage } from "@/components/schedule/SchedulePage";
 import { SettingsPage } from "@/components/settings/SettingsPage";
+import { CategoryManager } from "@/components/category/CategoryManager";
 import { ShopPage } from "@/components/shop/ShopPage";
 import { useCoins } from "@/components/useCoins";
 import { useTodos } from "@/components/todo/useTodos";
@@ -197,8 +198,14 @@ function AppContent() {
   const SUB_PAGE_MAP: Record<string, (props?: Record<string, unknown>) => ReactNode> = {
     schedule: () => <SchedulePage onBack={pop} />,
     settings: () => (
-      <SettingsPage onBack={pop} onResetAllData={handleResetAllData} onResetTodos={resetTodos} />
+      <SettingsPage
+        onBack={pop}
+        onShowCategoryManager={() => push("categoryManager")}
+        onResetAllData={handleResetAllData}
+        onResetTodos={resetTodos}
+      />
     ),
+    categoryManager: () => <CategoryManager onBack={pop} />,
     shop: () => <ShopPage coins={coins} onSpend={spendCoins} onBack={pop} />,
     dayView: (props = {}) => (
       <DayViewPage
