@@ -322,7 +322,7 @@ export function CalendarPage({
               const dayFocus = focusByDate[dateStr] ?? 0;
               const availMins = getAvailableMinutes(dateStr, weekendShifts[dateStr]);
               const pct = Math.round(Math.min(dayFocus / availMins, 1) * 100);
-              const displayPct = isToday ? Math.max(pct, 3) : pct;
+              const displayPct = pct;
               const SEG = [
                 { x1: 5, y1: 0.75, x2: 9.25, y2: 0.75, len: 4.25 },
                 { x1: 9.25, y1: 0.75, x2: 9.25, y2: 99.25, len: 98.5 },
