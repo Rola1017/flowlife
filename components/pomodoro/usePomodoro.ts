@@ -80,6 +80,7 @@ export function usePomodoro({
   const [focusOverrunSecs, setFocusOverrunSecs] = useState(0);
 
   const intRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const focusStartRef = useRef<number | null>(null);
   const elRef = useRef(0);
   const hitRef = useRef(new Set<number>());
   const restWasActiveRef = useRef(false);
@@ -151,26 +152,40 @@ export function usePomodoro({
   }, [focusReadyToBreak]);
 
   useEffect(() => {
+    if (intRef.current !== null) {
+      clearInterval(intRef.current);
+      intRef.current = null;
+    }
+
     if (mode === "focus") {
       intRef.current = setInterval(() => {
-        elRef.current++;
-        setSecs((s) => {
-          if (s <= 1) {
-            if (!focusReadyToBreakRef.current) {
-              playRestEnd();
-              setFocusReadyToBreak(true);
-              setFocusOverrunSecs(0);
-            } else {
-              setFocusOverrunSecs((v) => v + 1);
-            }
-            return 0;
+        if (!focusStartRef.current) return;
+
+        const elapsedMs = Date.now() - focusStartRef.current;
+        const elapsedSec = Math.floor(elapsedMs / 1000);
+        elRef.current = elapsedSec;
+
+        const remaining = Math.max(0, dur * 60 - elapsedSec);
+        setSecs(remaining);
+
+        if (remaining === 0) {
+          if (!focusReadyToBreakRef.current) {
+            playRestEnd();
+            setFocusReadyToBreak(true);
+            setFocusOverrunSecs(0);
+          } else {
+            const overrun = elapsedSec - dur * 60;
+            setFocusOverrunSecs(overrun);
           }
-          return s - 1;
-        });
-      }, 1000);
+        }
+      }, 500);
     }
+
     return () => {
-      if (intRef.current) clearInterval(intRef.current);
+      if (intRef.current !== null) {
+        clearInterval(intRef.current);
+        intRef.current = null;
+      }
     };
   }, [mode, dur]);
 
@@ -214,6 +229,7 @@ export function usePomodoro({
 
   const startFocus = () => {
     if (!canStart) return;
+    focusStartRef.current = Date.now();
     setConfirmed({ name: taskName || catSel.cat1, ...catSel });
     setSecs(dur * 60);
     elRef.current = 0;
@@ -228,7 +244,11 @@ export function usePomodoro({
   };
 
   const endFocus = () => {
-    if (intRef.current) clearInterval(intRef.current);
+    if (intRef.current !== null) {
+      clearInterval(intRef.current);
+      intRef.current = null;
+    }
+    focusStartRef.current = null;
     setMode("rest");
     setShowRating(true);
     setFocusReadyToBreak(false);
@@ -314,7 +334,11 @@ export function usePomodoro({
   };
 
   const abandonFocus = () => {
-    if (intRef.current) clearInterval(intRef.current);
+    if (intRef.current !== null) {
+      clearInterval(intRef.current);
+      intRef.current = null;
+    }
+    focusStartRef.current = null;
     setMode("idle");
     setShowRating(false);
     setFocusReadyToBreak(false);
