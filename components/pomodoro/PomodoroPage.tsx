@@ -482,7 +482,7 @@ export function PomodoroPage({
             {effectiveMode === "rest" && restSecs > 0 ? "💤 休息加時" : "➕ 加時繼續休息"}
           </div>
           <div style={{ display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "center" }}>
-            {[1, 3, 5, 10, 20, 30].map((mn) => (
+            {[1, 3, 5, 10, 30, 60].map((mn) => (
               <button
                 key={mn}
                 type="button"
@@ -498,7 +498,7 @@ export function PomodoroPage({
                   cursor: "pointer",
                 }}
               >
-                {mn === 1 ? "+1分" : `+${mn}`}
+                {mn === 1 ? "+1分" : mn === 60 ? "+1h" : `+${mn}`}
               </button>
             ))}
           </div>
