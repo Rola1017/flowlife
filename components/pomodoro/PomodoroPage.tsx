@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type CSSProperties, type Dispatch, type SetStateAction } from "react";
+import { useMemo, useState, type CSSProperties, type Dispatch, type SetStateAction } from "react";
 import { CFG } from "@/lib/config";
 import { CAT } from "@/lib/categories";
 import { TH } from "@/lib/theme";
@@ -118,10 +118,22 @@ export function PomodoroPage({
     resetVersion,
   });
 
+  const [showEventDropdown, setShowEventDropdown] = useState(false);
   const [editingCoinId, setEditingCoinId] = useState<number | null>(null);
   const [editTaskName, setEditTaskName] = useState("");
   const [editCat1, setEditCat1] = useState("");
   const [editCat2, setEditCat2] = useState("");
+
+  const recentEventNames = useMemo(() => {
+    const names = new Set<string>();
+    for (const s of [...sessions].reverse()) {
+      if (s.name && s.name.trim()) names.add(s.name.trim());
+    }
+    for (const r of recentCoinIncomeLog) {
+      if (r.taskName?.trim()) names.add(r.taskName.trim());
+    }
+    return Array.from(names).slice(0, 10);
+  }, [sessions, recentCoinIncomeLog]);
 
   const coinFieldStyle: CSSProperties = {
     width: "100%",
@@ -451,23 +463,79 @@ export function PomodoroPage({
           </button>
         ))}
       </div>
-      <input
-        value={taskName}
-        onChange={(e) => setTaskName(e.target.value)}
-        placeholder="輸入事件名稱（可選）..."
-        disabled={mode === "focus"}
-        style={{
-          width: "100%",
-          background: TH.card,
-          border: `1px solid ${TH.border}`,
-          borderRadius: 8,
-          padding: "8px 12px",
-          color: mode === "focus" ? TH.muted : TH.text,
-          fontSize: 12,
-          outline: "none",
-          opacity: mode === "focus" ? 0.6 : 1,
-        }}
-      />
+      <div style={{ position: "relative", width: "100%" }}>
+        <input
+          value={taskName}
+          onChange={(e) => setTaskName(e.target.value)}
+          onFocus={() => setShowEventDropdown(true)}
+          onBlur={() => setTimeout(() => setShowEventDropdown(false), 150)}
+          placeholder="輸入事件名稱（可選）..."
+          disabled={mode === "focus"}
+          style={{
+            width: "100%",
+            background: TH.card,
+            border: `1px solid ${TH.border}`,
+            borderRadius: 8,
+            padding: "8px 12px",
+            color: mode === "focus" ? TH.muted : TH.text,
+            fontSize: 12,
+            outline: "none",
+            opacity: mode === "focus" ? 0.6 : 1,
+          }}
+        />
+        {showEventDropdown && recentEventNames.length > 0 && mode !== "focus" && (
+          <div
+            style={{
+              position: "absolute",
+              top: "100%",
+              left: 0,
+              right: 0,
+              zIndex: 50,
+              background: TH.card,
+              border: `1px solid ${TH.border}`,
+              borderRadius: 8,
+              marginTop: 2,
+              overflow: "hidden",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+            }}
+          >
+            {recentEventNames
+              .filter(
+                (name) =>
+                  !taskName.trim() || name.toLowerCase().includes(taskName.toLowerCase()),
+              )
+              .map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  onMouseDown={() => {
+                    setTaskName(name);
+                    setShowEventDropdown(false);
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    background: "transparent",
+                    border: "none",
+                    borderBottom: `1px solid ${TH.border}`,
+                    color: TH.text,
+                    fontSize: 11,
+                    textAlign: "left",
+                    cursor: "pointer",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = TH.border;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                  }}
+                >
+                  {name}
+                </button>
+              ))}
+          </div>
+        )}
+      </div>
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, minWidth: 52 }}>
           <div style={{ fontSize: 20 }}>🪙</div>
