@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties, type Dispatch, type SetStateAction } from "react";
+import { useState, type CSSProperties, type Dispatch, type SetStateAction } from "react";
 import { CFG } from "@/lib/config";
 import { CAT } from "@/lib/categories";
 import { TH } from "@/lib/theme";
-import { LS_KEYS, loadJSON } from "@/lib/storage";
 import { fmt, fmtIdleTime } from "@/lib/utils";
 import { Card, SL } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
@@ -30,6 +29,7 @@ export function PomodoroPage({
   setCoins,
   onShowShop,
   onShowCategoryManager,
+  onShowCoinHistory,
   focused,
   setFocused,
   neutral,
@@ -50,6 +50,7 @@ export function PomodoroPage({
   setCoins: Dispatch<SetStateAction<number>>;
   onShowShop: () => void;
   onShowCategoryManager: () => void;
+  onShowCoinHistory: () => void;
   focused: number;
   setFocused: Dispatch<SetStateAction<number>>;
   neutral: number;
@@ -117,37 +118,10 @@ export function PomodoroPage({
     resetVersion,
   });
 
-  const [showAllHistory, setShowAllHistory] = useState(false);
   const [editingCoinId, setEditingCoinId] = useState<number | null>(null);
   const [editTaskName, setEditTaskName] = useState("");
   const [editCat1, setEditCat1] = useState("");
   const [editCat2, setEditCat2] = useState("");
-  const [coinIncomeLog, setCoinIncomeLogSnapshot] = useState<CoinIncomeLogRow[]>([]);
-
-  useEffect(() => {
-    const saved = loadJSON<unknown>(LS_KEYS.coinIncomeLog, []);
-    if (Array.isArray(saved)) setCoinIncomeLogSnapshot(saved as CoinIncomeLogRow[]);
-  }, []); // 只在 mount 時執行一次，不依賴任何 state
-
-  const groupedLog = useMemo(
-    () =>
-      coinIncomeLog.reduce(
-        (acc, row) => {
-          if (!acc[row.date]) acc[row.date] = [];
-          acc[row.date].push(row);
-          return acc;
-        },
-        {} as Record<string, CoinIncomeLogRow[]>,
-      ),
-    [coinIncomeLog],
-  );
-
-  const sortedDates = useMemo(() => Object.keys(groupedLog).sort((a, b) => b.localeCompare(a)), [groupedLog]);
-
-  const formatCoinDateLabel = (date: string) => {
-    const [y, m, d] = date.split("-");
-    return y && m && d ? `${y}/${m}/${d}` : date;
-  };
 
   const coinFieldStyle: CSSProperties = {
     width: "100%",
@@ -788,21 +762,24 @@ export function PomodoroPage({
       <Card style={{ width: "100%" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
           <SL style={{ marginBottom: 0 }}>金幣收支</SL>
-          <button
-            type="button"
-            onClick={() => setShowAllHistory((v) => !v)}
-            style={{
-              background: showAllHistory ? TH.accent + "22" : "none",
-              border: showAllHistory ? `1px solid ${TH.accent}` : "none",
-              borderRadius: 6,
-              padding: "2px 8px",
-              cursor: "pointer",
-              fontSize: 14,
-            }}
-            title={showAllHistory ? "收起歷史" : "查看全部歷史"}
-          >
-            ⌚
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ fontSize: 9, color: TH.muted }}>歷史記錄</span>
+            <button
+              type="button"
+              onClick={onShowCoinHistory}
+              style={{
+                background: "none",
+                border: "none",
+                borderRadius: 6,
+                padding: "2px 8px",
+                cursor: "pointer",
+                fontSize: 14,
+              }}
+              title="查看全部歷史"
+            >
+              ⌚
+            </button>
+          </div>
         </div>
         <div
           style={{
@@ -818,34 +795,7 @@ export function PomodoroPage({
           <span style={{ fontSize: 10, color: TH.muted, fontWeight: 800 }}>今日總收入</span>
           <span style={{ fontSize: 14, color: TH.gold, fontWeight: 900 }}>+{todayCoinIncomeTotal} 🪙</span>
         </div>
-        {showAllHistory ? (
-          coinIncomeLog.length === 0 ? (
-            <div style={{ fontSize: 10, color: TH.muted, textAlign: "center", padding: 8 }}>尚無金幣收入</div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {sortedDates.map((date) => {
-                const rows = [...groupedLog[date]].sort((a, b) => b.at.localeCompare(a.at));
-                const dayTotal = rows.reduce((sum, row) => sum + row.amount, 0);
-                return (
-                  <div key={date}>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        marginBottom: 4,
-                      }}
-                    >
-                      <span style={{ fontSize: 9, color: TH.muted }}>{formatCoinDateLabel(date)}</span>
-                      <span style={{ fontSize: 9, color: TH.gold }}>+{dayTotal} 🪙</span>
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>{rows.map(renderCoinIncomeRow)}</div>
-                  </div>
-                );
-              })}
-            </div>
-          )
-        ) : recentCoinIncomeLog.length === 0 ? (
+        {recentCoinIncomeLog.length === 0 ? (
           <div style={{ fontSize: 10, color: TH.muted, textAlign: "center", padding: 8 }}>尚無金幣收入</div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
