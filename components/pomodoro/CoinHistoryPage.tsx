@@ -109,6 +109,12 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
     outline: "none",
   };
 
+  const fieldLabelStyle: CSSProperties = {
+    fontSize: 11,
+    color: TH.muted,
+    marginBottom: 4,
+  };
+
   const openEdit = (row: CoinIncomeLogRow) => {
     if (editingCoinId === row.id) {
       setEditingCoinId(null);
@@ -119,10 +125,11 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
     const c1 = row.cat1 ?? CAT.cat1List()[0] ?? "";
     setEditCat1(c1);
     const mids = CAT.cat2List(c1);
-    setEditCat2(row.cat2 && mids.includes(row.cat2) ? row.cat2 : mids[0] ?? "");
+    setEditCat2(row.cat2 && mids.includes(row.cat2) ? row.cat2 : "");
   };
 
   const saveEdit = (rowId: number) => {
+    if (!editCat1.trim()) return;
     const newTaskName = editTaskName.trim();
     setCoinIncomeLog((log) =>
       log.map((r) =>
@@ -131,12 +138,17 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
               ...r,
               taskName: newTaskName,
               cat1: editCat1,
-              cat2: editCat2,
+              cat2: editCat2.trim(),
             }
           : r,
       ),
     );
     setEditingCoinId(null);
+  };
+
+  const formatCatLabel = (cat1?: string, cat2?: string) => {
+    if (!cat1) return "";
+    return cat2 ? `${cat1} › ${cat2}` : cat1;
   };
 
   const renderRow = (row: CoinIncomeLogRow) => {
@@ -163,9 +175,9 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
         >
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 700, fontSize: 11, color: TH.text }}>{displayName}</div>
-            {(row.cat1 || row.cat2) && (
+            {row.cat1 && (
               <div style={{ fontSize: 9, color: TH.muted, marginTop: 2 }}>
-                {[row.cat1, row.cat2].filter(Boolean).join(" › ")}
+                {formatCatLabel(row.cat1, row.cat2)}
               </div>
             )}
             <div style={{ fontSize: 9, color: TH.muted }}>{row.time}</div>
@@ -191,37 +203,40 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
               placeholder="事件名稱（可留空）"
               style={fieldStyle}
             />
-            <select
-              value={editCat1}
-              onChange={(e) => {
-                const next = e.target.value;
-                setEditCat1(next);
-                setEditCat2(CAT.cat2List(next)[0] ?? "");
-              }}
-              style={fieldStyle}
-            >
-              {CAT.cat1List().map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-            <select
-              value={editCat2}
-              onChange={(e) => setEditCat2(e.target.value)}
-              disabled={cat2Options.length === 0}
-              style={fieldStyle}
-            >
-              {cat2Options.length === 0 ? (
-                <option value="">（無）</option>
-              ) : (
-                cat2Options.map((c) => (
+            <div>
+              <div style={fieldLabelStyle}>大分類</div>
+              <select
+                value={editCat1}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setEditCat1(next);
+                  setEditCat2("");
+                }}
+                style={fieldStyle}
+              >
+                {CAT.cat1List().map((c) => (
                   <option key={c} value={c}>
                     {c}
                   </option>
-                ))
-              )}
-            </select>
+                ))}
+              </select>
+            </div>
+            <div>
+              <div style={fieldLabelStyle}>中分類</div>
+              <select
+                value={editCat2}
+                onChange={(e) => setEditCat2(e.target.value)}
+                disabled={!editCat1}
+                style={fieldStyle}
+              >
+                <option value="">— 不選 —</option>
+                {cat2Options.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div style={{ display: "flex", gap: 6 }}>
               <button
                 type="button"
@@ -266,7 +281,7 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <BackBtn onBack={onBack} label="金幣收支歷史" />
+      <BackBtn onBack={onBack} label="金幣收支" />
 
       <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
@@ -303,19 +318,19 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
           <input
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
-            placeholder="🔎 搜尋事件名稱..."
+            placeholder="搜尋事件名稱…"
             style={fieldStyle}
           />
         </div>
       </div>
 
       <div style={{ fontSize: 10, color: TH.muted }}>
-        共 {summary.count} 筆 · 總計 +{summary.total} 🪙
+        共 {summary.count} 筆 · 合計 +{summary.total} 🪙
       </div>
 
       {sortedDates.length === 0 ? (
         <div style={{ fontSize: 10, color: TH.muted, textAlign: "center", padding: 16 }}>
-          找不到符合條件的記錄
+          此範圍內沒有金幣記錄
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>

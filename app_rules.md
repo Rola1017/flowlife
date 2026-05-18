@@ -190,6 +190,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - 待辦結束防抖改為 1 秒
 - 番茄頁：事件名稱歷史下拉（sessions + coinIncomeLog）；依 cat1 過濾，已選 cat2 時須 cat1+cat2 同時符合
 - 番茄頁：金幣收支歷史獨立頁（CoinHistoryPage）、sessions 改 `updateSessions` 立即寫入 localStorage
+- 金幣收支頁（CoinHistoryPage）、番茄頁金幣列表（PomodoroPage）：inline 編輯 cat1 必填、cat2 選填（`— 不選 —`）；大／中分類標籤；顯示僅 cat1 時不帶 `›` 分隔
 - 番茄頁：時長／加時休息按鈕標籤、版面重排（評分在計時圈下方）
 
 ---

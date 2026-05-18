@@ -173,6 +173,12 @@ export function PomodoroPage({
     outline: "none",
   };
 
+  const coinFieldLabelStyle: CSSProperties = {
+    fontSize: 11,
+    color: TH.muted,
+    marginBottom: 4,
+  };
+
   const openCoinEdit = (row: CoinIncomeLogRow) => {
     if (editingCoinId === row.id) {
       setEditingCoinId(null);
@@ -183,10 +189,11 @@ export function PomodoroPage({
     const c1 = row.cat1 ?? CAT.cat1List()[0] ?? "";
     setEditCat1(c1);
     const mids = CAT.cat2List(c1);
-    setEditCat2(row.cat2 && mids.includes(row.cat2) ? row.cat2 : mids[0] ?? "");
+    setEditCat2(row.cat2 && mids.includes(row.cat2) ? row.cat2 : "");
   };
 
   const saveCoinEdit = (rowId: number) => {
+    if (!editCat1.trim()) return;
     const newTaskName = editTaskName.trim();
     setCoinIncomeLog((log) =>
       log.map((r) =>
@@ -195,12 +202,17 @@ export function PomodoroPage({
               ...r,
               taskName: newTaskName,
               cat1: editCat1,
-              cat2: editCat2,
+              cat2: editCat2.trim(),
             }
           : r,
       ),
     );
     setEditingCoinId(null);
+  };
+
+  const formatCoinCatLabel = (cat1?: string, cat2?: string) => {
+    if (!cat1) return "";
+    return cat2 ? `${cat1} › ${cat2}` : cat1;
   };
 
   const renderCoinIncomeRow = (row: CoinIncomeLogRow) => {
@@ -227,9 +239,9 @@ export function PomodoroPage({
         >
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 700, fontSize: 11, color: TH.text }}>{displayName}</div>
-            {(row.cat1 || row.cat2) && (
+            {row.cat1 && (
               <div style={{ fontSize: 9, color: TH.muted, marginTop: 2 }}>
-                {[row.cat1, row.cat2].filter(Boolean).join(" › ")}
+                {formatCoinCatLabel(row.cat1, row.cat2)}
               </div>
             )}
             <div style={{ fontSize: 9, color: TH.muted }}>{row.time}</div>
@@ -255,38 +267,40 @@ export function PomodoroPage({
               placeholder="事件名稱"
               style={coinFieldStyle}
             />
-            <select
-              value={editCat1}
-              onChange={(e) => {
-                const next = e.target.value;
-                setEditCat1(next);
-                const mids = CAT.cat2List(next);
-                setEditCat2(mids[0] ?? "");
-              }}
-              style={coinFieldStyle}
-            >
-              {CAT.cat1List().map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-            <select
-              value={editCat2}
-              onChange={(e) => setEditCat2(e.target.value)}
-              disabled={cat2Options.length === 0}
-              style={coinFieldStyle}
-            >
-              {cat2Options.length === 0 ? (
-                <option value="">—</option>
-              ) : (
-                cat2Options.map((c) => (
+            <div>
+              <div style={coinFieldLabelStyle}>大分類</div>
+              <select
+                value={editCat1}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setEditCat1(next);
+                  setEditCat2("");
+                }}
+                style={coinFieldStyle}
+              >
+                {CAT.cat1List().map((c) => (
                   <option key={c} value={c}>
                     {c}
                   </option>
-                ))
-              )}
-            </select>
+                ))}
+              </select>
+            </div>
+            <div>
+              <div style={coinFieldLabelStyle}>中分類</div>
+              <select
+                value={editCat2}
+                onChange={(e) => setEditCat2(e.target.value)}
+                disabled={!editCat1}
+                style={coinFieldStyle}
+              >
+                <option value="">— 不選 —</option>
+                {cat2Options.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div style={{ display: "flex", gap: 6 }}>
               <button
                 type="button"
