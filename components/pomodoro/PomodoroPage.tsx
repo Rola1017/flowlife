@@ -463,6 +463,104 @@ export function PomodoroPage({
           </button>
         ))}
       </div>
+      {(effectiveMode === "rest" || idleTrackStart) && (
+        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 6, alignItems: "center" }}>
+          <div
+            style={{
+              fontSize: 9,
+              color: effectiveMode === "rest" && restSecs > 0 ? TH.green : TH.yellow,
+              fontWeight: 700,
+            }}
+          >
+            {effectiveMode === "rest" && restSecs > 0 ? "💤 休息加時" : "➕ 加時繼續休息"}
+          </div>
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "center" }}>
+            {[1, 3, 5, 10, 20, 30].map((mn) => (
+              <button
+                key={mn}
+                type="button"
+                onClick={() => addRestTime(mn)}
+                style={{
+                  padding: "5px 10px",
+                  borderRadius: 16,
+                  border: `1px solid ${TH.green}55`,
+                  background: TH.green + "15",
+                  color: TH.green,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                +{mn}分
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, minWidth: 52 }}>
+          <div style={{ fontSize: 20 }}>🪙</div>
+          <div style={{ fontSize: 15, fontWeight: 900, color: TH.gold }}>{coins.toLocaleString()}</div>
+          <div style={{ fontSize: 8, color: TH.muted }}>金幣</div>
+        </div>
+        <RingTimer
+          mode={effectiveMode}
+          secs={secs}
+          dur={dur}
+          restSecs={restSecs}
+          restTotalSecs={restTotalSecs}
+          idleTrackStart={idleTrackStart}
+          idleSecs={idleSecs}
+          confirmed={confirmed}
+          focusOverrunSecs={focusOverrunSecs}
+        />
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, minWidth: 52 }}>
+          <div style={{ fontSize: 18 }}>🍅</div>
+          <div style={{ fontSize: 15, fontWeight: 900, color: TH.text }}>{sessions.length}</div>
+          <div style={{ fontSize: 8, color: TH.muted }}>今日顆數</div>
+        </div>
+      </div>
+
+      {showRating && !rated && (
+        <Card style={{ width: "100%", textAlign: "center" }}>
+          <div style={{ fontSize: 11, color: TH.muted, marginBottom: 10 }}>這次的專注狀態？</div>
+          <div style={{ display: "flex", justifyContent: "center", gap: 10 }}>
+            {(
+              [
+                ["😤", "專心"],
+                ["🙂", "一般"],
+                ["😴", "分心"],
+              ] as const
+            ).map(([e, l]) => (
+              <button
+                key={l}
+                type="button"
+                onClick={() => confirmRating(e)}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 12,
+                  border: `2px solid ${TH.border}`,
+                  background: "transparent",
+                  color: TH.text,
+                  cursor: "pointer",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 3,
+                }}
+              >
+                <span style={{ fontSize: 24 }}>{e}</span>
+                <span style={{ fontSize: 11 }}>{l}</span>
+              </button>
+            ))}
+          </div>
+        </Card>
+      )}
+      {rated && (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 7, width: "100%" }}>
+          <div style={{ fontSize: 11, color: TH.green }}>✓ 已記錄</div>
+        </div>
+      )}
       <div style={{ position: "relative", width: "100%" }}>
         <input
           value={taskName}
@@ -536,64 +634,6 @@ export function PomodoroPage({
           </div>
         )}
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, minWidth: 52 }}>
-          <div style={{ fontSize: 20 }}>🪙</div>
-          <div style={{ fontSize: 15, fontWeight: 900, color: TH.gold }}>{coins.toLocaleString()}</div>
-          <div style={{ fontSize: 8, color: TH.muted }}>金幣</div>
-        </div>
-        <RingTimer
-          mode={effectiveMode}
-          secs={secs}
-          dur={dur}
-          restSecs={restSecs}
-          restTotalSecs={restTotalSecs}
-          idleTrackStart={idleTrackStart}
-          idleSecs={idleSecs}
-          confirmed={confirmed}
-          focusOverrunSecs={focusOverrunSecs}
-        />
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, minWidth: 52 }}>
-          <div style={{ fontSize: 18 }}>🍅</div>
-          <div style={{ fontSize: 15, fontWeight: 900, color: TH.text }}>{sessions.length}</div>
-          <div style={{ fontSize: 8, color: TH.muted }}>今日顆數</div>
-        </div>
-      </div>
-
-      {(effectiveMode === "rest" || idleTrackStart) && (
-        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 6, alignItems: "center" }}>
-          <div
-            style={{
-              fontSize: 9,
-              color: effectiveMode === "rest" && restSecs > 0 ? TH.green : TH.yellow,
-              fontWeight: 700,
-            }}
-          >
-            {effectiveMode === "rest" && restSecs > 0 ? "💤 休息加時" : "➕ 加時繼續休息"}
-          </div>
-          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "center" }}>
-            {[1, 3, 5, 10, 20, 30].map((mn) => (
-              <button
-                key={mn}
-                type="button"
-                onClick={() => addRestTime(mn)}
-                style={{
-                  padding: "5px 10px",
-                  borderRadius: 16,
-                  border: `1px solid ${TH.green}55`,
-                  background: TH.green + "15",
-                  color: TH.green,
-                  fontSize: 11,
-                  fontWeight: 700,
-                  cursor: "pointer",
-                }}
-              >
-                +{mn}分
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
       {mode !== "focus" && (
         <Card style={{ width: "100%", padding: 10 }}>
           <CategorySelector
@@ -697,46 +737,6 @@ export function PomodoroPage({
           }}
         >
           ⏰ 已到預定時長，正在持續專注中。按下「休息」才會進入休息畫面。
-        </div>
-      )}
-      {showRating && !rated && (
-        <Card style={{ width: "100%", textAlign: "center" }}>
-          <div style={{ fontSize: 11, color: TH.muted, marginBottom: 10 }}>這次的專注狀態？</div>
-          <div style={{ display: "flex", justifyContent: "center", gap: 10 }}>
-            {(
-              [
-                ["😤", "專心"],
-                ["🙂", "一般"],
-                ["😴", "分心"],
-              ] as const
-            ).map(([e, l]) => (
-              <button
-                key={l}
-                type="button"
-                onClick={() => confirmRating(e)}
-                style={{
-                  padding: "10px 14px",
-                  borderRadius: 12,
-                  border: `2px solid ${TH.border}`,
-                  background: "transparent",
-                  color: TH.text,
-                  cursor: "pointer",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 3,
-                }}
-              >
-                <span style={{ fontSize: 24 }}>{e}</span>
-                <span style={{ fontSize: 11 }}>{l}</span>
-              </button>
-            ))}
-          </div>
-        </Card>
-      )}
-      {rated && (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 7, width: "100%" }}>
-          <div style={{ fontSize: 11, color: TH.green }}>✓ 已記錄</div>
         </div>
       )}
       {mode === "idle" && !idleTrackStart && !isRestActive && (
