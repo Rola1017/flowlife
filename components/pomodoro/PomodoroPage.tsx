@@ -22,6 +22,13 @@ const COIN_CRACKERS = Array.from({ length: 16 }, (_, idx) => ({
   fontSize: idx % 4 < 2 ? 28 : 26,
 }));
 
+function formatDurLabel(d: number): string {
+  if (d === 1) return "1m";
+  if (d < 60) return `${d}`;
+  if (d === 60) return "1h";
+  return `${d / 60}`;
+}
+
 export function PomodoroPage({
   sessions,
   setSessions,
@@ -459,7 +466,7 @@ export function PomodoroPage({
               cursor: "pointer",
             }}
           >
-            {d < 60 ? `${d}分` : `${d / 60}h`}
+            {formatDurLabel(d)}
           </button>
         ))}
       </div>
