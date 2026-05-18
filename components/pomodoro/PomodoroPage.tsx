@@ -498,7 +498,7 @@ export function PomodoroPage({
                   cursor: "pointer",
                 }}
               >
-                +{mn}分
+                {mn === 1 ? "+1分" : `+${mn}`}
               </button>
             ))}
           </div>
