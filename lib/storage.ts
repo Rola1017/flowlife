@@ -15,6 +15,7 @@ export const LS_KEYS = {
   dailyOverride: `${STORAGE_PREFIX}daily_override_`,
   weekendShifts: `${STORAGE_PREFIX}weekend_shifts`,
   categories: `${STORAGE_PREFIX}categories`,
+  weekSchedule: `${STORAGE_PREFIX}week_schedule`,
 } as const;
 
 function assertVersionedKey(key: string): void {
