@@ -131,12 +131,14 @@ export function PomodoroPage({
   const [editTaskName, setEditTaskName] = useState("");
   const [editCat1, setEditCat1] = useState("");
   const [editCat2, setEditCat2] = useState("");
+  const [editCat3, setEditCat3] = useState("");
 
   const recentEventNames = useMemo(() => {
     const names = new Set<string>();
-    const matchesCat = (record: { cat1?: string; cat2?: string }) => {
+    const matchesCat = (record: { cat1?: string; cat2?: string; cat3?: string }) => {
       if (catSel.cat1 && record.cat1 !== catSel.cat1) return false;
       if (catSel.cat2 && record.cat2 !== catSel.cat2) return false;
+      if (catSel.cat3 && record.cat3 !== catSel.cat3) return false;
       return true;
     };
 
@@ -149,7 +151,7 @@ export function PomodoroPage({
     try {
       const stored = JSON.parse(
         localStorage.getItem(LS_KEYS.coinIncomeLog) || "[]",
-      ) as Array<{ taskName?: string; cat1?: string; cat2?: string }>;
+      ) as Array<{ taskName?: string; cat1?: string; cat2?: string; cat3?: string }>;
       for (const r of [...stored].reverse()) {
         if (!r.taskName?.trim()) continue;
         if (!matchesCat(r)) continue;
@@ -160,7 +162,7 @@ export function PomodoroPage({
     }
 
     return Array.from(names).slice(0, 10);
-  }, [sessions, catSel.cat1, catSel.cat2]);
+  }, [sessions, catSel.cat1, catSel.cat2, catSel.cat3]);
 
   const coinFieldStyle: CSSProperties = {
     width: "100%",
@@ -190,6 +192,8 @@ export function PomodoroPage({
     setEditCat1(c1);
     const mids = CAT.cat2List(c1);
     setEditCat2(row.cat2 && mids.includes(row.cat2) ? row.cat2 : "");
+    const subs = CAT.cat3List(c1, row.cat2 ?? "");
+    setEditCat3(row.cat3 && subs.includes(row.cat3) ? row.cat3 : "");
   };
 
   const saveCoinEdit = (rowId: number) => {
@@ -203,6 +207,7 @@ export function PomodoroPage({
               taskName: newTaskName,
               cat1: editCat1,
               cat2: editCat2.trim(),
+              cat3: editCat3.trim(),
             }
           : r,
       ),
@@ -210,14 +215,19 @@ export function PomodoroPage({
     setEditingCoinId(null);
   };
 
-  const formatCoinCatLabel = (cat1?: string, cat2?: string) => {
+  const formatCoinCatLabel = (cat1?: string, cat2?: string, cat3?: string) => {
     if (!cat1) return "";
-    return cat2 ? `${cat1} › ${cat2}` : cat1;
+    const parts = [cat1];
+    if (cat2) parts.push(cat2);
+    if (cat3) parts.push(cat3);
+    return parts.join(" › ");
   };
 
   const renderCoinIncomeRow = (row: CoinIncomeLogRow) => {
     const isEditing = editingCoinId === row.id;
     const cat2Options = editCat1 ? CAT.cat2List(editCat1) : [];
+    const cat3Options =
+      editCat1 && editCat2 ? CAT.cat3List(editCat1, editCat2) : [];
     const displayName = row.taskName?.trim() || row.cat1 || "未命名";
     return (
       <div key={row.id}>
@@ -241,7 +251,7 @@ export function PomodoroPage({
             <div style={{ fontWeight: 700, fontSize: 11, color: TH.text }}>{displayName}</div>
             {row.cat1 && (
               <div style={{ fontSize: 9, color: TH.muted, marginTop: 2 }}>
-                {formatCoinCatLabel(row.cat1, row.cat2)}
+                {formatCoinCatLabel(row.cat1, row.cat2, row.cat3)}
               </div>
             )}
             <div style={{ fontSize: 9, color: TH.muted }}>{row.time}</div>
@@ -275,6 +285,7 @@ export function PomodoroPage({
                   const next = e.target.value;
                   setEditCat1(next);
                   setEditCat2("");
+                  setEditCat3("");
                 }}
                 style={coinFieldStyle}
               >
@@ -289,7 +300,10 @@ export function PomodoroPage({
               <div style={coinFieldLabelStyle}>中分類</div>
               <select
                 value={editCat2}
-                onChange={(e) => setEditCat2(e.target.value)}
+                onChange={(e) => {
+                  setEditCat2(e.target.value);
+                  setEditCat3("");
+                }}
                 disabled={!editCat1}
                 style={coinFieldStyle}
               >
@@ -301,6 +315,23 @@ export function PomodoroPage({
                 ))}
               </select>
             </div>
+            {editCat2 && cat3Options.length > 0 && (
+              <div>
+                <div style={coinFieldLabelStyle}>小分類</div>
+                <select
+                  value={editCat3}
+                  onChange={(e) => setEditCat3(e.target.value)}
+                  style={coinFieldStyle}
+                >
+                  <option value="">— 不選 —</option>
+                  {cat3Options.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div style={{ display: "flex", gap: 6 }}>
               <button
                 type="button"

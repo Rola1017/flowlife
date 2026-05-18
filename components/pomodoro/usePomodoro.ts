@@ -21,6 +21,7 @@ export type CoinIncomeLogRow = {
   amount: number;
   cat1?: string;
   cat2?: string;
+  cat3?: string;
 };
 
 function localDateParts(date = new Date()) {

@@ -41,6 +41,7 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
   const [editTaskName, setEditTaskName] = useState("");
   const [editCat1, setEditCat1] = useState("");
   const [editCat2, setEditCat2] = useState("");
+  const [editCat3, setEditCat3] = useState("");
 
   useEffect(() => {
     const saved = loadJSON<unknown>(LS_KEYS.coinIncomeLog, []);
@@ -126,6 +127,8 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
     setEditCat1(c1);
     const mids = CAT.cat2List(c1);
     setEditCat2(row.cat2 && mids.includes(row.cat2) ? row.cat2 : "");
+    const subs = CAT.cat3List(c1, row.cat2 ?? "");
+    setEditCat3(row.cat3 && subs.includes(row.cat3) ? row.cat3 : "");
   };
 
   const saveEdit = (rowId: number) => {
@@ -139,6 +142,7 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
               taskName: newTaskName,
               cat1: editCat1,
               cat2: editCat2.trim(),
+              cat3: editCat3.trim(),
             }
           : r,
       ),
@@ -146,15 +150,20 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
     setEditingCoinId(null);
   };
 
-  const formatCatLabel = (cat1?: string, cat2?: string) => {
+  const formatCatLabel = (cat1?: string, cat2?: string, cat3?: string) => {
     if (!cat1) return "";
-    return cat2 ? `${cat1} › ${cat2}` : cat1;
+    const parts = [cat1];
+    if (cat2) parts.push(cat2);
+    if (cat3) parts.push(cat3);
+    return parts.join(" ? ");
   };
 
   const renderRow = (row: CoinIncomeLogRow) => {
     const isEditing = editingCoinId === row.id;
     const cat2Options = editCat1 ? CAT.cat2List(editCat1) : [];
-    const displayName = row.taskName?.trim() || row.cat1 || "未命名";
+    const cat3Options =
+      editCat1 && editCat2 ? CAT.cat3List(editCat1, editCat2) : [];
+    const displayName = row.taskName?.trim() || row.cat1 || "???";
     return (
       <div key={row.id}>
         <button
@@ -177,12 +186,12 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
             <div style={{ fontWeight: 700, fontSize: 11, color: TH.text }}>{displayName}</div>
             {row.cat1 && (
               <div style={{ fontSize: 9, color: TH.muted, marginTop: 2 }}>
-                {formatCatLabel(row.cat1, row.cat2)}
+                {formatCatLabel(row.cat1, row.cat2, row.cat3)}
               </div>
             )}
             <div style={{ fontSize: 9, color: TH.muted }}>{row.time}</div>
           </div>
-          <div style={{ fontSize: 11, color: TH.gold, fontWeight: 900 }}>+{row.amount} 🪙</div>
+          <div style={{ fontSize: 11, color: TH.gold, fontWeight: 900 }}>+{row.amount} ??</div>
         </button>
         {isEditing && (
           <div
@@ -200,17 +209,18 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
             <input
               value={editTaskName}
               onChange={(e) => setEditTaskName(e.target.value)}
-              placeholder="事件名稱（可留空）"
+              placeholder="?????????"
               style={fieldStyle}
             />
             <div>
-              <div style={fieldLabelStyle}>大分類</div>
+              <div style={fieldLabelStyle}>???</div>
               <select
                 value={editCat1}
                 onChange={(e) => {
                   const next = e.target.value;
                   setEditCat1(next);
                   setEditCat2("");
+                  setEditCat3("");
                 }}
                 style={fieldStyle}
               >
@@ -222,14 +232,17 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
               </select>
             </div>
             <div>
-              <div style={fieldLabelStyle}>中分類</div>
+              <div style={fieldLabelStyle}>???</div>
               <select
                 value={editCat2}
-                onChange={(e) => setEditCat2(e.target.value)}
+                onChange={(e) => {
+                  setEditCat2(e.target.value);
+                  setEditCat3("");
+                }}
                 disabled={!editCat1}
                 style={fieldStyle}
               >
-                <option value="">— 不選 —</option>
+                <option value="">? ?? ?</option>
                 {cat2Options.map((c) => (
                   <option key={c} value={c}>
                     {c}
@@ -237,6 +250,23 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
                 ))}
               </select>
             </div>
+            {editCat2 && cat3Options.length > 0 && (
+              <div>
+                <div style={fieldLabelStyle}>???</div>
+                <select
+                  value={editCat3}
+                  onChange={(e) => setEditCat3(e.target.value)}
+                  style={fieldStyle}
+                >
+                  <option value="">? ?? ?</option>
+                  {cat3Options.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div style={{ display: "flex", gap: 6 }}>
               <button
                 type="button"
@@ -253,7 +283,7 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
                   cursor: "pointer",
                 }}
               >
-                儲存
+                ??
               </button>
               <button
                 type="button"
@@ -270,7 +300,7 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
                   cursor: "pointer",
                 }}
               >
-                取消
+                ??
               </button>
             </div>
           </div>
