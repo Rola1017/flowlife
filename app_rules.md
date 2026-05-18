@@ -188,6 +188,9 @@ TH.gold    = "#FBBF24"   // 金幣
 - 行程表延伸至 23:00，高度 840px
 - TimelinePage 版面：直式在上，待辦在下
 - 待辦結束防抖改為 1 秒
+- 番茄頁：事件名稱歷史下拉（sessions + coinIncomeLog）；依 cat1 過濾，已選 cat2 時須 cat1+cat2 同時符合
+- 番茄頁：金幣收支歷史獨立頁（CoinHistoryPage）、sessions 改 `updateSessions` 立即寫入 localStorage
+- 番茄頁：時長／加時休息按鈕標籤、版面重排（評分在計時圈下方）
 
 ---
 
@@ -203,5 +206,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026-05-13*
+*最後更新：2026-05-15*
 *維護原則：每次完成重要功能，同步更新第十、十一節*

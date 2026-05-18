@@ -1,6 +1,16 @@
 "use client";
 
-import { Component, useState, useEffect, useMemo, useRef, type ErrorInfo, type ReactNode } from "react";
+import {
+  Component,
+  useCallback,
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  type ErrorInfo,
+  type ReactNode,
+  type SetStateAction,
+} from "react";
 import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
 import { TABS } from "@/lib/tabs";
@@ -94,20 +104,23 @@ function AppContent() {
 
   const [sessions, setSessions] = useState<Session[]>([]);
 
+  const updateSessions = useCallback((updater: SetStateAction<Session[]>) => {
+    setSessions((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      saveJSON(LS_KEYS.sessions, next);
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
-    setSessions(loadJSON<Session[]>(LS_KEYS.sessions, []));
+    updateSessions(loadJSON<Session[]>(LS_KEYS.sessions, []));
     const r = loadJSON<Partial<typeof DEFAULT_RATINGS>>(LS_KEYS.ratingCounts, {});
     setFocused(typeof r.focused === "number" ? r.focused : DEFAULT_RATINGS.focused);
     setNeutral(typeof r.neutral === "number" ? r.neutral : DEFAULT_RATINGS.neutral);
     setDistracted(typeof r.distracted === "number" ? r.distracted : DEFAULT_RATINGS.distracted);
     setIdleTotalSecs(loadNumber(LS_KEYS.idleTotalSecs, DEFAULT_IDLE_TOTAL_SECS));
     setHydrated(true);
-  }, []);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    saveJSON(LS_KEYS.sessions, sessions);
-  }, [sessions, hydrated]);
+  }, [updateSessions]);
 
   const todaySessions = useMemo(
     () => sessions.filter((s) => s.date === CFG.TODAY_STR),
@@ -182,7 +195,7 @@ function AppContent() {
     setIdleTotalSecs(DEFAULT_IDLE_TOTAL_SECS);
     setRestEndAt(null);
     resetTodos([]);
-    setSessions([]);
+    updateSessions([]);
     setResetVersion((v) => v + 1);
     setTab("home");
     setSubPage(null);
@@ -247,7 +260,7 @@ function AppContent() {
   const pomodoroPage = (
     <PomodoroPage
       sessions={sessions}
-      setSessions={setSessions}
+      setSessions={updateSessions}
       coins={coins}
       setCoins={setCoins}
       onShowShop={() => push("shop")}

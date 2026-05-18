@@ -4,6 +4,7 @@ import { useMemo, useState, type CSSProperties, type Dispatch, type SetStateActi
 import { CFG } from "@/lib/config";
 import { CAT } from "@/lib/categories";
 import { TH } from "@/lib/theme";
+import { LS_KEYS } from "@/lib/storage";
 import { fmt, fmtIdleTime } from "@/lib/utils";
 import { Card, SL } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
@@ -133,14 +134,33 @@ export function PomodoroPage({
 
   const recentEventNames = useMemo(() => {
     const names = new Set<string>();
+    const matchesCat = (record: { cat1?: string; cat2?: string }) => {
+      if (catSel.cat1 && record.cat1 !== catSel.cat1) return false;
+      if (catSel.cat2 && record.cat2 !== catSel.cat2) return false;
+      return true;
+    };
+
     for (const s of [...sessions].reverse()) {
-      if (s.name && s.name.trim()) names.add(s.name.trim());
+      if (!s.name?.trim()) continue;
+      if (!matchesCat(s)) continue;
+      names.add(s.name.trim());
     }
-    for (const r of recentCoinIncomeLog) {
-      if (r.taskName?.trim()) names.add(r.taskName.trim());
+
+    try {
+      const stored = JSON.parse(
+        localStorage.getItem(LS_KEYS.coinIncomeLog) || "[]",
+      ) as Array<{ taskName?: string; cat1?: string; cat2?: string }>;
+      for (const r of [...stored].reverse()) {
+        if (!r.taskName?.trim()) continue;
+        if (!matchesCat(r)) continue;
+        names.add(r.taskName.trim());
+      }
+    } catch {
+      /* ignore */
     }
+
     return Array.from(names).slice(0, 10);
-  }, [sessions, recentCoinIncomeLog]);
+  }, [sessions, catSel.cat1, catSel.cat2]);
 
   const coinFieldStyle: CSSProperties = {
     width: "100%",
