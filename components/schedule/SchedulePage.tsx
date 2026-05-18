@@ -272,7 +272,7 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
                     }}
                   >
                     {cell && (
-                      <div style={{ fontSize: 8, fontWeight: 700, color: col ?? undefined, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cell.n || cell.cat1}</div>
+                      <div style={{ fontSize: 8, fontWeight: 700, color: col ?? undefined, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cell.n || cell.cat3 || cell.cat2 || cell.cat1}</div>
                     )}
                   </div>
                 );

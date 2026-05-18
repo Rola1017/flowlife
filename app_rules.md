@@ -192,7 +192,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - 番茄頁：金幣收支歷史獨立頁（CoinHistoryPage）、sessions 改 `updateSessions` 立即寫入 localStorage
 - 金幣收支頁（CoinHistoryPage）、番茄頁金幣列表（PomodoroPage）：inline 編輯 cat1 必填、cat2／cat3 選填（`— 不選 —`）；大／中／小分類標籤；顯示以 `›` 串接已有層級
 - 番茄頁：時長／加時休息按鈕標籤、版面重排（評分在計時圈下方）
-- 週課表（SchedulePage）：`week_schedule` localStorage 持久化；編輯支援 cat1／cat2／cat3（`c` 改為 `cat1`）；有 cat1 即可存（名稱可空）；格子顯示 `n || cat1`
+- 週課表（SchedulePage）：`week_schedule` localStorage 持久化；編輯支援 cat1／cat2／cat3（`c` 改為 `cat1`）；有 cat1 即可存（名稱可空）；格子顯示 `n || cat3 || cat2 || cat1`
 
 ---
 
