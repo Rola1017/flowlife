@@ -148,12 +148,13 @@ export function PomodoroPage({
   };
 
   const saveCoinEdit = (rowId: number) => {
+    const newTaskName = editTaskName.trim();
     setCoinIncomeLog((log) =>
       log.map((r) =>
         r.id === rowId
           ? {
               ...r,
-              taskName: editTaskName.trim() || r.taskName,
+              taskName: newTaskName,
               cat1: editCat1,
               cat2: editCat2,
             }
@@ -166,6 +167,7 @@ export function PomodoroPage({
   const renderCoinIncomeRow = (row: CoinIncomeLogRow) => {
     const isEditing = editingCoinId === row.id;
     const cat2Options = editCat1 ? CAT.cat2List(editCat1) : [];
+    const displayName = row.taskName?.trim() || row.cat1 || "未命名";
     return (
       <div key={row.id}>
         <button
@@ -185,11 +187,13 @@ export function PomodoroPage({
           }}
         >
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 10, color: TH.text, fontWeight: 800 }}>{row.taskName}</div>
-            <div style={{ fontSize: 9, color: TH.muted }}>
-              {row.time}
-              {row.cat1 ? ` · ${row.cat1}${row.cat2 ? ` / ${row.cat2}` : ""}` : ""}
-            </div>
+            <div style={{ fontWeight: 700, fontSize: 11, color: TH.text }}>{displayName}</div>
+            {(row.cat1 || row.cat2) && (
+              <div style={{ fontSize: 9, color: TH.muted, marginTop: 2 }}>
+                {[row.cat1, row.cat2].filter(Boolean).join(" › ")}
+              </div>
+            )}
+            <div style={{ fontSize: 9, color: TH.muted }}>{row.time}</div>
           </div>
           <div style={{ fontSize: 11, color: TH.gold, fontWeight: 900 }}>+{row.amount} 🪙</div>
         </button>

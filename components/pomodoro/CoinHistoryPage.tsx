@@ -123,12 +123,13 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
   };
 
   const saveEdit = (rowId: number) => {
+    const newTaskName = editTaskName.trim();
     setCoinIncomeLog((log) =>
       log.map((r) =>
         r.id === rowId
           ? {
               ...r,
-              taskName: editTaskName.trim() || r.taskName,
+              taskName: newTaskName,
               cat1: editCat1,
               cat2: editCat2,
             }
@@ -141,6 +142,7 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
   const renderRow = (row: CoinIncomeLogRow) => {
     const isEditing = editingCoinId === row.id;
     const cat2Options = editCat1 ? CAT.cat2List(editCat1) : [];
+    const displayName = row.taskName?.trim() || row.cat1 || "未命名";
     return (
       <div key={row.id}>
         <button
@@ -160,11 +162,13 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
           }}
         >
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 10, color: TH.text, fontWeight: 800 }}>{row.taskName}</div>
-            <div style={{ fontSize: 9, color: TH.muted }}>
-              {row.time}
-              {row.cat1 ? ` · ${row.cat1}${row.cat2 ? ` / ${row.cat2}` : ""}` : ""}
-            </div>
+            <div style={{ fontWeight: 700, fontSize: 11, color: TH.text }}>{displayName}</div>
+            {(row.cat1 || row.cat2) && (
+              <div style={{ fontSize: 9, color: TH.muted, marginTop: 2 }}>
+                {[row.cat1, row.cat2].filter(Boolean).join(" › ")}
+              </div>
+            )}
+            <div style={{ fontSize: 9, color: TH.muted }}>{row.time}</div>
           </div>
           <div style={{ fontSize: 11, color: TH.gold, fontWeight: 900 }}>+{row.amount} 🪙</div>
         </button>
@@ -184,7 +188,7 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
             <input
               value={editTaskName}
               onChange={(e) => setEditTaskName(e.target.value)}
-              placeholder="事件名稱"
+              placeholder="事件名稱（可留空）"
               style={fieldStyle}
             />
             <select
@@ -209,7 +213,7 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
               style={fieldStyle}
             >
               {cat2Options.length === 0 ? (
-                <option value="">—</option>
+                <option value="">（無）</option>
               ) : (
                 cat2Options.map((c) => (
                   <option key={c} value={c}>
@@ -285,7 +289,7 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
                 onChange={(e) => setCustomStart(e.target.value)}
                 style={{ ...fieldStyle, flex: 1, minWidth: 0 }}
               />
-              <span style={{ fontSize: 9, color: TH.muted }}>～</span>
+              <span style={{ fontSize: 9, color: TH.muted }}>至</span>
               <input
                 type="date"
                 value={customEnd}
