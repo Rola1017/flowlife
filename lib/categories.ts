@@ -8,58 +8,58 @@ export type CategoryData = BigCat[];
 export const DEFAULT_CATEGORIES: CategoryData = [
   {
     name: "學習",
-    color: "#F59E0B",
+    color: "#FFFF37",
     mids: [
-      { name: "法律", color: "#F59E0B", subs: ["勞動社會法", "保險法", "民法", "行政法", "刑法", "民事訴訟法"] },
-      { name: "保險", color: "#F59E0B", subs: ["意外險", "醫療險", "儲蓄險"] },
-      { name: "英文", color: "#F59E0B", subs: ["口說", "文法", "寫作"] },
+      { name: "法律", color: "#FFFF37", subs: ["勞動社會法", "保險法", "民法", "行政法", "刑法", "民事訴訟法"] },
+      { name: "保險", color: "#FFFF37", subs: ["意外險", "醫療險", "儲蓄險"] },
+      { name: "英文", color: "#FFFF37", subs: ["口說", "文法", "寫作"] },
     ],
   },
   {
     name: "事業",
-    color: "#3B82F6",
+    color: "#0000E3",
     mids: [
-      { name: "架網站", color: "#3B82F6", subs: [] },
-      { name: "知識萃取", color: "#3B82F6", subs: [] },
+      { name: "架網站", color: "#0000E3", subs: [] },
+      { name: "知識萃取", color: "#0000E3", subs: [] },
     ],
   },
   {
     name: "閱讀",
-    color: "#06B6D4",
+    color: "#8600FF",
     mids: [
-      { name: "溝通術", color: "#06B6D4", subs: [] },
-      { name: "情緒療癒", color: "#06B6D4", subs: [] },
-      { name: "學習技巧", color: "#06B6D4", subs: [] },
-      { name: "金融", color: "#06B6D4", subs: ["投資", "經濟學"] },
-      { name: "商業", color: "#06B6D4", subs: [] },
+      { name: "溝通術", color: "#8600FF", subs: [] },
+      { name: "情緒療癒", color: "#8600FF", subs: [] },
+      { name: "學習技巧", color: "#8600FF", subs: [] },
+      { name: "金融", color: "#8600FF", subs: ["投資", "經濟學"] },
+      { name: "商業", color: "#8600FF", subs: [] },
     ],
   },
   {
     name: "健康",
-    color: "#10B981",
+    color: "#00EC00",
     mids: [
-      { name: "重訓", color: "#10B981", subs: [] },
-      { name: "有氧", color: "#10B981", subs: [] },
+      { name: "重訓", color: "#00EC00", subs: [] },
+      { name: "有氧", color: "#00EC00", subs: [] },
     ],
   },
   {
     name: "兼差",
-    color: "#8B5CF6",
+    color: "#5CADAD",
     mids: [
-      { name: "兼差A", color: "#8B5CF6", subs: [] },
-      { name: "兼差B", color: "#8B5CF6", subs: [] },
+      { name: "兼差A", color: "#5CADAD", subs: [] },
+      { name: "兼差B", color: "#5CADAD", subs: [] },
     ],
   },
   {
     name: "活動",
-    color: "#EC4899",
+    color: "#C07AB8",
     mids: [
-      { name: "展覽", color: "#EC4899", subs: [] },
-      { name: "旅遊", color: "#EC4899", subs: [] },
-      { name: "聚會", color: "#EC4899", subs: [] },
+      { name: "展覽", color: "#C07AB8", subs: [] },
+      { name: "旅遊", color: "#C07AB8", subs: [] },
+      { name: "聚會", color: "#C07AB8", subs: [] },
     ],
   },
-  { name: "未分類", color: "#6B7280", mids: [] },
+  { name: "未分類", color: "#9D9D9D", mids: [] },
 ];
 
 const SMALL_CAT_PALETTE = [

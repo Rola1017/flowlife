@@ -16,6 +16,7 @@ export const LS_KEYS = {
   weekendShifts: `${STORAGE_PREFIX}weekend_shifts`,
   categories: `${STORAGE_PREFIX}categories`,
   weekSchedule: `${STORAGE_PREFIX}week_schedule`,
+  colorPalette: `${STORAGE_PREFIX}color_palette`,
 } as const;
 
 function assertVersionedKey(key: string): void {

@@ -10,8 +10,9 @@ import {
   loadCategories,
   saveCategories,
 } from "@/lib/categories";
+import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 
-const COLOR_PALETTE = [
+const DEFAULT_PALETTE = [
   "#EA0000",
   "#FFAAD5",
   "#FF00FF",
@@ -42,11 +43,24 @@ function ColorPicker({
   value,
   onChange,
   onClose,
+  palette,
+  onPaletteChange,
 }: {
   value: string;
   onChange: (hex: string) => void;
   onClose: () => void;
+  palette: string[];
+  onPaletteChange: (index: number, hex: string) => void;
 }) {
+  const [selectedPaletteIndex, setSelectedPaletteIndex] = useState<number | null>(null);
+
+  const handleColorInput = (hex: string) => {
+    if (selectedPaletteIndex !== null) {
+      onPaletteChange(selectedPaletteIndex, hex);
+    }
+    onChange(hex);
+  };
+
   return (
     <div
       style={{
@@ -72,20 +86,24 @@ function ColorPicker({
           marginBottom: 8,
         }}
       >
-        {COLOR_PALETTE.map((c) => (
+        {palette.map((c, index) => (
           <button
-            key={c}
+            key={index}
             type="button"
             onClick={() => {
-              onChange(c);
-              onClose();
+              if (selectedPaletteIndex === index) {
+                setSelectedPaletteIndex(null);
+              } else {
+                setSelectedPaletteIndex(index);
+                onChange(c);
+              }
             }}
             style={{
               width: 32,
               height: 32,
               borderRadius: 6,
               border: "none",
-              outline: value === c ? "2px solid white" : "none",
+              outline: selectedPaletteIndex === index ? "2px solid white" : "none",
               background: c,
               cursor: "pointer",
               padding: 0,
@@ -93,15 +111,35 @@ function ColorPicker({
           />
         ))}
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <p style={{ fontSize: 9, color: TH.muted, margin: "0 0 8px", lineHeight: 1.4 }}>
+        點選格子後，用下方色輪調整，顏色會固定在那一格
+      </p>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
         <input
           type="color"
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => handleColorInput(e.target.value)}
           style={{ width: 36, height: 28, border: "none", padding: 0, cursor: "pointer" }}
         />
         <span style={{ fontSize: 10, color: TH.muted, fontFamily: "monospace" }}>{value}</span>
       </div>
+      <button
+        type="button"
+        onClick={onClose}
+        style={{
+          width: "100%",
+          padding: "7px",
+          borderRadius: 8,
+          border: "none",
+          background: TH.accent,
+          color: "#fff",
+          fontSize: 11,
+          fontWeight: 800,
+          cursor: "pointer",
+        }}
+      >
+        ✓ 確認
+      </button>
     </div>
   );
 }
@@ -152,6 +190,14 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
   const [expandedMid, setExpandedMid] = useState<Record<string, boolean>>({});
   const [colorPickerBig, setColorPickerBig] = useState<number | null>(null);
   const [colorPickerMid, setColorPickerMid] = useState<string | null>(null);
+  const [palette, setPalette] = useState<string[]>(() => loadJSON(LS_KEYS.colorPalette, DEFAULT_PALETTE));
+
+  const handlePaletteChange = (index: number, hex: string) => {
+    const next = [...palette];
+    next[index] = hex;
+    setPalette(next);
+    saveJSON(LS_KEYS.colorPalette, next);
+  };
 
   const persist = useCallback((next: CategoryData) => {
     setCategories(next);
@@ -354,6 +400,8 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
                         value={big.color}
                         onChange={(c) => updateBigColor(bi, c)}
                         onClose={() => setColorPickerBig(null)}
+                        palette={palette}
+                        onPaletteChange={handlePaletteChange}
                       />
                     </>
                   )}
@@ -425,6 +473,8 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
                                   value={mid.color}
                                   onChange={(c) => updateMidColor(bi, mi, c)}
                                   onClose={() => setColorPickerMid(null)}
+                                  palette={palette}
+                                  onPaletteChange={handlePaletteChange}
                                 />
                               </>
                             )}
