@@ -11,7 +11,7 @@ export type PomodoroSessionRow = Session;
 
 type CatSelection = { cat1: string; cat2: string; cat3: string };
 type ConfirmedPomodoro = { name: string; cat1: string; cat2: string; cat3: string };
-type RewardFx = { id: number; amount: number };
+type RewardFx = { id: number; amount: number; big?: boolean; treasure?: boolean };
 export type CoinIncomeLogRow = {
   id: number;
   date: string;
@@ -306,7 +306,13 @@ export function usePomodoro({
       }
     });
 
-    const totalGain = earned + milestoneBonus;
+    // 大於1小時：30% 機率雙倍金幣
+    let isTreasure = false;
+    if (dur >= 60 && Math.random() < 0.3) {
+      isTreasure = true;
+    }
+    const finalEarned = isTreasure ? earned * 2 : earned;
+    const totalGain = finalEarned + milestoneBonus;
     if (totalGain > 0) {
       setCoins((c) => c + totalGain);
       const now = localDateParts();
@@ -322,7 +328,7 @@ export function usePomodoro({
         ...log,
       ]);
     }
-    setRewardFx({ id: Date.now(), amount: totalGain });
+    setRewardFx({ id: Date.now(), amount: totalGain, big: dur > 25, treasure: isTreasure });
   };
 
   const selectDuration = (nextDur: number) => {

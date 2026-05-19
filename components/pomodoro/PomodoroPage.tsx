@@ -396,9 +396,21 @@ export function PomodoroPage({
         /* 單一大金幣：只在左上位置感顯示，不再跑第二條大軌跡 */
         @keyframes flowlifeCoinMainPop {
           0% { transform: translate(calc(-50% - 28px), calc(-50% - 46px)) scale(0.25); opacity: 0; }
-          16.67% { transform: translate(calc(-50% - 28px), calc(-50% - 46px)) scale(1.2); opacity: 1; } /* 0.5s */
-          66.67% { transform: translate(calc(-50% - 28px), calc(-50% - 46px)) scale(1); opacity: 1; } /* 停留 1.5s */
-          100% { transform: translate(calc(-50% - 122px), calc(-50% - 108px)) scale(0.3); opacity: 0; } /* 吸入左側 */
+          16.67% { transform: translate(calc(-50% - 28px), calc(-50% - 46px)) scale(1.2); opacity: 1; }
+          56.67% { transform: translate(calc(-50% - 28px), calc(-50% - 46px)) scale(1); opacity: 1; }
+          100% { transform: translate(calc(-50% - 122px), calc(-50% - 108px)) scale(0.3); opacity: 0; }
+        }
+        @keyframes flowlifeTreasureOpen {
+          0% { transform: translate(-50%, -50%) scale(0); opacity: 0; rotate: -15deg; }
+          20% { transform: translate(-50%, -50%) scale(1.4); opacity: 1; rotate: 10deg; }
+          45% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; rotate: -5deg; }
+          70% { transform: translate(-50%, -50%) scale(1.05); opacity: 1; rotate: 0deg; }
+          85% { transform: translate(-50%, -50%) scale(1); opacity: 1; rotate: 0deg; }
+          100% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; rotate: 0deg; }
+        }
+        @keyframes flowlifeTreasureGlow {
+          0%, 100% { box-shadow: 0 0 20px rgba(251,191,36,0); }
+          50% { box-shadow: 0 0 60px rgba(251,191,36,0.9); }
         }
         @keyframes flowlifeCoinCracker1 {
           0% { transform: translate(calc(-50% - 28px), calc(-50% - 46px)) scale(0.1); opacity: 0; }
@@ -488,14 +500,53 @@ export function PomodoroPage({
               position: "absolute",
               right: -24,
               top: -10,
-              fontSize: 16,
+              fontSize: rewardFx.big ? 48 : 16,
               fontWeight: 900,
               color: TH.gold,
-              textShadow: "0 0 8px rgba(251,191,36,0.35)",
+              textShadow: rewardFx.big
+                ? "0 0 16px rgba(251,191,36,0.8)"
+                : "0 0 8px rgba(251,191,36,0.35)",
             }}
           >
             +{rewardFx.amount}
           </span>
+        </div>
+      )}
+      {rewardFx && rewardFx.treasure && (
+        <div
+          key={`treasure-${rewardFx.id}`}
+          style={{
+            position: "absolute",
+            top: 200,
+            left: "50%",
+            fontSize: 72,
+            zIndex: 25,
+            pointerEvents: "none",
+            animation: "flowlifeTreasureOpen 2800ms cubic-bezier(.2,.7,.1,1) 200ms both",
+          }}
+        >
+          💰
+        </div>
+      )}
+      {rewardFx && rewardFx.treasure && (
+        <div
+          key={`treasure-label-${rewardFx.id}`}
+          style={{
+            position: "absolute",
+            top: 155,
+            left: "50%",
+            transform: "translateX(-50%)",
+            fontSize: 13,
+            fontWeight: 900,
+            color: TH.gold,
+            zIndex: 26,
+            pointerEvents: "none",
+            whiteSpace: "nowrap",
+            animation: "flowlifeTreasureOpen 2800ms cubic-bezier(.2,.7,.1,1) 400ms both",
+            textShadow: "0 0 12px rgba(251,191,36,0.9)",
+          }}
+        >
+          🎊 雙倍金幣！
         </div>
       )}
       {rewardFx &&
