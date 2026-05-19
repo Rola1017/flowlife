@@ -150,14 +150,6 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
     setEditingCoinId(null);
   };
 
-  const formatCatLabel = (cat1?: string, cat2?: string, cat3?: string) => {
-    if (!cat1) return "";
-    const parts = [cat1];
-    if (cat2) parts.push(cat2);
-    if (cat3) parts.push(cat3);
-    return parts.join(" ? ");
-  };
-
   const renderRow = (row: CoinIncomeLogRow) => {
     const isEditing = editingCoinId === row.id;
     const cat2Options = editCat1 ? CAT.cat2List(editCat1) : [];
@@ -185,8 +177,20 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 700, fontSize: 11, color: TH.text }}>{displayName}</div>
             {row.cat1 && (
-              <div style={{ fontSize: 9, color: TH.muted, marginTop: 2 }}>
-                {formatCatLabel(row.cat1, row.cat2, row.cat3)}
+              <div style={{ fontSize: 9, color: TH.muted, marginTop: 2, display: "flex", alignItems: "center" }}>
+                <span
+                  style={{
+                    display: "inline-block",
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    background: CAT.deepColorFull(row.cat1 ?? "", row.cat2 || undefined, row.cat3 || undefined),
+                    marginRight: 4,
+                    verticalAlign: "middle",
+                    flexShrink: 0,
+                  }}
+                />
+                {[row.cat1, row.cat2, row.cat3].filter(Boolean).join(" › ")}
               </div>
             )}
             <div style={{ fontSize: 9, color: TH.muted }}>{row.time}</div>

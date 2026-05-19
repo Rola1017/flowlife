@@ -6,8 +6,7 @@ import { Card, SL } from "@/components/ui/Card";
 import { TH } from "@/lib/theme";
 import {
   type CategoryData,
-  cat2Color,
-  cat3Color,
+  cat3ColorFrom,
   loadCategories,
   saveCategories,
 } from "@/lib/categories";
@@ -152,6 +151,7 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
   );
   const [expandedMid, setExpandedMid] = useState<Record<string, boolean>>({});
   const [colorPickerBig, setColorPickerBig] = useState<number | null>(null);
+  const [colorPickerMid, setColorPickerMid] = useState<string | null>(null);
 
   const persist = useCallback((next: CategoryData) => {
     setCategories(next);
@@ -175,6 +175,12 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
   const updateBigColor = (bi: number, color: string) => {
     const next = cloneData(categories);
     next[bi].color = color;
+    persist(next);
+  };
+
+  const updateMidColor = (bi: number, mi: number, color: string) => {
+    const next = cloneData(categories);
+    next[bi].mids[mi].color = color;
     persist(next);
   };
 
@@ -203,7 +209,7 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
       window.alert("名稱已存在");
       return;
     }
-    next[bi].mids.push({ name: name.trim(), subs: [] });
+    next[bi].mids.push({ name: name.trim(), color: next[bi].color, subs: [] });
     persist(next);
     setExpandedBig((e) => ({ ...e, [bi]: true }));
   };
@@ -284,7 +290,7 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
       <Card>
         <SL>大分類</SL>
         <p style={{ fontSize: 10, color: TH.muted, margin: "0 0 10px", lineHeight: 1.5 }}>
-          中／小分類顏色依大分類色自動計算。用 ↑↓ 調整排序。
+          中分類顏色可自訂（點色塊修改）；小分類繼承中分類顏色，依序漸淺。用 ↑↓ 調整排序。
         </p>
 
         {categories.map((big, bi) => {
@@ -371,7 +377,7 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
                 <div style={{ padding: "8px 10px 10px", background: TH.bg }}>
                   {big.mids.map((mid, mi) => {
                     const midOpen = expandedMid[midKey(mi)] ?? false;
-                    const midCol = cat2Color(big.color, mi);
+                    const midCol = mid.color;
                     return (
                       <div
                         key={`${mid.name}-${mi}`}
@@ -393,15 +399,36 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
                           >
                             ↓
                           </button>
-                          <div
-                            style={{
-                              width: 10,
-                              height: 10,
-                              borderRadius: "50%",
-                              background: midCol,
-                              flexShrink: 0,
-                            }}
-                          />
+                          <div style={{ position: "relative" }}>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setColorPickerMid(colorPickerMid === `${bi}-${mi}` ? null : `${bi}-${mi}`)
+                              }
+                              style={{
+                                width: 18,
+                                height: 18,
+                                borderRadius: 4,
+                                border: "none",
+                                background: mid.color,
+                                cursor: "pointer",
+                                flexShrink: 0,
+                              }}
+                            />
+                            {colorPickerMid === `${bi}-${mi}` && (
+                              <>
+                                <div
+                                  style={{ position: "fixed", inset: 0, zIndex: 199 }}
+                                  onClick={() => setColorPickerMid(null)}
+                                />
+                                <ColorPicker
+                                  value={mid.color}
+                                  onChange={(c) => updateMidColor(bi, mi, c)}
+                                  onClose={() => setColorPickerMid(null)}
+                                />
+                              </>
+                            )}
+                          </div>
                           <RenameInput
                             value={mid.name}
                             onCommit={(n) => updateMidName(bi, mi, n)}
@@ -447,7 +474,7 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
                                     width: 8,
                                     height: 8,
                                     borderRadius: "50%",
-                                    background: cat3Color(si),
+                                    background: cat3ColorFrom(mid.color, si),
                                     flexShrink: 0,
                                   }}
                                 />

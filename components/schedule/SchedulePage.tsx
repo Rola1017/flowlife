@@ -252,7 +252,9 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
                   );
                 }
                 const cell = getCell(d, t);
-                const col = cell ? CAT.cat1Color(cell.cat1) : null;
+                const col = cell
+                  ? CAT.deepColorFull(cell.cat1, cell.cat2 || undefined, cell.cat3 || undefined)
+                  : null;
                 return (
                   <div
                     key={d}
