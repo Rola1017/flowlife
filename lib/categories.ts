@@ -102,8 +102,54 @@ export function blendToWhite(hex: string, factor: number): string {
   return "#" + [nr, ng, nb].map((n) => n.toString(16).padStart(2, "0")).join("");
 }
 
+/**
+ * 將 baseHex 與 blendHex 混合，factor = 混入比例（0~1）
+ */
+function blendColors(baseHex: string, blendHex: string, factor: number): string {
+  const f = Math.min(Math.max(factor, 0), 1);
+  const parse = (h: string) => [
+    parseInt(h.slice(1, 3), 16),
+    parseInt(h.slice(3, 5), 16),
+    parseInt(h.slice(5, 7), 16),
+  ];
+  const [r1, g1, b1] = parse(baseHex);
+  const [r2, g2, b2] = parse(blendHex);
+  const nr = Math.round(r1 + (r2 - r1) * f);
+  const ng = Math.round(g1 + (g2 - g1) * f);
+  const nb = Math.round(b1 + (b2 - b1) * f);
+  return "#" + [nr, ng, nb].map((n) => n.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * 小分類顏色：繼承中分類，依 index 混入不同色調
+ * index 0 → 與中分類完全相同
+ * index 1 → 混入白色
+ * index 2 → 混入紅色
+ * index 3 → 混入橙色
+ * index 4 → 混入黃色
+ * index 5 → 混入綠色
+ * index 6 → 混入藍色
+ * index 7 → 混入靛色
+ * index 8 → 混入紫色
+ * index 9 → 混入黑色
+ * index 10+ → 循環（index % 10）
+ */
 export function cat3ColorFrom(cat2Hex: string, index: number): string {
-  return blendToWhite(cat2Hex, Math.min((index + 1) * 0.2, 0.6));
+  const i = index % 10;
+  const BLEND_TARGETS: string[] = [
+    cat2Hex, // 0：完全相同
+    "#FFFFFF", // 1：白
+    "#FF0000", // 2：紅
+    "#FF8000", // 3：橙
+    "#FFFF00", // 4：黃
+    "#00CC00", // 5：綠
+    "#0000FF", // 6：藍
+    "#3B0080", // 7：靛
+    "#8B00FF", // 8：紫
+    "#000000", // 9：黑
+  ];
+  if (i === 0) return cat2Hex;
+  return blendColors(cat2Hex, BLEND_TARGETS[i], 0.35);
 }
 
 export function loadCategories(): CategoryData {
