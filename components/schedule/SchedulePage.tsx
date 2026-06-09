@@ -21,6 +21,44 @@ type RawSchedRow = {
   cat3?: string;
 };
 
+type RowDef =
+  | { kind: "fixed"; time: string; label: string; span: "all" | "weekday" }
+  | { kind: "class"; time: string };
+
+const ROWS: RowDef[] = [
+  { kind: "fixed", time: "06:30", label: "😴 起床", span: "all" },
+  { kind: "fixed", time: "07:00", label: "🍳 早餐", span: "all" },
+  { kind: "class", time: "08:00" },
+  { kind: "class", time: "09:00" },
+  { kind: "class", time: "10:00" },
+  { kind: "class", time: "11:00" },
+  { kind: "fixed", time: "12:00", label: "🍱 午餐", span: "weekday" },
+  { kind: "fixed", time: "13:00", label: "😴 午覺", span: "weekday" },
+  { kind: "class", time: "13:30" },
+  { kind: "class", time: "14:00" },
+  { kind: "class", time: "15:00" },
+  { kind: "class", time: "16:00" },
+  { kind: "fixed", time: "17:00", label: "🍽️ 晚餐", span: "weekday" },
+  { kind: "class", time: "18:00" },
+  { kind: "class", time: "19:00" },
+  { kind: "class", time: "20:00" },
+  { kind: "class", time: "21:00" },
+  { kind: "class", time: "22:00" },
+  { kind: "fixed", time: "23:00", label: "😴 睡覺", span: "all" },
+];
+
+const ROW_H = 26;
+const GAP = 2;
+const STEP = ROW_H + GAP;
+
+const SHIFT_TIMES: Record<string, string[]> = {
+  早班: ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "13:30"],
+  晚班: ["14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00"],
+};
+
+const DAYS = ["一", "二", "三", "四", "五", "六", "日"] as const;
+const COL_W = `calc((100% - 44px - ${7 * GAP}px) / 7)`;
+
 function normalizeSchedule(raw: Record<string, RawSchedRow[]>): Record<string, SchedRow[]> {
   const out: Record<string, SchedRow[]> = {};
   for (const [day, rows] of Object.entries(raw)) {
@@ -60,16 +98,61 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
       loadJSON(LS_KEYS.weekSchedule, MOCK.weekdaySchedule as Record<string, RawSchedRow[]>),
     ),
   );
-  const [wkend, setWkend] = useState({ 六: "晚班", 日: "晚班" });
+  const [wkend, setWkend] = useState<{ 六: string; 日: string }>(() =>
+    loadJSON(LS_KEYS.weekendShifts, { 六: "晚班", 日: "晚班" }),
+  );
   const [editing, setEditing] = useState<{ d: string; t: string } | null>(null);
   const [draft, setDraft] = useState<Draft>({ name: "", cat1: "學習", cat2: "", cat3: "" });
-  const DAYS = ["一", "二", "三", "四", "五", "六", "日"];
-  const SLOTS = ["08:00", "09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "16:00"];
+
   const isWE = (d: string) => d === "六" || d === "日";
+  const partTimeColor = CAT.cat1Color("兼差");
 
   useEffect(() => {
     saveJSON(LS_KEYS.weekSchedule, sched);
   }, [sched]);
+
+  useEffect(() => {
+    saveJSON(LS_KEYS.weekendShifts, wkend);
+  }, [wkend]);
+
+  const rowGridStyle: CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "44px repeat(7, 1fr)",
+    gap: GAP,
+    height: ROW_H,
+    marginBottom: GAP,
+  };
+
+  const timeColStyle: CSSProperties = {
+    fontSize: 7,
+    color: TH.muted,
+    textAlign: "right",
+    paddingRight: 4,
+    alignSelf: "center",
+    height: ROW_H,
+    lineHeight: `${ROW_H}px`,
+  };
+
+  const fixedCellStyle: CSSProperties = {
+    height: ROW_H,
+    background: TH.card,
+    borderRadius: 5,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 9,
+    fontWeight: 700,
+    color: TH.muted,
+    border: `1px solid ${TH.border}`,
+    boxSizing: "border-box",
+  };
+
+  const wePlaceholderStyle: CSSProperties = {
+    height: ROW_H,
+    background: "#0D0D0F",
+    borderRadius: 5,
+    boxSizing: "border-box",
+  };
 
   const getCell = (d: string, t: string) => (sched[d] || []).find((e) => e.t === t);
   const setCell = (d: string, t: string, data: Omit<SchedRow, "t"> | null) =>
@@ -91,19 +174,59 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
   const cat3Options =
     draft.cat1 && draft.cat2 ? CAT.cat3List(draft.cat1, draft.cat2) : [];
 
+  const renderClassCell = (d: string, t: string) => {
+    if (isWE(d)) {
+      return <div key={d} style={wePlaceholderStyle} />;
+    }
+    const cell = getCell(d, t);
+    const col = cell
+      ? CAT.deepColorFull(cell.cat1, cell.cat2 || undefined, cell.cat3 || undefined)
+      : null;
+    return (
+      <div
+        key={d}
+        role="button"
+        tabIndex={0}
+        onClick={() => openEdit(d, t, cell)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") openEdit(d, t, cell);
+        }}
+        style={{
+          height: ROW_H,
+          background: col ? col + "33" : "#1C1C24",
+          borderRadius: 5,
+          padding: "3px 4px",
+          border: `1px solid ${col ? col + "44" : TH.border}`,
+          cursor: "pointer",
+          overflow: "hidden",
+          boxSizing: "border-box",
+        }}
+      >
+        {cell && (
+          <div
+            style={{
+              fontSize: 8,
+              fontWeight: 700,
+              color: col ?? undefined,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              lineHeight: `${ROW_H - 6}px`,
+            }}
+          >
+            {cell.n || cell.cat3 || cell.cat2 || cell.cat1}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const leftForDay = (dayColIndex: number) =>
+    `calc(44px + ${GAP}px + (${COL_W} + ${GAP}px) * ${dayColIndex})`;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <BackBtn onBack={onBack} label="課表" />
-      <div style={{ display: "flex", gap: 8 }}>
-        {(["六", "日"] as const).map((d) => (
-          <div key={d} style={{ display: "flex", gap: 4, alignItems: "center" }}>
-            <span style={{ fontSize: 10, color: TH.muted }}>週{d}：</span>
-            {(["早班", "晚班"] as const).map((m) => (
-              <Chip key={m} label={m} active={wkend[d] === m} color={TH.cyan} onClick={() => setWkend({ ...wkend, [d]: m })} style={{ fontSize: 9 }} />
-            ))}
-          </div>
-        ))}
-      </div>
       {editing && (
         <Card style={{ border: `1px solid ${TH.accent}44` }}>
           <SL>
@@ -184,7 +307,17 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
                 );
                 setEditing(null);
               }}
-              style={{ flex: 1, padding: "7px", borderRadius: 8, background: TH.green, border: "none", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+              style={{
+                flex: 1,
+                padding: "7px",
+                borderRadius: 8,
+                background: TH.green,
+                border: "none",
+                color: "#fff",
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
             >
               儲存
             </button>
@@ -194,93 +327,177 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
                 setCell(editing.d, editing.t, null);
                 setEditing(null);
               }}
-              style={{ flex: 1, padding: "7px", borderRadius: 8, background: "#EF444422", border: "1px solid #EF444444", color: TH.red, fontSize: 11, fontWeight: 700, cursor: "pointer" }}
+              style={{
+                flex: 1,
+                padding: "7px",
+                borderRadius: 8,
+                background: "#EF444422",
+                border: "1px solid #EF444444",
+                color: TH.red,
+                fontSize: 11,
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
             >
               清除
             </button>
-            <button type="button" onClick={() => setEditing(null)} style={{ flex: 1, padding: "7px", borderRadius: 8, background: "transparent", border: `1px solid ${TH.border}`, color: TH.muted, fontSize: 11, cursor: "pointer" }}>
+            <button
+              type="button"
+              onClick={() => setEditing(null)}
+              style={{
+                flex: 1,
+                padding: "7px",
+                borderRadius: 8,
+                background: "transparent",
+                border: `1px solid ${TH.border}`,
+                color: TH.muted,
+                fontSize: 11,
+                cursor: "pointer",
+              }}
+            >
               取消
             </button>
           </div>
         </Card>
       )}
-      <div style={{ overflowX: "auto" }}>
+      <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: 700 }}>
         <div style={{ minWidth: 360 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "44px repeat(7,1fr)", gap: 2, marginBottom: 2 }}>
-            <div style={{ fontSize: 9, color: TH.muted, textAlign: "center" }}>時間</div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "44px repeat(7, 1fr)",
+              gap: GAP,
+              marginBottom: GAP,
+              position: "sticky",
+              top: 0,
+              zIndex: 10,
+              background: TH.bg,
+              paddingBottom: 2,
+            }}
+          >
+            <div style={{ fontSize: 9, color: TH.muted, textAlign: "center", alignSelf: "end" }}>
+              時間
+            </div>
             {DAYS.map((d) => (
               <div
                 key={d}
                 style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  textAlign: "center",
-                  padding: "4px 0",
-                  background: isWE(d) ? TH.cyan + "11" : TH.card,
-                  borderRadius: 5,
-                  color: isWE(d) ? TH.cyan : TH.muted,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 2,
+                  alignItems: "center",
                 }}
               >
-                {d}
+                {isWE(d) && (
+                  <div style={{ display: "flex", gap: 2, flexWrap: "wrap", justifyContent: "center" }}>
+                    {(["早班", "晚班"] as const).map((m) => (
+                      <Chip
+                        key={m}
+                        label={m}
+                        active={wkend[d] === m}
+                        color={TH.cyan}
+                        onClick={() => setWkend({ ...wkend, [d]: m })}
+                        style={{ fontSize: 8, padding: "2px 5px" }}
+                      />
+                    ))}
+                  </div>
+                )}
+                <div
+                  style={{
+                    width: "100%",
+                    fontSize: 10,
+                    fontWeight: 700,
+                    textAlign: "center",
+                    padding: "4px 0",
+                    background: isWE(d) ? TH.cyan + "11" : TH.card,
+                    borderRadius: 5,
+                    color: isWE(d) ? TH.cyan : TH.muted,
+                  }}
+                >
+                  {d}
+                </div>
               </div>
             ))}
           </div>
-          {SLOTS.map((t) => (
-            <div key={t} style={{ display: "grid", gridTemplateColumns: "44px repeat(7,1fr)", gap: 2, marginBottom: 2 }}>
-              <div style={{ fontSize: 7, color: TH.muted, textAlign: "right", paddingRight: 4, alignSelf: "center" }}>{t}</div>
-              {DAYS.map((d) => {
-                if (isWE(d)) {
-                  const tn = parseInt(t, 10),
-                    slots = wkend[d] === "晚班" ? [14, 15, 16, 17] : [8, 9, 10, 11];
-                  const inS = slots.includes(tn);
+
+          <div style={{ position: "relative" }}>
+            {ROWS.map((row) => {
+              if (row.kind === "fixed") {
+                if (row.span === "all") {
                   return (
-                    <div
-                      key={d}
-                      style={{
-                        background: inS ? "#8B5CF644" : "#0D0D0F",
-                        borderRadius: 5,
-                        minHeight: 24,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      {inS && slots[0] === tn && (
-                        <span style={{ fontSize: 8, color: "#8B5CF6", fontWeight: 700 }}>兼差</span>
-                      )}
+                    <div key={row.time} style={rowGridStyle}>
+                      <div style={timeColStyle}>{row.time}</div>
+                      <div style={{ ...fixedCellStyle, gridColumn: "2 / -1" }}>{row.label}</div>
                     </div>
                   );
                 }
-                const cell = getCell(d, t);
-                const col = cell
-                  ? CAT.deepColorFull(cell.cat1, cell.cat2 || undefined, cell.cat3 || undefined)
-                  : null;
                 return (
-                  <div
-                    key={d}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => openEdit(d, t, cell)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") openEdit(d, t, cell);
-                    }}
-                    style={{
-                      background: col ? col + "33" : "#1C1C24",
-                      borderRadius: 5,
-                      padding: "3px 4px",
-                      minHeight: 24,
-                      border: `1px solid ${col ? col + "44" : TH.border}`,
-                      cursor: "pointer",
-                    }}
-                  >
-                    {cell && (
-                      <div style={{ fontSize: 8, fontWeight: 700, color: col ?? undefined, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cell.n || cell.cat3 || cell.cat2 || cell.cat1}</div>
-                    )}
+                  <div key={row.time} style={rowGridStyle}>
+                    <div style={timeColStyle}>{row.time}</div>
+                    <div style={{ ...fixedCellStyle, gridColumn: "span 5" }}>{row.label}</div>
+                    <div style={wePlaceholderStyle} />
+                    <div style={wePlaceholderStyle} />
                   </div>
                 );
-              })}
-            </div>
-          ))}
+              }
+              return (
+                <div key={row.time} style={rowGridStyle}>
+                  <div style={timeColStyle}>{row.time}</div>
+                  {DAYS.map((d) => renderClassCell(d, row.time))}
+                </div>
+              );
+            })}
+
+            {(["六", "日"] as const).map((day) => {
+              const shift = wkend[day];
+              const times = SHIFT_TIMES[shift] ?? [];
+              const coveredIdx = ROWS.map((r, i) => (times.includes(r.time) ? i : -1)).filter(
+                (i) => i >= 0,
+              );
+              if (coveredIdx.length === 0) return null;
+              const firstIdx = coveredIdx[0];
+              const count = coveredIdx.length;
+              const top = firstIdx * STEP;
+              const height = count * STEP - GAP;
+              const dayColIndex = day === "六" ? 5 : 6;
+              const rangeLabel = shift === "早班" ? "08:00~14:00" : "14:00~22:00";
+
+              return (
+                <div
+                  key={`shift-${day}`}
+                  style={{
+                    position: "absolute",
+                    top: `${top}px`,
+                    height: `${height}px`,
+                    left: leftForDay(dayColIndex),
+                    width: COL_W,
+                    background: partTimeColor + "33",
+                    border: `1px solid ${partTimeColor}44`,
+                    borderRadius: 5,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    zIndex: 5,
+                    pointerEvents: "none",
+                    boxSizing: "border-box",
+                  }}
+                >
+                  <span
+                    style={{
+                      color: partTimeColor,
+                      fontSize: 9,
+                      fontWeight: 700,
+                      textAlign: "center",
+                      padding: "0 4px",
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    兼差 {rangeLabel}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

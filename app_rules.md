@@ -193,7 +193,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - 金幣收支頁（CoinHistoryPage）、番茄頁金幣列表（PomodoroPage）：inline 編輯 cat1 必填、cat2／cat3 選填（`— 不選 —`）；大／中／小分類標籤；顯示以 `›` 串接已有層級
 - 番茄頁：時長／加時休息按鈕標籤、版面重排（評分在計時圈下方）
 - 番茄獎勵動畫：>25 分鐘大硬幣＋金額 3 倍字；≥60 分鐘 30% 雙倍金幣＋寶箱動畫
-- 週課表（SchedulePage）：`week_schedule` localStorage 持久化；編輯支援 cat1／cat2／cat3（`c` 改為 `cat1`）；有 cat1 即可存（名稱可空）；格子顯示 `n || cat3 || cat2 || cat1`；格子色用 `CAT.deepColorFull`
+- 週課表（SchedulePage）：06:30~23:00 固定列＋課程列；週六日 absolute 兼差大格（早／晚班 `weekend_shifts`）；`week_schedule` 持久化；三層分類編輯與 `deepColorFull` 著色
 - 分類系統：中分類自訂 color（CategoryManager 色盤）；小分類 `cat3ColorFrom` 依 index 混入白／彩虹色／黑（35%）；金幣記錄標籤色點
 - 預設分類色：`DEFAULT_CATEGORIES` 大／中分類各自獨立色（學習黃、法律紫等）；色盤 `color_palette` localStorage 可自訂
 
