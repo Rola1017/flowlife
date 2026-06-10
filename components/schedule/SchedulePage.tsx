@@ -105,8 +105,6 @@ const shiftRange = (place: Place, shift: string, day: string): string => {
   return "";
 };
 
-const timeWeight = (t: string) => (t.endsWith(":00") ? 800 : 400);
-
 function normalizeSchedule(raw: Record<string, RawSchedRow[]>): Record<string, SchedRow[]> {
   const out: Record<string, SchedRow[]> = {};
   for (const [day, rows] of Object.entries(raw)) {
@@ -219,6 +217,14 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
     height: ROW_H,
     lineHeight: `${ROW_H}px`,
   };
+
+  const MEAL_TIMES = new Set(["07:00", "12:00", "17:00"]);
+  const timeColStyleFor = (t: string): CSSProperties => ({
+    ...timeColStyle,
+    fontSize: t.endsWith(":00") ? 10 : 7,
+    fontWeight: t.endsWith(":00") ? 800 : 400,
+    color: MEAL_TIMES.has(t) ? "#FDE68A" : TH.muted,
+  });
 
   const fixedCellStyle: CSSProperties = {
     height: ROW_H,
@@ -537,7 +543,7 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
                 if (row.span === "all") {
                   return (
                     <div key={row.time} style={rowGridStyle}>
-                      <div style={{ ...timeColStyle, fontWeight: timeWeight(row.time) }}>
+                      <div style={timeColStyleFor(row.time)}>
                         {row.time}
                       </div>
                       <div style={{ ...fixedCellStyle, gridColumn: "2 / -1" }}>{row.label}</div>
@@ -546,7 +552,7 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
                 }
                 return (
                   <div key={row.time} style={rowGridStyle}>
-                    <div style={{ ...timeColStyle, fontWeight: timeWeight(row.time) }}>
+                    <div style={timeColStyleFor(row.time)}>
                       {row.time}
                     </div>
                     <div style={{ ...fixedCellStyle, gridColumn: "span 5" }}>{row.label}</div>
@@ -557,7 +563,7 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
               }
               return (
                 <div key={row.time} style={rowGridStyle}>
-                  <div style={{ ...timeColStyle, fontWeight: timeWeight(row.time) }}>{row.time}</div>
+                  <div style={timeColStyleFor(row.time)}>{row.time}</div>
                   {DAYS.map((d) => renderClassCell(d, row.time))}
                 </div>
               );
