@@ -92,6 +92,22 @@ export function VerticalTimeline({
     const week = loadJSON<Record<string, Cell[]>>(LS_KEYS.weekSchedule, {});
     const cells = week[dayKey] ?? [];
 
+    const FIXED_BLOCKS = [
+      { start: "06:30", end: "07:00", label: "😴 起床" },
+      { start: "07:00", end: "07:30", label: "🍳 早餐" },
+      { start: "12:00", end: "13:00", label: "🍱 午餐" },
+      { start: "13:00", end: "13:30", label: "😴 午覺" },
+      { start: "17:00", end: "18:00", label: "🍽️ 晚餐" },
+      { start: "22:30", end: "23:00", label: "😴 睡覺" },
+    ];
+    const fixedBlocks = FIXED_BLOCKS.map((b) => ({
+      start: b.start,
+      end: b.end,
+      label: b.label,
+      color: "",
+      kind: "fixed" as const,
+    }));
+
     const courseBlocks = cells.map((cell) => {
       const idx = COURSE_TIMES.indexOf(cell.t);
       const end = idx >= 0 && idx < COURSE_TIMES.length - 1 ? COURSE_TIMES[idx + 1] : "23:00";
@@ -110,14 +126,14 @@ export function VerticalTimeline({
         {
           start: range[0],
           end: range[1],
-          label: PLACE_NAME[plan.place],
+          label: `兼差:${PLACE_NAME[plan.place]}`,
           color: CAT.cat1Color("兼差"),
           kind: "shift" as const,
         },
       ];
     });
 
-    return [...courseBlocks, ...shiftBlocks];
+    return [...fixedBlocks, ...courseBlocks, ...shiftBlocks];
   }, [date]);
   const [dailyOverride, setDailyOverride] = useState<DailyOverride>({});
   const [loadedOverrideKey, setLoadedOverrideKey] = useState("");
@@ -230,6 +246,7 @@ export function VerticalTimeline({
           const top = pctPos(item.start);
           const h = pctH(item.start, item.end);
           const col = item.color;
+          const isFixed = item.kind === "fixed";
           return (
             <div
               key={`pln-${i}`}
@@ -239,18 +256,21 @@ export function VerticalTimeline({
                 height: `${h}%`,
                 left: 4,
                 right: "53%",
-                background: col ? col + "2E" : "#1F293777",
+                background: isFixed ? "#1A1A22" : col ? col + "2E" : "#1F293777",
                 border: item.kind === "shift" ? `1px solid ${col}66` : "none",
                 borderRadius: 5,
                 padding: "2px 5px",
                 overflow: "hidden",
                 zIndex: 2,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: isFixed ? "center" : "flex-start",
               }}
             >
               <div
                 style={{
-                  fontSize: 9,
-                  color: col || "#9CA3AF",
+                  fontSize: isFixed ? 8 : 9,
+                  color: isFixed ? TH.muted : col || "#9CA3AF",
                   fontWeight: 700,
                   overflow: "hidden",
                   textOverflow: "ellipsis",

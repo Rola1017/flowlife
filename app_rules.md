@@ -98,7 +98,7 @@ lib/
 
 | 區域 | 位置 | 說明 |
 |------|------|------|
-| PLN 預定欄 | `left:4, right:"53%"` | 唯讀，即時讀課表 `week_schedule` + 班別 `day_plans` |
+| PLN 預定欄 | `left:4, right:"53%"` | 唯讀；固定作息（灰底）+ 課表課程 + 班別兼差 |
 | ACT 實際欄 | `left:"47%", right:4` | 可點擊編輯 |
 | 分隔線 | `left:"50%"` | 視覺分界 |
 | 待辦（未完成） | `left:"35%", transform:translateX(-50%)` | 黃框黃字，用 startTime 定位 |
@@ -192,13 +192,13 @@ TH.gold    = "#FBBF24"   // 金幣
 - 金幣收支頁（CoinHistoryPage）、番茄頁金幣列表（PomodoroPage）：inline 編輯 cat1 必填、cat2／cat3 選填（`— 不選 —`）；大／中／小分類標籤；顯示以 `›` 串接已有層級
 - 番茄頁：時長／加時休息按鈕標籤、版面重排（評分在計時圈下方）
 - 番茄獎勵動畫：>25 分鐘大硬幣＋金額 3 倍字；≥60 分鐘 30% 雙倍金幣＋寶箱動畫
-- 週課表（SchedulePage）：06:30~22:30；雙工作場所（診所／彩券行）+ 每天多選班別（`day_plans`）；整點加大加粗、三餐時間淺黃；午餐／午覺橫跨七天；橫向滑動（無直向滾軸、minWidth 520）
+- 週課表（SchedulePage）：06:30~22:30；雙工作場所（診所／彩券行）+ 每天多選班別（`day_plans`）；整點加大加粗、三餐時間淺黃；午餐／午覺／晚餐橫跨七天；兼差大格標籤「兼差:場所」；橫向滑動（無直向滾軸、minWidth 520）
 - 課表入口：時段頁「📅 課表」按鈕（原行事曆 📋 已移除）
 - 分類系統：中分類自訂 color（CategoryManager 色盤）；小分類 `cat3ColorFrom` 依 index 混入白／彩虹色／黑（35%）；金幣記錄標籤色點
 - 預設分類色：`DEFAULT_CATEGORIES` 大／中分類各自獨立色（學習黃、法律紫等）；色盤 `color_palette` localStorage 可自訂
 - 分類改名同步（階段一止血版）：`CategoryManager` 改名時連鎖更新 sessions／coin_income_log／week_schedule；同名跨大分類會一併改到（已知限制）；階段二接 Supabase 時改用穩定 ID
 - 番茄評分金幣記錄：`confirmRating` 寫入 `coin_income_log` 補上 `cat3`
-- 直式行程表 PLN 已串聯課表（`week_schedule` + `day_plans` 依日期星期幾）；PLN 改唯讀、以課表為單一來源；ACT 仍用 MOCK + daily override
+- 直式行程表 PLN 已串聯課表（`week_schedule` + `day_plans` 依日期星期幾）；含固定作息灰色區塊（起床／三餐／午覺／睡覺）；兼差標籤「兼差:場所」；PLN 唯讀；ACT 仍用 MOCK + daily override
 
 ---
 

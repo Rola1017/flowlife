@@ -58,7 +58,7 @@ const ROWS: RowDef[] = [
   { kind: "class", time: "14:30" },
   { kind: "class", time: "15:00" },
   { kind: "class", time: "16:00" },
-  { kind: "fixed", time: "17:00", label: "🍽️ 晚餐", span: "weekday" },
+  { kind: "fixed", time: "17:00", label: "🍽️ 晚餐", span: "all" },
   { kind: "class", time: "18:00" },
   { kind: "class", time: "19:00" },
   { kind: "class", time: "20:00" },
@@ -623,7 +623,7 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
                           lineHeight: 1.2,
                         }}
                       >
-                        {PLACE_NAME[plan.place]}
+                        {`兼差:${PLACE_NAME[plan.place]}`}
                       </span>
                       <span
                         style={{
