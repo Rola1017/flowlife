@@ -133,7 +133,7 @@ export function VerticalTimeline({
           start: range[0],
           end: range[1],
           label: `兼差:${PLACE_NAME[plan.place]}`,
-          color: CAT.cat1Color("兼差"),
+          color: CAT.cat2Color("兼差", PLACE_NAME[plan.place]),
           kind: "shift" as const,
         },
       ];

@@ -203,7 +203,7 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
   const [, setMounted] = useState(false);
 
   const isWE = (d: string) => d === "六" || d === "日";
-  const partTimeColor = CAT.cat1Color("兼差");
+  const placeColor = (place: Place) => CAT.cat2Color("兼差", PLACE_NAME[place]);
 
   const shiftTimesForDay = (day: string): string[] => {
     const plan = dayPlans[day];
@@ -582,7 +582,7 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
                         key={s}
                         label={s}
                         active={plan.shifts.includes(s)}
-                        color={partTimeColor}
+                        color={placeColor(plan.place)}
                         onClick={() => toggleShift(d, s)}
                         style={{ fontSize: 8, padding: "2px 6px", width: "100%", textAlign: "center" }}
                       />
@@ -642,6 +642,7 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
                   const top = firstIdx * STEP;
                   const height = count * STEP - GAP;
                   const [rangeStart, rangeEnd] = shiftRange(plan.place, shiftKey, day).split("~");
+                  const col = placeColor(plan.place);
 
                   return (
                     <div
@@ -652,8 +653,8 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
                         height: `${height}px`,
                         left: leftForDay(dayColIndex),
                         width: COL_W,
-                        background: partTimeColor + "33",
-                        border: `1px solid ${partTimeColor}44`,
+                        background: col + "33",
+                        border: `1px solid ${col}44`,
                         borderRadius: 5,
                         display: "flex",
                         flexDirection: "column",
@@ -667,7 +668,7 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
                     >
                       <span
                         style={{
-                          color: partTimeColor,
+                          color: col,
                           fontSize: 8,
                           fontWeight: 700,
                           lineHeight: 1.2,
@@ -677,7 +678,7 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
                       </span>
                       <span
                         style={{
-                          color: partTimeColor,
+                          color: col,
                           fontSize: 8,
                           fontWeight: 700,
                           lineHeight: 1.2,
@@ -685,10 +686,10 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
                       >
                         {rangeStart}
                       </span>
-                      <span style={{ color: partTimeColor, fontSize: 7, lineHeight: 1 }}>～</span>
+                      <span style={{ color: col, fontSize: 7, lineHeight: 1 }}>～</span>
                       <span
                         style={{
-                          color: partTimeColor,
+                          color: col,
                           fontSize: 8,
                           fontWeight: 700,
                           lineHeight: 1.2,
