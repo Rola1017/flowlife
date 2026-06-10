@@ -186,7 +186,13 @@ const selectStyle: CSSProperties = {
   marginBottom: 7,
 };
 
-export function SchedulePage({ onBack }: { onBack: () => void }) {
+export function SchedulePage({
+  onBack,
+  onShowCategoryManager,
+}: {
+  onBack: () => void;
+  onShowCategoryManager: () => void;
+}) {
   const [sched, setSched] = useState<Record<string, SchedRow[]>>(() =>
     normalizeSchedule(
       loadJSON(LS_KEYS.weekSchedule, MOCK.weekdaySchedule as Record<string, RawSchedRow[]>),
@@ -453,6 +459,25 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
               marginBottom: 7,
             }}
           />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+            <div style={fieldLabelStyle}>大分類</div>
+            <button
+              type="button"
+              onClick={onShowCategoryManager}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 3,
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                padding: 0,
+              }}
+            >
+              <span style={{ fontSize: 9, color: TH.muted }}>新增/管理分類</span>
+              <span style={{ fontSize: 13 }}>⚙️</span>
+            </button>
+          </div>
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
             {CAT.cat1List().map((c) => (
               <Chip

@@ -212,11 +212,23 @@ function AppContent() {
   };
 
   const SUB_PAGE_MAP: Record<string, (props?: Record<string, unknown>) => ReactNode> = {
-    schedule: () => <SchedulePage onBack={pop} />,
+    schedule: () => (
+      <SchedulePage
+        onBack={pop}
+        onShowCategoryManager={() => push("categoryManager", { from: "schedule" })}
+      />
+    ),
     settings: () => (
       <SettingsPage onBack={pop} onResetAllData={handleResetAllData} onResetTodos={resetTodos} />
     ),
-    categoryManager: () => <CategoryManager onBack={pop} />,
+    categoryManager: (props = {}) => (
+      <CategoryManager
+        onBack={() => {
+          if (props.from === "schedule") push("schedule");
+          else pop();
+        }}
+      />
+    ),
     shop: () => <ShopPage coins={coins} onSpend={spendCoins} onBack={pop} />,
     coinHistory: () => <CoinHistoryPage onBack={pop} />,
     dayView: (props = {}) => (
