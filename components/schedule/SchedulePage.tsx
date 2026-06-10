@@ -56,6 +56,9 @@ const SHIFT_TIMES: Record<string, string[]> = {
   晚班: ["14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00"],
 };
 
+/** 平日晚班時段 18:00~22:00 */
+const WEEKDAY_SHIFT = ["18:00", "19:00", "20:00", "21:00"];
+
 const DAYS = ["一", "二", "三", "四", "五", "六", "日"] as const;
 const COL_W = `calc((100% - 44px - ${7 * GAP}px) / 7)`;
 
@@ -98,14 +101,30 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
       loadJSON(LS_KEYS.weekSchedule, MOCK.weekdaySchedule as Record<string, RawSchedRow[]>),
     ),
   );
-  const [wkend, setWkend] = useState<{ 六: string; 日: string }>(() =>
-    loadJSON(LS_KEYS.weekendShifts, { 六: "晚班", 日: "晚班" }),
-  );
+  const [wkend, setWkend] = useState<{ 六: string; 日: string }>(() => {
+    const loaded = loadJSON<Partial<{ 六: string; 日: string }>>(LS_KEYS.weekendShifts, {});
+    return { 六: loaded.六 ?? "晚班", 日: loaded.日 ?? "晚班" };
+  });
   const [editing, setEditing] = useState<{ d: string; t: string } | null>(null);
   const [draft, setDraft] = useState<Draft>({ name: "", cat1: "學習", cat2: "", cat3: "" });
+  const [, setMounted] = useState(false);
 
   const isWE = (d: string) => d === "六" || d === "日";
   const partTimeColor = CAT.cat1Color("兼差");
+
+  const shiftTimesForDay = (day: string): string[] => {
+    if (day === "六" || day === "日") {
+      return SHIFT_TIMES[wkend[day as "六" | "日"]] ?? [];
+    }
+    return WEEKDAY_SHIFT;
+  };
+
+  const isCoveredByShift = (day: string, time: string): boolean =>
+    shiftTimesForDay(day).includes(time);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     saveJSON(LS_KEYS.weekSchedule, sched);
@@ -175,7 +194,7 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
     draft.cat1 && draft.cat2 ? CAT.cat3List(draft.cat1, draft.cat2) : [];
 
   const renderClassCell = (d: string, t: string) => {
-    if (isWE(d)) {
+    if (isCoveredByShift(d, t)) {
       return <div key={d} style={wePlaceholderStyle} />;
     }
     const cell = getCell(d, t);
@@ -364,10 +383,6 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
         <div style={{ minWidth: 360 }}>
           <div
             style={{
-              display: "grid",
-              gridTemplateColumns: "44px repeat(7, 1fr)",
-              gap: GAP,
-              marginBottom: GAP,
               position: "sticky",
               top: 0,
               zIndex: 10,
@@ -375,36 +390,21 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
               paddingBottom: 2,
             }}
           >
-            <div style={{ fontSize: 9, color: TH.muted, textAlign: "center", alignSelf: "end" }}>
-              時間
-            </div>
-            {DAYS.map((d) => (
-              <div
-                key={d}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 2,
-                  alignItems: "center",
-                }}
-              >
-                {isWE(d) && (
-                  <div style={{ display: "flex", gap: 2, flexWrap: "wrap", justifyContent: "center" }}>
-                    {(["早班", "晚班"] as const).map((m) => (
-                      <Chip
-                        key={m}
-                        label={m}
-                        active={wkend[d] === m}
-                        color={TH.cyan}
-                        onClick={() => setWkend({ ...wkend, [d]: m })}
-                        style={{ fontSize: 8, padding: "2px 5px" }}
-                      />
-                    ))}
-                  </div>
-                )}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "44px repeat(7, 1fr)",
+                gap: GAP,
+                marginBottom: GAP,
+              }}
+            >
+              <div style={{ fontSize: 9, color: TH.muted, textAlign: "center", alignSelf: "end" }}>
+                時間
+              </div>
+              {DAYS.map((d) => (
                 <div
+                  key={d}
                   style={{
-                    width: "100%",
                     fontSize: 10,
                     fontWeight: 700,
                     textAlign: "center",
@@ -416,8 +416,33 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
                 >
                   {d}
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "44px repeat(7, 1fr)",
+                gap: GAP,
+                marginBottom: GAP,
+              }}
+            >
+              <div />
+              {DAYS.map((d) => (
+                <div key={`shift-chip-${d}`} style={{ display: "flex", gap: 2, justifyContent: "center" }}>
+                  {isWE(d) &&
+                    (["早班", "晚班"] as const).map((m) => (
+                      <Chip
+                        key={m}
+                        label={m}
+                        active={wkend[d] === m}
+                        color={TH.cyan}
+                        onClick={() => setWkend({ ...wkend, [d]: m })}
+                        style={{ fontSize: 8, padding: "2px 4px" }}
+                      />
+                    ))}
+                </div>
+              ))}
+            </div>
           </div>
 
           <div style={{ position: "relative" }}>
@@ -448,9 +473,8 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
               );
             })}
 
-            {(["六", "日"] as const).map((day) => {
-              const shift = wkend[day];
-              const times = SHIFT_TIMES[shift] ?? [];
+            {DAYS.map((day, dayColIndex) => {
+              const times = shiftTimesForDay(day);
               const coveredIdx = ROWS.map((r, i) => (times.includes(r.time) ? i : -1)).filter(
                 (i) => i >= 0,
               );
@@ -459,8 +483,13 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
               const count = coveredIdx.length;
               const top = firstIdx * STEP;
               const height = count * STEP - GAP;
-              const dayColIndex = day === "六" ? 5 : 6;
-              const rangeLabel = shift === "早班" ? "08:00~14:00" : "14:00~22:00";
+              const isWeekday = day !== "六" && day !== "日";
+              const rangeLabel = isWeekday
+                ? "18:00~22:00"
+                : wkend[day as "六" | "日"] === "早班"
+                  ? "08:00~14:00"
+                  : "14:00~22:00";
+              const [rangeStart, rangeEnd] = rangeLabel.split("~");
 
               return (
                 <div
@@ -475,24 +504,30 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
                     border: `1px solid ${partTimeColor}44`,
                     borderRadius: 5,
                     display: "flex",
+                    flexDirection: "column",
                     alignItems: "center",
                     justifyContent: "center",
+                    gap: 1,
                     zIndex: 5,
                     pointerEvents: "none",
                     boxSizing: "border-box",
                   }}
                 >
                   <span
-                    style={{
-                      color: partTimeColor,
-                      fontSize: 9,
-                      fontWeight: 700,
-                      textAlign: "center",
-                      padding: "0 4px",
-                      lineHeight: 1.3,
-                    }}
+                    style={{ color: partTimeColor, fontSize: 9, fontWeight: 700, lineHeight: 1.2 }}
                   >
-                    兼差 {rangeLabel}
+                    兼差
+                  </span>
+                  <span
+                    style={{ color: partTimeColor, fontSize: 8, fontWeight: 700, lineHeight: 1.2 }}
+                  >
+                    {rangeStart}
+                  </span>
+                  <span style={{ color: partTimeColor, fontSize: 8, lineHeight: 1 }}>～</span>
+                  <span
+                    style={{ color: partTimeColor, fontSize: 8, fontWeight: 700, lineHeight: 1.2 }}
+                  >
+                    {rangeEnd}
                   </span>
                 </div>
               );
