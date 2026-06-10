@@ -25,10 +25,29 @@ type RowDef =
   | { kind: "fixed"; time: string; label: string; span: "all" | "weekday" }
   | { kind: "class"; time: string };
 
+type Place = "診" | "彩";
+
+type DayPlan = { place: Place; shifts: string[] };
+
+const PLACE_NAME: Record<Place, string> = { 診: "診所", 彩: "彩券行" };
+const PLACE_SHIFTS: Record<Place, string[]> = { 診: ["早", "午", "晚"], 彩: ["早", "晚"] };
+
+const DEFAULT_PLANS: Record<string, DayPlan> = {
+  一: { place: "診", shifts: ["晚"] },
+  二: { place: "診", shifts: ["晚"] },
+  三: { place: "診", shifts: ["晚"] },
+  四: { place: "診", shifts: ["晚"] },
+  五: { place: "診", shifts: ["晚"] },
+  六: { place: "彩", shifts: ["晚"] },
+  日: { place: "彩", shifts: ["晚"] },
+};
+
 const ROWS: RowDef[] = [
   { kind: "fixed", time: "06:30", label: "😴 起床", span: "all" },
   { kind: "fixed", time: "07:00", label: "🍳 早餐", span: "all" },
+  { kind: "class", time: "07:30" },
   { kind: "class", time: "08:00" },
+  { kind: "class", time: "08:30" },
   { kind: "class", time: "09:00" },
   { kind: "class", time: "10:00" },
   { kind: "class", time: "11:00" },
@@ -36,6 +55,7 @@ const ROWS: RowDef[] = [
   { kind: "fixed", time: "13:00", label: "😴 午覺", span: "weekday" },
   { kind: "class", time: "13:30" },
   { kind: "class", time: "14:00" },
+  { kind: "class", time: "14:30" },
   { kind: "class", time: "15:00" },
   { kind: "class", time: "16:00" },
   { kind: "fixed", time: "17:00", label: "🍽️ 晚餐", span: "weekday" },
@@ -44,23 +64,48 @@ const ROWS: RowDef[] = [
   { kind: "class", time: "20:00" },
   { kind: "class", time: "21:00" },
   { kind: "class", time: "22:00" },
-  { kind: "fixed", time: "23:00", label: "😴 睡覺", span: "all" },
+  { kind: "fixed", time: "22:30", label: "😴 睡覺", span: "all" },
 ];
 
 const ROW_H = 26;
 const GAP = 2;
 const STEP = ROW_H + GAP;
 
-const SHIFT_TIMES: Record<string, string[]> = {
-  早班: ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "13:30"],
-  晚班: ["14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00"],
-};
-
-/** 平日晚班時段 18:00~22:00 */
-const WEEKDAY_SHIFT = ["18:00", "19:00", "20:00", "21:00"];
-
 const DAYS = ["一", "二", "三", "四", "五", "六", "日"] as const;
 const COL_W = `calc((100% - 44px - ${7 * GAP}px) / 7)`;
+
+const isMonWedFri = (day: string) => day === "一" || day === "三" || day === "五";
+
+const shiftTimes = (place: Place, shift: string, day: string): string[] => {
+  if (place === "診") {
+    if (shift === "早") return ["08:30", "09:00", "10:00", "11:00"];
+    if (shift === "午")
+      return isMonWedFri(day)
+        ? ["14:00", "14:30", "15:00", "16:00", "17:00"]
+        : ["14:30", "15:00", "16:00", "17:00"];
+    if (shift === "晚") return ["18:00", "19:00", "20:00", "21:00"];
+  } else {
+    if (shift === "早")
+      return ["07:30", "08:00", "08:30", "09:00", "10:00", "11:00", "12:00", "13:00", "13:30"];
+    if (shift === "晚")
+      return ["14:00", "14:30", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00"];
+  }
+  return [];
+};
+
+const shiftRange = (place: Place, shift: string, day: string): string => {
+  if (place === "診") {
+    if (shift === "早") return "08:30~12:00";
+    if (shift === "午") return isMonWedFri(day) ? "14:00~18:00" : "14:30~18:00";
+    if (shift === "晚") return "18:00~22:00";
+  } else {
+    if (shift === "早") return "07:30~14:00";
+    if (shift === "晚") return "14:00~22:00";
+  }
+  return "";
+};
+
+const timeWeight = (t: string) => (t.endsWith(":00") ? 800 : 400);
 
 function normalizeSchedule(raw: Record<string, RawSchedRow[]>): Record<string, SchedRow[]> {
   const out: Record<string, SchedRow[]> = {};
@@ -101,9 +146,11 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
       loadJSON(LS_KEYS.weekSchedule, MOCK.weekdaySchedule as Record<string, RawSchedRow[]>),
     ),
   );
-  const [wkend, setWkend] = useState<{ 六: string; 日: string }>(() => {
-    const loaded = loadJSON<Partial<{ 六: string; 日: string }>>(LS_KEYS.weekendShifts, {});
-    return { 六: loaded.六 ?? "晚班", 日: loaded.日 ?? "晚班" };
+  const [dayPlans, setDayPlans] = useState<Record<string, DayPlan>>(() => {
+    const loaded = loadJSON<Record<string, DayPlan>>(LS_KEYS.dayPlans, {});
+    const merged: Record<string, DayPlan> = {};
+    for (const d of DAYS) merged[d] = loaded[d] ?? DEFAULT_PLANS[d] ?? { place: "彩", shifts: [] };
+    return merged;
   });
   const [editing, setEditing] = useState<{ d: string; t: string } | null>(null);
   const [draft, setDraft] = useState<Draft>({ name: "", cat1: "學習", cat2: "", cat3: "" });
@@ -113,14 +160,35 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
   const partTimeColor = CAT.cat1Color("兼差");
 
   const shiftTimesForDay = (day: string): string[] => {
-    if (day === "六" || day === "日") {
-      return SHIFT_TIMES[wkend[day as "六" | "日"]] ?? [];
-    }
-    return WEEKDAY_SHIFT;
+    const plan = dayPlans[day];
+    if (!plan) return [];
+    return plan.shifts.flatMap((s) => shiftTimes(plan.place, s, day));
   };
 
   const isCoveredByShift = (day: string, time: string): boolean =>
     shiftTimesForDay(day).includes(time);
+
+  const togglePlace = (day: string) => {
+    setDayPlans((prev) => {
+      const cur = prev[day];
+      const newPlace: Place = cur.place === "診" ? "彩" : "診";
+      const valid = PLACE_SHIFTS[newPlace];
+      return {
+        ...prev,
+        [day]: { place: newPlace, shifts: cur.shifts.filter((s) => valid.includes(s)) },
+      };
+    });
+  };
+
+  const toggleShift = (day: string, shift: string) => {
+    setDayPlans((prev) => {
+      const cur = prev[day];
+      const shifts = cur.shifts.includes(shift)
+        ? cur.shifts.filter((s) => s !== shift)
+        : [...cur.shifts, shift];
+      return { ...prev, [day]: { ...cur, shifts } };
+    });
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -131,8 +199,8 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
   }, [sched]);
 
   useEffect(() => {
-    saveJSON(LS_KEYS.weekendShifts, wkend);
-  }, [wkend]);
+    saveJSON(LS_KEYS.dayPlans, dayPlans);
+  }, [dayPlans]);
 
   const rowGridStyle: CSSProperties = {
     display: "grid",
@@ -427,21 +495,39 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
               }}
             >
               <div />
-              {DAYS.map((d) => (
-                <div key={`shift-chip-${d}`} style={{ display: "flex", gap: 2, justifyContent: "center" }}>
-                  {isWE(d) &&
-                    (["早班", "晚班"] as const).map((m) => (
+              {DAYS.map((d) => {
+                const plan = dayPlans[d];
+                const shiftsOfPlace = PLACE_SHIFTS[plan.place];
+                return (
+                  <div
+                    key={`plan-${d}`}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 2,
+                      alignItems: "center",
+                    }}
+                  >
+                    <Chip
+                      label="診"
+                      active={plan.place === "診"}
+                      color={TH.cyan}
+                      onClick={() => togglePlace(d)}
+                      style={{ fontSize: 8, padding: "2px 6px", width: "100%", textAlign: "center" }}
+                    />
+                    {shiftsOfPlace.map((s) => (
                       <Chip
-                        key={m}
-                        label={m}
-                        active={wkend[d] === m}
-                        color={TH.cyan}
-                        onClick={() => setWkend({ ...wkend, [d]: m })}
-                        style={{ fontSize: 8, padding: "2px 4px" }}
+                        key={s}
+                        label={s}
+                        active={plan.shifts.includes(s)}
+                        color={partTimeColor}
+                        onClick={() => toggleShift(d, s)}
+                        style={{ fontSize: 8, padding: "2px 6px", width: "100%", textAlign: "center" }}
                       />
                     ))}
-                </div>
-              ))}
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -451,14 +537,18 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
                 if (row.span === "all") {
                   return (
                     <div key={row.time} style={rowGridStyle}>
-                      <div style={timeColStyle}>{row.time}</div>
+                      <div style={{ ...timeColStyle, fontWeight: timeWeight(row.time) }}>
+                        {row.time}
+                      </div>
                       <div style={{ ...fixedCellStyle, gridColumn: "2 / -1" }}>{row.label}</div>
                     </div>
                   );
                 }
                 return (
                   <div key={row.time} style={rowGridStyle}>
-                    <div style={timeColStyle}>{row.time}</div>
+                    <div style={{ ...timeColStyle, fontWeight: timeWeight(row.time) }}>
+                      {row.time}
+                    </div>
                     <div style={{ ...fixedCellStyle, gridColumn: "span 5" }}>{row.label}</div>
                     <div style={wePlaceholderStyle} />
                     <div style={wePlaceholderStyle} />
@@ -467,70 +557,85 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
               }
               return (
                 <div key={row.time} style={rowGridStyle}>
-                  <div style={timeColStyle}>{row.time}</div>
+                  <div style={{ ...timeColStyle, fontWeight: timeWeight(row.time) }}>{row.time}</div>
                   {DAYS.map((d) => renderClassCell(d, row.time))}
                 </div>
               );
             })}
 
-            {DAYS.map((day, dayColIndex) => {
-              const times = shiftTimesForDay(day);
-              const coveredIdx = ROWS.map((r, i) => (times.includes(r.time) ? i : -1)).filter(
-                (i) => i >= 0,
-              );
-              if (coveredIdx.length === 0) return null;
-              const firstIdx = coveredIdx[0];
-              const count = coveredIdx.length;
-              const top = firstIdx * STEP;
-              const height = count * STEP - GAP;
-              const isWeekday = day !== "六" && day !== "日";
-              const rangeLabel = isWeekday
-                ? "18:00~22:00"
-                : wkend[day as "六" | "日"] === "早班"
-                  ? "08:00~14:00"
-                  : "14:00~22:00";
-              const [rangeStart, rangeEnd] = rangeLabel.split("~");
+            {DAYS.flatMap((day, dayColIndex) => {
+              const plan = dayPlans[day];
+              if (!plan) return [];
+              return plan.shifts
+                .map((shiftKey) => {
+                  const times = shiftTimes(plan.place, shiftKey, day);
+                  const coveredIdx = ROWS.map((r, i) =>
+                    times.includes(r.time) ? i : -1,
+                  ).filter((i) => i >= 0);
+                  if (coveredIdx.length === 0) return null;
+                  const firstIdx = coveredIdx[0];
+                  const count = coveredIdx.length;
+                  const top = firstIdx * STEP;
+                  const height = count * STEP - GAP;
+                  const [rangeStart, rangeEnd] = shiftRange(plan.place, shiftKey, day).split("~");
 
-              return (
-                <div
-                  key={`shift-${day}`}
-                  style={{
-                    position: "absolute",
-                    top: `${top}px`,
-                    height: `${height}px`,
-                    left: leftForDay(dayColIndex),
-                    width: COL_W,
-                    background: partTimeColor + "33",
-                    border: `1px solid ${partTimeColor}44`,
-                    borderRadius: 5,
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 1,
-                    zIndex: 5,
-                    pointerEvents: "none",
-                    boxSizing: "border-box",
-                  }}
-                >
-                  <span
-                    style={{ color: partTimeColor, fontSize: 9, fontWeight: 700, lineHeight: 1.2 }}
-                  >
-                    兼差
-                  </span>
-                  <span
-                    style={{ color: partTimeColor, fontSize: 8, fontWeight: 700, lineHeight: 1.2 }}
-                  >
-                    {rangeStart}
-                  </span>
-                  <span style={{ color: partTimeColor, fontSize: 8, lineHeight: 1 }}>～</span>
-                  <span
-                    style={{ color: partTimeColor, fontSize: 8, fontWeight: 700, lineHeight: 1.2 }}
-                  >
-                    {rangeEnd}
-                  </span>
-                </div>
-              );
+                  return (
+                    <div
+                      key={`shift-${day}-${shiftKey}`}
+                      style={{
+                        position: "absolute",
+                        top: `${top}px`,
+                        height: `${height}px`,
+                        left: leftForDay(dayColIndex),
+                        width: COL_W,
+                        background: partTimeColor + "33",
+                        border: `1px solid ${partTimeColor}44`,
+                        borderRadius: 5,
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 1,
+                        zIndex: 5,
+                        pointerEvents: "none",
+                        boxSizing: "border-box",
+                      }}
+                    >
+                      <span
+                        style={{
+                          color: partTimeColor,
+                          fontSize: 8,
+                          fontWeight: 700,
+                          lineHeight: 1.2,
+                        }}
+                      >
+                        {PLACE_NAME[plan.place]}
+                      </span>
+                      <span
+                        style={{
+                          color: partTimeColor,
+                          fontSize: 8,
+                          fontWeight: 700,
+                          lineHeight: 1.2,
+                        }}
+                      >
+                        {rangeStart}
+                      </span>
+                      <span style={{ color: partTimeColor, fontSize: 7, lineHeight: 1 }}>～</span>
+                      <span
+                        style={{
+                          color: partTimeColor,
+                          fontSize: 8,
+                          fontWeight: 700,
+                          lineHeight: 1.2,
+                        }}
+                      >
+                        {rangeEnd}
+                      </span>
+                    </div>
+                  );
+                })
+                .filter(Boolean);
             })}
           </div>
         </div>
