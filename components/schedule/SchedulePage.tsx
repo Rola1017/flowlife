@@ -22,7 +22,7 @@ type RawSchedRow = {
 };
 
 type RowDef =
-  | { kind: "fixed"; time: string; label: string; span: "all" | "weekday" }
+  | { kind: "fixed"; times: string[]; label: string; span: "all" | "weekday" }
   | { kind: "class"; time: string };
 
 type Place = "診" | "彩";
@@ -43,29 +43,44 @@ const DEFAULT_PLANS: Record<string, DayPlan> = {
 };
 
 const ROWS: RowDef[] = [
-  { kind: "fixed", time: "06:30", label: "😴 起床", span: "all" },
-  { kind: "fixed", time: "07:00", label: "🍳 早餐", span: "all" },
+  { kind: "fixed", times: ["06:30"], label: "😴 起床", span: "all" },
+  { kind: "fixed", times: ["07:00"], label: "🍳 早餐", span: "all" },
   { kind: "class", time: "07:30" },
   { kind: "class", time: "08:00" },
   { kind: "class", time: "08:30" },
   { kind: "class", time: "09:00" },
+  { kind: "class", time: "09:30" },
   { kind: "class", time: "10:00" },
+  { kind: "class", time: "10:30" },
   { kind: "class", time: "11:00" },
-  { kind: "fixed", time: "12:00", label: "🍱 午餐", span: "all" },
-  { kind: "fixed", time: "13:00", label: "😴 午覺", span: "all" },
+  { kind: "class", time: "11:30" },
+  { kind: "fixed", times: ["12:00", "12:30"], label: "🍱 午餐", span: "all" },
+  { kind: "fixed", times: ["13:00"], label: "😴 午覺", span: "all" },
   { kind: "class", time: "13:30" },
   { kind: "class", time: "14:00" },
   { kind: "class", time: "14:30" },
   { kind: "class", time: "15:00" },
+  { kind: "class", time: "15:30" },
   { kind: "class", time: "16:00" },
-  { kind: "fixed", time: "17:00", label: "🍽️ 晚餐", span: "all" },
+  { kind: "class", time: "16:30" },
+  { kind: "fixed", times: ["17:00", "17:30"], label: "🍽️ 晚餐", span: "all" },
   { kind: "class", time: "18:00" },
+  { kind: "class", time: "18:30" },
   { kind: "class", time: "19:00" },
+  { kind: "class", time: "19:30" },
   { kind: "class", time: "20:00" },
+  { kind: "class", time: "20:30" },
   { kind: "class", time: "21:00" },
+  { kind: "class", time: "21:30" },
   { kind: "class", time: "22:00" },
-  { kind: "fixed", time: "22:30", label: "😴 睡覺", span: "all" },
+  { kind: "fixed", times: ["22:30"], label: "😴 睡覺", span: "all" },
 ];
+
+const HALF_SLOTS: string[] = [];
+for (const row of ROWS) {
+  if (row.kind === "class") HALF_SLOTS.push(row.time);
+  else HALF_SLOTS.push(...row.times);
+}
 
 const ROW_H = 26;
 const GAP = 2;
@@ -78,17 +93,50 @@ const isMonWedFri = (day: string) => day === "一" || day === "三" || day === "
 
 const shiftTimes = (place: Place, shift: string, day: string): string[] => {
   if (place === "診") {
-    if (shift === "早") return ["08:30", "09:00", "10:00", "11:00"];
+    if (shift === "早")
+      return ["08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30"];
     if (shift === "午")
       return isMonWedFri(day)
-        ? ["14:00", "14:30", "15:00", "16:00", "17:00"]
-        : ["14:30", "15:00", "16:00", "17:00"];
-    if (shift === "晚") return ["18:00", "19:00", "20:00", "21:00"];
+        ? ["14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30"]
+        : ["14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30"];
+    if (shift === "晚")
+      return ["18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00", "21:30"];
   } else {
     if (shift === "早")
-      return ["07:30", "08:00", "08:30", "09:00", "10:00", "11:00", "12:00", "13:00", "13:30"];
+      return [
+        "07:30",
+        "08:00",
+        "08:30",
+        "09:00",
+        "09:30",
+        "10:00",
+        "10:30",
+        "11:00",
+        "11:30",
+        "12:00",
+        "12:30",
+        "13:00",
+        "13:30",
+      ];
     if (shift === "晚")
-      return ["14:00", "14:30", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00"];
+      return [
+        "14:00",
+        "14:30",
+        "15:00",
+        "15:30",
+        "16:00",
+        "16:30",
+        "17:00",
+        "17:30",
+        "18:00",
+        "18:30",
+        "19:00",
+        "19:30",
+        "20:00",
+        "20:30",
+        "21:00",
+        "21:30",
+      ];
   }
   return [];
 };
@@ -548,22 +596,24 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
           <div style={{ position: "relative" }}>
             {ROWS.map((row) => {
               if (row.kind === "fixed") {
+                const fixedH = row.times.length * ROW_H + (row.times.length - 1) * GAP;
+                const fixedRowStyle: CSSProperties = { ...rowGridStyle, height: fixedH };
                 if (row.span === "all") {
                   return (
-                    <div key={row.time} style={rowGridStyle}>
-                      <div style={timeColStyleFor(row.time)}>
-                        {row.time}
+                    <div key={row.times.join("-")} style={fixedRowStyle}>
+                      <div style={timeColStyleFor(row.times[0])}>{row.times[0]}</div>
+                      <div style={{ ...fixedCellStyle, gridColumn: "2 / -1", height: "100%" }}>
+                        {row.label}
                       </div>
-                      <div style={{ ...fixedCellStyle, gridColumn: "2 / -1" }}>{row.label}</div>
                     </div>
                   );
                 }
                 return (
-                  <div key={row.time} style={rowGridStyle}>
-                    <div style={timeColStyleFor(row.time)}>
-                      {row.time}
+                  <div key={row.times.join("-")} style={fixedRowStyle}>
+                    <div style={timeColStyleFor(row.times[0])}>{row.times[0]}</div>
+                    <div style={{ ...fixedCellStyle, gridColumn: "span 5", height: "100%" }}>
+                      {row.label}
                     </div>
-                    <div style={{ ...fixedCellStyle, gridColumn: "span 5" }}>{row.label}</div>
                     <div style={wePlaceholderStyle} />
                     <div style={wePlaceholderStyle} />
                   </div>
@@ -583,8 +633,8 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
               return plan.shifts
                 .map((shiftKey) => {
                   const times = shiftTimes(plan.place, shiftKey, day);
-                  const coveredIdx = ROWS.map((r, i) =>
-                    times.includes(r.time) ? i : -1,
+                  const coveredIdx = HALF_SLOTS.map((t, i) =>
+                    times.includes(t) ? i : -1,
                   ).filter((i) => i >= 0);
                   if (coveredIdx.length === 0) return null;
                   const firstIdx = coveredIdx[0];
