@@ -29,6 +29,10 @@ body {
   transform-origin: center;
 }
 
+.flowlife-hscroll::-webkit-scrollbar {
+  display: none;
+}
+
 .flowlife-pressable:active:not(:disabled) {
   transform: scale(0.95);
   filter: brightness(0.78);

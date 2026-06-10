@@ -50,6 +50,7 @@ export function TimelinePage({
   onToggleDone,
   onAddTodo,
   onEditTodo,
+  onShowSchedule,
 }: {
   todos: Record<string, unknown>[];
   onStart: (id: number) => void;
@@ -57,6 +58,7 @@ export function TimelinePage({
   onToggleDone: (id: number) => void;
   onAddTodo: (todo: Record<string, unknown>) => void;
   onEditTodo: (id: number) => void;
+  onShowSchedule: () => void;
 }) {
   const [addOpen, setAddOpen] = useState(false);
   const [draft, setDraft] = useState({
@@ -161,6 +163,23 @@ export function TimelinePage({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <button
+        type="button"
+        onClick={onShowSchedule}
+        style={{
+          alignSelf: "flex-start",
+          background: TH.card,
+          border: `1px solid ${TH.border}`,
+          borderRadius: 8,
+          padding: "6px 12px",
+          color: TH.text,
+          fontSize: 12,
+          fontWeight: 800,
+          cursor: "pointer",
+        }}
+      >
+        📅 課表
+      </button>
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         <div
           style={{

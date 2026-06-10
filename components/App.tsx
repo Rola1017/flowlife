@@ -236,13 +236,12 @@ function AppContent() {
 
   const MAIN_PAGE_MAP: Record<string, () => ReactNode> = {
     home: () => <HomePage {...todoProps} todaySessions={todaySessions} yesterdaySessions={yesterdaySessions} />,
-    timeline: () => <TimelinePage {...todoProps} />,
+    timeline: () => <TimelinePage {...todoProps} onShowSchedule={() => push("schedule")} />,
     calendar: () => (
       <CalendarPage
         todos={todos}
         sessions={sessions}
         onShowDay={(d, l) => push("dayView", { date: d, label: l })}
-        onShowSchedule={() => push("schedule")}
       />
     ),
     health: () => (

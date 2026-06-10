@@ -120,12 +120,10 @@ export function CalendarPage({
   todos,
   sessions,
   onShowDay,
-  onShowSchedule,
 }: {
   todos: Record<string, unknown>[];
   sessions: Session[];
   onShowDay: (date: string, label: string) => void;
-  onShowSchedule: () => void;
 }) {
   const [calView, setCalView] = useState("month");
   const [selCat1, setSelCat1] = useState("");
@@ -227,23 +225,6 @@ export function CalendarPage({
             {l}
           </button>
         ))}
-        <button
-          type="button"
-          onClick={onShowSchedule}
-          style={{
-            padding: "6px 10px",
-            borderRadius: 10,
-            border: `2px solid ${TH.yellow}`,
-            background: TH.yellow + "22",
-            color: TH.yellow,
-            fontSize: 11,
-            fontWeight: 800,
-            cursor: "pointer",
-            flexShrink: 0,
-          }}
-        >
-          📋
-        </button>
       </div>
       <div style={{ display: "flex", gap: 4, overflowX: "auto", paddingBottom: 2 }}>
         <Chip label="全部" active={!selCat1} color={TH.red} onClick={() => { setSelCat1(""); setSelCat2(""); }} />

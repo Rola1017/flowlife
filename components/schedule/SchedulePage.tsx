@@ -51,8 +51,8 @@ const ROWS: RowDef[] = [
   { kind: "class", time: "09:00" },
   { kind: "class", time: "10:00" },
   { kind: "class", time: "11:00" },
-  { kind: "fixed", time: "12:00", label: "🍱 午餐", span: "weekday" },
-  { kind: "fixed", time: "13:00", label: "😴 午覺", span: "weekday" },
+  { kind: "fixed", time: "12:00", label: "🍱 午餐", span: "all" },
+  { kind: "fixed", time: "13:00", label: "😴 午覺", span: "all" },
   { kind: "class", time: "13:30" },
   { kind: "class", time: "14:00" },
   { kind: "class", time: "14:30" },
@@ -453,8 +453,16 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
           </div>
         </Card>
       )}
-      <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: 700 }}>
-        <div style={{ minWidth: 360 }}>
+      <div
+        className="flowlife-hscroll"
+        style={{
+          overflowX: "auto",
+          overflowY: "visible",
+          WebkitOverflowScrolling: "touch",
+          scrollbarWidth: "none",
+        }}
+      >
+        <div style={{ minWidth: 520 }}>
           <div
             style={{
               position: "sticky",
