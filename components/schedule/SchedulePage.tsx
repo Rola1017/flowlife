@@ -200,7 +200,22 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
   });
   const [editing, setEditing] = useState<{ d: string; t: string } | null>(null);
   const [draft, setDraft] = useState<Draft>({ name: "", cat1: "學習", cat2: "", cat3: "" });
+  type HistoryItem = { name: string; cat1: string; cat2: string; cat3: string };
+  const [history, setHistory] = useState<HistoryItem[]>(() =>
+    loadJSON<HistoryItem[]>(LS_KEYS.scheduleHistory, []),
+  );
   const [, setMounted] = useState(false);
+
+  const pushHistory = (item: HistoryItem) => {
+    if (!item.cat1) return;
+    setHistory((prev) => {
+      const key = (h: HistoryItem) => `${h.name}|${h.cat1}|${h.cat2}|${h.cat3}`;
+      const filtered = prev.filter((h) => key(h) !== key(item));
+      const next = [item, ...filtered].slice(0, 6);
+      saveJSON(LS_KEYS.scheduleHistory, next);
+      return next;
+    });
+  };
 
   const isWE = (d: string) => d === "六" || d === "日";
   const placeColor = (place: Place) => CAT.cat2Color("兼差", PLACE_NAME[place]);
@@ -373,6 +388,54 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
           <SL>
             ✏️ 編輯 週{editing.d} {editing.t}
           </SL>
+          {history.length > 0 && (
+            <div style={{ marginBottom: 8 }}>
+              <div style={fieldLabelStyle}>最近選過</div>
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                {history.slice(0, 3).map((h, i) => {
+                  const col = CAT.deepColorFull(h.cat1, h.cat2 || undefined, h.cat3 || undefined);
+                  const label = h.name || h.cat3 || h.cat2 || h.cat1;
+                  return (
+                    <button
+                      key={`hist-${i}`}
+                      type="button"
+                      onClick={() =>
+                        setDraft({ name: h.name, cat1: h.cat1, cat2: h.cat2, cat3: h.cat3 })
+                      }
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                        background: col + "22",
+                        border: `1px solid ${col}55`,
+                        borderRadius: 8,
+                        padding: "4px 8px",
+                        cursor: "pointer",
+                        fontSize: 10,
+                        color: col,
+                        fontWeight: 700,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: "50%",
+                          background: col,
+                          flexShrink: 0,
+                        }}
+                      />
+                      {label}
+                      <span style={{ fontSize: 8, color: TH.muted, fontWeight: 400 }}>
+                        {[h.cat1, h.cat2, h.cat3].filter(Boolean).join("›")}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           <input
             value={draft.name}
             onChange={(e) => setDraft({ ...draft, name: e.target.value })}
@@ -446,6 +509,14 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
                     ? { n: draft.name, cat1: draft.cat1, cat2: draft.cat2, cat3: draft.cat3 }
                     : null,
                 );
+                if (draft.cat1) {
+                  pushHistory({
+                    name: draft.name,
+                    cat1: draft.cat1,
+                    cat2: draft.cat2,
+                    cat3: draft.cat3,
+                  });
+                }
                 setEditing(null);
               }}
               style={{
