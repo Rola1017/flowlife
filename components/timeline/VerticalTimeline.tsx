@@ -63,34 +63,6 @@ export function VerticalTimeline({
   const hours = buildTimelineHours();
   const { ACT } = MOCK.schedule;
 
-  const COURSE_TIMES = [
-    "07:30",
-    "08:00",
-    "08:30",
-    "09:00",
-    "09:30",
-    "10:00",
-    "10:30",
-    "11:00",
-    "11:30",
-    "13:30",
-    "14:00",
-    "14:30",
-    "15:00",
-    "15:30",
-    "16:00",
-    "16:30",
-    "18:00",
-    "18:30",
-    "19:00",
-    "19:30",
-    "20:00",
-    "20:30",
-    "21:00",
-    "21:30",
-    "22:00",
-  ];
-
   const schedulePln = useMemo(() => {
     const dayKey = dateToDayKey(date);
 
@@ -114,9 +86,16 @@ export function VerticalTimeline({
       kind: "fixed" as const,
     }));
 
+    const addHalfHour = (t: string): string => {
+      const [h, m] = t.split(":").map(Number);
+      const total = h * 60 + m + 30;
+      const nh = Math.floor(total / 60);
+      const nm = total % 60;
+      return `${String(nh).padStart(2, "0")}:${String(nm).padStart(2, "0")}`;
+    };
+
     const courseBlocks = cells.map((cell) => {
-      const idx = COURSE_TIMES.indexOf(cell.t);
-      const end = idx >= 0 && idx < COURSE_TIMES.length - 1 ? COURSE_TIMES[idx + 1] : "23:00";
+      const end = addHalfHour(cell.t);
       const label = cell.n || cell.cat3 || cell.cat2 || cell.cat1;
       const color = CAT.deepColorFull(cell.cat1, cell.cat2 || undefined, cell.cat3 || undefined);
       return { start: cell.t, end, label, color, kind: "course" as const };

@@ -211,7 +211,7 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
     setHistory((prev) => {
       const key = (h: HistoryItem) => `${h.name}|${h.cat1}|${h.cat2}|${h.cat3}`;
       const filtered = prev.filter((h) => key(h) !== key(item));
-      const next = [item, ...filtered].slice(0, 6);
+      const next = [item, ...filtered].slice(0, 10);
       saveJSON(LS_KEYS.scheduleHistory, next);
       return next;
     });
@@ -392,7 +392,7 @@ export function SchedulePage({ onBack }: { onBack: () => void }) {
             <div style={{ marginBottom: 8 }}>
               <div style={fieldLabelStyle}>最近選過</div>
               <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                {history.slice(0, 3).map((h, i) => {
+                {history.slice(0, 5).map((h, i) => {
                   const col = CAT.deepColorFull(h.cat1, h.cat2 || undefined, h.cat3 || undefined);
                   const label = h.name || h.cat3 || h.cat2 || h.cat1;
                   return (
