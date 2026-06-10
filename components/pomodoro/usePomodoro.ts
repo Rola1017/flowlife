@@ -324,6 +324,7 @@ export function usePomodoro({
           amount: totalGain,
           cat1: confirmed?.cat1,
           cat2: confirmed?.cat2,
+          cat3: confirmed?.cat3,
         },
         ...log,
       ]);

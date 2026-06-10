@@ -39,6 +39,46 @@ function cloneData(data: CategoryData): CategoryData {
   return JSON.parse(JSON.stringify(data)) as CategoryData;
 }
 
+// 將所有記錄中，符合 (level, 舊名) 的欄位改成新名（階段一止血版，階段二接 Supabase 時改用穩定 ID）
+function cascadeRename(level: "cat1" | "cat2" | "cat3", oldName: string, newName: string) {
+  if (oldName === newName) return;
+
+  const sessions = loadJSON<Record<string, unknown>[]>(LS_KEYS.sessions, []);
+  let sChanged = false;
+  for (const s of sessions) {
+    if (s[level] === oldName) {
+      s[level] = newName;
+      sChanged = true;
+    }
+  }
+  if (sChanged) saveJSON(LS_KEYS.sessions, sessions);
+
+  const coinLog = loadJSON<Record<string, unknown>[]>(LS_KEYS.coinIncomeLog, []);
+  let cChanged = false;
+  for (const r of coinLog) {
+    if (r[level] === oldName) {
+      r[level] = newName;
+      cChanged = true;
+    }
+  }
+  if (cChanged) saveJSON(LS_KEYS.coinIncomeLog, coinLog);
+
+  // week_schedule：{ [day]: SchedRow[] }，每列有 cat1/cat2/cat3
+  const week = loadJSON<Record<string, Record<string, unknown>[]>>(LS_KEYS.weekSchedule, {});
+  let wChanged = false;
+  for (const day of Object.keys(week)) {
+    const rows = week[day];
+    if (!Array.isArray(rows)) continue;
+    for (const cell of rows) {
+      if (cell && cell[level] === oldName) {
+        cell[level] = newName;
+        wChanged = true;
+      }
+    }
+  }
+  if (wChanged) saveJSON(LS_KEYS.weekSchedule, week);
+}
+
 function ColorPicker({
   value,
   onChange,
@@ -213,9 +253,11 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
   };
 
   const updateBigName = (bi: number, name: string) => {
+    const oldName = categories[bi].name;
     const next = cloneData(categories);
     next[bi].name = name;
     persist(next);
+    cascadeRename("cat1", oldName, name);
   };
 
   const updateBigColor = (bi: number, color: string) => {
@@ -261,9 +303,11 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
   };
 
   const updateMidName = (bi: number, mi: number, name: string) => {
+    const oldName = categories[bi].mids[mi].name;
     const next = cloneData(categories);
     next[bi].mids[mi].name = name;
     persist(next);
+    cascadeRename("cat2", oldName, name);
   };
 
   const deleteMid = (bi: number, mi: number) => {
@@ -296,9 +340,11 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
   };
 
   const updateSubName = (bi: number, mi: number, si: number, name: string) => {
+    const oldName = categories[bi].mids[mi].subs[si];
     const next = cloneData(categories);
     next[bi].mids[mi].subs[si] = name;
     persist(next);
+    cascadeRename("cat3", oldName, name);
   };
 
   const deleteSub = (bi: number, mi: number, si: number) => {
