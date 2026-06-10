@@ -1,12 +1,33 @@
 "use client";
 
-import { useEffect, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { TH } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { MOCK } from "@/lib/mock";
 import { pctPos, pctH, buildTimelineHours, DS, DE, toM } from "@/lib/utils";
 import { CFG } from "@/lib/config";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
+
+const DAY_KEYS = ["日", "一", "二", "三", "四", "五", "六"]; // JS getDay() 0=日
+const dateToDayKey = (dateStr: string): string => {
+  const d = new Date(dateStr + "T12:00:00");
+  return DAY_KEYS[d.getDay()];
+};
+
+type Place = "診" | "彩";
+const PLACE_NAME: Record<Place, string> = { 診: "診所", 彩: "彩券行" };
+const isMonWedFri = (day: string) => day === "一" || day === "三" || day === "五";
+const shiftRangeOf = (place: Place, shift: string, day: string): [string, string] | null => {
+  if (place === "診") {
+    if (shift === "早") return ["08:30", "12:00"];
+    if (shift === "午") return isMonWedFri(day) ? ["14:00", "18:00"] : ["14:30", "18:00"];
+    if (shift === "晚") return ["18:00", "22:00"];
+  } else {
+    if (shift === "早") return ["07:30", "14:00"];
+    if (shift === "晚") return ["14:00", "22:00"];
+  }
+  return null;
+};
 
 type TodoOverlay = {
   id: number;
@@ -40,7 +61,64 @@ export function VerticalTimeline({
   onTimeClick?: (time: string) => void;
 }) {
   const hours = buildTimelineHours();
-  const { PLN, ACT } = MOCK.schedule;
+  const { ACT } = MOCK.schedule;
+
+  const COURSE_TIMES = [
+    "07:30",
+    "08:00",
+    "08:30",
+    "09:00",
+    "10:00",
+    "11:00",
+    "12:00",
+    "13:00",
+    "13:30",
+    "14:00",
+    "14:30",
+    "15:00",
+    "16:00",
+    "17:00",
+    "18:00",
+    "19:00",
+    "20:00",
+    "21:00",
+    "22:00",
+  ];
+
+  const schedulePln = useMemo(() => {
+    const dayKey = dateToDayKey(date);
+
+    type Cell = { t: string; n: string; cat1: string; cat2: string; cat3: string };
+    const week = loadJSON<Record<string, Cell[]>>(LS_KEYS.weekSchedule, {});
+    const cells = week[dayKey] ?? [];
+
+    const courseBlocks = cells.map((cell) => {
+      const idx = COURSE_TIMES.indexOf(cell.t);
+      const end = idx >= 0 && idx < COURSE_TIMES.length - 1 ? COURSE_TIMES[idx + 1] : "23:00";
+      const label = cell.n || cell.cat3 || cell.cat2 || cell.cat1;
+      const color = CAT.deepColorFull(cell.cat1, cell.cat2 || undefined, cell.cat3 || undefined);
+      return { start: cell.t, end, label, color, kind: "course" as const };
+    });
+
+    type DayPlan = { place: Place; shifts: string[] };
+    const dayPlans = loadJSON<Record<string, DayPlan>>(LS_KEYS.dayPlans, {});
+    const plan = dayPlans[dayKey];
+    const shiftBlocks = (plan?.shifts ?? []).flatMap((s) => {
+      const range = plan ? shiftRangeOf(plan.place, s, dayKey) : null;
+      if (!range) return [];
+      return [
+        {
+          start: range[0],
+          end: range[1],
+          label: PLACE_NAME[plan.place],
+          color: CAT.cat1Color("兼差"),
+          kind: "shift" as const,
+        },
+      ];
+    });
+
+    return [...courseBlocks, ...shiftBlocks];
+  }, [date]);
   const [dailyOverride, setDailyOverride] = useState<DailyOverride>({});
   const [loadedOverrideKey, setLoadedOverrideKey] = useState("");
   const [overrideDraft, setOverrideDraft] = useState<{
@@ -148,54 +226,38 @@ export function VerticalTimeline({
         }}
         onClick={handleTimelineClick}
       >
-        {PLN.map((item, i) => {
-          const override = dailyOverride[item.start];
-          const startTime = override?.startTime ?? item.start;
-          const endTime = override?.endTime ?? item.end;
-          const top = pctPos(startTime),
-            h = pctH(startTime, endTime);
-          const label = override?.label ?? item.label;
-          const cat1 = override?.cat1 ?? item.cat1 ?? "";
-          const col = CAT.cat1Color(cat1);
+        {schedulePln.map((item, i) => {
+          const top = pctPos(item.start);
+          const h = pctH(item.start, item.end);
+          const col = item.color;
           return (
             <div
-              key={`p${i}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                setOverrideDraft({
-                  start: item.start,
-                  top,
-                  label,
-                  cat1: cat1 || "未分類",
-                  startTime,
-                  endTime,
-                });
-              }}
+              key={`pln-${i}`}
               style={{
                 position: "absolute",
                 top: `${top}%`,
                 height: `${h}%`,
                 left: 4,
-                right: "47%",
+                right: "53%",
                 background: col ? col + "2E" : "#1F293777",
+                border: item.kind === "shift" ? `1px solid ${col}66` : "none",
                 borderRadius: 5,
                 padding: "2px 5px",
                 overflow: "hidden",
                 zIndex: 2,
-                cursor: "pointer",
               }}
             >
               <div
                 style={{
                   fontSize: 9,
-                  color: col ? "#111111" : "#9CA3AF",
+                  color: col || "#9CA3AF",
                   fontWeight: 700,
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
                 }}
               >
-                {label}
+                {item.label}
               </div>
             </div>
           );

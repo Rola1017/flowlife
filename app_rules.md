@@ -98,7 +98,7 @@ lib/
 
 | 區域 | 位置 | 說明 |
 |------|------|------|
-| PLN 預定欄 | `left:4, right:"47%"` | 可點擊編輯（daily override） |
+| PLN 預定欄 | `left:4, right:"53%"` | 唯讀，即時讀課表 `week_schedule` + 班別 `day_plans` |
 | ACT 實際欄 | `left:"47%", right:4` | 可點擊編輯 |
 | 分隔線 | `left:"50%"` | 視覺分界 |
 | 待辦（未完成） | `left:"35%", transform:translateX(-50%)` | 黃框黃字，用 startTime 定位 |
@@ -108,8 +108,7 @@ lib/
 
 **點擊行為**：
 - 空白處 → `onTimeClick(time)` → 快速新增待辦面板（24小時制）
-- PLN 區塊 → override popup（名稱/分類/時間，只改今天）
-- ACT 區塊 → 同上，key 用 `act_${item.start}`
+- PLN 區塊 → 唯讀（改課表頁）；ACT 區塊 → override popup，key 用 `act_${item.start}`
 
 ---
 
@@ -199,13 +198,13 @@ TH.gold    = "#FBBF24"   // 金幣
 - 預設分類色：`DEFAULT_CATEGORIES` 大／中分類各自獨立色（學習黃、法律紫等）；色盤 `color_palette` localStorage 可自訂
 - 分類改名同步（階段一止血版）：`CategoryManager` 改名時連鎖更新 sessions／coin_income_log／week_schedule；同名跨大分類會一併改到（已知限制）；階段二接 Supabase 時改用穩定 ID
 - 番茄評分金幣記錄：`confirmRating` 寫入 `coin_income_log` 補上 `cat3`
+- 直式行程表 PLN 已串聯課表（`week_schedule` + `day_plans` 依日期星期幾）；PLN 改唯讀、以課表為單一來源；ACT 仍用 MOCK + daily override
 
 ---
 
 ## 十一、待完成事項 ⬜
 
 - ⬜ 待辦提醒：依 `reminder` 觸發推播／系統通知（目前僅儲存設定）
-- ⬜ 週課表串聯直式行程表（PLN 改為動態讀取今天的課）
 - ⬜ 健康模組
 - ⬜ 閱讀模組
 - ⬜ PWA 圖示（手機安裝用）
