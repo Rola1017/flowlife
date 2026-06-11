@@ -760,6 +760,124 @@ export function SchedulePage({
           </div>
         </Card>
       )}
+      {dayMenu && !editTargets && (
+        <Card style={{ border: `1px solid ${TH.accent}44` }}>
+          <SL>📅 週{dayMenu}　整天操作</SL>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
+            <button
+              type="button"
+              onClick={() => {
+                setClip({
+                  from: dayMenu,
+                  courses: (sched[dayMenu] || []).map((c) => ({ ...c })),
+                  plan: null,
+                  mode: "courses",
+                });
+                setDayMenu(null);
+              }}
+              style={{
+                padding: 8,
+                borderRadius: 8,
+                border: `1px solid ${TH.border}`,
+                background: "transparent",
+                color: TH.text,
+                fontSize: 12,
+                cursor: "pointer",
+              }}
+            >
+              📋 複製課程
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const p = dayPlans[dayMenu];
+                setClip({
+                  from: dayMenu,
+                  courses: (sched[dayMenu] || []).map((c) => ({ ...c })),
+                  plan: p ? { ...p, shifts: [...p.shifts] } : null,
+                  mode: "full",
+                });
+                setDayMenu(null);
+              }}
+              style={{
+                padding: 8,
+                borderRadius: 8,
+                border: `1px solid ${TH.border}`,
+                background: "transparent",
+                color: TH.text,
+                fontSize: 12,
+                cursor: "pointer",
+              }}
+            >
+              📋 複製課程＋班別
+            </button>
+            {clip && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSched((s) => ({
+                    ...s,
+                    [dayMenu]: clip.courses.map((c) => ({ ...c })),
+                  }));
+                  if (clip.mode === "full" && clip.plan) {
+                    const pl = clip.plan;
+                    setDayPlans((prev) => ({
+                      ...prev,
+                      [dayMenu]: { ...pl, shifts: [...pl.shifts] },
+                    }));
+                  }
+                  setDayMenu(null);
+                }}
+                style={{
+                  padding: 8,
+                  borderRadius: 8,
+                  border: "none",
+                  background: TH.green,
+                  color: "#fff",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                📥 貼上（從週{clip.from}・{clip.mode === "full" ? "課程＋班別" : "只課程"}）
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setSched((s) => ({ ...s, [dayMenu]: [] }));
+                setDayMenu(null);
+              }}
+              style={{
+                padding: 8,
+                borderRadius: 8,
+                border: "1px solid #EF444444",
+                background: "#EF444422",
+                color: TH.red,
+                fontSize: 12,
+                cursor: "pointer",
+              }}
+            >
+              🗑 清空此日課程
+            </button>
+            <button
+              type="button"
+              onClick={() => setDayMenu(null)}
+              style={{
+                padding: 8,
+                borderRadius: 8,
+                border: `1px solid ${TH.border}`,
+                background: "transparent",
+                color: TH.muted,
+                fontSize: 11,
+                cursor: "pointer",
+              }}
+            >
+              關閉
+            </button>
+          </div>
+        </Card>
+      )}
       <div
         className="flowlife-hscroll"
         style={{
@@ -793,6 +911,12 @@ export function SchedulePage({
               {DAYS.map((d) => (
                 <div
                   key={d}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setDayMenu(d)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") setDayMenu(d);
+                  }}
                   style={{
                     fontSize: 10,
                     fontWeight: 700,
@@ -801,9 +925,11 @@ export function SchedulePage({
                     background: isWE(d) ? TH.cyan + "11" : TH.card,
                     borderRadius: 5,
                     color: isWE(d) ? TH.cyan : TH.muted,
+                    cursor: "pointer",
                   }}
                 >
                   {d}
+                  <span style={{ fontSize: 7, opacity: 0.5 }}> ⋯</span>
                 </div>
               ))}
             </div>
