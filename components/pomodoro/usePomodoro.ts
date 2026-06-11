@@ -287,8 +287,9 @@ export function usePomodoro({
     const mins = Math.max(1, Math.round(el / 60));
     const counted = mins > 1;
     const earned = coinsForSecs(el);
+    const now = localDateParts();
     const row: Session = {
-      date: CFG.TODAY_STR,
+      date: now.date,
       name: confirmed!.name,
       cat1: confirmed!.cat1,
       cat2: confirmed!.cat2,
@@ -298,7 +299,7 @@ export function usePomodoro({
       earnedCoins: earned,
       counted,
       startTime: focusStartClockRef.current ?? undefined,
-      endTime: localDateParts().time,
+      endTime: now.time,
     };
     const ns = [...sessions, row];
     setSessions(ns);
@@ -321,7 +322,6 @@ export function usePomodoro({
     const totalGain = finalEarned + milestoneBonus;
     if (totalGain > 0) {
       setCoins((c) => c + totalGain);
-      const now = localDateParts();
       setCoinIncomeLog((log) => [
         {
           id: Date.now(),
@@ -332,7 +332,7 @@ export function usePomodoro({
           cat2: confirmed?.cat2,
           cat3: confirmed?.cat3,
           startTime: focusStartClockRef.current ?? undefined,
-          endTime: localDateParts().time,
+          endTime: now.time,
         },
         ...log,
       ]);
@@ -369,13 +369,17 @@ export function usePomodoro({
     setIdleTrackStart(Date.now());
   };
 
-  const countedSessions = sessions.filter((s) => s.counted);
+  const todayDate = localDateParts().date;
+  const todaySessions = sessions.filter((s) => s.date === todayDate);
+
+  const countedSessions = todaySessions.filter((s) => s.counted);
   const tot = countedSessions.reduce((s, p) => s + p.mins, 0);
+  const todayCount = todaySessions.length;
   const focusElapsedSecs = Math.max(0, dur * 60 - secs + focusOverrunSecs);
   const canShowRestBtn = focusElapsedSecs > 60;
   const ratingSummary = useMemo(
     () =>
-      sessions.reduce(
+      todaySessions.reduce(
         (acc, s) => {
           if (s.rating === "😤") acc.focused += 1;
           else if (s.rating === "🙂") acc.neutral += 1;
@@ -384,19 +388,18 @@ export function usePomodoro({
         },
         { focused: 0, neutral: 0, distracted: 0 },
       ),
-    [sessions],
+    [todaySessions],
   );
   const yLearn = MOCK.yesterdayPomos.filter((p) => p.cat1 === "學習").reduce((s, p) => s + p.mins, 0);
   const lineD = MOCK.lineData[linePeriod as keyof typeof MOCK.lineData] || MOCK.lineData["7天"];
   const isRestActive = restSecs > 0;
   const effectiveMode = isRestActive ? "rest" : mode;
   const idleTotalToday = idleTotalSecs + (idleTrackStart ? idleSecs : 0);
-  const todayDate = localDateParts().date;
   const todayCoinIncomeLog = coinIncomeLog
     .filter((row) => row.date === todayDate)
     .sort((a, b) => b.at.localeCompare(a.at));
   const todayCoinIncomeTotal = todayCoinIncomeLog.reduce((sum, row) => sum + row.amount, 0);
-  const recentCoinIncomeLog = [...coinIncomeLog].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 5);
+  const recentCoinIncomeLog = todayCoinIncomeLog.slice(0, 5);
 
   useEffect(() => {
     setFocused(ratingSummary.focused);
@@ -427,6 +430,7 @@ export function usePomodoro({
     canStart,
     countedSessions,
     tot,
+    todayCount,
     canShowRestBtn,
     yLearn,
     lineD,

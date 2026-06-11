@@ -38,6 +38,7 @@ export function PomodoroPage({
   onShowShop,
   onShowCategoryManager,
   onShowCoinHistory,
+  onShowSessionHistory,
   focused,
   setFocused,
   neutral,
@@ -59,6 +60,7 @@ export function PomodoroPage({
   onShowShop: () => void;
   onShowCategoryManager: () => void;
   onShowCoinHistory: () => void;
+  onShowSessionHistory?: () => void;
   focused: number;
   setFocused: Dispatch<SetStateAction<number>>;
   neutral: number;
@@ -95,6 +97,7 @@ export function PomodoroPage({
     canStart,
     countedSessions,
     tot,
+    todayCount,
     canShowRestBtn,
     yLearn,
     lineD,
@@ -645,7 +648,7 @@ export function PomodoroPage({
         />
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, minWidth: 52 }}>
           <div style={{ fontSize: 18 }}>🍅</div>
-          <div style={{ fontSize: 15, fontWeight: 900, color: TH.text }}>{sessions.length}</div>
+          <div style={{ fontSize: 15, fontWeight: 900, color: TH.text }}>{todayCount}</div>
           <div style={{ fontSize: 8, color: TH.muted }}>今日顆數</div>
         </div>
       </div>
@@ -931,7 +934,29 @@ export function PomodoroPage({
         </div>
       )}
       <Card style={{ width: "100%" }}>
-        <SL>今日統計</SL>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <SL style={{ marginBottom: 0 }}>今日統計</SL>
+          {onShowSessionHistory && (
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <span style={{ fontSize: 9, color: TH.muted }}>歷史記錄</span>
+              <button
+                type="button"
+                onClick={onShowSessionHistory}
+                style={{
+                  background: "none",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "2px 8px",
+                  cursor: "pointer",
+                  fontSize: 14,
+                }}
+                title="查看番茄鐘歷史"
+              >
+                ⌚
+              </button>
+            </div>
+          )}
+        </div>
         <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
           {(
             [
