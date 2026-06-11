@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { TH } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { MOCK } from "@/lib/mock";
@@ -204,7 +204,8 @@ export function SchedulePage({
     for (const d of DAYS) merged[d] = loaded[d] ?? DEFAULT_PLANS[d] ?? { place: "彩", shifts: [] };
     return merged;
   });
-  const [editing, setEditing] = useState<{ d: string; t: string } | null>(null);
+  type EditTarget = { d: string; t: string };
+  const [editTargets, setEditTargets] = useState<EditTarget[] | null>(null);
   const [draft, setDraft] = useState<Draft>({ name: "", cat1: "學習", cat2: "", cat3: "" });
   type HistoryItem = { name: string; cat1: string; cat2: string; cat3: string };
   const [history, setHistory] = useState<HistoryItem[]>(() =>
@@ -323,8 +324,23 @@ export function SchedulePage({
       return { ...s, [d]: data ? [...prev, { t, ...data }] : prev };
     });
 
+  const setCells = (targets: EditTarget[], data: Omit<SchedRow, "t"> | null) => {
+    setSched((s) => {
+      const next = { ...s };
+      for (const { d, t } of targets) {
+        const prev = (next[d] || []).filter((e) => e.t !== t);
+        next[d] = data ? [...prev, { t, ...data }] : prev;
+      }
+      return next;
+    });
+  };
+
+  const exitSelect = () => {
+    // 多選模式收尾（後續步驟接線）
+  };
+
   const openEdit = (d: string, t: string, cell: SchedRow | undefined) => {
-    setEditing({ d, t });
+    setEditTargets([{ d, t }]);
     setDraft(
       cell
         ? { name: cell.n, cat1: cell.cat1, cat2: cell.cat2, cat3: cell.cat3 }
@@ -389,10 +405,14 @@ export function SchedulePage({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <BackBtn onBack={onBack} label="課表" />
-      {editing && (
+      {editTargets && (
         <Card style={{ border: `1px solid ${TH.accent}44` }}>
           <SL>
-            ✏️ 編輯 週{editing.d} {editing.t}
+            {editTargets.length === 1 ? (
+              <>✏️ 編輯 週{editTargets[0].d} {editTargets[0].t}</>
+            ) : (
+              <>✏️ 批次編輯 {editTargets.length} 格</>
+            )}
           </SL>
           {history.length > 0 && (
             <div style={{ marginBottom: 8 }}>
@@ -527,13 +547,10 @@ export function SchedulePage({
             <button
               type="button"
               onClick={() => {
-                setCell(
-                  editing.d,
-                  editing.t,
-                  draft.cat1
-                    ? { n: draft.name, cat1: draft.cat1, cat2: draft.cat2, cat3: draft.cat3 }
-                    : null,
-                );
+                const data = draft.cat1
+                  ? { n: draft.name, cat1: draft.cat1, cat2: draft.cat2, cat3: draft.cat3 }
+                  : null;
+                setCells(editTargets, data);
                 if (draft.cat1) {
                   pushHistory({
                     name: draft.name,
@@ -542,7 +559,8 @@ export function SchedulePage({
                     cat3: draft.cat3,
                   });
                 }
-                setEditing(null);
+                setEditTargets(null);
+                exitSelect();
               }}
               style={{
                 flex: 1,
@@ -561,8 +579,9 @@ export function SchedulePage({
             <button
               type="button"
               onClick={() => {
-                setCell(editing.d, editing.t, null);
-                setEditing(null);
+                setCells(editTargets, null);
+                setEditTargets(null);
+                exitSelect();
               }}
               style={{
                 flex: 1,
@@ -580,7 +599,7 @@ export function SchedulePage({
             </button>
             <button
               type="button"
-              onClick={() => setEditing(null)}
+              onClick={() => setEditTargets(null)}
               style={{
                 flex: 1,
                 padding: "7px",
