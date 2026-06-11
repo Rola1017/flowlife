@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { CFG } from "@/lib/config";
 import { MOCK } from "@/lib/mock";
-import { coinsForSecs, playRestEnd } from "@/lib/utils";
+import { coinsForSecs, playRestEnd, toLocalDateStr } from "@/lib/utils";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 import type { Session } from "@/lib/types";
 
@@ -26,13 +26,12 @@ export type CoinIncomeLogRow = {
   endTime?: string;
 };
 
+// 日期與 toLocalDateStr / CFG.TODAY_STR 一致（本地 YYYY-MM-DD，非 UTC）
 function localDateParts(date = new Date()) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
+  const dateStr = toLocalDateStr(date);
   const h = String(date.getHours()).padStart(2, "0");
   const min = String(date.getMinutes()).padStart(2, "0");
-  return { date: `${y}-${m}-${d}`, time: `${h}:${min}`, at: `${y}-${m}-${d} ${h}:${min}` };
+  return { date: dateStr, time: `${h}:${min}`, at: `${dateStr} ${h}:${min}` };
 }
 
 export function usePomodoro({

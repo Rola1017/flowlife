@@ -56,9 +56,9 @@ components/
 lib/
 ├── theme.ts      ← TH 色彩常數（唯一來源）
 ├── categories.ts ← CATEGORY_TREE + CAT helpers
-├── config.ts     ← CFG（TODAY_STR / TODAY 全部動態 new Date()，DAY_END = "23:00"）
+├── config.ts     ← CFG（TODAY_STR = toLocalDateStr() 本地日期，DAY_END = "23:00"）
 ├── mock.ts       ← MOCK 假資料
-├── utils.ts      ← fmt / pctPos / pctH / buildTimelineHours / DS / DE / DT / toM
+├── utils.ts      ← fmt / toLocalDateStr / pctPos / pctH / buildTimelineHours / DS / DE / DT / toM
 ├── tabs.ts       ← TABS 導航設定
 └── storage.ts    ← LS_KEYS + loadJSON / saveJSON
 ```
@@ -163,7 +163,7 @@ TH.gold    = "#FBBF24"   // 金幣
 ## 九、Cursor 開發必讀（重要提醒）
 
 1. **`SL` 元件** → `import { Card, SL } from "@/components/ui/Card"`
-2. **日期全動態** → `CFG.TODAY_STR = new Date().toISOString().slice(0,10)`
+2. **日期全動態** → `CFG.TODAY_STR = toLocalDateStr()`（本地 YYYY-MM-DD，禁止 toISOString 取日期）
 3. **金幣兩套** → COIN_TABLE（時長）+ MILESTONES（里程碑）都要接
 4. **番茄評分** → 同時更新 Header 的 😤🙂😴 計數器
 5. **圖表純 SVG** → 不裝任何圖表庫
@@ -201,6 +201,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - 番茄主頁今日統計／金幣收支已修正為只算當日（`date === localDateParts().date`）；Session 寫入 date 與金幣 log 統一 YYYY-MM-DD；今日統計改為兩層番茄對比（滿1分／滿25分）
 - 番茄鐘歷史頁（SessionHistoryPage）：每日評分對比（並排 😤🙂😴 + 有效／紮實統計，無框、上下靠近）；今日統計 ⌚ 入口已接線（`sessionHistory` subPage）
 - 金幣收支頁（CoinHistoryPage）：修復 UTF-8 編碼損毀；起訖時間後顯示時長；每日分組卡片框
+- 修正 `CFG.TODAY_STR` UTC 跨日 bug：新增 `lib/dateStr.ts` 的 `toLocalDateStr`（經 `utils` 匯出）；全專案「今天」統一本地日期算法
 - 直式行程表 PLN 已串聯課表（`week_schedule` + `day_plans`）；課程區塊結束時間 = 開始 + 30 分（不跨過固定作息）；兼差區塊顏色對應兼差中分類（診所／彩券行）；PLN 唯讀；ACT 仍用 MOCK + daily override
 
 ---

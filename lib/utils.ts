@@ -1,6 +1,8 @@
 import { CFG } from "@/lib/config";
 import { CAT } from "@/lib/categories";
 
+export { toLocalDateStr } from "@/lib/dateStr";
+
 export function toM(t: string) {
   const [h, m] = t.split(":").map(Number);
   return h * 60 + m;

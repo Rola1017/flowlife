@@ -1,3 +1,5 @@
+import { toLocalDateStr } from "@/lib/dateStr";
+
 /** 待辦提醒（存 localStorage）；觸發通知尚未實作，僅儲存使用者選擇 */
 export type TodoReminderId =
   | "none"
@@ -31,7 +33,7 @@ export function reminderLabel(id: unknown): string {
 }
 
 export const CFG = {
-  TODAY_STR: new Date().toISOString().slice(0, 10),
+  TODAY_STR: toLocalDateStr(),
   TODAY: new Date(),
   DAY_START: "06:30",
   DAY_END: "23:00",
