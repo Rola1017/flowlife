@@ -156,6 +156,8 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
     const cat3Options =
       editCat1 && editCat2 ? CAT.cat3List(editCat1, editCat2) : [];
     const displayName = row.taskName?.trim() || row.cat1 || "???";
+    const timeLabel =
+      row.startTime && row.endTime ? `${row.startTime}～${row.endTime}` : row.time;
     return (
       <div key={row.id}>
         <button
@@ -193,7 +195,7 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
                 {[row.cat1, row.cat2, row.cat3].filter(Boolean).join(" › ")}
               </div>
             )}
-            <div style={{ fontSize: 9, color: TH.muted }}>{row.time}</div>
+            <div style={{ fontSize: 9, color: TH.muted }}>{timeLabel}</div>
           </div>
           <div style={{ fontSize: 11, color: TH.gold, fontWeight: 900 }}>+{row.amount} ??</div>
         </button>

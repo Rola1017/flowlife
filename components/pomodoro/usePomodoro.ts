@@ -22,6 +22,8 @@ export type CoinIncomeLogRow = {
   cat1?: string;
   cat2?: string;
   cat3?: string;
+  startTime?: string;
+  endTime?: string;
 };
 
 function localDateParts(date = new Date()) {
@@ -84,6 +86,7 @@ export function usePomodoro({
 
   const intRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const focusStartRef = useRef<number | null>(null);
+  const focusStartClockRef = useRef<string | null>(null);
   const elRef = useRef(0);
   const hitRef = useRef(new Set<number>());
   const restWasActiveRef = useRef(false);
@@ -233,6 +236,7 @@ export function usePomodoro({
   const startFocus = () => {
     if (!canStart) return;
     focusStartRef.current = Date.now();
+    focusStartClockRef.current = localDateParts().time;
     setConfirmed({ name: taskName || catSel.cat1, ...catSel });
     setSecs(dur * 60);
     elRef.current = 0;
@@ -293,6 +297,8 @@ export function usePomodoro({
       rating: r,
       earnedCoins: earned,
       counted,
+      startTime: focusStartClockRef.current ?? undefined,
+      endTime: localDateParts().time,
     };
     const ns = [...sessions, row];
     setSessions(ns);
@@ -325,6 +331,8 @@ export function usePomodoro({
           cat1: confirmed?.cat1,
           cat2: confirmed?.cat2,
           cat3: confirmed?.cat3,
+          startTime: focusStartClockRef.current ?? undefined,
+          endTime: localDateParts().time,
         },
         ...log,
       ]);
