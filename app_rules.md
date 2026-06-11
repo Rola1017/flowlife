@@ -41,7 +41,7 @@ components/
 │
 ├── charts/（LineChart / PieChart / CatBars / TriCharts / WeekHeat）
 ├── home/（HomePage / BattleCard）
-├── pomodoro/（PomodoroPage / RingTimer / CategorySelector / CatBadge）
+├── pomodoro/（PomodoroPage / SessionHistoryPage / CoinHistoryPage / RingTimer / CategorySelector / CatBadge）
 │
 ├── timeline/
 │   ├── TimelinePage.tsx   ← 版面由上到下：直式行程表 → 橫向行程條 → 待辦清單
@@ -198,7 +198,8 @@ TH.gold    = "#FBBF24"   // 金幣
 - 預設分類色：`DEFAULT_CATEGORIES` 大／中分類各自獨立色（學習黃、法律紫等）；色盤 `color_palette` localStorage 可自訂
 - 分類改名同步（階段一止血版）：`CategoryManager` 改名時連鎖更新 sessions／coin_income_log／week_schedule；同名跨大分類會一併改到（已知限制）；階段二接 Supabase 時改用穩定 ID
 - 番茄鐘記錄（Session）與金幣收支（CoinIncomeLogRow）新增可選 `startTime`／`endTime`（HH:MM）；金幣列表有起訖則顯示「開始～結束」，舊資料 fallback `row.time`
-- 番茄主頁今日統計／金幣收支已修正為只算當日（`date === localDateParts().date`）；Session 寫入 date 與金幣 log 統一 YYYY-MM-DD；今日統計改為兩層番茄對比（滿1分／滿25分）；番茄歷史頁入口（`onShowSessionHistory`）待 App 接線
+- 番茄主頁今日統計／金幣收支已修正為只算當日（`date === localDateParts().date`）；Session 寫入 date 與金幣 log 統一 YYYY-MM-DD；今日統計改為兩層番茄對比（滿1分／滿25分）
+- 番茄鐘歷史頁（SessionHistoryPage）：依日期分組跨日列表；今日統計 ⌚ 入口已接線（`sessionHistory` subPage）
 - 直式行程表 PLN 已串聯課表（`week_schedule` + `day_plans`）；課程區塊結束時間 = 開始 + 30 分（不跨過固定作息）；兼差區塊顏色對應兼差中分類（診所／彩券行）；PLN 唯讀；ACT 仍用 MOCK + daily override
 
 ---

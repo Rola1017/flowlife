@@ -28,6 +28,7 @@ import { SettingsPage } from "@/components/settings/SettingsPage";
 import { CategoryManager } from "@/components/category/CategoryManager";
 import { ShopPage } from "@/components/shop/ShopPage";
 import { CoinHistoryPage } from "@/components/pomodoro/CoinHistoryPage";
+import { SessionHistoryPage } from "@/components/pomodoro/SessionHistoryPage";
 import { useCoins } from "@/components/useCoins";
 import { useTodos } from "@/components/todo/useTodos";
 import { TodoEditSheet } from "@/components/todo/TodoEditSheet";
@@ -231,6 +232,7 @@ function AppContent() {
     ),
     shop: () => <ShopPage coins={coins} onSpend={spendCoins} onBack={pop} />,
     coinHistory: () => <CoinHistoryPage onBack={pop} />,
+    sessionHistory: () => <SessionHistoryPage sessions={sessions} onBack={pop} />,
     dayView: (props = {}) => (
       <DayViewPage
         date={props.date as string}
@@ -277,6 +279,7 @@ function AppContent() {
       onShowShop={() => push("shop")}
       onShowCategoryManager={() => push("categoryManager")}
       onShowCoinHistory={() => push("coinHistory")}
+      onShowSessionHistory={() => push("sessionHistory")}
       focused={focused}
       setFocused={setFocused}
       neutral={neutral}
