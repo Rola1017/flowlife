@@ -203,6 +203,26 @@ function AppContent() {
     setEditTodoId(null);
   };
 
+  const handleClearRecords = () => {
+    if (typeof window !== "undefined") {
+      [
+        LS_KEYS.sessions,
+        LS_KEYS.coinIncomeLog,
+        LS_KEYS.ratingCounts,
+        LS_KEYS.idleTotalSecs,
+      ].forEach((k) => localStorage.removeItem(k));
+    }
+    resetCoins();
+    setFocused(DEFAULT_RATINGS.focused);
+    setNeutral(DEFAULT_RATINGS.neutral);
+    setDistracted(DEFAULT_RATINGS.distracted);
+    setIdleTrackStart(null);
+    setIdleTotalSecs(DEFAULT_IDLE_TOTAL_SECS);
+    setRestEndAt(null);
+    updateSessions([]);
+    setResetVersion((v) => v + 1);
+  };
+
   const todoProps = {
     todos,
     onStart: handleStart,
@@ -220,7 +240,12 @@ function AppContent() {
       />
     ),
     settings: () => (
-      <SettingsPage onBack={pop} onResetAllData={handleResetAllData} onResetTodos={resetTodos} />
+      <SettingsPage
+        onBack={pop}
+        onResetAllData={handleResetAllData}
+        onResetTodos={resetTodos}
+        onClearRecords={handleClearRecords}
+      />
     ),
     categoryManager: (props = {}) => (
       <CategoryManager

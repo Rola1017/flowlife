@@ -176,7 +176,7 @@ TH.gold    = "#FBBF24"   // 金幣
 
 - localStorage 持久化（todos/coins/sessions/評分）
 - 元件拆分（33個檔案）
-- 設定頁（重置資料、v1.0.0）
+- 設定頁（重置資料、v1.0.0）；新增「只清番茄/金幣記錄」（保留分類／課表／班別等設定，與「重置所有資料」分開）
 - 動態日期 + 動態紅線（每分鐘更新）
 - ErrorBoundary
 - 新增待辦（時段頁）：`type="date"` + `type="time"`（24h）+ 提醒下拉；寫入 `date` / `reminder` 欄位

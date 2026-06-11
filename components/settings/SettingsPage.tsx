@@ -9,16 +9,89 @@ export function SettingsPage({
   onBack,
   onResetAllData,
   onResetTodos,
+  onClearRecords,
 }: {
   onBack: () => void;
   onResetAllData: () => void;
   onResetTodos: (todos: Record<string, unknown>[]) => void;
+  onClearRecords: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
+  const [clearingRecords, setClearingRecords] = useState(false);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <BackBtn onBack={onBack} label="設定" />
+
+      <Card>
+        <SL>清除番茄/金幣記錄</SL>
+        <div style={{ color: TH.muted, fontSize: 11, lineHeight: 1.5, marginBottom: 12 }}>
+          只清除番茄紀錄、金幣收支、評分與未利用時間統計。
+          保留你的分類設定、課表、班別。適合清掉測試資料、重新開始記錄。
+        </div>
+        {!clearingRecords ? (
+          <button
+            type="button"
+            onClick={() => setClearingRecords(true)}
+            style={{
+              width: "100%",
+              padding: "12px 14px",
+              borderRadius: 12,
+              border: `1px solid ${TH.yellow}`,
+              background: TH.yellow + "18",
+              color: TH.yellow,
+              fontSize: 13,
+              fontWeight: 900,
+              cursor: "pointer",
+            }}
+          >
+            清除番茄/金幣記錄
+          </button>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ color: TH.yellow, fontSize: 12, fontWeight: 800, textAlign: "center" }}>
+              確認清除所有番茄/金幣記錄？（設定會保留）
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                onClearRecords();
+                setClearingRecords(false);
+              }}
+              style={{
+                width: "100%",
+                padding: "12px 14px",
+                borderRadius: 12,
+                border: "none",
+                background: TH.yellow,
+                color: "#000",
+                fontSize: 13,
+                fontWeight: 900,
+                cursor: "pointer",
+              }}
+            >
+              確認清除記錄
+            </button>
+            <button
+              type="button"
+              onClick={() => setClearingRecords(false)}
+              style={{
+                width: "100%",
+                padding: "10px 14px",
+                borderRadius: 12,
+                border: `1px solid ${TH.border}`,
+                background: "transparent",
+                color: TH.muted,
+                fontSize: 12,
+                fontWeight: 800,
+                cursor: "pointer",
+              }}
+            >
+              取消
+            </button>
+          </div>
+        )}
+      </Card>
 
       <Card>
         <SL>危險操作</SL>
