@@ -97,6 +97,10 @@ export function PomodoroPage({
     canStart,
     countedSessions,
     tot,
+    min1Count,
+    min1Total,
+    min25Count,
+    min25Total,
     todayCount,
     canShowRestBtn,
     yLearn,
@@ -981,8 +985,37 @@ export function PomodoroPage({
             </div>
           ))}
         </div>
-        <div style={{ fontSize: 10, color: TH.muted, textAlign: "center" }}>
-          {countedSessions.length} 顆 · 共 {fmt(tot)}
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 4 }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              background: "#0A0A0C",
+              borderRadius: 8,
+              padding: "6px 10px",
+            }}
+          >
+            <span style={{ fontSize: 10, color: TH.muted }}>🍅 有效（滿1分）</span>
+            <span style={{ fontSize: 11, fontWeight: 800, color: TH.text }}>
+              {min1Count} 顆 · 共 {fmt(min1Total)}
+            </span>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              background: "#0A0A0C",
+              borderRadius: 8,
+              padding: "6px 10px",
+            }}
+          >
+            <span style={{ fontSize: 10, color: TH.green }}>💪 紮實（滿25分）</span>
+            <span style={{ fontSize: 11, fontWeight: 800, color: TH.green }}>
+              {min25Count} 顆 · 共 {fmt(min25Total)}
+            </span>
+          </div>
         </div>
       </Card>
       <Card style={{ width: "100%" }}>

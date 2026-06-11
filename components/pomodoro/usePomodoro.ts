@@ -372,8 +372,18 @@ export function usePomodoro({
   const todayDate = localDateParts().date;
   const todaySessions = sessions.filter((s) => s.date === todayDate);
 
-  const countedSessions = todaySessions.filter((s) => s.counted);
-  const tot = countedSessions.reduce((s, p) => s + p.mins, 0);
+  // 第一層：滿 1 分鐘以上（含 1 分）
+  const min1Sessions = todaySessions.filter((s) => s.mins >= 1);
+  const min1Count = min1Sessions.length;
+  const min1Total = min1Sessions.reduce((s, p) => s + p.mins, 0);
+
+  // 第二層：25 分鐘以上（正式產出）
+  const min25Sessions = todaySessions.filter((s) => s.mins >= 25);
+  const min25Count = min25Sessions.length;
+  const min25Total = min25Sessions.reduce((s, p) => s + p.mins, 0);
+
+  const countedSessions = min1Sessions;
+  const tot = min1Total;
   const todayCount = todaySessions.length;
   const focusElapsedSecs = Math.max(0, dur * 60 - secs + focusOverrunSecs);
   const canShowRestBtn = focusElapsedSecs > 60;
@@ -430,6 +440,10 @@ export function usePomodoro({
     canStart,
     countedSessions,
     tot,
+    min1Count,
+    min1Total,
+    min25Count,
+    min25Total,
     todayCount,
     canShowRestBtn,
     yLearn,
