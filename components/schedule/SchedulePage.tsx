@@ -213,6 +213,23 @@ export function SchedulePage({
   );
   const [, setMounted] = useState(false);
 
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const selKey = (d: string, t: string) => `${d}__${t}`;
+  const [clip, setClip] = useState<{
+    from: string;
+    courses: SchedRow[];
+    plan: DayPlan | null;
+    mode: "courses" | "full";
+  } | null>(null);
+  const [dayMenu, setDayMenu] = useState<string | null>(null);
+
+  const lpTimer = useRef<number | null>(null);
+  const lpStart = useRef<{ x: number; y: number } | null>(null);
+  const lpFired = useRef(false);
+  const LONG_PRESS_MS = 450;
+  const MOVE_CANCEL_PX = 8;
+
   const pushHistory = (item: HistoryItem) => {
     if (!item.cat1) return;
     setHistory((prev) => {
@@ -324,19 +341,45 @@ export function SchedulePage({
       return { ...s, [d]: data ? [...prev, { t, ...data }] : prev };
     });
 
-  const setCells = (targets: EditTarget[], data: Omit<SchedRow, "t"> | null) => {
+  const setCells = (targets: EditTarget[], data: Omit<SchedRow, "t"> | null) =>
     setSched((s) => {
-      const next = { ...s };
+      const next: Record<string, SchedRow[]> = { ...s };
       for (const { d, t } of targets) {
         const prev = (next[d] || []).filter((e) => e.t !== t);
         next[d] = data ? [...prev, { t, ...data }] : prev;
       }
       return next;
     });
+
+  const toggleSelect = (d: string, t: string) => {
+    if (isCoveredByShift(d, t)) return;
+    setSelected((prev) => {
+      const next = new Set(prev);
+      const k = selKey(d, t);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
   };
 
   const exitSelect = () => {
-    // 多選模式收尾（後續步驟接線）
+    setSelectMode(false);
+    setSelected(new Set());
+  };
+
+  const openBatchEdit = () => {
+    if (selected.size === 0) return;
+    const targets: EditTarget[] = [...selected].map((k) => {
+      const [d, t] = k.split("__");
+      return { d, t };
+    });
+    const first = getCell(targets[0].d, targets[0].t);
+    setDraft(
+      first
+        ? { name: first.n, cat1: first.cat1, cat2: first.cat2, cat3: first.cat3 }
+        : { name: "", cat1: "學習", cat2: "", cat3: "" },
+    );
+    setEditTargets(targets);
   };
 
   const openEdit = (d: string, t: string, cell: SchedRow | undefined) => {
