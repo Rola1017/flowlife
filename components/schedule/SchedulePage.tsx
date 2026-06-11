@@ -486,6 +486,69 @@ export function SchedulePage({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <BackBtn onBack={onBack} label="課表" />
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <Chip
+          label={selectMode ? "✓ 多選中" : "▦ 多選"}
+          active={selectMode}
+          color={TH.accent}
+          onClick={() => (selectMode ? exitSelect() : setSelectMode(true))}
+          style={{ fontSize: 11 }}
+        />
+        {!selectMode && (
+          <span style={{ fontSize: 10, color: TH.muted }}>（或長按任一格進入多選）</span>
+        )}
+        {selectMode && (
+          <>
+            <span style={{ fontSize: 11, color: TH.muted }}>已選 {selected.size} 格</span>
+            <button
+              type="button"
+              disabled={selected.size === 0}
+              onClick={openBatchEdit}
+              style={{
+                fontSize: 11,
+                padding: "4px 10px",
+                borderRadius: 8,
+                border: "none",
+                background: selected.size ? TH.green : "#333",
+                color: "#fff",
+                cursor: selected.size ? "pointer" : "default",
+              }}
+            >
+              編輯選取
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelected(new Set())}
+              style={{
+                fontSize: 11,
+                padding: "4px 10px",
+                borderRadius: 8,
+                border: `1px solid ${TH.border}`,
+                background: "transparent",
+                color: TH.muted,
+                cursor: "pointer",
+              }}
+            >
+              清空選取
+            </button>
+            <button
+              type="button"
+              onClick={exitSelect}
+              style={{
+                fontSize: 11,
+                padding: "4px 10px",
+                borderRadius: 8,
+                border: `1px solid ${TH.border}`,
+                background: "transparent",
+                color: TH.muted,
+                cursor: "pointer",
+              }}
+            >
+              完成
+            </button>
+          </>
+        )}
+      </div>
       {editTargets && (
         <Card style={{ border: `1px solid ${TH.accent}44` }}>
           <SL>
