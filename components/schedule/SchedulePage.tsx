@@ -403,21 +403,59 @@ export function SchedulePage({
     const col = cell
       ? CAT.deepColorFull(cell.cat1, cell.cat2 || undefined, cell.cat3 || undefined)
       : null;
+    const sel = selectMode && selected.has(selKey(d, t));
     return (
       <div
         key={d}
         role="button"
         tabIndex={0}
-        onClick={() => openEdit(d, t, cell)}
+        onPointerDown={(e) => {
+          lpStart.current = { x: e.clientX, y: e.clientY };
+          lpFired.current = false;
+          lpTimer.current = window.setTimeout(() => {
+            lpFired.current = true;
+            setSelectMode(true);
+            setSelected((prev) => new Set(prev).add(selKey(d, t)));
+            lpTimer.current = null;
+          }, LONG_PRESS_MS);
+        }}
+        onPointerMove={(e) => {
+          if (lpTimer.current == null || !lpStart.current) return;
+          if (
+            Math.abs(e.clientX - lpStart.current.x) > MOVE_CANCEL_PX ||
+            Math.abs(e.clientY - lpStart.current.y) > MOVE_CANCEL_PX
+          ) {
+            clearTimeout(lpTimer.current);
+            lpTimer.current = null;
+          }
+        }}
+        onPointerUp={() => {
+          if (lpTimer.current != null) {
+            clearTimeout(lpTimer.current);
+            lpTimer.current = null;
+          }
+        }}
+        onClick={() => {
+          if (lpFired.current) {
+            lpFired.current = false;
+            return;
+          }
+          if (selectMode) toggleSelect(d, t);
+          else openEdit(d, t, cell);
+        }}
         onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") openEdit(d, t, cell);
+          if (e.key === "Enter" || e.key === " ") {
+            if (selectMode) toggleSelect(d, t);
+            else openEdit(d, t, cell);
+          }
         }}
         style={{
           height: ROW_H,
           background: col ? col + "33" : "#1C1C24",
           borderRadius: 5,
           padding: "3px 4px",
-          border: `1px solid ${col ? col + "44" : TH.border}`,
+          border: sel ? `2px solid ${TH.accent}` : `1px solid ${col ? col + "44" : TH.border}`,
+          boxShadow: sel ? `0 0 0 2px ${TH.accent}55` : "none",
           cursor: "pointer",
           overflow: "hidden",
           boxSizing: "border-box",
