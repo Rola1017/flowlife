@@ -1064,7 +1064,7 @@ export function PomodoroPage({
       </Card>
       <Card style={{ width: "100%" }}>
         <SL>番茄鐘分佈</SL>
-        <WeekHeat days={7} />
+        <WeekHeat sessions={sessions} days={7} />
       </Card>
       <Card style={{ width: "100%" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
