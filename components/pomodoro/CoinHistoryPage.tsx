@@ -30,6 +30,14 @@ function formatDateLabel(date: string) {
   return y && m && day ? `${y}/${m}/${day}` : date;
 }
 
+const durLabel = (s?: string, e?: string): string => {
+  if (!s || !e) return "";
+  const [sh, sm] = s.split(":").map(Number);
+  const [eh, em] = e.split(":").map(Number);
+  const mins = eh * 60 + em - (sh * 60 + sm);
+  return mins > 0 ? ` · ${mins}分` : "";
+};
+
 export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
   const [coinIncomeLog, setCoinIncomeLog] = useState<CoinIncomeLogRow[]>([]);
   const [hydrated, setHydrated] = useState(false);
@@ -155,7 +163,7 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
     const cat2Options = editCat1 ? CAT.cat2List(editCat1) : [];
     const cat3Options =
       editCat1 && editCat2 ? CAT.cat3List(editCat1, editCat2) : [];
-    const displayName = row.taskName?.trim() || row.cat1 || "???";
+    const displayName = row.taskName?.trim() || row.cat1 || "未命名";
     const timeLabel =
       row.startTime && row.endTime ? `${row.startTime}～${row.endTime}` : row.time;
     return (
@@ -195,9 +203,12 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
                 {[row.cat1, row.cat2, row.cat3].filter(Boolean).join(" › ")}
               </div>
             )}
-            <div style={{ fontSize: 9, color: TH.muted }}>{timeLabel}</div>
+            <div style={{ fontSize: 9, color: TH.muted }}>
+              {timeLabel}
+              {durLabel(row.startTime, row.endTime)}
+            </div>
           </div>
-          <div style={{ fontSize: 11, color: TH.gold, fontWeight: 900 }}>+{row.amount} ??</div>
+          <div style={{ fontSize: 11, color: TH.gold, fontWeight: 900 }}>+{row.amount} 🪙</div>
         </button>
         {isEditing && (
           <div
@@ -215,11 +226,11 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
             <input
               value={editTaskName}
               onChange={(e) => setEditTaskName(e.target.value)}
-              placeholder="?????????"
+              placeholder="事件名稱"
               style={fieldStyle}
             />
             <div>
-              <div style={fieldLabelStyle}>???</div>
+              <div style={fieldLabelStyle}>大分類</div>
               <select
                 value={editCat1}
                 onChange={(e) => {
@@ -238,7 +249,7 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
               </select>
             </div>
             <div>
-              <div style={fieldLabelStyle}>???</div>
+              <div style={fieldLabelStyle}>中分類</div>
               <select
                 value={editCat2}
                 onChange={(e) => {
@@ -248,7 +259,7 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
                 disabled={!editCat1}
                 style={fieldStyle}
               >
-                <option value="">? ?? ?</option>
+                <option value="">— 不選 —</option>
                 {cat2Options.map((c) => (
                   <option key={c} value={c}>
                     {c}
@@ -258,13 +269,13 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
             </div>
             {editCat2 && cat3Options.length > 0 && (
               <div>
-                <div style={fieldLabelStyle}>???</div>
+                <div style={fieldLabelStyle}>小分類</div>
                 <select
                   value={editCat3}
                   onChange={(e) => setEditCat3(e.target.value)}
                   style={fieldStyle}
                 >
-                  <option value="">? ?? ?</option>
+                  <option value="">— 不選 —</option>
                   {cat3Options.map((c) => (
                     <option key={c} value={c}>
                       {c}
@@ -289,7 +300,7 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
                   cursor: "pointer",
                 }}
               >
-                ??
+                儲存
               </button>
               <button
                 type="button"
@@ -306,7 +317,7 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
                   cursor: "pointer",
                 }}
               >
-                ??
+                取消
               </button>
             </div>
           </div>
@@ -374,13 +385,21 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
             const rows = [...groupedLog[date]].sort((a, b) => b.at.localeCompare(a.at));
             const dayTotal = rows.reduce((sum, row) => sum + row.amount, 0);
             return (
-              <div key={date}>
+              <div
+                key={date}
+                style={{
+                  background: TH.card,
+                  border: `1px solid ${TH.border}`,
+                  borderRadius: 12,
+                  padding: 10,
+                }}
+              >
                 <div
                   style={{
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
-                    marginBottom: 4,
+                    marginBottom: 8,
                   }}
                 >
                   <span style={{ fontSize: 9, color: TH.muted }}>{formatDateLabel(date)}</span>

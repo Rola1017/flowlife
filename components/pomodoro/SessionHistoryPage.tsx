@@ -1,11 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
-import { CAT } from "@/lib/categories";
 import { TH } from "@/lib/theme";
 import { fmt } from "@/lib/utils";
 import { BackBtn } from "@/components/ui/BackBtn";
-import { Card, SL } from "@/components/ui/Card";
 import type { Session } from "@/lib/types";
 
 function formatDateLabel(date: string) {
@@ -13,7 +11,21 @@ function formatDateLabel(date: string) {
   return y && m && day ? `${y}/${m}/${day}` : date;
 }
 
-type IndexedSession = { session: Session; idx: number };
+function dayStats(daySessions: Session[]) {
+  const focused = daySessions.filter((s) => s.rating === "😤").length;
+  const neutral = daySessions.filter((s) => s.rating === "🙂").length;
+  const distracted = daySessions.filter((s) => s.rating === "😴").length;
+
+  const min1 = daySessions.filter((s) => s.mins >= 1);
+  const min1Count = min1.length;
+  const min1Total = min1.reduce((sum, s) => sum + s.mins, 0);
+
+  const min25 = daySessions.filter((s) => s.mins >= 25);
+  const min25Count = min25.length;
+  const min25Total = min25.reduce((sum, s) => sum + s.mins, 0);
+
+  return { focused, neutral, distracted, min1Count, min1Total, min25Count, min25Total };
+}
 
 export function SessionHistoryPage({
   sessions,
@@ -23,11 +35,11 @@ export function SessionHistoryPage({
   onBack: () => void;
 }) {
   const grouped = useMemo(() => {
-    const map: Record<string, IndexedSession[]> = {};
-    sessions.forEach((session, idx) => {
+    const map: Record<string, Session[]> = {};
+    for (const session of sessions) {
       if (!map[session.date]) map[session.date] = [];
-      map[session.date].push({ session, idx });
-    });
+      map[session.date].push(session);
+    }
     return map;
   }, [sessions]);
 
@@ -36,113 +48,77 @@ export function SessionHistoryPage({
     [grouped],
   );
 
-  const sortDayRows = (rows: IndexedSession[]) =>
-    [...rows].sort((a, b) => {
-      const sa = a.session.startTime;
-      const sb = b.session.startTime;
-      if (sa && sb) return sb.localeCompare(sa);
-      if (sa) return -1;
-      if (sb) return 1;
-      return a.idx - b.idx;
-    });
-
-  const renderRow = (session: Session, key: string) => {
-    const displayName = session.name?.trim() || session.cat1 || "未命名";
-    const timeRange =
-      session.startTime && session.endTime ? `${session.startTime}～${session.endTime}` : null;
-
-    return (
-      <div
-        key={key}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          background: "#0A0A0C",
-          borderRadius: 8,
-          padding: "7px 9px",
-        }}
-      >
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 11, color: TH.text }}>{displayName}</div>
-          {session.cat1 && (
-            <div
-              style={{
-                fontSize: 9,
-                color: TH.muted,
-                marginTop: 2,
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              <span
-                style={{
-                  display: "inline-block",
-                  width: 6,
-                  height: 6,
-                  borderRadius: "50%",
-                  background: CAT.deepColorFull(
-                    session.cat1,
-                    session.cat2 || undefined,
-                    session.cat3 || undefined,
-                  ),
-                  marginRight: 4,
-                  flexShrink: 0,
-                }}
-              />
-              {[session.cat1, session.cat2, session.cat3].filter(Boolean).join(" › ")}
-            </div>
-          )}
-          {timeRange && (
-            <div style={{ fontSize: 9, color: TH.muted, marginTop: 2 }}>{timeRange}</div>
-          )}
-        </div>
-        <div style={{ textAlign: "right", flexShrink: 0 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, color: TH.text }}>{session.mins}分</div>
-          <div style={{ fontSize: 14, lineHeight: 1.2 }}>{session.rating}</div>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <BackBtn onBack={onBack} label="番茄鐘歷史" />
 
       {sortedDates.length === 0 ? (
-        <Card>
-          <div style={{ fontSize: 10, color: TH.muted, textAlign: "center", padding: 16 }}>
-            尚無番茄紀錄
-          </div>
-        </Card>
+        <div style={{ fontSize: 10, color: TH.muted, textAlign: "center", padding: 16 }}>
+          尚無番茄紀錄
+        </div>
       ) : (
-        sortedDates.map((date) => {
-          const rows = sortDayRows(grouped[date]);
-          const valid = rows.map((r) => r.session).filter((s) => s.mins >= 1);
-          const dayCount = valid.length;
-          const dayTotal = valid.reduce((sum, s) => sum + s.mins, 0);
-
-          return (
-            <Card key={date}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: 8,
-                }}
-              >
-                <SL style={{ marginBottom: 0 }}>{formatDateLabel(date)}</SL>
-                <span style={{ fontSize: 9, color: TH.muted }}>
-                  {dayCount} 顆 · 共 {fmt(dayTotal)}
-                </span>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {sortedDates.map((date) => {
+            const stats = dayStats(grouped[date]);
+            return (
+              <div key={date}>
+                <div style={{ fontSize: 9, color: TH.muted, marginBottom: 6 }}>
+                  {formatDateLabel(date)}
+                </div>
+                <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                  {(
+                    [
+                      ["😤", stats.focused],
+                      ["🙂", stats.neutral],
+                      ["😴", stats.distracted],
+                    ] as const
+                  ).map(([emoji, count]) => (
+                    <div
+                      key={emoji}
+                      style={{
+                        flex: 1,
+                        background: "#0A0A0C",
+                        borderRadius: 8,
+                        padding: "6px 4px",
+                        textAlign: "center",
+                      }}
+                    >
+                      <div style={{ fontSize: 16 }}>{emoji}</div>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: TH.text }}>{count}</div>
+                    </div>
+                  ))}
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: 10,
+                    color: TH.text,
+                    marginBottom: 2,
+                  }}
+                >
+                  <span>🍅 有效（滿1分）</span>
+                  <span style={{ fontWeight: 700 }}>
+                    {stats.min1Count} 顆 · 共 {fmt(stats.min1Total)}
+                  </span>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: 10,
+                    color: TH.green,
+                  }}
+                >
+                  <span>💪 紮實（滿25分）</span>
+                  <span style={{ fontWeight: 700 }}>
+                    {stats.min25Count} 顆 · 共 {fmt(stats.min25Total)}
+                  </span>
+                </div>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {rows.map(({ session, idx }) => renderRow(session, `${date}-${idx}`))}
-              </div>
-            </Card>
-          );
-        })
+            );
+          })}
+        </div>
       )}
     </div>
   );
