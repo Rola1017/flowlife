@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { TH } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
-import { MOCK } from "@/lib/mock";
 import { pctPos, pctH, buildTimelineHours, DS, DE, toM } from "@/lib/utils";
 import { CFG } from "@/lib/config";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
@@ -61,7 +60,6 @@ export function VerticalTimeline({
   onTimeClick?: (time: string) => void;
 }) {
   const hours = buildTimelineHours();
-  const { ACT } = MOCK.schedule;
 
   const schedulePln = useMemo(() => {
     const dayKey = dateToDayKey(date);
@@ -144,6 +142,7 @@ export function VerticalTimeline({
           start: s.startTime as string,
           end: s.endTime as string,
           label: s.name || s.cat3 || s.cat2 || cat1 || "番茄",
+          cat1,
           color,
         };
       })
@@ -175,6 +174,20 @@ export function VerticalTimeline({
     if (loadedOverrideKey !== dailyOverrideKey) return;
     saveJSON(dailyOverrideKey, dailyOverride);
   }, [dailyOverride, dailyOverrideKey, loadedOverrideKey]);
+
+  const manualActBlocks = useMemo(() => {
+    const sessionKeys = new Set(actSessions.map((s) => `act_${s.start}`));
+    return Object.entries(dailyOverride)
+      .filter(
+        ([key, val]) =>
+          key.startsWith("act_") && !sessionKeys.has(key) && val.startTime && val.endTime,
+      )
+      .map(([overrideKey, val]) => ({ overrideKey, ...val }))
+      .filter((b) => {
+        const p = pctPos(b.startTime);
+        return p >= 0 && p <= 100;
+      });
+  }, [actSessions, dailyOverride]);
 
   const isVisibleTodo = (todo: TodoOverlay) => {
     const mins = toM(todo.startTime);
@@ -495,7 +508,7 @@ export function VerticalTimeline({
           );
         })}
 
-        {ACT.map((item, i) => {
+        {actSessions.map((item, i) => {
           const overrideKey = `act_${item.start}`;
           const override = dailyOverride[overrideKey];
           const startTime = override?.startTime ?? item.start;
@@ -504,16 +517,10 @@ export function VerticalTimeline({
             h = pctH(startTime, endTime);
           const label = override?.label ?? item.label;
           const cat1 = override?.cat1 ?? item.cat1 ?? "";
-          const col = override
-            ? CAT.cat1Color(cat1)
-            : item.deep
-              ? "#1F2937"
-              : item.idle
-                ? "#1E2A3A"
-                : CAT.cat1Color(cat1) || "#374151";
+          const col = override ? CAT.cat1Color(cat1) : item.color;
           return (
             <div
-              key={`a${i}`}
+              key={`act-${item.start}-${i}`}
               onClick={(e) => {
                 e.stopPropagation();
                 setOverrideDraft({
@@ -542,7 +549,7 @@ export function VerticalTimeline({
               <div
                 style={{
                   fontSize: 9,
-                  color: override ? "#fff" : item.deep || item.idle ? "#4B5563" : "#111111",
+                  color: override ? "#fff" : "#F4F4F5",
                   fontWeight: 600,
                   overflow: "hidden",
                   textOverflow: "ellipsis",
@@ -550,6 +557,55 @@ export function VerticalTimeline({
                 }}
               >
                 {label}
+              </div>
+            </div>
+          );
+        })}
+
+        {manualActBlocks.map((item) => {
+          const top = pctPos(item.startTime),
+            h = pctH(item.startTime, item.endTime);
+          const cat1 = item.cat1 ?? "";
+          const col = CAT.cat1Color(cat1) || "#374151";
+          return (
+            <div
+              key={item.overrideKey}
+              onClick={(e) => {
+                e.stopPropagation();
+                setOverrideDraft({
+                  start: item.overrideKey,
+                  top,
+                  label: item.label,
+                  cat1: cat1 || "未分類",
+                  startTime: item.startTime,
+                  endTime: item.endTime,
+                });
+              }}
+              style={{
+                position: "absolute",
+                top: `${top}%`,
+                height: `${h}%`,
+                left: "47%",
+                right: 4,
+                background: col,
+                borderRadius: 5,
+                padding: "2px 5px",
+                overflow: "hidden",
+                zIndex: 3,
+                cursor: "pointer",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 9,
+                  color: "#fff",
+                  fontWeight: 600,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {item.label}
               </div>
             </div>
           );
