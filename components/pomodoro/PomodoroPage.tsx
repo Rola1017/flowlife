@@ -99,6 +99,8 @@ export function PomodoroPage({
     tot,
     min1Count,
     min1Total,
+    min10Count,
+    min10Total,
     min25Count,
     min25Total,
     todayCount,
@@ -1013,6 +1015,21 @@ export function PomodoroPage({
               padding: "6px 10px",
             }}
           >
+            <span style={{ fontSize: 10, color: TH.yellow }}>📈 進步（滿10分）</span>
+            <span style={{ fontSize: 11, fontWeight: 800, color: TH.yellow }}>
+              {min10Count} 顆 · 共 {fmt(min10Total)}
+            </span>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              background: "#0A0A0C",
+              borderRadius: 8,
+              padding: "6px 10px",
+            }}
+          >
             <span style={{ fontSize: 10, color: TH.green }}>💪 紮實（滿25分）</span>
             <span style={{ fontSize: 11, fontWeight: 800, color: TH.green }}>
               {min25Count} 顆 · 共 {fmt(min25Total)}
@@ -1070,7 +1087,7 @@ export function PomodoroPage({
       </Card>
       <Card style={{ width: "100%" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-          <SL style={{ marginBottom: 0 }}>番茄鐘趨勢</SL>
+          <SL style={{ marginBottom: 0 }}>趨勢(番茄顆數)</SL>
           <div style={{ display: "flex", gap: 3 }}>
             {CFG.TIME_RANGES.map((p) => (
               <Chip

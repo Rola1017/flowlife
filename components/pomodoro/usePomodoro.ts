@@ -381,6 +381,11 @@ export function usePomodoro({
   const min25Count = min25Sessions.length;
   const min25Total = min25Sessions.reduce((s, p) => s + p.mins, 0);
 
+  // 第三層（進步）：10 分鐘以上
+  const min10Sessions = todaySessions.filter((s) => s.mins >= 10);
+  const min10Count = min10Sessions.length;
+  const min10Total = min10Sessions.reduce((s, p) => s + p.mins, 0);
+
   const countedSessions = min1Sessions;
   const tot = min1Total;
   const todayCount = todaySessions.length;
@@ -441,6 +446,8 @@ export function usePomodoro({
     tot,
     min1Count,
     min1Total,
+    min10Count,
+    min10Total,
     min25Count,
     min25Total,
     todayCount,

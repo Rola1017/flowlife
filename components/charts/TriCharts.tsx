@@ -35,12 +35,12 @@ export function TriCharts({
       </Card>
       <Card>
         <SL>
-          {period} {label} 時長分佈
+          {period} {label} 分佈(時長)
         </SL>
         <CatBars data={chartData} />
       </Card>
       <Card>
-        <SL>{period} 專注趨勢</SL>
+        <SL>{period} 趨勢(時長)</SL>
         <LineChart data={lineD.focus} labels={lineD.labels} color={lineColor} height={70} />
       </Card>
     </>

@@ -215,6 +215,27 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
+## 八（補）、番茄頁統計分層與圖表標題
+
+**今日統計三層**（`usePomodoro` → `todaySessions`，當日 `date === localDateParts().date`）：
+
+| 層級 | 門檻 | 顯示色 | 說明 |
+|------|------|--------|------|
+| 有效 | `mins >= 1` | 灰字 | `min1Count` / `min1Total` |
+| 進步 | `mins >= 10` | 黃字 `TH.yellow` | `min10Count` / `min10Total` |
+| 紮實 | `mins >= 25` | 綠字 `TH.green` | `min25Count` / `min25Total` |
+
+**圖表標題正名**：
+
+| 位置 | 標題 |
+|------|------|
+| 番茄頁趨勢卡（`PomodoroPage`） | `趨勢(番茄顆數)` |
+| 行事曆折線圖（`TriCharts`） | `{period} 趨勢(時長)` |
+| 行事曆長條圖（`TriCharts`） | `{period} {label} 分佈(時長)` |
+| 行事曆圓餅圖 | 不變：`{period} {label} 圓餅圖` |
+
+---
+
 ## 九、Cursor 開發必讀（重要提醒）
 
 1. **`SL` 元件** → `import { Card, SL } from "@/components/ui/Card"`
@@ -253,7 +274,8 @@ TH.gold    = "#FBBF24"   // 金幣
 - 預設分類色：`DEFAULT_CATEGORIES` 大／中分類各自獨立色（學習黃、法律紫等）；色盤 `color_palette` localStorage 可自訂
 - 分類改名同步（階段一止血版）：`CategoryManager` 改名時連鎖更新 sessions／coin_income_log／week_schedule；同名跨大分類會一併改到（已知限制）；階段二接 Supabase 時改用穩定 ID
 - 番茄鐘記錄（Session）與金幣收支（CoinIncomeLogRow）新增可選 `startTime`／`endTime`（HH:MM）；金幣列表有起訖則顯示「開始～結束」，舊資料 fallback `row.time`
-- 番茄主頁今日統計／金幣收支已修正為只算當日（`date === localDateParts().date`）；Session 寫入 date 與金幣 log 統一 YYYY-MM-DD；今日統計改為兩層番茄對比（滿1分／滿25分）
+- 番茄主頁今日統計／金幣收支已修正為只算當日（`date === localDateParts().date`）；Session 寫入 date 與金幣 log 統一 YYYY-MM-DD；今日統計三層番茄對比（滿1分／滿10分進步／滿25分紮實）
+- 圖表標題正名：番茄趨勢卡「趨勢(番茄顆數)」；行事曆 TriCharts 折線「趨勢(時長)」、長條「分佈(時長)」
 - 番茄鐘歷史頁（SessionHistoryPage）：每日評分對比（並排 😤🙂😴 + 有效／紮實統計，無框、上下靠近）；今日統計 ⌚ 入口已接線（`sessionHistory` subPage）
 - 金幣收支頁（CoinHistoryPage）：修復 UTF-8 編碼損毀；起訖時間後顯示時長；每日分組卡片框
 - 修正 `CFG.TODAY_STR` UTC 跨日 bug：新增 `lib/dateStr.ts` 的 `toLocalDateStr`（經 `utils` 匯出）；全專案「今天」統一本地日期算法
