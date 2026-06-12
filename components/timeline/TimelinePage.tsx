@@ -10,6 +10,7 @@ import { TH } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { MOCK } from "@/lib/mock";
 import { DS, DT, toM } from "@/lib/utils";
+import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 
 function normalizeTimelineTime(time: string): string {
   const m = time.trim().match(/^(\d{1,2}):(\d{1,2})$/);
@@ -88,6 +89,26 @@ export function TimelinePage({
     const timer = setInterval(syncNow, 60 * 1000);
     return () => clearInterval(timer);
   }, []);
+
+  const [showPending, setShowPending] = useState(true);
+  const [showDone, setShowDone] = useState(true);
+  const [todoViewLoaded, setTodoViewLoaded] = useState(false);
+
+  useEffect(() => {
+    const v = loadJSON<{ pending: boolean; done: boolean }>(LS_KEYS.timelineTodoView, {
+      pending: true,
+      done: true,
+    });
+    setShowPending(v.pending);
+    setShowDone(v.done);
+    setTodoViewLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!todoViewLoaded) return;
+    saveJSON(LS_KEYS.timelineTodoView, { pending: showPending, done: showDone });
+  }, [showPending, showDone, todoViewLoaded]);
+
   const active = todos.filter(
     (t: { date?: string; phase?: string }) => t.date === CFG.TODAY_STR && t.phase !== "done",
   );
@@ -208,10 +229,62 @@ export function TimelinePage({
             );
           })}
         </div>
+        {/* 待辦顯示開關（兼圖例）：兩顆獨立；都關＝時間軸只剩課表/班別/補登，可專心看課表 */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 6,
+            marginTop: 2,
+            marginBottom: 2,
+          }}
+        >
+          {(
+            [
+              ["pending", showPending, setShowPending, TH.yellow, "未完成"],
+              ["done", showDone, setShowDone, "#6B7280", "已完成"],
+            ] as const
+          ).map(([key, on, set, color, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => set((prev) => !prev)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                padding: "3px 10px",
+                borderRadius: 14,
+                border: `1px solid ${on ? color + "66" : TH.border}`,
+                background: on ? color + "14" : "transparent",
+                color: on ? color : TH.muted,
+                fontSize: 10,
+                fontWeight: 700,
+                cursor: "pointer",
+                opacity: on ? 1 : 0.6,
+              }}
+            >
+              <span
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: "50%",
+                  background: on ? color : "transparent",
+                  border: `1px solid ${on ? color : TH.muted}`,
+                  display: "inline-block",
+                }}
+              />
+              {label}
+              <span style={{ fontSize: 9 }}>{on ? "👁" : "🙈"}</span>
+            </button>
+          ))}
+        </div>
         <VerticalTimeline
           nowPct={nowPct}
           pendingTodos={pendingTL}
           doneTodos={doneTL}
+          showPending={showPending}
+          showDone={showDone}
           date={CFG.TODAY_STR}
           onTimeClick={(time) => {
             const hm = normalizeTimelineTime(time);

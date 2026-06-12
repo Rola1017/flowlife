@@ -88,6 +88,7 @@ lib/
 | `flowlife_v1_purchase_log` | 商店購買記錄 |
 | `flowlife_v1_coin_income_log` | 金幣收入記錄 |
 | `flowlife_v1_daily_override_YYYY-MM-DD` | 行程表當天個別修改 |
+| `flowlife_v1_timeline_todo_view` | 直式行程表待辦疊圖顯示偏好 `{ pending, done }` |
 
 ---
 
@@ -101,8 +102,15 @@ lib/
 | PLN 預定欄 | `left:4, right:"53%"` | 唯讀；固定作息（灰底）+ 課表課程 + 班別兼差 |
 | ACT 實際欄 | `left:"47%", right:4` | 未利用時間（深灰墊底）+ 番茄 sessions + `dailyOverride` 手動補登 |
 | 分隔線 | `left:"50%"` | 視覺分界 |
-| 待辦（未完成） | `left:"35%", transform:translateX(-50%)` | 黃框黃字，用 startTime 定位 |
-| 待辦（已完成） | `left:"65%", transform:translateX(-50%)` | 暗色低調，用 endAt 定位 |
+| 待辦（未完成） | `left:"35%", transform:translateX(-50%)` | 黃框黃字，用 startTime 定位；可由開關隱藏 |
+| 待辦（已完成） | `left:"65%", transform:translateX(-50%)` | 暗色低調，用 endAt 定位；可由開關隱藏 |
+
+**待辦顯示開關**（`TimelinePage` 時間軸上方、靠右；只控制直式時間軸疊圖，不影響下方「今日待辦」清單卡）：
+- 兩顆獨立膠囊：「未完成」「已完成」，預設皆顯示（👁）
+- 關閉後對應疊圖隱藏（🙈），兩顆互不影響；都關時時間軸只剩課表／班別／補登／未利用
+- 持久化於 `LS_KEYS.timelineTodoView`（`{ pending: boolean, done: boolean }`）；mount 後讀取，避免 hydration 不一致
+
+**固定作息圖案**：早餐／午餐／晚餐統一 🍴；起床／午覺／睡覺維持 😴
 
 **ACT 資料來源**（`MOCK.schedule.ACT` 已棄用，VerticalTimeline 不再 import MOCK）：
 
@@ -253,6 +261,8 @@ TH.gold    = "#FBBF24"   // 金幣
 - 直式行程表 PLN 已串聯課表（`week_schedule` + `day_plans`）；課程區塊結束時間 = 開始 + 30 分（不跨過固定作息）；兼差區塊顏色對應兼差中分類（診所／彩券行）；PLN 唯讀
 - 直式行程表 ACT 已真實化：讀當日 `sessions`（有起訖才畫唯讀色塊）+ `dailyOverride` 手動補登（`act_`／`man_` key）；點 ACT 空白新增補登、點補登色塊可編輯；`MOCK.schedule.ACT` 已棄用
 - 直式行程表 ACT 未利用時間：空檔深灰墊底（zIndex 1）；已使用 = 番茄 + 補登 + 固定作息 + 兼差；課表課程不算已使用；今天填至現在、過去填整天、未來不填
+- 直式行程表待辦顯示開關：未完成／已完成可獨立隱藏（時間軸疊圖 only），持久化 `LS_KEYS.timelineTodoView`
+- 直式行程表三餐圖案統一為 🍴（起床／午覺／睡覺仍 😴）
 
 ---
 

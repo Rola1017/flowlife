@@ -49,6 +49,8 @@ export function VerticalTimeline({
   showNowLine = true,
   pendingTodos,
   doneTodos,
+  showPending = true,
+  showDone = true,
   date = CFG.TODAY_STR,
   onTimeClick,
 }: {
@@ -56,6 +58,8 @@ export function VerticalTimeline({
   showNowLine?: boolean;
   pendingTodos?: TodoOverlay[];
   doneTodos?: TodoOverlay[];
+  showPending?: boolean;
+  showDone?: boolean;
   date?: string;
   onTimeClick?: (time: string) => void;
 }) {
@@ -70,10 +74,10 @@ export function VerticalTimeline({
 
     const FIXED_BLOCKS = [
       { start: "06:30", end: "07:00", label: "😴 起床" },
-      { start: "07:00", end: "07:30", label: "🍳 早餐" },
-      { start: "12:00", end: "13:00", label: "🍱 午餐" },
+      { start: "07:00", end: "07:30", label: "🍴 早餐" },
+      { start: "12:00", end: "13:00", label: "🍴 午餐" },
       { start: "13:00", end: "13:30", label: "😴 午覺" },
-      { start: "17:00", end: "18:00", label: "🍽️ 晚餐" },
+      { start: "17:00", end: "18:00", label: "🍴 晚餐" },
       { start: "22:30", end: "23:00", label: "😴 睡覺" },
     ];
     const fixedBlocks = FIXED_BLOCKS.map((b) => ({
@@ -480,7 +484,7 @@ export function VerticalTimeline({
           </div>
         )}
 
-        {pendingTodos?.filter(isVisibleTodo).map((todo) => {
+        {showPending && pendingTodos?.filter(isVisibleTodo).map((todo) => {
           const top = pctPos(todo.startTime);
           const hasRange = todo.endTime && todo.endTime !== todo.startTime;
           const spanH = hasRange ? Math.max(pctH(todo.startTime, todo.endTime), 2) : 0;
@@ -662,7 +666,7 @@ export function VerticalTimeline({
           );
         })}
 
-        {doneTodoGroups.map((group, groupIndex) => {
+        {showDone && doneTodoGroups.map((group, groupIndex) => {
           return (
             <div
               key={`tdd-group-${groupIndex}-${group.top}`}
