@@ -548,6 +548,34 @@ export function VerticalTimeline({
           );
         })}
 
+        {idleBlocks.map((g, i) => {
+          const top = pctPos(g.start),
+            h = pctH(g.start, g.end);
+          return (
+            <div
+              key={`act-idle-${i}`}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                position: "absolute",
+                top: `${top}%`,
+                height: `${h}%`,
+                left: "47%",
+                right: 4,
+                background: "#16161B",
+                border: "1px dashed #2A2A33",
+                borderRadius: 5,
+                overflow: "hidden",
+                zIndex: 1,
+                display: "flex",
+                alignItems: "center",
+                padding: "0 5px",
+              }}
+            >
+              <span style={{ fontSize: 7, color: "#4B5563", fontWeight: 600 }}>未利用</span>
+            </div>
+          );
+        })}
+
         {actSessions.map((b, i) => {
           const top = pctPos(b.start),
             h = pctH(b.start, b.end);

@@ -99,7 +99,7 @@ lib/
 | 區域 | 位置 | 說明 |
 |------|------|------|
 | PLN 預定欄 | `left:4, right:"53%"` | 唯讀；固定作息（灰底）+ 課表課程 + 班別兼差 |
-| ACT 實際欄 | `left:"47%", right:4` | 真實番茄 sessions（唯讀色塊）+ `dailyOverride` 手動補登（可點擊編輯） |
+| ACT 實際欄 | `left:"47%", right:4` | 未利用時間（深灰墊底）+ 番茄 sessions + `dailyOverride` 手動補登 |
 | 分隔線 | `left:"50%"` | 視覺分界 |
 | 待辦（未完成） | `left:"35%", transform:translateX(-50%)` | 黃框黃字，用 startTime 定位 |
 | 待辦（已完成） | `left:"65%", transform:translateX(-50%)` | 暗色低調，用 endAt 定位 |
@@ -110,16 +110,30 @@ lib/
 |------|------|------|------|
 | 番茄 sessions | `LS_KEYS.sessions`，篩 `date` 當日且有 `startTime`／`endTime` | 分類色 `CAT.deepColorFull`，黑字 `#111` | 唯讀（`stopPropagation`） |
 | 手動補登 | `LS_KEYS.dailyOverride` + 日期（`flowlife_v1_daily_override_YYYY-MM-DD`） | `CAT.cat1Color(cat1)`，白字，細白框 | 點色塊開 override popup |
+| 未利用時間 | `idleBlocks` useMemo（即時計算，不另存 localStorage） | 深灰 `#16161B`、虛線框、`未利用` 小字 | 唯讀（`stopPropagation`） |
+
+**ACT「已使用」定義**（計算未利用空檔時，以下時段視為已占用、不畫灰塊）：
+- 當日番茄 `sessions`（有 `startTime`／`endTime`）
+- 當日 `dailyOverride` 手動補登（含 `act_*`／`man_*`）
+- PLN 的 **固定作息**（`kind: "fixed"`）與 **兼差班別**（`kind: "shift"`）
+- **不含** PLN 課表課程（`kind: "course"`）→ 若該時段無對應番茄，ACT 仍顯示未利用
+
+**未利用時間範圍**（`idleBlocks`）：
+- **今天**：`DS`（06:30）→ 現在時刻（依 `nowPct`）
+- **過去日期**：`DS` → `DE`（23:00）整天
+- **未來日期**：不畫
+- 空檔 **< 5 分鐘** 不渲染（避免碎縫）
 
 **override key 規則**：`act_*`（舊 MOCK 時代遺留）與 `man_*`（點 ACT 空白新增）共用同一 `dailyOverride` 物件與 `saveOverride` 存檔邏輯。
 
-**zIndex**：PLN(2) → ACT(3) → 分隔線(4) → 待辦浮層(6) → 紅線(10) → override popup(20)
+**zIndex**：未利用(1) → PLN(2) → ACT 番茄／補登(3) → 分隔線(4) → 待辦浮層(6) → 紅線(10) → override popup(20)
 
 **點擊行為**（`handleTimelineClick` 左右分流，`clientX >= 50%` 為 ACT 側）：
 - 空白 **左半（PLN）** → `onTimeClick(time)` → 快速新增待辦（24 小時制）
 - 空白 **右半（ACT）** → 開 override popup，key `man_${time}`，預設結束 = 開始 + 30 分（不超過 `DE`）
 - PLN 區塊 → 唯讀（改課表頁）
 - ACT 番茄色塊 → 唯讀
+- ACT 未利用灰塊 → 唯讀（不觸發待辦／補登 popup）
 - ACT 手動補登色塊 → 點擊開 override popup
 - popup 位置：`act_` 或 `man_` key → 靠 ACT 欄右側（`left:"47%"`）
 
@@ -238,6 +252,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - WeekHeat 番茄鐘分佈已真實化（讀 `sessions`，最近 7 天，有起訖才畫色塊）；`MOCK.heat` 不再使用
 - 直式行程表 PLN 已串聯課表（`week_schedule` + `day_plans`）；課程區塊結束時間 = 開始 + 30 分（不跨過固定作息）；兼差區塊顏色對應兼差中分類（診所／彩券行）；PLN 唯讀
 - 直式行程表 ACT 已真實化：讀當日 `sessions`（有起訖才畫唯讀色塊）+ `dailyOverride` 手動補登（`act_`／`man_` key）；點 ACT 空白新增補登、點補登色塊可編輯；`MOCK.schedule.ACT` 已棄用
+- 直式行程表 ACT 未利用時間：空檔深灰墊底（zIndex 1）；已使用 = 番茄 + 補登 + 固定作息 + 兼差；課表課程不算已使用；今天填至現在、過去填整天、未來不填
 
 ---
 
