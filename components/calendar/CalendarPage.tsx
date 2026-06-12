@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
+import { buildCalendarStats, sessionMatches } from "@/lib/analytics";
 import { CAT } from "@/lib/categories";
-import { MOCK } from "@/lib/mock";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 import type { Session } from "@/lib/types";
 import { fmt, getAvailableMinutes, getDaysInMonth, getFirstDow } from "@/lib/utils";
@@ -126,15 +126,11 @@ export function CalendarPage({
   onShowDay: (date: string, label: string) => void;
 }) {
   const [calView, setCalView] = useState("month");
-  const [selCat1, setSelCat1] = useState("");
+  const [selCat1Set, setSelCat1Set] = useState<string[]>([]);
   const [selCat2, setSelCat2] = useState("");
   const [monthOffset, setMonthOffset] = useState(1);
   const [weekOffset, setWeekOffset] = useState(0);
   const [period, setPeriod] = useState("月");
-  const filterLevel = selCat2 ? "cat2" : selCat1 ? "cat1" : "all";
-  const chartData = CAT.chartDataFor(filterLevel, selCat1, selCat2);
-  const chartLabel = selCat2 ? selCat2 : selCat1 ? selCat1 : "全部分類";
-  const activeColor = selCat1 ? CAT.cat1Color(selCat1) : TH.red;
   const totalM = 4 - 1 + monthOffset;
   const curY = 2026 + Math.floor(totalM / 12),
     curM = (totalM % 12) + 1;
@@ -142,7 +138,26 @@ export function CalendarPage({
     fdow = getFirstDow(curY, curM);
   const prevM = curM === 1 ? 12 : curM - 1;
   const prevY = curM === 1 ? curY - 1 : curY;
-  const lineD = MOCK.lineData[period as keyof typeof MOCK.lineData] || MOCK.lineData["月"];
+  const singleCat1 = selCat1Set.length === 1 ? selCat1Set[0] : "";
+  const chartLabel =
+    selCat1Set.length === 0
+      ? "全部分類"
+      : selCat1Set.length === 1
+        ? selCat2 || singleCat1
+        : selCat1Set.join("＋");
+  const activeColor = singleCat1 ? CAT.cat1Color(singleCat1) : TH.red;
+  const { chartData, lineD } = useMemo(
+    () =>
+      buildCalendarStats({
+        sessions,
+        cats: selCat1Set,
+        cat2: selCat2,
+        period,
+        anchorY: curY,
+        anchorM: curM,
+      }),
+    [sessions, selCat1Set, selCat2, period, curY, curM],
+  );
   const [weekendShifts, setWeekendShifts] = useState<Record<string, WeekendShift>>(() =>
     loadJSON<Record<string, WeekendShift>>(LS_KEYS.weekendShifts, {}),
   );
@@ -155,10 +170,11 @@ export function CalendarPage({
     const map: Record<string, number> = {};
     for (const s of sessions) {
       if (!s.date) continue;
+      if (!sessionMatches(s, selCat1Set, selCat2)) continue;
       map[s.date] = (map[s.date] ?? 0) + (s.mins ?? 0);
     }
     return map;
-  }, [sessions]);
+  }, [sessions, selCat1Set, selCat2]);
 
   const mData = useMemo(
     () =>
@@ -169,14 +185,20 @@ export function CalendarPage({
     [dim, curY, curM, focusByDate],
   );
 
-  const monthSessions = useMemo(() => sessionsInMonth(sessions, curY, curM), [sessions, curY, curM]);
+  const monthSessions = useMemo(
+    () => sessionsInMonth(sessions, curY, curM).filter((s) => sessionMatches(s, selCat1Set, selCat2)),
+    [sessions, curY, curM, selCat1Set, selCat2],
+  );
   const mTot = useMemo(() => monthSessions.reduce((s, x) => s + (x.mins ?? 0), 0), [monthSessions]);
   const dayCount = useMemo(() => new Set(monthSessions.map((s) => s.date).filter(Boolean)).size, [monthSessions]);
   const dayAvg = dayCount ? Math.round(mTot / dayCount) : 0;
-  const pomodoroCount = monthSessions.length;
+  const pomo10 = useMemo(() => monthSessions.filter((s) => (s.mins ?? 0) >= 10).length, [monthSessions]);
+  const pomo25 = useMemo(() => monthSessions.filter((s) => (s.mins ?? 0) >= 25).length, [monthSessions]);
   const prevTot = useMemo(() => {
-    return sessionsInMonth(sessions, prevY, prevM).reduce((s, x) => s + (x.mins ?? 0), 0);
-  }, [sessions, prevY, prevM]);
+    return sessionsInMonth(sessions, prevY, prevM)
+      .filter((s) => sessionMatches(s, selCat1Set, selCat2))
+      .reduce((s, x) => s + (x.mins ?? 0), 0);
+  }, [sessions, prevY, prevM, selCat1Set, selCat2]);
   const pctVsLast = prevTot ? Math.round(((mTot - prevTot) / prevTot) * 100) : 0;
 
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
@@ -226,32 +248,49 @@ export function CalendarPage({
           </button>
         ))}
       </div>
-      <div style={{ display: "flex", gap: 4, overflowX: "auto", paddingBottom: 2 }}>
-        <Chip label="全部" active={!selCat1} color={TH.red} onClick={() => { setSelCat1(""); setSelCat2(""); }} />
-        {CAT.cat1List()
-          .filter((c) => c !== "未分類")
-          .map((c) => (
-            <Chip
-              key={c}
-              label={c}
-              active={selCat1 === c}
-              color={CAT.cat1Color(c)}
-              onClick={() => {
-                setSelCat1(selCat1 === c ? "" : c);
-                setSelCat2("");
-              }}
-            />
-          ))}
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <div style={{ display: "flex", gap: 4, overflowX: "auto", paddingBottom: 2 }}>
+          <Chip
+            label="全部"
+            active={selCat1Set.length === 0}
+            color={TH.red}
+            onClick={() => {
+              setSelCat1Set([]);
+              setSelCat2("");
+            }}
+          />
+          {CAT.cat1List()
+            .filter((c) => c !== "未分類")
+            .map((c) => (
+              <Chip
+                key={c}
+                label={c}
+                active={selCat1Set.includes(c)}
+                color={CAT.cat1Color(c)}
+                onClick={() => {
+                  setSelCat1Set((p) => (p.length === 1 && p[0] === c ? [] : [c]));
+                  setSelCat2("");
+                }}
+                onLongPress={() => {
+                  setSelCat1Set((p) => (p.includes(c) ? p.filter((x) => x !== c) : [...p, c]));
+                  setSelCat2("");
+                }}
+              />
+            ))}
+        </div>
+        <span style={{ fontSize: 8, color: TH.muted, paddingLeft: 2 }}>
+          💡 單擊＝單選；長按可多選大分類做加總
+        </span>
       </div>
-      {selCat1 && CAT.cat2List(selCat1).length > 0 && (
+      {singleCat1 && CAT.cat2List(singleCat1).length > 0 && (
         <div style={{ display: "flex", gap: 4, overflowX: "auto", paddingBottom: 2 }}>
           <span style={{ fontSize: 9, color: TH.muted, flexShrink: 0, alignSelf: "center" }}>中分類：</span>
-          {CAT.cat2List(selCat1).map((c) => (
+          {CAT.cat2List(singleCat1).map((c) => (
             <Chip
               key={c}
               label={c}
               active={selCat2 === c}
-              color={CAT.cat2Color(selCat1, c)}
+              color={CAT.cat2Color(singleCat1, c)}
               onClick={() => setSelCat2(selCat2 === c ? "" : c)}
               style={{ fontSize: 9, padding: "3px 8px" }}
             />
@@ -265,7 +304,6 @@ export function CalendarPage({
               ["時長", fmt(mTot), activeColor],
               ["日均", fmt(dayAvg), TH.text],
               ["有效天", `${dayCount}天`, TH.text],
-              ["番茄數", `${pomodoroCount}`, TH.text],
             ] as const
           ).map(([l, v, col]) => (
             <div key={l} style={{ background: TH.card, border: `1px solid ${TH.border}`, borderRadius: 10, padding: "6px 8px" }}>
@@ -273,6 +311,13 @@ export function CalendarPage({
               <div style={{ fontSize: 12, fontWeight: 800, color: col }}>{v}</div>
             </div>
           ))}
+          <div style={{ background: TH.card, border: `1px solid ${TH.border}`, borderRadius: 10, padding: "6px 8px" }}>
+            <div style={{ fontSize: 8, color: TH.muted }}>番茄數</div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: TH.text }}>
+              {pomo10}/{pomo25}
+              <span style={{ fontSize: 7, color: TH.muted, fontWeight: 600, marginLeft: 3 }}>滿10/25分</span>
+            </div>
+          </div>
         </div>
       )}
       {calView !== "week" && (

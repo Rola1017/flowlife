@@ -59,6 +59,7 @@ lib/
 ├── config.ts     ← CFG（TODAY_STR = toLocalDateStr() 本地日期，DAY_END = "23:00"）
 ├── mock.ts       ← MOCK 假資料
 ├── utils.ts      ← fmt / toLocalDateStr / pctPos / pctH / buildTimelineHours / DS / DE / DT / toM
+├── analytics.ts  ← 行事曆／圖表統計聚合（sessionMatches / buildCalendarStats）
 ├── tabs.ts       ← TABS 導航設定
 └── storage.ts    ← LS_KEYS + loadJSON / saveJSON
 ```
@@ -236,6 +237,29 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
+## 八（補2）、行事曆統計（CalendarPage + `lib/analytics.ts`）
+
+**資料來源**：真實 `sessions`（`buildCalendarStats`）；已移除 `MOCK.lineData`、`CAT.chartDataFor` 假資料。
+
+**大分類篩選**（`selCat1Set: string[]`）：
+- 空集合＝全部加總
+- 單擊某大分類＝單選（可下鑽中分類 `selCat2`，僅恰選 1 大類時有效）
+- 長按大分類 chip＝多選加總（`Chip.onLongPress`，450ms，長按不誤觸單擊）
+
+**period 視窗**（圓餅／長條用 `periodRange`；折線用 `buildLineSeries`）：
+- `3天`／`7天`／`14天`／`季`：以今天往回
+- `月`：導覽中的 `curY`／`curM`
+
+**分佈切片**（`buildDistribution`）：0 或 ≥2 大類→大分類；1 大類→中分類；1 大類+中分類→小分類。
+
+**月曆四宮格**：時長／日均／有效天＋番茄數 `x/y`（滿10分顆數／滿25分顆數，旁註「滿10/25分」）。
+
+**連動**：月曆圈圈 `focusByDate`、四宮格、`TriCharts` 三圖皆吃 `sessionMatches` 篩選。
+
+> 番茄頁趨勢（`PomodoroPage`）仍用 `MOCK.lineData`（番茄顆數），待下一階段真實化。
+
+---
+
 ## 九、Cursor 開發必讀（重要提醒）
 
 1. **`SL` 元件** → `import { Card, SL } from "@/components/ui/Card"`
@@ -276,6 +300,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - 番茄鐘記錄（Session）與金幣收支（CoinIncomeLogRow）新增可選 `startTime`／`endTime`（HH:MM）；金幣列表有起訖則顯示「開始～結束」，舊資料 fallback `row.time`
 - 番茄主頁今日統計／金幣收支已修正為只算當日（`date === localDateParts().date`）；Session 寫入 date 與金幣 log 統一 YYYY-MM-DD；今日統計三層番茄對比（滿1分／滿10分進步／滿25分紮實）
 - 圖表標題正名：番茄趨勢卡「趨勢(番茄顆數)」；行事曆 TriCharts 折線「趨勢(時長)」、長條「分佈(時長)」
+- 行事曆統計真實化：`lib/analytics.ts` 聚合 sessions；大分類單擊單選／長按多選；月曆四宮格番茄數 x/y（滿10／滿25）；移除 `CAT.chartDataFor`
 - 番茄鐘歷史頁（SessionHistoryPage）：每日評分對比（並排 😤🙂😴 + 有效／紮實統計，無框、上下靠近）；今日統計 ⌚ 入口已接線（`sessionHistory` subPage）
 - 金幣收支頁（CoinHistoryPage）：修復 UTF-8 編碼損毀；起訖時間後顯示時長；每日分組卡片框
 - 修正 `CFG.TODAY_STR` UTC 跨日 bug：新增 `lib/dateStr.ts` 的 `toLocalDateStr`（經 `utils` 匯出）；全專案「今天」統一本地日期算法

@@ -191,34 +191,6 @@ export const CAT = {
     if (cat2) return CAT.cat2Color(cat1, cat2);
     return CAT.cat1Color(cat1);
   },
-  chartDataFor: (level: string, cat1?: string, cat2?: string) => {
-    const cats = loadCategories();
-    if (level === "all")
-      return cats
-        .filter((c) => c.name !== "未分類")
-        .map((c, i) => ({ label: c.name, value: 120 + i * 55, color: c.color }));
-    if (level === "cat1" && cat1) {
-      const big = cats.find((c) => c.name === cat1);
-      return (
-        big?.mids.map((m, i) => ({
-          label: m.name,
-          value: 80 + i * 40,
-          color: m.color,
-        })) ?? []
-      );
-    }
-    if (level === "cat2" && cat1 && cat2) {
-      const subs = CAT.cat3List(cat1, cat2);
-      if (subs.length)
-        return subs.map((c, i) => ({
-          label: c,
-          value: 30 + i * 25,
-          color: CAT.cat3Color(cat1, cat2, c),
-        }));
-      return [{ label: cat2, value: 120, color: CAT.cat2Color(cat1, cat2) }];
-    }
-    return [];
-  },
 };
 
 export function catColorMap(): Record<string, string> {
