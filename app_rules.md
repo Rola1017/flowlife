@@ -99,16 +99,29 @@ lib/
 | 區域 | 位置 | 說明 |
 |------|------|------|
 | PLN 預定欄 | `left:4, right:"53%"` | 唯讀；固定作息（灰底）+ 課表課程 + 班別兼差 |
-| ACT 實際欄 | `left:"47%", right:4` | 可點擊編輯 |
+| ACT 實際欄 | `left:"47%", right:4` | 真實番茄 sessions（唯讀色塊）+ `dailyOverride` 手動補登（可點擊編輯） |
 | 分隔線 | `left:"50%"` | 視覺分界 |
 | 待辦（未完成） | `left:"35%", transform:translateX(-50%)` | 黃框黃字，用 startTime 定位 |
 | 待辦（已完成） | `left:"65%", transform:translateX(-50%)` | 暗色低調，用 endAt 定位 |
 
+**ACT 資料來源**（`MOCK.schedule.ACT` 已棄用，VerticalTimeline 不再 import MOCK）：
+
+| 來源 | 讀取 | 渲染 | 編輯 |
+|------|------|------|------|
+| 番茄 sessions | `LS_KEYS.sessions`，篩 `date` 當日且有 `startTime`／`endTime` | 分類色 `CAT.deepColorFull`，黑字 `#111` | 唯讀（`stopPropagation`） |
+| 手動補登 | `LS_KEYS.dailyOverride` + 日期（`flowlife_v1_daily_override_YYYY-MM-DD`） | `CAT.cat1Color(cat1)`，白字，細白框 | 點色塊開 override popup |
+
+**override key 規則**：`act_*`（舊 MOCK 時代遺留）與 `man_*`（點 ACT 空白新增）共用同一 `dailyOverride` 物件與 `saveOverride` 存檔邏輯。
+
 **zIndex**：PLN(2) → ACT(3) → 分隔線(4) → 待辦浮層(6) → 紅線(10) → override popup(20)
 
-**點擊行為**：
-- 空白處 → `onTimeClick(time)` → 快速新增待辦面板（24小時制）
-- PLN 區塊 → 唯讀（改課表頁）；ACT 區塊 → override popup，key 用 `act_${item.start}`
+**點擊行為**（`handleTimelineClick` 左右分流，`clientX >= 50%` 為 ACT 側）：
+- 空白 **左半（PLN）** → `onTimeClick(time)` → 快速新增待辦（24 小時制）
+- 空白 **右半（ACT）** → 開 override popup，key `man_${time}`，預設結束 = 開始 + 30 分（不超過 `DE`）
+- PLN 區塊 → 唯讀（改課表頁）
+- ACT 番茄色塊 → 唯讀
+- ACT 手動補登色塊 → 點擊開 override popup
+- popup 位置：`act_` 或 `man_` key → 靠 ACT 欄右側（`left:"47%"`）
 
 ---
 
@@ -223,7 +236,8 @@ TH.gold    = "#FBBF24"   // 金幣
 - 金幣收支頁（CoinHistoryPage）：修復 UTF-8 編碼損毀；起訖時間後顯示時長；每日分組卡片框
 - 修正 `CFG.TODAY_STR` UTC 跨日 bug：新增 `lib/dateStr.ts` 的 `toLocalDateStr`（經 `utils` 匯出）；全專案「今天」統一本地日期算法
 - WeekHeat 番茄鐘分佈已真實化（讀 `sessions`，最近 7 天，有起訖才畫色塊）；`MOCK.heat` 不再使用
-- 直式行程表 PLN 已串聯課表（`week_schedule` + `day_plans`）；課程區塊結束時間 = 開始 + 30 分（不跨過固定作息）；兼差區塊顏色對應兼差中分類（診所／彩券行）；PLN 唯讀；ACT 仍用 MOCK + daily override
+- 直式行程表 PLN 已串聯課表（`week_schedule` + `day_plans`）；課程區塊結束時間 = 開始 + 30 分（不跨過固定作息）；兼差區塊顏色對應兼差中分類（診所／彩券行）；PLN 唯讀
+- 直式行程表 ACT 已真實化：讀當日 `sessions`（有起訖才畫唯讀色塊）+ `dailyOverride` 手動補登（`act_`／`man_` key）；點 ACT 空白新增補登、點補登色塊可編輯；`MOCK.schedule.ACT` 已棄用
 
 ---
 
