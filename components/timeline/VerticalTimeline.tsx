@@ -120,6 +120,39 @@ export function VerticalTimeline({
 
     return [...fixedBlocks, ...courseBlocks, ...shiftBlocks];
   }, [date]);
+
+  const actSessions = useMemo(() => {
+    type SRow = {
+      date: string;
+      name?: string;
+      cat1?: string;
+      cat2?: string;
+      cat3?: string;
+      startTime?: string;
+      endTime?: string;
+    };
+    const all = loadJSON<SRow[]>(LS_KEYS.sessions, []);
+    return all
+      .filter((s) => s.date === date && s.startTime && s.endTime)
+      .map((s) => {
+        const cat1 = s.cat1 ?? "";
+        const color =
+          CAT.deepColorFull(cat1, s.cat2 || undefined, s.cat3 || undefined) ||
+          CAT.cat1Color(cat1) ||
+          "#374151";
+        return {
+          start: s.startTime as string,
+          end: s.endTime as string,
+          label: s.name || s.cat3 || s.cat2 || cat1 || "番茄",
+          color,
+        };
+      })
+      .filter((b) => {
+        const p = pctPos(b.start);
+        return p >= 0 && p <= 100;
+      });
+  }, [date]);
+
   const [dailyOverride, setDailyOverride] = useState<DailyOverride>({});
   const [loadedOverrideKey, setLoadedOverrideKey] = useState("");
   const [overrideDraft, setOverrideDraft] = useState<{
