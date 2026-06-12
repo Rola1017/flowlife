@@ -578,27 +578,6 @@ export function PomodoroPage({
             🪙
           </div>
         ))}
-      <div style={{ display: "flex", gap: 6 }}>
-        {CFG.POMO_DURATIONS.map((d) => (
-          <button
-            key={d}
-            type="button"
-            onClick={() => selectDuration(d)}
-            style={{
-              padding: "6px 12px",
-              borderRadius: 20,
-              border: "none",
-              background: dur === d ? TH.accent : TH.card,
-              color: dur === d ? "#fff" : TH.muted,
-              fontSize: 12,
-              fontWeight: 700,
-              cursor: "pointer",
-            }}
-          >
-            {formatDurLabel(d)}
-          </button>
-        ))}
-      </div>
       {(effectiveMode === "rest" || idleTrackStart) && (
         <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 6, alignItems: "center" }}>
           <div
@@ -794,6 +773,29 @@ export function PomodoroPage({
             </div>
           )}
         </Card>
+      )}
+      {mode !== "focus" && (
+        <div style={{ display: "flex", gap: 6 }}>
+          {CFG.POMO_DURATIONS.map((d) => (
+            <button
+              key={d}
+              type="button"
+              onClick={() => selectDuration(d)}
+              style={{
+                padding: "6px 12px",
+                borderRadius: 20,
+                border: "none",
+                background: dur === d ? TH.accent : TH.card,
+                color: dur === d ? "#fff" : TH.muted,
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              {formatDurLabel(d)}
+            </button>
+          ))}
+        </div>
       )}
       {mode !== "focus" && !(showRating && !rated) && (
         <button
