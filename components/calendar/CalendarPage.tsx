@@ -51,6 +51,28 @@ function calcProgressLines(target: number): ProgressLine[] {
   return drawnLines;
 }
 
+function calcProgressRange(startLen: number, endLen: number): ProgressLine[] {
+  const out: ProgressLine[] = [];
+  let pos = 0;
+  for (const seg of WEEK_BORDER_SEG) {
+    const segStart = pos;
+    const a = Math.max(startLen, segStart);
+    const b = Math.min(endLen, segStart + seg.len);
+    if (b > a) {
+      const r1 = (a - segStart) / seg.len;
+      const r2 = (b - segStart) / seg.len;
+      out.push({
+        x1: seg.x1 + (seg.x2 - seg.x1) * r1,
+        y1: seg.y1 + (seg.y2 - seg.y1) * r1,
+        x2: seg.x1 + (seg.x2 - seg.x1) * r2,
+        y2: seg.y1 + (seg.y2 - seg.y1) * r2,
+      });
+    }
+    pos = segStart + seg.len;
+  }
+  return out;
+}
+
 function cycleWeekendShift(current?: WeekendShift): WeekendShift {
   return current === "早班" ? "晚班" : "早班";
 }
@@ -172,6 +194,28 @@ export function CalendarPage({
       if (!s.date) continue;
       if (!sessionMatches(s, selCat1Set, selCat2)) continue;
       map[s.date] = (map[s.date] ?? 0) + (s.mins ?? 0);
+    }
+    return map;
+  }, [sessions, selCat1Set, selCat2]);
+
+  const focusByDateCat = useMemo(() => {
+    const map: Record<string, Record<string, number>> = {};
+    for (const s of sessions) {
+      if (!s.date) continue;
+      if (!sessionMatches(s, selCat1Set, selCat2)) continue;
+      (map[s.date] ??= {});
+      const k = s.cat1 || "未分類";
+      map[s.date][k] = (map[s.date][k] ?? 0) + (s.mins ?? 0);
+    }
+    return map;
+  }, [sessions, selCat1Set, selCat2]);
+
+  const countByDate = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const s of sessions) {
+      if (!s.date) continue;
+      if (!sessionMatches(s, selCat1Set, selCat2)) continue;
+      map[s.date] = (map[s.date] ?? 0) + 1;
     }
     return map;
   }, [sessions, selCat1Set, selCat2]);
@@ -377,10 +421,22 @@ export function CalendarPage({
               const dayFocus = focusByDate[dateStr] ?? 0;
               const availMins = getAvailableMinutes(dateStr, weekendShifts[dateStr]);
               const pct = availMins > 0 ? Math.round((dayFocus / availMins) * 100) : 0;
-              const firstTarget = (WEEK_BORDER_PERIM * Math.min(pct, 100)) / 100;
+              const dayPomos = countByDate[dateStr] ?? 0;
+              const dayCats = focusByDateCat[dateStr] ?? {};
+              const catSegs: { lines: ProgressLine[]; color: string }[] = [];
+              let segAcc = 0;
+              for (const c1 of CAT.cat1List()) {
+                const m = dayCats[c1];
+                if (!m) continue;
+                const segLen = availMins > 0 ? (m / availMins) * WEEK_BORDER_PERIM : 0;
+                const start = segAcc;
+                const end = Math.min(segAcc + segLen, WEEK_BORDER_PERIM);
+                if (end > start) catSegs.push({ lines: calcProgressRange(start, end), color: CAT.cat1Color(c1) });
+                segAcc += segLen;
+                if (segAcc >= WEEK_BORDER_PERIM) break;
+              }
               const overflowPct = Math.max(pct - 100, 0);
               const overflowTarget = (WEEK_BORDER_PERIM * Math.min(overflowPct, 100)) / 100;
-              const orangeLines = calcProgressLines(firstTarget);
               const blueLines = overflowPct > 0 ? calcProgressLines(overflowTarget) : [];
               return (
                 <div
@@ -428,18 +484,20 @@ export function CalendarPage({
                         vectorEffect="non-scaling-stroke"
                       />
                     ))}
-                    {orangeLines.map((ln, i) => (
-                      <line
-                        key={`fg-${i}`}
-                        x1={ln.x1}
-                        y1={ln.y1}
-                        x2={ln.x2}
-                        y2={ln.y2}
-                        stroke={isToday ? activeColor : activeColor + "66"}
-                        strokeWidth={isToday ? 1.5 : 1}
-                        vectorEffect="non-scaling-stroke"
-                      />
-                    ))}
+                    {catSegs.map((seg, si) =>
+                      seg.lines.map((ln, i) => (
+                        <line
+                          key={`cat-${si}-${i}`}
+                          x1={ln.x1}
+                          y1={ln.y1}
+                          x2={ln.x2}
+                          y2={ln.y2}
+                          stroke={seg.color}
+                          strokeWidth={isToday ? 1.5 : 1.2}
+                          vectorEffect="non-scaling-stroke"
+                        />
+                      )),
+                    )}
                     {blueLines.map((ln, i) => (
                       <line
                         key={`ov-${i}`}
@@ -509,24 +567,21 @@ export function CalendarPage({
                   </div>
                   {WEEK_SLOTS.map((slot) => {
                     const slotTodos = todosByDateSlot[dateStr]?.[slot.id] ?? [];
-                    const visible = slotTodos.slice(0, 3);
-                    const extra = slotTodos.length - visible.length;
                     return (
                       <div
                         key={slot.id}
                         style={{
-                          height: 60,
+                          minHeight: 40,
                           borderTop: `1px solid ${TH.border}`,
                           background: slot.bg,
                           padding: "2px",
                           display: "flex",
                           flexDirection: "column",
                           gap: 2,
-                          overflow: "hidden",
                         }}
                       >
                         <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minHeight: 0 }}>
-                          {visible.map((todo) => {
+                          {slotTodos.map((todo) => {
                             const t = todo as {
                               id?: number;
                               text?: string;
@@ -567,15 +622,25 @@ export function CalendarPage({
                               </div>
                             );
                           })}
-                          {extra > 0 && (
-                            <div style={{ fontSize: 7, color: TH.muted, textAlign: "center", fontWeight: 800 }}>
-                              +{extra}
-                            </div>
-                          )}
                         </div>
                       </div>
                     );
                   })}
+                  <div
+                    style={{
+                      borderTop: `1px solid ${TH.border}`,
+                      padding: "3px 2px",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 1,
+                    }}
+                  >
+                    <span style={{ fontSize: 9, fontWeight: 800, color: dayFocus > 0 ? activeColor : TH.muted }}>
+                      {fmt(dayFocus)}
+                    </span>
+                    <span style={{ fontSize: 8, color: TH.muted }}>🍅 {dayPomos}</span>
+                  </div>
                 </div>
               );
             })}

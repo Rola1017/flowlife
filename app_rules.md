@@ -256,6 +256,11 @@ TH.gold    = "#FBBF24"   // 金幣
 
 **連動**：月曆圈圈 `focusByDate`、四宮格、`TriCharts` 三圖皆吃 `sessionMatches` 篩選。
 
+**週曆**（`calView === "week"`）：
+- 每欄底部頁尾：上排專注時長 `fmt(dayFocus)`、下排 `🍅` 番茄顆數（`countByDate`，吃分類篩選）
+- 繞行線依大分類分段上色：`focusByDateCat` + `calcProgressRange`；總長＝當天時長÷可用時間；超過 100% 藍線 overflow 保留
+- 待辦完整顯示：早／午／晚時段無 3 筆上限、無 `+N`；`minHeight: 40` 隨內容長高
+
 > 番茄頁趨勢（`PomodoroPage`）仍用 `MOCK.lineData`（番茄顆數），待下一階段真實化。
 
 ---
@@ -301,6 +306,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - 番茄主頁今日統計／金幣收支已修正為只算當日（`date === localDateParts().date`）；Session 寫入 date 與金幣 log 統一 YYYY-MM-DD；今日統計三層番茄對比（滿1分／滿10分進步／滿25分紮實）
 - 圖表標題正名：番茄趨勢卡「趨勢(番茄顆數)」；行事曆 TriCharts 折線「趨勢(時長)」、長條「分佈(時長)」
 - 行事曆統計真實化：`lib/analytics.ts` 聚合 sessions；大分類單擊單選／長按多選；月曆四宮格番茄數 x/y（滿10／滿25）；移除 `CAT.chartDataFor`
+- 週曆：每日統計頁尾（時長＋番茄數）、繞行線依科目分色分段、待辦完整顯示（無 +N 裁切）
 - 番茄鐘歷史頁（SessionHistoryPage）：每日評分對比（並排 😤🙂😴 + 有效／紮實統計，無框、上下靠近）；今日統計 ⌚ 入口已接線（`sessionHistory` subPage）
 - 金幣收支頁（CoinHistoryPage）：修復 UTF-8 編碼損毀；起訖時間後顯示時長；每日分組卡片框
 - 修正 `CFG.TODAY_STR` UTC 跨日 bug：新增 `lib/dateStr.ts` 的 `toLocalDateStr`（經 `utils` 匯出）；全專案「今天」統一本地日期算法
