@@ -318,8 +318,14 @@ export function VerticalTimeline({
             style={{
               position: "absolute",
               top: `${overrideDraft.top}%`,
-              left: overrideDraft.start.startsWith("act_") ? "47%" : 8,
-              right: overrideDraft.start.startsWith("act_") ? 8 : "47%",
+              left:
+                overrideDraft.start.startsWith("act_") || overrideDraft.start.startsWith("man_")
+                  ? "47%"
+                  : 8,
+              right:
+                overrideDraft.start.startsWith("act_") || overrideDraft.start.startsWith("man_")
+                  ? 8
+                  : "47%",
               zIndex: 20,
               background: "#0A0A0C",
               border: `1px solid ${TH.accent}`,
