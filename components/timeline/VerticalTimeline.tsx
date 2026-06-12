@@ -142,7 +142,6 @@ export function VerticalTimeline({
           start: s.startTime as string,
           end: s.endTime as string,
           label: s.name || s.cat3 || s.cat2 || cat1 || "番茄",
-          cat1,
           color,
         };
       })
@@ -174,20 +173,6 @@ export function VerticalTimeline({
     if (loadedOverrideKey !== dailyOverrideKey) return;
     saveJSON(dailyOverrideKey, dailyOverride);
   }, [dailyOverride, dailyOverrideKey, loadedOverrideKey]);
-
-  const manualActBlocks = useMemo(() => {
-    const sessionKeys = new Set(actSessions.map((s) => `act_${s.start}`));
-    return Object.entries(dailyOverride)
-      .filter(
-        ([key, val]) =>
-          key.startsWith("act_") && !sessionKeys.has(key) && val.startTime && val.endTime,
-      )
-      .map(([overrideKey, val]) => ({ overrideKey, ...val }))
-      .filter((b) => {
-        const p = pctPos(b.startTime);
-        return p >= 0 && p <= 100;
-      });
-  }, [actSessions, dailyOverride]);
 
   const isVisibleTodo = (todo: TodoOverlay) => {
     const mins = toM(todo.startTime);
@@ -508,77 +493,59 @@ export function VerticalTimeline({
           );
         })}
 
-        {actSessions.map((item, i) => {
-          const overrideKey = `act_${item.start}`;
-          const override = dailyOverride[overrideKey];
-          const startTime = override?.startTime ?? item.start;
-          const endTime = override?.endTime ?? item.end;
-          const top = pctPos(startTime),
-            h = pctH(startTime, endTime);
-          const label = override?.label ?? item.label;
-          const cat1 = override?.cat1 ?? item.cat1 ?? "";
-          const col = override ? CAT.cat1Color(cat1) : item.color;
+        {actSessions.map((b, i) => {
+          const top = pctPos(b.start),
+            h = pctH(b.start, b.end);
           return (
             <div
-              key={`act-${item.start}-${i}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                setOverrideDraft({
-                  start: overrideKey,
-                  top,
-                  label,
-                  cat1: cat1 || "未分類",
-                  startTime,
-                  endTime,
-                });
-              }}
+              key={`act-ses-${i}`}
+              onClick={(e) => e.stopPropagation()}
               style={{
                 position: "absolute",
                 top: `${top}%`,
                 height: `${h}%`,
                 left: "47%",
                 right: 4,
-                background: col,
+                background: b.color,
                 borderRadius: 5,
                 padding: "2px 5px",
                 overflow: "hidden",
                 zIndex: 3,
-                cursor: "pointer",
               }}
             >
               <div
                 style={{
                   fontSize: 9,
-                  color: override ? "#fff" : "#F4F4F5",
+                  color: "#111",
                   fontWeight: 600,
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
                 }}
               >
-                {label}
+                {b.label}
               </div>
             </div>
           );
         })}
 
-        {manualActBlocks.map((item) => {
-          const top = pctPos(item.startTime),
-            h = pctH(item.startTime, item.endTime);
-          const cat1 = item.cat1 ?? "";
-          const col = CAT.cat1Color(cat1) || "#374151";
+        {Object.entries(dailyOverride).map(([key, ov]) => {
+          const top = pctPos(ov.startTime),
+            h = pctH(ov.startTime, ov.endTime);
+          if (!(top >= 0 && top <= 100)) return null;
+          const col = CAT.cat1Color(ov.cat1) || "#374151";
           return (
             <div
-              key={item.overrideKey}
+              key={`act-ov-${key}`}
               onClick={(e) => {
                 e.stopPropagation();
                 setOverrideDraft({
-                  start: item.overrideKey,
+                  start: key,
                   top,
-                  label: item.label,
-                  cat1: cat1 || "未分類",
-                  startTime: item.startTime,
-                  endTime: item.endTime,
+                  label: ov.label,
+                  cat1: ov.cat1 || "未分類",
+                  startTime: ov.startTime,
+                  endTime: ov.endTime,
                 });
               }}
               style={{
@@ -593,6 +560,7 @@ export function VerticalTimeline({
                 overflow: "hidden",
                 zIndex: 3,
                 cursor: "pointer",
+                border: "1px solid #ffffff22",
               }}
             >
               <div
@@ -605,7 +573,7 @@ export function VerticalTimeline({
                   whiteSpace: "nowrap",
                 }}
               >
-                {item.label}
+                {ov.label}
               </div>
             </div>
           );
