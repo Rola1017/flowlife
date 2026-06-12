@@ -207,11 +207,24 @@ export function VerticalTimeline({
     return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
   };
   const handleTimelineClick = (e: MouseEvent<HTMLDivElement>) => {
-    if (!onTimeClick) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const pct = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
-    const mins = Math.round(DS + pct * (DE - DS));
-    onTimeClick(formatMinutes(mins));
+    const pctY = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
+    const mins = Math.round(DS + pctY * (DE - DS));
+    const t = formatMinutes(mins);
+    const isActSide = (e.clientX - rect.left) / rect.width >= 0.5;
+    if (isActSide) {
+      const endMins = Math.min(DE, mins + 30);
+      setOverrideDraft({
+        start: `man_${t}`,
+        top: pctPos(t),
+        label: "",
+        cat1: "未分類",
+        startTime: t,
+        endTime: formatMinutes(endMins),
+      });
+    } else {
+      onTimeClick?.(t);
+    }
   };
   const saveOverride = () => {
     if (!overrideDraft?.label.trim()) return;
