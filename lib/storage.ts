@@ -13,7 +13,6 @@ export const LS_KEYS = {
   purchaseLog: `${STORAGE_PREFIX}purchase_log`,
   coinIncomeLog: `${STORAGE_PREFIX}coin_income_log`,
   dailyOverride: `${STORAGE_PREFIX}daily_override_`,
-  weekendShifts: `${STORAGE_PREFIX}weekend_shifts`,
   categories: `${STORAGE_PREFIX}categories`,
   weekSchedule: `${STORAGE_PREFIX}week_schedule`,
   colorPalette: `${STORAGE_PREFIX}color_palette`,

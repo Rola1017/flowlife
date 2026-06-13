@@ -60,6 +60,7 @@ lib/
 ├── mock.ts       ← MOCK 假資料
 ├── utils.ts      ← fmt / toLocalDateStr / pctPos / pctH / buildTimelineHours / DS / DE / DT / toM
 ├── analytics.ts  ← 行事曆／圖表統計聚合（sessionMatches / buildCalendarStats）
+├── schedule.ts   ← 班別定義、loadDayPlans、availableMinutesFor（可用時間單一來源）
 ├── tabs.ts       ← TABS 導航設定
 └── storage.ts    ← LS_KEYS + loadJSON / saveJSON
 ```
@@ -257,9 +258,16 @@ TH.gold    = "#FBBF24"   // 金幣
 **連動**：月曆圈圈 `focusByDate`、四宮格、`TriCharts` 三圖皆吃 `sessionMatches` 篩選。
 
 **週曆**（`calView === "week"`）：
-- 每欄底部頁尾：上排專注時長 `fmt(dayFocus)`、下排 `🍅` 番茄顆數（`countByDate`，吃分類篩選）
+- 每欄底部頁尾：上排專注時長 `fmt(dayFocus)`、中排 `🍅` 番茄顆數、下排百分比 `{pct}%`（≥100% 藍色）
 - 繞行線依大分類分段上色：`focusByDateCat` + `calcProgressRange`；總長＝當天時長÷可用時間；超過 100% 藍線 overflow 保留
 - 待辦完整顯示：早／午／晚時段無 3 筆上限、無 `+N`；`minHeight: 40` 隨內容長高
+- 標頭唯讀班別：`{place}{shifts}`（如「彩晚」「診晚」），來自 `dayPlans`；**不再**有週末早/晚開關
+
+**可用時間**（`lib/schedule.ts` → `availableMinutesFor`）：
+- 分母＝1440 −（固定不可用 ∪ 當日 `day_plans` 班別）合併封鎖
+- 固定不可用：睡眠 00:00–06:30、午餐+午覺 12:00–13:30、晚餐 17:00–18:00、夜間 23:00–24:00
+- 週曆／月曆圈圈百分比皆吃此函式；課表改班別後重整即反映（Stage 2 將收斂 SchedulePage／VerticalTimeline 班別定義）
+- 已移除 `LS_KEYS.weekendShifts` 與 `getAvailableMinutes` 週末開關邏輯
 
 > 番茄頁趨勢（`PomodoroPage`）仍用 `MOCK.lineData`（番茄顆數），待下一階段真實化。
 
@@ -306,7 +314,8 @@ TH.gold    = "#FBBF24"   // 金幣
 - 番茄主頁今日統計／金幣收支已修正為只算當日（`date === localDateParts().date`）；Session 寫入 date 與金幣 log 統一 YYYY-MM-DD；今日統計三層番茄對比（滿1分／滿10分進步／滿25分紮實）
 - 圖表標題正名：番茄趨勢卡「趨勢(番茄顆數)」；行事曆 TriCharts 折線「趨勢(時長)」、長條「分佈(時長)」
 - 行事曆統計真實化：`lib/analytics.ts` 聚合 sessions；大分類單擊單選／長按多選；月曆四宮格番茄數 x/y（滿10／滿25）；移除 `CAT.chartDataFor`
-- 週曆：每日統計頁尾（時長＋番茄數）、繞行線依科目分色分段、待辦完整顯示（無 +N 裁切）
+- 週曆：每日統計頁尾（時長＋番茄數＋百分比）、繞行線依科目分色分段、待辦完整顯示（無 +N 裁切）
+- 可用時間單一來源 `lib/schedule.ts`（`availableMinutesFor` 吃 `day_plans`）；週曆同步課表班別唯讀標籤；移除 `weekend_shifts` 週末開關
 - 番茄鐘歷史頁（SessionHistoryPage）：每日評分對比（並排 😤🙂😴 + 有效／紮實統計，無框、上下靠近）；今日統計 ⌚ 入口已接線（`sessionHistory` subPage）
 - 金幣收支頁（CoinHistoryPage）：修復 UTF-8 編碼損毀；起訖時間後顯示時長；每日分組卡片框
 - 修正 `CFG.TODAY_STR` UTC 跨日 bug：新增 `lib/dateStr.ts` 的 `toLocalDateStr`（經 `utils` 匯出）；全專案「今天」統一本地日期算法

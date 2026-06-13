@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
 import { buildCalendarStats, sessionMatches } from "@/lib/analytics";
 import { CAT } from "@/lib/categories";
-import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
+import { availableMinutesFor, loadDayPlans, weekdayOf } from "@/lib/schedule";
 import type { Session } from "@/lib/types";
-import { fmt, getAvailableMinutes, getDaysInMonth, getFirstDow } from "@/lib/utils";
+import { fmt, getDaysInMonth, getFirstDow } from "@/lib/utils";
 import { Chip } from "@/components/ui/Chip";
 import { TriCharts } from "@/components/charts/TriCharts";
 
@@ -20,7 +20,6 @@ const WEEK_SLOTS = [
 ];
 
 type WeekSlotId = (typeof WEEK_SLOTS)[number]["id"];
-type WeekendShift = "早班" | "晚班";
 
 const WEEK_BORDER_PERIM = 214;
 const WEEK_BORDER_SEG = [
@@ -71,21 +70,6 @@ function calcProgressRange(startLen: number, endLen: number): ProgressLine[] {
     pos = segStart + seg.len;
   }
   return out;
-}
-
-function cycleWeekendShift(current?: WeekendShift): WeekendShift {
-  return current === "早班" ? "晚班" : "早班";
-}
-
-function shiftShortLabel(shift?: WeekendShift): string {
-  if (shift === "早班") return "早";
-  if (shift === "晚班") return "晚";
-  return "—";
-}
-
-function isWeekendDate(dateStr: string): boolean {
-  const dow = new Date(dateStr + "T12:00:00").getDay();
-  return dow === 0 || dow === 6;
 }
 
 function getWeekDates(weekOffset: number): string[] {
@@ -180,13 +164,7 @@ export function CalendarPage({
       }),
     [sessions, selCat1Set, selCat2, period, curY, curM],
   );
-  const [weekendShifts, setWeekendShifts] = useState<Record<string, WeekendShift>>(() =>
-    loadJSON<Record<string, WeekendShift>>(LS_KEYS.weekendShifts, {}),
-  );
-
-  useEffect(() => {
-    saveJSON(LS_KEYS.weekendShifts, weekendShifts);
-  }, [weekendShifts]);
+  const [dayPlans] = useState(loadDayPlans);
 
   const focusByDate = useMemo(() => {
     const map: Record<string, number> = {};
@@ -416,10 +394,11 @@ export function CalendarPage({
             {weekDates.map((dateStr) => {
               const isToday = dateStr === CFG.TODAY_STR;
               const label = dayViewLabel(dateStr);
-              const weekend = isWeekendDate(dateStr);
-              const shift = weekendShifts[dateStr];
               const dayFocus = focusByDate[dateStr] ?? 0;
-              const availMins = getAvailableMinutes(dateStr, weekendShifts[dateStr]);
+              const availMins = availableMinutesFor(dateStr, dayPlans);
+              const dayPlan = dayPlans[weekdayOf(dateStr)];
+              const shiftLabel =
+                dayPlan && dayPlan.shifts.length ? `${dayPlan.place}${dayPlan.shifts.join("")}` : "";
               const pct = availMins > 0 ? Math.round((dayFocus / availMins) * 100) : 0;
               const dayPomos = countByDate[dateStr] ?? 0;
               const dayCats = focusByDateCat[dateStr] ?? {};
@@ -538,31 +517,10 @@ export function CalendarPage({
                         }}
                       />
                     )}
-                    {weekend && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setWeekendShifts((prev) => ({
-                            ...prev,
-                            [dateStr]: cycleWeekendShift(prev[dateStr]),
-                          }));
-                        }}
-                        style={{
-                          marginTop: 2,
-                          fontSize: 8,
-                          fontWeight: 700,
-                          border: "none",
-                          borderRadius: 4,
-                          padding: "1px 4px",
-                          cursor: "pointer",
-                          color: shift ? "#111111" : TH.muted,
-                          background:
-                            shift === "早班" ? "#F59E0B33" : shift === "晚班" ? "#3B82F633" : TH.border + "88",
-                        }}
-                      >
-                        {shiftShortLabel(shift)}
-                      </button>
+                    {shiftLabel && (
+                      <div style={{ marginTop: 2, fontSize: 8, fontWeight: 700, color: TH.muted }}>
+                        {shiftLabel}
+                      </div>
                     )}
                   </div>
                   {WEEK_SLOTS.map((slot) => {
@@ -640,6 +598,15 @@ export function CalendarPage({
                       {fmt(dayFocus)}
                     </span>
                     <span style={{ fontSize: 8, color: TH.muted }}>🍅 {dayPomos}</span>
+                    <span
+                      style={{
+                        fontSize: 8,
+                        fontWeight: 700,
+                        color: pct >= 100 ? "#3B82F6" : dayFocus > 0 ? activeColor : TH.muted,
+                      }}
+                    >
+                      {pct}%
+                    </span>
                   </div>
                 </div>
               );
@@ -666,9 +633,7 @@ export function CalendarPage({
               const isToday =
                 day === CFG.TODAY.getDate() && curM === CFG.TODAY.getMonth() + 1 && curY === CFG.TODAY.getFullYear();
               const dateStr = `${curY}-${String(curM).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-              const isWeekend = new Date(dateStr + "T12:00:00").getDay() % 6 === 0;
-              const shift = isWeekend ? weekendShifts[dateStr] : undefined;
-              const availMins = getAvailableMinutes(dateStr, shift);
+              const availMins = availableMinutesFor(dateStr, dayPlans);
               const pct = availMins > 0 ? Math.round((mins / availMins) * 100) : 0;
               const firstDash = circ * Math.min(pct / 100, 1);
               const overflowDash = circ * Math.min(Math.max(pct - 100, 0) / 100, 1);
@@ -740,11 +705,6 @@ export function CalendarPage({
                       />
                     )}
                   </div>
-                  {isWeekend && shift && (
-                    <div style={{ fontSize: 7, color: TH.muted, marginTop: 1, fontWeight: 700 }}>
-                      {shiftShortLabel(shift)}
-                    </div>
-                  )}
                 </div>
               );
             })}
