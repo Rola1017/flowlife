@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
-import { TH } from "@/lib/theme";
+import { TH, readableTextOn } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { pctPos, pctH, buildTimelineHours, DS, DE, toM } from "@/lib/utils";
 import { CFG } from "@/lib/config";
@@ -583,7 +583,7 @@ export function VerticalTimeline({
               <div
                 style={{
                   fontSize: 9,
-                  color: "#111",
+                  color: readableTextOn(b.color),
                   fontWeight: 600,
                   overflow: "hidden",
                   textOverflow: "ellipsis",
@@ -633,7 +633,7 @@ export function VerticalTimeline({
               <div
                 style={{
                   fontSize: 9,
-                  color: "#fff",
+                  color: readableTextOn(col),
                   fontWeight: 600,
                   overflow: "hidden",
                   textOverflow: "ellipsis",
