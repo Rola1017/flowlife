@@ -6,6 +6,7 @@ import { TH } from "@/lib/theme";
 import { buildCalendarStats, sessionMatches } from "@/lib/analytics";
 import { CAT } from "@/lib/categories";
 import { availableMinutesFor, loadDayPlans, weekdayOf } from "@/lib/schedule";
+import { availableSegments, splitSessionsByAvailability } from "@/lib/idle";
 import type { Session } from "@/lib/types";
 import { fmt, getDaysInMonth, getFirstDow } from "@/lib/utils";
 import { Chip } from "@/components/ui/Chip";
@@ -30,36 +31,30 @@ const WEEK_BORDER_SEG = [
   { x1: 0.75, y1: 0.75, x2: 5, y2: 0.75, len: 4.25 },
 ] as const;
 
+const WEEK_BORDER_PERIM_OUTER = 218.4;
+const WEEK_BORDER_SEG_OUTER = [
+  { x1: 5, y1: 0.2, x2: 9.8, y2: 0.2, len: 4.8 },
+  { x1: 9.8, y1: 0.2, x2: 9.8, y2: 99.8, len: 99.6 },
+  { x1: 9.8, y1: 99.8, x2: 0.2, y2: 99.8, len: 9.6 },
+  { x1: 0.2, y1: 99.8, x2: 0.2, y2: 0.2, len: 99.6 },
+  { x1: 0.2, y1: 0.2, x2: 5, y2: 0.2, len: 4.8 },
+] as const;
+
 type ProgressLine = { x1: number; y1: number; x2: number; y2: number };
 
-function calcProgressLines(target: number): ProgressLine[] {
-  let rem = target;
-  const drawnLines: ProgressLine[] = [];
-  for (const seg of WEEK_BORDER_SEG) {
-    if (rem <= 0) break;
-    const d = Math.min(rem, seg.len);
-    const r = d / seg.len;
-    drawnLines.push({
-      x1: seg.x1,
-      y1: seg.y1,
-      x2: seg.x1 + (seg.x2 - seg.x1) * r,
-      y2: seg.y1 + (seg.y2 - seg.y1) * r,
-    });
-    rem -= d;
-  }
-  return drawnLines;
-}
-
-function calcProgressRange(startLen: number, endLen: number): ProgressLine[] {
+function calcRangeOn(
+  segs: readonly { x1: number; y1: number; x2: number; y2: number; len: number }[],
+  startLen: number,
+  endLen: number,
+): ProgressLine[] {
   const out: ProgressLine[] = [];
   let pos = 0;
-  for (const seg of WEEK_BORDER_SEG) {
-    const segStart = pos;
-    const a = Math.max(startLen, segStart);
-    const b = Math.min(endLen, segStart + seg.len);
+  for (const seg of segs) {
+    const a = Math.max(startLen, pos),
+      b = Math.min(endLen, pos + seg.len);
     if (b > a) {
-      const r1 = (a - segStart) / seg.len;
-      const r2 = (b - segStart) / seg.len;
+      const r1 = (a - pos) / seg.len,
+        r2 = (b - pos) / seg.len;
       out.push({
         x1: seg.x1 + (seg.x2 - seg.x1) * r1,
         y1: seg.y1 + (seg.y2 - seg.y1) * r1,
@@ -67,7 +62,7 @@ function calcProgressRange(startLen: number, endLen: number): ProgressLine[] {
         y2: seg.y1 + (seg.y2 - seg.y1) * r2,
       });
     }
-    pos = segStart + seg.len;
+    pos += seg.len;
   }
   return out;
 }
@@ -176,14 +171,11 @@ export function CalendarPage({
     return map;
   }, [sessions, selCat1Set, selCat2]);
 
-  const focusByDateCat = useMemo(() => {
-    const map: Record<string, Record<string, number>> = {};
+  const sessionsByDate = useMemo(() => {
+    const map: Record<string, Session[]> = {};
     for (const s of sessions) {
-      if (!s.date) continue;
-      if (!sessionMatches(s, selCat1Set, selCat2)) continue;
-      (map[s.date] ??= {});
-      const k = s.cat1 || "未分類";
-      map[s.date][k] = (map[s.date][k] ?? 0) + (s.mins ?? 0);
+      if (!s.date || !sessionMatches(s, selCat1Set, selCat2)) continue;
+      (map[s.date] ??= []).push(s);
     }
     return map;
   }, [sessions, selCat1Set, selCat2]);
@@ -396,27 +388,35 @@ export function CalendarPage({
               const label = dayViewLabel(dateStr);
               const dayFocus = focusByDate[dateStr] ?? 0;
               const availMins = availableMinutesFor(dateStr, dayPlans);
+              const availSegs = availableSegments(dateStr, 0, 1440, dayPlans);
+              const { within, off, withinByCat1 } = splitSessionsByAvailability(
+                sessionsByDate[dateStr] ?? [],
+                availSegs,
+              );
+              const totalPct = availMins > 0 ? Math.round(((within + off) / availMins) * 100) : 0;
               const dayPlan = dayPlans[weekdayOf(dateStr)];
               const shiftLabel =
                 dayPlan && dayPlan.shifts.length ? `${dayPlan.place}${dayPlan.shifts.join("")}` : "";
-              const pct = availMins > 0 ? Math.round((dayFocus / availMins) * 100) : 0;
               const dayPomos = countByDate[dateStr] ?? 0;
-              const dayCats = focusByDateCat[dateStr] ?? {};
+
+              // 第一圈：可用內讀書（依分類上色）→ 接「未利用」灰色，剛好一圈
               const catSegs: { lines: ProgressLine[]; color: string }[] = [];
               let segAcc = 0;
               for (const c1 of CAT.cat1List()) {
-                const m = dayCats[c1];
+                const m = withinByCat1[c1];
                 if (!m) continue;
                 const segLen = availMins > 0 ? (m / availMins) * WEEK_BORDER_PERIM : 0;
-                const start = segAcc;
                 const end = Math.min(segAcc + segLen, WEEK_BORDER_PERIM);
-                if (end > start) catSegs.push({ lines: calcProgressRange(start, end), color: CAT.cat1Color(c1) });
+                if (end > segAcc) catSegs.push({ lines: calcRangeOn(WEEK_BORDER_SEG, segAcc, end), color: CAT.cat1Color(c1) });
                 segAcc += segLen;
                 if (segAcc >= WEEK_BORDER_PERIM) break;
               }
-              const overflowPct = Math.max(pct - 100, 0);
-              const overflowTarget = (WEEK_BORDER_PERIM * Math.min(overflowPct, 100)) / 100;
-              const blueLines = overflowPct > 0 ? calcProgressLines(overflowTarget) : [];
+              const idleLines =
+                segAcc < WEEK_BORDER_PERIM ? calcRangeOn(WEEK_BORDER_SEG, segAcc, WEEK_BORDER_PERIM) : [];
+
+              // 第二圈：加碼（吃睡上班時間讀書）走獨立外圈，不與第一圈重疊
+              const offLen = availMins > 0 ? Math.min(off / availMins, 1) * WEEK_BORDER_PERIM_OUTER : 0;
+              const blueLines = offLen > 0 ? calcRangeOn(WEEK_BORDER_SEG_OUTER, 0, offLen) : [];
               return (
                 <div
                   key={dateStr}
@@ -477,6 +477,18 @@ export function CalendarPage({
                         />
                       )),
                     )}
+                    {idleLines.map((ln, i) => (
+                      <line
+                        key={`idle-${i}`}
+                        x1={ln.x1}
+                        y1={ln.y1}
+                        x2={ln.x2}
+                        y2={ln.y2}
+                        stroke="#4B5563"
+                        strokeWidth={isToday ? 1.5 : 1.2}
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    ))}
                     {blueLines.map((ln, i) => (
                       <line
                         key={`ov-${i}`}
@@ -602,10 +614,10 @@ export function CalendarPage({
                       style={{
                         fontSize: 8,
                         fontWeight: 700,
-                        color: pct >= 100 ? "#3B82F6" : dayFocus > 0 ? activeColor : TH.muted,
+                        color: totalPct >= 100 ? "#3B82F6" : dayFocus > 0 ? activeColor : TH.muted,
                       }}
                     >
-                      {pct}%
+                      {totalPct}%
                     </span>
                   </div>
                 </div>

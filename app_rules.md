@@ -272,10 +272,10 @@ TH.gold    = "#FBBF24"   // 金幣
 **連動**：月曆圈圈 `focusByDate`、四宮格、`TriCharts` 三圖皆吃 `sessionMatches` 篩選。
 
 **週曆**（`calView === "week"`）：
-- 每欄底部頁尾：上排專注時長 `fmt(dayFocus)`、中排 `🍅` 番茄顆數、下排百分比 `{pct}%`（≥100% 藍色）
-- 繞行線依大分類分段上色：`focusByDateCat` + `calcProgressRange`；總長＝當天時長÷可用時間；超過 100% 藍線 overflow 保留
+- 每欄底部頁尾：上排專注時長 `fmt(dayFocus)`、中排 `🍅` 番茄顆數、下排 `{totalPct}%`（≥100% 藍色，可破百）
+- **繞行線三段（95/10/5 模型）**：第一圈＝可用內讀書（分類色）＋未利用（灰 `#4B5563`）剛好一圈；第二圈外圈＝加碼 off-hours 讀書（藍 `#3B82F6`，`WEEK_BORDER_SEG_OUTER` 不重疊）；資料來自 `lib/idle.splitSessionsByAvailability`
 - 待辦完整顯示：早／午／晚時段無 3 筆上限、無 `+N`；`minHeight: 40` 隨內容長高
-- 標頭唯讀班別：`{place}{shifts}`（如「彩晚」「診晚」），來自 `dayPlans`；**不再**有週末早/晚開關
+- 標頭時段標籤：早 06-12／午 12-18／晚 **18-24**；唯讀班別 `{place}{shifts}`（如「彩晚」「診晚」），來自 `dayPlans`
 
 **可用時間**（`lib/schedule.ts` → `availableMinutesFor` / `blockedRanges`）：
 - 不可用區間單一來源：`blockedRanges(date)`＝固定作息 `ROUTINE_RANGES` ∪ 當日班別（已合併）
@@ -350,6 +350,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - 作息統一為 `lib/schedule.FIXED_ROUTINE` 單一來源（含 `routineBlocksInWindow`）；`availableMinutesFor` 改讀 `ROUTINE_RANGES`；移除 `lib/utils.getAvailableMinutes` 死碼。
 - **第二層完成**——時間軸與課表顯示改吃 `FIXED_ROUTINE`，emoji 統一 🍴/😴，早餐 07:00–08:00、22:30 可排課。
 - **第三層完成**——未利用改「可用內」算法：抽 `lib/idle.ts`；`blockedRanges` 為不可用單一來源；時間軸灰塊＝可用時間內空檔（off-hours 番茄不遮蓋）。
+- **週曆三段線完成**：95/10/5 模型上線（可用內＋未利用第一圈、加碼外圈藍線、`totalPct` 可破百）。
 
 ---
 
@@ -358,7 +359,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - ⬜ 待辦提醒：依 `reminder` 觸發推播／系統通知（目前僅儲存設定）
 - ⬜ 健康模組
 - ⬜ 閱讀模組
-- ⬜ **覆盤／閱讀筆記佔位**：主頁假覆盤卡已除；專屬週／月洞察覆盤頁仍 ⬜（含未利用時間趨勢；`lib/idle.ts` 已就緒，週曆三段線待接 `splitSessionsByAvailability`）
+- ⬜ **覆盤／閱讀筆記佔位**：主頁假覆盤卡已除；專屬週／月洞察覆盤頁仍 ⬜（未利用時間趨勢可接 `lib/idle.idleMinutes`）
 - ⬜ PWA 圖示（手機安裝用）
 - ⬜ Git 功能分支習慣建立
 - ⬜ Supabase（確定多人使用再做）
