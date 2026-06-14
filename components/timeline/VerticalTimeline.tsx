@@ -5,28 +5,8 @@ import { TH } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { pctPos, pctH, buildTimelineHours, DS, DE, toM } from "@/lib/utils";
 import { CFG } from "@/lib/config";
+import { PLACE_NAME, shiftRange, loadDayPlans, weekdayOf } from "@/lib/schedule";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
-
-const DAY_KEYS = ["日", "一", "二", "三", "四", "五", "六"]; // JS getDay() 0=日
-const dateToDayKey = (dateStr: string): string => {
-  const d = new Date(dateStr + "T12:00:00");
-  return DAY_KEYS[d.getDay()];
-};
-
-type Place = "診" | "彩";
-const PLACE_NAME: Record<Place, string> = { 診: "診所", 彩: "彩券行" };
-const isMonWedFri = (day: string) => day === "一" || day === "三" || day === "五";
-const shiftRangeOf = (place: Place, shift: string, day: string): [string, string] | null => {
-  if (place === "診") {
-    if (shift === "早") return ["08:30", "12:00"];
-    if (shift === "午") return isMonWedFri(day) ? ["14:00", "18:00"] : ["14:30", "18:00"];
-    if (shift === "晚") return ["18:00", "22:00"];
-  } else {
-    if (shift === "早") return ["07:30", "14:00"];
-    if (shift === "晚") return ["14:00", "22:00"];
-  }
-  return null;
-};
 
 type TodoOverlay = {
   id: number;
@@ -66,7 +46,7 @@ export function VerticalTimeline({
   const hours = buildTimelineHours();
 
   const schedulePln = useMemo(() => {
-    const dayKey = dateToDayKey(date);
+    const dayKey = weekdayOf(date);
 
     type Cell = { t: string; n: string; cat1: string; cat2: string; cat3: string };
     const week = loadJSON<Record<string, Cell[]>>(LS_KEYS.weekSchedule, {});
@@ -103,16 +83,16 @@ export function VerticalTimeline({
       return { start: cell.t, end, label, color, kind: "course" as const };
     });
 
-    type DayPlan = { place: Place; shifts: string[] };
-    const dayPlans = loadJSON<Record<string, DayPlan>>(LS_KEYS.dayPlans, {});
+    const dayPlans = loadDayPlans();
     const plan = dayPlans[dayKey];
     const shiftBlocks = (plan?.shifts ?? []).flatMap((s) => {
-      const range = plan ? shiftRangeOf(plan.place, s, dayKey) : null;
-      if (!range) return [];
+      const r = plan ? shiftRange(plan.place, s, dayKey) : "";
+      if (!r) return [];
+      const [start, end] = r.split("~");
       return [
         {
-          start: range[0],
-          end: range[1],
+          start,
+          end,
           label: `兼差:${PLACE_NAME[plan.place]}`,
           color: CAT.cat2Color("兼差", PLACE_NAME[plan.place]),
           kind: "shift" as const,

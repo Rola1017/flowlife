@@ -267,7 +267,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - 分母＝1440 −（固定不可用 ∪ 當日 `day_plans` 班別）合併封鎖
 - 固定不可用：睡眠 00:00–06:30、午餐+午覺 12:00–13:30、晚餐 17:00–18:00、夜間 23:00–24:00
 - 週曆／月曆圈圈百分比皆吃此函式；課表改班別後重整即反映
-- **班別邏輯消債**：`SchedulePage` 已改 import `lib/schedule.ts`（技術債 #1 課表頁部分已還）；`VerticalTimeline` 仍自有 `shiftRangeOf`，待收斂
+- **班別邏輯**（技術債 #1 **已完成**）：`SchedulePage`、`CalendarPage`、`VerticalTimeline` 皆 import `lib/schedule.ts`（`PLACE_NAME` / `shiftRange` / `loadDayPlans` / `weekdayOf` / `availableMinutesFor`）。`FIXED_BLOCKS`（🍴/😴 顯示方塊）仍為時間軸本地定義，與 `FIXED_UNAVAIL`（可用時間扣除）無關。
 - 已移除 `LS_KEYS.weekendShifts` 與 `getAvailableMinutes` 週末開關邏輯
 
 > 番茄頁趨勢（`PomodoroPage`）仍用 `MOCK.lineData`（番茄顆數），待下一階段真實化。
@@ -318,6 +318,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - 週曆：每日統計頁尾（時長＋番茄數＋百分比）、繞行線依科目分色分段、待辦完整顯示（無 +N 裁切）
 - 可用時間單一來源 `lib/schedule.ts`（`availableMinutesFor` 吃 `day_plans`）；週曆同步課表班別唯讀標籤；移除 `weekend_shifts` 週末開關
 - `SchedulePage` 班別邏輯改 import `lib/schedule.ts`（移除本地 PLACE_* / shiftTimes / shiftRange 重複定義）
+- `VerticalTimeline` PLN 班別方塊改 import `lib/schedule.ts`（`loadDayPlans` + `shiftRange`）；技術債 #1 班別單一來源完成
 - 番茄鐘歷史頁（SessionHistoryPage）：每日評分對比（並排 😤🙂😴 + 有效／紮實統計，無框、上下靠近）；今日統計 ⌚ 入口已接線（`sessionHistory` subPage）
 - 金幣收支頁（CoinHistoryPage）：修復 UTF-8 編碼損毀；起訖時間後顯示時長；每日分組卡片框
 - 修正 `CFG.TODAY_STR` UTC 跨日 bug：新增 `lib/dateStr.ts` 的 `toLocalDateStr`（經 `utils` 匯出）；全專案「今天」統一本地日期算法
