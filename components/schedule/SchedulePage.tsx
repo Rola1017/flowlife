@@ -5,6 +5,15 @@ import { TH } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { MOCK } from "@/lib/mock";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
+import {
+  type Place,
+  type DayPlan,
+  PLACE_NAME,
+  PLACE_SHIFTS,
+  shiftTimes,
+  shiftRange,
+  loadDayPlans,
+} from "@/lib/schedule";
 import { Card, SL } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { BackBtn } from "@/components/ui/BackBtn";
@@ -24,23 +33,6 @@ type RawSchedRow = {
 type RowDef =
   | { kind: "fixed"; times: string[]; label: string; span: "all" | "weekday" }
   | { kind: "class"; time: string };
-
-type Place = "診" | "彩";
-
-type DayPlan = { place: Place; shifts: string[] };
-
-const PLACE_NAME: Record<Place, string> = { 診: "診所", 彩: "彩券行" };
-const PLACE_SHIFTS: Record<Place, string[]> = { 診: ["早", "午", "晚"], 彩: ["早", "晚"] };
-
-const DEFAULT_PLANS: Record<string, DayPlan> = {
-  一: { place: "診", shifts: ["晚"] },
-  二: { place: "診", shifts: ["晚"] },
-  三: { place: "診", shifts: ["晚"] },
-  四: { place: "診", shifts: ["晚"] },
-  五: { place: "診", shifts: ["晚"] },
-  六: { place: "彩", shifts: ["晚"] },
-  日: { place: "彩", shifts: ["晚"] },
-};
 
 const ROWS: RowDef[] = [
   { kind: "fixed", times: ["06:30"], label: "😴 起床", span: "all" },
@@ -89,70 +81,6 @@ const STEP = ROW_H + GAP;
 const DAYS = ["一", "二", "三", "四", "五", "六", "日"] as const;
 const COL_W = `calc((100% - 44px - ${7 * GAP}px) / 7)`;
 
-const isMonWedFri = (day: string) => day === "一" || day === "三" || day === "五";
-
-const shiftTimes = (place: Place, shift: string, day: string): string[] => {
-  if (place === "診") {
-    if (shift === "早")
-      return ["08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30"];
-    if (shift === "午")
-      return isMonWedFri(day)
-        ? ["14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30"]
-        : ["14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30"];
-    if (shift === "晚")
-      return ["18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00", "21:30"];
-  } else {
-    if (shift === "早")
-      return [
-        "07:30",
-        "08:00",
-        "08:30",
-        "09:00",
-        "09:30",
-        "10:00",
-        "10:30",
-        "11:00",
-        "11:30",
-        "12:00",
-        "12:30",
-        "13:00",
-        "13:30",
-      ];
-    if (shift === "晚")
-      return [
-        "14:00",
-        "14:30",
-        "15:00",
-        "15:30",
-        "16:00",
-        "16:30",
-        "17:00",
-        "17:30",
-        "18:00",
-        "18:30",
-        "19:00",
-        "19:30",
-        "20:00",
-        "20:30",
-        "21:00",
-        "21:30",
-      ];
-  }
-  return [];
-};
-
-const shiftRange = (place: Place, shift: string, day: string): string => {
-  if (place === "診") {
-    if (shift === "早") return "08:30~12:00";
-    if (shift === "午") return isMonWedFri(day) ? "14:00~18:00" : "14:30~18:00";
-    if (shift === "晚") return "18:00~22:00";
-  } else {
-    if (shift === "早") return "07:30~14:00";
-    if (shift === "晚") return "14:00~22:00";
-  }
-  return "";
-};
-
 function normalizeSchedule(raw: Record<string, RawSchedRow[]>): Record<string, SchedRow[]> {
   const out: Record<string, SchedRow[]> = {};
   for (const [day, rows] of Object.entries(raw)) {
@@ -198,12 +126,7 @@ export function SchedulePage({
       loadJSON(LS_KEYS.weekSchedule, MOCK.weekdaySchedule as Record<string, RawSchedRow[]>),
     ),
   );
-  const [dayPlans, setDayPlans] = useState<Record<string, DayPlan>>(() => {
-    const loaded = loadJSON<Record<string, DayPlan>>(LS_KEYS.dayPlans, {});
-    const merged: Record<string, DayPlan> = {};
-    for (const d of DAYS) merged[d] = loaded[d] ?? DEFAULT_PLANS[d] ?? { place: "彩", shifts: [] };
-    return merged;
-  });
+  const [dayPlans, setDayPlans] = useState<Record<string, DayPlan>>(loadDayPlans);
   type EditTarget = { d: string; t: string };
   const [editTargets, setEditTargets] = useState<EditTarget[] | null>(null);
   const [draft, setDraft] = useState<Draft>({ name: "", cat1: "學習", cat2: "", cat3: "" });
