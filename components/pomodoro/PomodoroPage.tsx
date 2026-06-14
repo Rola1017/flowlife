@@ -392,7 +392,15 @@ export function PomodoroPage({
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, position: "relative" }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, width: "100%" }}>
+      <CourseBanner
+        onQuickStart={
+          mode !== "focus"
+            ? (c) => quickStart({ cat1: c.cat1, cat2: c.cat2, cat3: c.cat3, name: c.n })
+            : undefined
+        }
+      />
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, position: "relative", width: "100%" }}>
       <style>{`
         @keyframes flowlifePulseDone {
           0% { transform: scale(0.92); opacity: 0; }
@@ -450,13 +458,6 @@ export function PomodoroPage({
           100% { transform: translate(calc(-50% - 122px), calc(-50% - 108px)) scale(0.2); opacity: 0; }
         }
       `}</style>
-      <CourseBanner
-        onQuickStart={
-          mode !== "focus"
-            ? (c) => quickStart({ cat1: c.cat1, cat2: c.cat2, cat3: c.cat3, name: c.n })
-            : undefined
-        }
-      />
       {rewardFx && (
         <div
           style={{
@@ -1128,6 +1129,7 @@ export function PomodoroPage({
       >
         🏪 商店 · 🪙 {coins.toLocaleString()} 金幣
       </button>
+      </div>
     </div>
   );
 }
