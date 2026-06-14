@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, SL } from "@/components/ui/Card";
 import { TodoCard } from "@/components/todo/TodoCard";
 import { BattleCard } from "@/components/home/BattleCard";
+import { CourseBanner } from "@/components/schedule/CourseBanner";
 import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
 import { getPeriod } from "@/lib/utils";
@@ -39,8 +40,23 @@ export function HomePage({
   });
   const PL = { 早: "🌅 早（6~12）", 午: "☀️ 午（12~18）", 晚: "🌆 晚（18~24）" };
 
+  const nextTodo = useMemo(() => {
+    const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+    const cand = (todos as Array<{ date?: string; phase?: string; startTime?: string; text?: string }>)
+      .filter((t) => t.date === CFG.TODAY_STR && t.phase !== "done" && /^\d{1,2}:\d{2}/.test(t.startTime ?? ""))
+      .map((t) => {
+        const [h, m] = (t.startTime as string).split(":").map(Number);
+        return { t, m: h * 60 + (m || 0) };
+      })
+      .filter((x) => x.m >= nowMin)
+      .sort((a, b) => a.m - b.m);
+    const top = cand[0];
+    return top ? { text: top.t.text || "待辦", time: top.t.startTime } : null;
+  }, [todos]);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <CourseBanner fallback={nextTodo} />
       <div style={{ display: "flex", gap: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <BattleCard title="昨日" pomos={yesterdaySessions} prevMins={350} prevCount={6} />

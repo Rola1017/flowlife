@@ -12,6 +12,7 @@ import { CategorySelector } from "@/components/pomodoro/CategorySelector";
 import { CatBadge } from "@/components/pomodoro/CatBadge";
 import { RingTimer } from "@/components/pomodoro/RingTimer";
 import { usePomodoro, type CoinIncomeLogRow } from "@/components/pomodoro/usePomodoro";
+import { CourseBanner } from "@/components/schedule/CourseBanner";
 import type { Session } from "@/lib/types";
 import { WeekHeat } from "@/components/charts/WeekHeat";
 import { LineChart } from "@/components/charts/LineChart";
@@ -114,6 +115,7 @@ export function PomodoroPage({
     recentCoinIncomeLog,
     setCoinIncomeLog,
     startFocus,
+    quickStart,
     endFocus,
     addRestTime,
     confirmRating,
@@ -448,6 +450,13 @@ export function PomodoroPage({
           100% { transform: translate(calc(-50% - 122px), calc(-50% - 108px)) scale(0.2); opacity: 0; }
         }
       `}</style>
+      <CourseBanner
+        onQuickStart={
+          mode !== "focus"
+            ? (c) => quickStart({ cat1: c.cat1, cat2: c.cat2, cat3: c.cat3, name: c.n })
+            : undefined
+        }
+      />
       {rewardFx && (
         <div
           style={{

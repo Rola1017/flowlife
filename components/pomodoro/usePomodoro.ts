@@ -232,11 +232,10 @@ export function usePomodoro({
     return () => clearInterval(t);
   }, [idleTrackStart]);
 
-  const startFocus = () => {
-    if (!canStart) return;
+  const beginFocus = (sel: { name: string; cat1: string; cat2: string; cat3: string }) => {
     focusStartRef.current = Date.now();
     focusStartClockRef.current = localDateParts().time;
-    setConfirmed({ name: taskName || catSel.cat1, ...catSel });
+    setConfirmed(sel);
     setSecs(dur * 60);
     elRef.current = 0;
     setMode("focus");
@@ -247,6 +246,19 @@ export function usePomodoro({
     stopIdleAndAccumulate();
     setRestEndAt(null);
     setRestTotalSecs(0);
+  };
+
+  const startFocus = () => {
+    if (!canStart) return;
+    beginFocus({ name: taskName || catSel.cat1, ...catSel });
+  };
+
+  const quickStart = (sel: { cat1: string; cat2?: string; cat3?: string; name?: string }) => {
+    if (!sel.cat1) return;
+    const norm = { cat1: sel.cat1, cat2: sel.cat2 || "", cat3: sel.cat3 || "" };
+    setCatSel(norm);
+    setTaskName(sel.name || "");
+    beginFocus({ name: sel.name || sel.cat1, ...norm });
   };
 
   const endFocus = () => {
@@ -461,6 +473,7 @@ export function usePomodoro({
     recentCoinIncomeLog,
     setCoinIncomeLog,
     startFocus,
+    quickStart,
     endFocus,
     addRestTime,
     confirmRating,

@@ -49,7 +49,7 @@ components/
 │
 ├── calendar/（CalendarPage / DayViewPage）
 ├── todo/（TodoCard / useTodos.ts）
-├── schedule/（SchedulePage）
+├── schedule/（SchedulePage / CourseBanner）
 ├── settings/（SettingsPage — 重置資料、顯示 v1.0.0）
 └── shop/（ShopPage）
 
@@ -60,7 +60,7 @@ lib/
 ├── mock.ts       ← MOCK 假資料
 ├── utils.ts      ← fmt / toLocalDateStr / pctPos / pctH / buildTimelineHours / DS / DE / DT / toM
 ├── analytics.ts  ← 行事曆／圖表統計聚合（sessionMatches / buildCalendarStats）
-├── schedule.ts   ← 班別定義（Place/DayPlan/PLACE_* / shiftTimes/shiftRange/loadDayPlans/availableMinutesFor）單一來源
+├── schedule.ts   ← 班別定義 + currentOrNextCourse 課程查找 + availableMinutesFor（單一來源）
 ├── tabs.ts       ← TABS 導航設定
 └── storage.ts    ← LS_KEYS + loadJSON / saveJSON
 ```
@@ -236,6 +236,12 @@ TH.gold    = "#FBBF24"   // 金幣
 | 行事曆長條圖（`TriCharts`） | `{period} {label} 分佈(時長)` |
 | 行事曆圓餅圖 | 不變：`{period} {label} 圓餅圖` |
 
+**當前/即將課程橫幅**（`CourseBanner` + `lib/schedule.currentOrNextCourse`）：
+- 讀 `week_schedule`，依現在時間找「當前 30 分鐘格內」或「下一堂課」
+- **主頁**（`HomePage`）：頂部橫幅；無課時 fallback 顯示接下來的待辦；無「一鍵開始」
+- **番茄頁**（`PomodoroPage`）：同款橫幅 +「一鍵開始 🍅」→ `usePomodoro.quickStart`（帶入分類/名稱並立即 `beginFocus`）；專注中隱藏按鈕
+- 每 30 秒自動刷新
+
 ---
 
 ## 八（補2）、行事曆統計（CalendarPage + `lib/analytics.ts`）
@@ -319,6 +325,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - 可用時間單一來源 `lib/schedule.ts`（`availableMinutesFor` 吃 `day_plans`）；週曆同步課表班別唯讀標籤；移除 `weekend_shifts` 週末開關
 - `SchedulePage` 班別邏輯改 import `lib/schedule.ts`（移除本地 PLACE_* / shiftTimes / shiftRange 重複定義）
 - `VerticalTimeline` PLN 班別方塊改 import `lib/schedule.ts`（`loadDayPlans` + `shiftRange`）；技術債 #1 班別單一來源完成
+- 當前/即將課程：`lib/schedule.currentOrNextCourse`；共用 `CourseBanner`（主頁 + 番茄頁）；`usePomodoro.quickStart` 一鍵開始
 - 番茄鐘歷史頁（SessionHistoryPage）：每日評分對比（並排 😤🙂😴 + 有效／紮實統計，無框、上下靠近）；今日統計 ⌚ 入口已接線（`sessionHistory` subPage）
 - 金幣收支頁（CoinHistoryPage）：修復 UTF-8 編碼損毀；起訖時間後顯示時長；每日分組卡片框
 - 修正 `CFG.TODAY_STR` UTC 跨日 bug：新增 `lib/dateStr.ts` 的 `toLocalDateStr`（經 `utils` 匯出）；全專案「今天」統一本地日期算法

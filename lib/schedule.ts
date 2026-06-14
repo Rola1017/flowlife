@@ -133,3 +133,27 @@ export function availableMinutesFor(dateStr: string, dayPlans?: Record<string, D
   if (curE > curS) blocked += curE - curS;
   return Math.max(0, 1440 - blocked);
 }
+
+export type CourseInfo = { t: string; n: string; cat1: string; cat2: string; cat3: string };
+export type CourseNow = { status: "current" | "next"; course: CourseInfo; endTime: string };
+
+const fmtHM = (m: number) =>
+  `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+
+/** 依「現在時間」找當前課（落在某格 30 分鐘內）或今天接下來的下一堂課 */
+export function currentOrNextCourse(now: Date = new Date()): CourseNow | null {
+  const dayKey = WEEKDAY_FROM_DOW[now.getDay()];
+  const week = loadJSON<Record<string, CourseInfo[]>>(LS_KEYS.weekSchedule, {});
+  const cells = (week[dayKey] ?? []).slice().sort((a, b) => a.t.localeCompare(b.t));
+  if (cells.length === 0) return null;
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  for (const c of cells) {
+    const start = toMin(c.t);
+    if (nowMin >= start && nowMin < start + 30) return { status: "current", course: c, endTime: fmtHM(start + 30) };
+  }
+  for (const c of cells) {
+    const start = toMin(c.t);
+    if (start > nowMin) return { status: "next", course: c, endTime: fmtHM(start + 30) };
+  }
+  return null;
+}
