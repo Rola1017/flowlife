@@ -97,20 +97,45 @@ const toMin = (t: string) => {
   return h * 60 + m;
 };
 
-// 固定不可用：睡眠 00:00–06:30、午餐+午覺 12:00–13:30、晚餐 17:00–18:00、夜間 23:00–24:00
-const FIXED_UNAVAIL: [number, number][] = [
-  [0, 390],
-  [720, 810],
-  [1020, 1080],
-  [1380, 1440],
+const fmtHM = (m: number) =>
+  `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+
+export type RoutineBlock = { start: string; end: string; label: string };
+
+/**
+ * 固定作息（不可用時間）— 全 App 單一來源。全天 24h。
+ * 可用時間／直式行程表／課表／未利用時間皆由此衍生，禁止再各自寫死。
+ * 未來 Supabase 階段抽成使用者可編輯設定（與班別 WorkplaceConfig 同批）。
+ */
+export const FIXED_ROUTINE: RoutineBlock[] = [
+  { start: "00:00", end: "06:30", label: "😴 睡眠" },
+  { start: "06:30", end: "07:00", label: "😴 起床" },
+  { start: "07:00", end: "08:00", label: "🍴 早餐" },
+  { start: "12:00", end: "13:00", label: "🍴 午餐" },
+  { start: "13:00", end: "13:30", label: "😴 午覺" },
+  { start: "17:00", end: "18:00", label: "🍴 晚餐" },
+  { start: "23:00", end: "24:00", label: "😴 睡覺" },
 ];
+
+const ROUTINE_RANGES: [number, number][] = FIXED_ROUTINE.map((b) => [toMin(b.start), toMin(b.end)]);
+
+/** 取 [startMin,endMin] 內、已裁切的作息塊（給直式行程表／課表顯示共用） */
+export function routineBlocksInWindow(startMin: number, endMin: number): RoutineBlock[] {
+  const out: RoutineBlock[] = [];
+  for (const b of FIXED_ROUTINE) {
+    const s = Math.max(startMin, toMin(b.start));
+    const e = Math.min(endMin, toMin(b.end));
+    if (e > s) out.push({ start: fmtHM(s), end: fmtHM(e), label: b.label });
+  }
+  return out;
+}
 
 /** 某日可用分鐘數＝1440 −（固定不可用 ∪ 當天課表班別）合併後的總長 */
 export function availableMinutesFor(dateStr: string, dayPlans?: Record<string, DayPlan>): number {
   const plans = dayPlans ?? loadDayPlans();
   const day = weekdayOf(dateStr);
   const plan = plans[day];
-  const ranges: [number, number][] = [...FIXED_UNAVAIL];
+  const ranges: [number, number][] = [...ROUTINE_RANGES];
   if (plan) {
     for (const s of plan.shifts) {
       const r = shiftRange(plan.place, s, day);
@@ -136,9 +161,6 @@ export function availableMinutesFor(dateStr: string, dayPlans?: Record<string, D
 
 export type CourseInfo = { t: string; n: string; cat1: string; cat2: string; cat3: string };
 export type CourseNow = { status: "current" | "next"; course: CourseInfo; endTime: string };
-
-const fmtHM = (m: number) =>
-  `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 
 /** 依「現在時間」找當前課（落在某格 30 分鐘內）或今天接下來的下一堂課 */
 export function currentOrNextCourse(now: Date = new Date()): CourseNow | null {

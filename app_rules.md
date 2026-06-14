@@ -278,11 +278,11 @@ TH.gold    = "#FBBF24"   // 金幣
 - 標頭唯讀班別：`{place}{shifts}`（如「彩晚」「診晚」），來自 `dayPlans`；**不再**有週末早/晚開關
 
 **可用時間**（`lib/schedule.ts` → `availableMinutesFor`）：
-- 分母＝1440 −（固定不可用 ∪ 當日 `day_plans` 班別）合併封鎖
-- 固定不可用：睡眠 00:00–06:30、午餐+午覺 12:00–13:30、晚餐 17:00–18:00、夜間 23:00–24:00
+- 分母＝1440 −（固定作息 ∪ 當日 `day_plans` 班別）合併封鎖
+- 固定作息單一來源：`FIXED_ROUTINE`（`ROUTINE_RANGES` 衍生）— 睡眠 00:00–06:30、起床 06:30–07:00、早餐 07:00–08:00、午餐 12:00–13:00、午覺 13:00–13:30、晚餐 17:00–18:00、睡覺 23:00–24:00；無班別時基準可用 **750 分**（1440−690）
 - 週曆／月曆圈圈百分比皆吃此函式；課表改班別後重整即反映
-- **班別邏輯**（技術債 #1 **已完成**）：`SchedulePage`、`CalendarPage`、`VerticalTimeline` 皆 import `lib/schedule.ts`（`PLACE_NAME` / `shiftRange` / `loadDayPlans` / `weekdayOf` / `availableMinutesFor`）。`FIXED_BLOCKS`（🍴/😴 顯示方塊）仍為時間軸本地定義，與 `FIXED_UNAVAIL`（可用時間扣除）無關。
-- 已移除 `LS_KEYS.weekendShifts` 與 `getAvailableMinutes` 週末開關邏輯
+- **班別邏輯**（技術債 #1 **已完成**）：`SchedulePage`、`CalendarPage`、`VerticalTimeline` 皆 import `lib/schedule.ts`（`PLACE_NAME` / `shiftRange` / `loadDayPlans` / `weekdayOf` / `availableMinutesFor`）。`FIXED_BLOCKS`（🍴/😴 顯示方塊）仍為時間軸本地定義，後續應改讀 `FIXED_ROUTINE`／`routineBlocksInWindow`
+- 已移除 `LS_KEYS.weekendShifts` 與 `lib/utils.getAvailableMinutes` 死碼
 
 ---
 
@@ -346,6 +346,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **技術債 #2（實色底文字色寫死）已關閉**：新增 `lib/theme.ts:readableTextOn(bg)` 為單一來源，套用於 `VerticalTimeline` 的 `actSessions`／`dailyOverride`。未來任何在「實色背景上印文字」的新 UI，文字色一律改讀 `readableTextOn`，禁止再寫死 `#111`／`#fff`。
 - 番茄「意圖一句話」：開始前填意圖→鎖定→專注中顯示→存進 `Session.intention`（可選，空白不存）。
 - 主頁「覆盤方針」假卡 → 改真實「🎯 今日意圖回顧」：列今日有意圖的番茄（評分＋意圖＋名稱·分類·時長），移除寫死假文字。為 Stage 2 專屬覆盤頁鋪路。
+- 作息統一為 `lib/schedule.FIXED_ROUTINE` 單一來源（含 `routineBlocksInWindow`）；`availableMinutesFor` 改讀 `ROUTINE_RANGES`；移除 `lib/utils.getAvailableMinutes` 死碼。
 
 ---
 
