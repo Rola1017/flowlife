@@ -113,7 +113,7 @@ lib/
 - 關閉後對應疊圖隱藏（🙈），兩顆互不影響；都關時時間軸只剩課表／班別／補登／未利用
 - 持久化於 `LS_KEYS.timelineTodoView`（`{ pending: boolean, done: boolean }`）；mount 後讀取，避免 hydration 不一致
 
-**固定作息圖案**：早餐／午餐／晚餐統一 🍴；起床／午覺／睡覺維持 😴
+**固定作息**：PLN 欄固定作息讀 `routineBlocksInWindow(DS, DE)`，來源 `lib/schedule.FIXED_ROUTINE`（🍴 三餐／😴 起床·午覺；睡覺 23:00–24:00 在時間軸窗外不顯示）
 
 **ACT 資料來源**（`MOCK.schedule.ACT` 已棄用，VerticalTimeline 不再 import MOCK）：
 
@@ -281,7 +281,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - 分母＝1440 −（固定作息 ∪ 當日 `day_plans` 班別）合併封鎖
 - 固定作息單一來源：`FIXED_ROUTINE`（`ROUTINE_RANGES` 衍生）— 睡眠 00:00–06:30、起床 06:30–07:00、早餐 07:00–08:00、午餐 12:00–13:00、午覺 13:00–13:30、晚餐 17:00–18:00、睡覺 23:00–24:00；無班別時基準可用 **750 分**（1440−690）
 - 週曆／月曆圈圈百分比皆吃此函式；課表改班別後重整即反映
-- **班別邏輯**（技術債 #1 **已完成**）：`SchedulePage`、`CalendarPage`、`VerticalTimeline` 皆 import `lib/schedule.ts`（`PLACE_NAME` / `shiftRange` / `loadDayPlans` / `weekdayOf` / `availableMinutesFor`）。`FIXED_BLOCKS`（🍴/😴 顯示方塊）仍為時間軸本地定義，後續應改讀 `FIXED_ROUTINE`／`routineBlocksInWindow`
+- **班別邏輯**（技術債 #1 **已完成**）：`SchedulePage`、`CalendarPage`、`VerticalTimeline` 皆 import `lib/schedule.ts`（`PLACE_NAME` / `shiftRange` / `loadDayPlans` / `weekdayOf` / `availableMinutesFor`）。時間軸與課表固定作息皆已改讀 `routineBlocksInWindow`／`FIXED_ROUTINE`，本地 `FIXED_BLOCKS`／手寫 `ROWS` 已移除
 - 已移除 `LS_KEYS.weekendShifts` 與 `lib/utils.getAvailableMinutes` 死碼
 
 ---
@@ -347,6 +347,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - 番茄「意圖一句話」：開始前填意圖→鎖定→專注中顯示→存進 `Session.intention`（可選，空白不存）。
 - 主頁「覆盤方針」假卡 → 改真實「🎯 今日意圖回顧」：列今日有意圖的番茄（評分＋意圖＋名稱·分類·時長），移除寫死假文字。為 Stage 2 專屬覆盤頁鋪路。
 - 作息統一為 `lib/schedule.FIXED_ROUTINE` 單一來源（含 `routineBlocksInWindow`）；`availableMinutesFor` 改讀 `ROUTINE_RANGES`；移除 `lib/utils.getAvailableMinutes` 死碼。
+- **第二層完成**——時間軸與課表顯示改吃 `FIXED_ROUTINE`，emoji 統一 🍴/😴，早餐 07:00–08:00、22:30 可排課。
 
 ---
 

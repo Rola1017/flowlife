@@ -13,7 +13,9 @@ import {
   shiftTimes,
   shiftRange,
   loadDayPlans,
+  FIXED_ROUTINE,
 } from "@/lib/schedule";
+import { toM } from "@/lib/utils";
 import { Card, SL } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { BackBtn } from "@/components/ui/BackBtn";
@@ -34,39 +36,34 @@ type RowDef =
   | { kind: "fixed"; times: string[]; label: string; span: "all" | "weekday" }
   | { kind: "class"; time: string };
 
-const ROWS: RowDef[] = [
-  { kind: "fixed", times: ["06:30"], label: "😴 起床", span: "all" },
-  { kind: "fixed", times: ["07:00"], label: "🍳 早餐", span: "all" },
-  { kind: "class", time: "07:30" },
-  { kind: "class", time: "08:00" },
-  { kind: "class", time: "08:30" },
-  { kind: "class", time: "09:00" },
-  { kind: "class", time: "09:30" },
-  { kind: "class", time: "10:00" },
-  { kind: "class", time: "10:30" },
-  { kind: "class", time: "11:00" },
-  { kind: "class", time: "11:30" },
-  { kind: "fixed", times: ["12:00", "12:30"], label: "🍱 午餐", span: "all" },
-  { kind: "fixed", times: ["13:00"], label: "😴 午覺", span: "all" },
-  { kind: "class", time: "13:30" },
-  { kind: "class", time: "14:00" },
-  { kind: "class", time: "14:30" },
-  { kind: "class", time: "15:00" },
-  { kind: "class", time: "15:30" },
-  { kind: "class", time: "16:00" },
-  { kind: "class", time: "16:30" },
-  { kind: "fixed", times: ["17:00", "17:30"], label: "🍽️ 晚餐", span: "all" },
-  { kind: "class", time: "18:00" },
-  { kind: "class", time: "18:30" },
-  { kind: "class", time: "19:00" },
-  { kind: "class", time: "19:30" },
-  { kind: "class", time: "20:00" },
-  { kind: "class", time: "20:30" },
-  { kind: "class", time: "21:00" },
-  { kind: "class", time: "21:30" },
-  { kind: "class", time: "22:00" },
-  { kind: "fixed", times: ["22:30"], label: "😴 睡覺", span: "all" },
-];
+const GRID_START_MIN = toM("06:30");
+const GRID_END_MIN = toM("23:00"); // 最後一格 22:30–23:00
+const fmtHM2 = (m: number) =>
+  `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+
+// 課表固定列由 FIXED_ROUTINE 衍生（單一來源）；其餘 30 分格為可排課格
+function buildRows(): RowDef[] {
+  const rows: RowDef[] = [];
+  let t = GRID_START_MIN;
+  while (t < GRID_END_MIN) {
+    const blk = FIXED_ROUTINE.find((b) => toM(b.start) <= t && t < toM(b.end));
+    if (blk) {
+      const blkEnd = Math.min(toM(blk.end), GRID_END_MIN);
+      const times: string[] = [];
+      while (t < blkEnd) {
+        times.push(fmtHM2(t));
+        t += 30;
+      }
+      rows.push({ kind: "fixed", times, label: blk.label, span: "all" });
+    } else {
+      rows.push({ kind: "class", time: fmtHM2(t) });
+      t += 30;
+    }
+  }
+  return rows;
+}
+
+const ROWS: RowDef[] = buildRows();
 
 const HALF_SLOTS: string[] = [];
 for (const row of ROWS) {

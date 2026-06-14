@@ -5,7 +5,7 @@ import { TH, readableTextOn } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { pctPos, pctH, buildTimelineHours, DS, DE, toM } from "@/lib/utils";
 import { CFG } from "@/lib/config";
-import { PLACE_NAME, shiftRange, loadDayPlans, weekdayOf } from "@/lib/schedule";
+import { PLACE_NAME, shiftRange, loadDayPlans, weekdayOf, routineBlocksInWindow } from "@/lib/schedule";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 
 type TodoOverlay = {
@@ -52,15 +52,7 @@ export function VerticalTimeline({
     const week = loadJSON<Record<string, Cell[]>>(LS_KEYS.weekSchedule, {});
     const cells = week[dayKey] ?? [];
 
-    const FIXED_BLOCKS = [
-      { start: "06:30", end: "07:00", label: "😴 起床" },
-      { start: "07:00", end: "07:30", label: "🍴 早餐" },
-      { start: "12:00", end: "13:00", label: "🍴 午餐" },
-      { start: "13:00", end: "13:30", label: "😴 午覺" },
-      { start: "17:00", end: "18:00", label: "🍴 晚餐" },
-      { start: "22:30", end: "23:00", label: "😴 睡覺" },
-    ];
-    const fixedBlocks = FIXED_BLOCKS.map((b) => ({
+    const fixedBlocks = routineBlocksInWindow(DS, DE).map((b) => ({
       start: b.start,
       end: b.end,
       label: b.label,

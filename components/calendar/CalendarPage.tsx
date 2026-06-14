@@ -384,7 +384,7 @@ export function CalendarPage({
               padding: "2px 0 4px",
             }}
           >
-            {([["早", "06-12"], ["午", "12-18"], ["晚", "18-23"]] as const).map(([label, range]) => (
+            {([["早", "06-12"], ["午", "12-18"], ["晚", "18-24"]] as const).map(([label, range]) => (
               <span key={label} style={{ fontSize: 9, color: TH.muted }}>
                 {label} {range}
               </span>
