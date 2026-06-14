@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { CFG } from "@/lib/config";
-import { MOCK } from "@/lib/mock";
+import { buildLineSeries } from "@/lib/analytics";
 import { coinsForSecs, playRestEnd, toLocalDateStr } from "@/lib/utils";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 import type { Session } from "@/lib/types";
@@ -416,8 +416,20 @@ export function usePomodoro({
       ),
     [todaySessions],
   );
-  const yLearn = MOCK.yesterdayPomos.filter((p) => p.cat1 === "學習").reduce((s, p) => s + p.mins, 0);
-  const lineD = MOCK.lineData[linePeriod as keyof typeof MOCK.lineData] || MOCK.lineData["7天"];
+  const yLearn = useMemo(() => {
+    const y = new Date();
+    y.setDate(y.getDate() - 1);
+    const yStr = toLocalDateStr(y);
+    return sessions
+      .filter((s) => s.date === yStr && s.cat1 === "學習")
+      .reduce((sum, s) => sum + (s.mins ?? 0), 0);
+  }, [sessions]);
+
+  const lineD = useMemo(() => {
+    const now = new Date();
+    return buildLineSeries(sessions, linePeriod, now.getFullYear(), now.getMonth() + 1);
+  }, [sessions, linePeriod]);
+
   const isRestActive = restSecs > 0;
   const effectiveMode = isRestActive ? "rest" : mode;
   const idleTotalToday = idleTotalSecs + (idleTrackStart ? idleSecs : 0);
