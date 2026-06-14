@@ -14,6 +14,7 @@ export function HomePage({
   todos,
   todaySessions,
   yesterdaySessions,
+  dayBeforeSessions,
   onStart,
   onEnd,
   onToggleDone,
@@ -22,6 +23,7 @@ export function HomePage({
   todos: Record<string, unknown>[];
   todaySessions: Session[];
   yesterdaySessions: Session[];
+  dayBeforeSessions: Session[];
   onStart: (id: number) => void;
   onEnd: (id: number) => void;
   onToggleDone: (id: number) => void;
@@ -29,6 +31,7 @@ export function HomePage({
 }) {
   const [expandReview, setExpandReview] = useState(false);
   const yTot = yesterdaySessions.reduce((s, p) => s + p.mins, 0);
+  const ydbTot = dayBeforeSessions.reduce((s, p) => s + p.mins, 0);
   const mustDo = todos.filter(
     (t: { date?: string; mustDo?: boolean; phase?: string }) =>
       t.date === CFG.TODAY_STR && t.mustDo && t.phase !== "done",
@@ -59,7 +62,12 @@ export function HomePage({
       <CourseBanner fallback={nextTodo} />
       <div style={{ display: "flex", gap: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <BattleCard title="昨日" pomos={yesterdaySessions} prevMins={350} prevCount={6} />
+          <BattleCard
+            title="昨日"
+            pomos={yesterdaySessions}
+            prevMins={ydbTot}
+            prevCount={dayBeforeSessions.length}
+          />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <BattleCard

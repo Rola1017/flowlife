@@ -139,6 +139,16 @@ function AppContent() {
     [sessions, yesterdayStr],
   );
 
+  const dayBeforeStr = useMemo(() => {
+    const d = new Date(CFG.TODAY_STR + "T12:00:00");
+    d.setDate(d.getDate() - 2);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }, []);
+  const dayBeforeSessions = useMemo(
+    () => sessions.filter((s) => s.date === dayBeforeStr),
+    [sessions, dayBeforeStr],
+  );
+
   const [editTodoId, setEditTodoId] = useState<number | null>(null);
   const editingTodo = editTodoId == null ? null : todos.find((x) => x.id === editTodoId);
 
@@ -274,7 +284,14 @@ function AppContent() {
   };
 
   const MAIN_PAGE_MAP: Record<string, () => ReactNode> = {
-    home: () => <HomePage {...todoProps} todaySessions={todaySessions} yesterdaySessions={yesterdaySessions} />,
+    home: () => (
+      <HomePage
+        {...todoProps}
+        todaySessions={todaySessions}
+        yesterdaySessions={yesterdaySessions}
+        dayBeforeSessions={dayBeforeSessions}
+      />
+    ),
     timeline: () => <TimelinePage {...todoProps} onShowSchedule={() => push("schedule")} />,
     calendar: () => (
       <CalendarPage

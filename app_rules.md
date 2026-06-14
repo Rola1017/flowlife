@@ -238,7 +238,7 @@ TH.gold    = "#FBBF24"   // 金幣
 
 **當前/即將課程橫幅**（`CourseBanner` + `lib/schedule.currentOrNextCourse`）：
 - 讀 `week_schedule`，依現在時間找「當前 30 分鐘格內」或「下一堂課」
-- **主頁**（`HomePage`）：頂部橫幅；無課時 fallback 顯示接下來的待辦；無「一鍵開始」
+- **主頁**（`HomePage`）：頂部橫幅；無課時 fallback 顯示接下來的待辦；無「一鍵開始」；**BattleCard**「昨日」vs 真實前天 `dayBeforeSessions`（已移除寫死 350/6）
 - **番茄頁**（`PomodoroPage`）：同款橫幅 +「一鍵開始 🍅」→ `usePomodoro.quickStart`（帶入分類/名稱並立即 `beginFocus`）；專注中隱藏按鈕
 - 每 30 秒自動刷新
 
@@ -329,6 +329,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - `VerticalTimeline` PLN 班別方塊改 import `lib/schedule.ts`（`loadDayPlans` + `shiftRange`）；技術債 #1 班別單一來源完成
 - 當前/即將課程：`lib/schedule.currentOrNextCourse`；共用 `CourseBanner`（主頁 + 番茄頁）；`usePomodoro.quickStart` 一鍵開始
 - 番茄頁趨勢與「超越昨天學習」改真實 sessions（`buildLineSeries` / 昨日學習加總）；`MOCK.lineData`、`MOCK.yesterdayPomos` 已移除
+- 主頁「昨日」BattleCard 改用真實前天資料（`dayBeforeSessions`），移除寫死 350/6
 - 番茄鐘歷史頁（SessionHistoryPage）：每日評分對比（並排 😤🙂😴 + 有效／紮實統計，無框、上下靠近）；今日統計 ⌚ 入口已接線（`sessionHistory` subPage）
 - 金幣收支頁（CoinHistoryPage）：修復 UTF-8 編碼損毀；起訖時間後顯示時長；每日分組卡片框
 - 修正 `CFG.TODAY_STR` UTC 跨日 bug：新增 `lib/dateStr.ts` 的 `toLocalDateStr`（經 `utils` 匯出）；全專案「今天」統一本地日期算法
