@@ -13,4 +13,6 @@ export type Session = {
   startTime?: string;
   /** 番茄結束時間 HH:MM（新記錄才有） */
   endTime?: string;
+  /** 開始前寫下的「意圖一句話」（可選；空白不存，供未來覆盤頁比對意圖vs實際） */
+  intention?: string;
 };

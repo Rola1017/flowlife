@@ -10,7 +10,7 @@ import type { Session } from "@/lib/types";
 export type PomodoroSessionRow = Session;
 
 type CatSelection = { cat1: string; cat2: string; cat3: string };
-type ConfirmedPomodoro = { name: string; cat1: string; cat2: string; cat3: string };
+type ConfirmedPomodoro = { name: string; cat1: string; cat2: string; cat3: string; intention: string };
 type RewardFx = { id: number; amount: number; big?: boolean; treasure?: boolean };
 export type CoinIncomeLogRow = {
   id: number;
@@ -74,6 +74,7 @@ export function usePomodoro({
   const [restTotalSecs, setRestTotalSecs] = useState(0);
   const [linePeriod, setLinePeriod] = useState("7天");
   const [taskName, setTaskName] = useState("");
+  const [intention, setIntention] = useState("");
   const [catSel, setCatSel] = useState<CatSelection>({ cat1: "", cat2: "", cat3: "" });
   const [confirmed, setConfirmed] = useState<ConfirmedPomodoro | null>(null);
   const [idleSecs, setIdleSecs] = useState(0);
@@ -134,6 +135,7 @@ export function usePomodoro({
     setRestTotalSecs(0);
     setCoinIncomeLog([]);
     setTaskName("");
+    setIntention("");
     setCatSel({ cat1: "", cat2: "", cat3: "" });
     setConfirmed(null);
     setIdleSecs(0);
@@ -232,10 +234,10 @@ export function usePomodoro({
     return () => clearInterval(t);
   }, [idleTrackStart]);
 
-  const beginFocus = (sel: { name: string; cat1: string; cat2: string; cat3: string }) => {
+  const beginFocus = (sel: { name: string; cat1: string; cat2: string; cat3: string; intention?: string }) => {
     focusStartRef.current = Date.now();
     focusStartClockRef.current = localDateParts().time;
-    setConfirmed(sel);
+    setConfirmed({ ...sel, intention: sel.intention ?? "" });
     setSecs(dur * 60);
     elRef.current = 0;
     setMode("focus");
@@ -250,7 +252,7 @@ export function usePomodoro({
 
   const startFocus = () => {
     if (!canStart) return;
-    beginFocus({ name: taskName || catSel.cat1, ...catSel });
+    beginFocus({ name: taskName || catSel.cat1, ...catSel, intention });
   };
 
   const quickStart = (sel: { cat1: string; cat2?: string; cat3?: string; name?: string }) => {
@@ -258,7 +260,8 @@ export function usePomodoro({
     const norm = { cat1: sel.cat1, cat2: sel.cat2 || "", cat3: sel.cat3 || "" };
     setCatSel(norm);
     setTaskName(sel.name || "");
-    beginFocus({ name: sel.name || sel.cat1, ...norm });
+    setIntention("");
+    beginFocus({ name: sel.name || sel.cat1, ...norm, intention: "" });
   };
 
   const endFocus = () => {
@@ -311,6 +314,7 @@ export function usePomodoro({
       counted,
       startTime: focusStartClockRef.current ?? undefined,
       endTime: now.time,
+      intention: confirmed!.intention?.trim() || undefined,
     };
     const ns = [...sessions, row];
     setSessions(ns);
@@ -458,6 +462,8 @@ export function usePomodoro({
     setLinePeriod,
     taskName,
     setTaskName,
+    intention,
+    setIntention,
     catSel,
     setCatSel,
     confirmed,

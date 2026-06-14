@@ -88,6 +88,8 @@ export function PomodoroPage({
     setLinePeriod,
     taskName,
     setTaskName,
+    intention,
+    setIntention,
     catSel,
     setCatSel,
     confirmed,
@@ -648,6 +650,22 @@ export function PomodoroPage({
         </div>
       </div>
 
+      {mode === "focus" && confirmed?.intention?.trim() && (
+        <div
+          style={{
+            maxWidth: 320,
+            textAlign: "center",
+            fontSize: 12,
+            color: TH.accent,
+            fontWeight: 700,
+            lineHeight: 1.4,
+            padding: "0 12px",
+          }}
+        >
+          🎯 {confirmed.intention}
+        </div>
+      )}
+
       {showRating && !rated && (
         <Card style={{ width: "100%", textAlign: "center" }}>
           <div style={{ fontSize: 11, color: TH.muted, marginBottom: 10 }}>這次的專注狀態？</div>
@@ -761,6 +779,24 @@ export function PomodoroPage({
           </div>
         )}
       </div>
+      {mode !== "focus" && (
+        <input
+          value={intention}
+          onChange={(e) => setIntention(e.target.value)}
+          placeholder="這次想專注什麼？寫一句意圖（可選）"
+          maxLength={60}
+          style={{
+            width: "100%",
+            background: TH.card,
+            border: `1px solid ${TH.border}`,
+            borderRadius: 8,
+            padding: "8px 12px",
+            color: TH.text,
+            fontSize: 12,
+            outline: "none",
+          }}
+        />
+      )}
       {mode !== "focus" && (
         <Card style={{ width: "100%", padding: 10 }}>
           <CategorySelector

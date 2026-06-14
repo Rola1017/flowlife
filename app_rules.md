@@ -61,6 +61,7 @@ lib/
 ├── utils.ts      ← fmt / toLocalDateStr / pctPos / pctH / buildTimelineHours / DS / DE / DT / toM
 ├── analytics.ts  ← 行事曆／圖表統計聚合（sessionMatches / buildCalendarStats）
 ├── schedule.ts   ← 班別定義 + currentOrNextCourse 課程查找 + availableMinutesFor（單一來源）
+├── types.ts      ← Session 等共用型別（含 intention 意圖欄位）
 ├── tabs.ts       ← TABS 導航設定
 └── storage.ts    ← LS_KEYS + loadJSON / saveJSON
 ```
@@ -246,6 +247,9 @@ TH.gold    = "#FBBF24"   // 金幣
 - `lineD`：`buildLineSeries(sessions, linePeriod, 當年, 當月).pomos`（已移除 `MOCK.lineData`）
 - `yLearn`：昨日 `sessions` 中 `cat1 === "學習"` 的 `mins` 加總（已移除 `MOCK.yesterdayPomos`）
 
+**意圖一句話**（`intention`）：
+- 開始番茄前可填「意圖一句話」（`intention`，≤60 字、可選）；開始後鎖定，專注中顯示在計時圈下方；寫入 `Session.intention`（空白不存）；`quickStart` 一鍵開始無意圖。為未來覆盤頁比對「意圖 vs 實際」鋪路。
+
 ---
 
 ## 八（補2）、行事曆統計（CalendarPage + `lib/analytics.ts`）
@@ -340,6 +344,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - 直式行程表待辦顯示開關：未完成／已完成可獨立隱藏（時間軸疊圖 only），持久化 `LS_KEYS.timelineTodoView`
 - 直式行程表三餐圖案統一為 🍴（起床／午覺／睡覺仍 😴）
 - **技術債 #2（實色底文字色寫死）已關閉**：新增 `lib/theme.ts:readableTextOn(bg)` 為單一來源，套用於 `VerticalTimeline` 的 `actSessions`／`dailyOverride`。未來任何在「實色背景上印文字」的新 UI，文字色一律改讀 `readableTextOn`，禁止再寫死 `#111`／`#fff`。
+- 番茄「意圖一句話」：開始前填意圖→鎖定→專注中顯示→存進 `Session.intention`（可選，空白不存）。
 
 ---
 
