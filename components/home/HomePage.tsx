@@ -7,7 +7,7 @@ import { BattleCard } from "@/components/home/BattleCard";
 import { CourseBanner } from "@/components/schedule/CourseBanner";
 import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
-import { getPeriod } from "@/lib/utils";
+import { fmt, getPeriod } from "@/lib/utils";
 import type { Session } from "@/lib/types";
 
 export function HomePage({
@@ -57,6 +57,11 @@ export function HomePage({
     return top ? { text: top.t.text || "待辦", time: top.t.startTime } : null;
   }, [todos]);
 
+  const intentionReview = useMemo(
+    () => [...todaySessions].reverse().filter((s) => s.intention?.trim()),
+    [todaySessions],
+  );
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <CourseBanner fallback={nextTodo} />
@@ -79,16 +84,61 @@ export function HomePage({
         </div>
       </div>
       <Card>
-        <div onClick={() => setExpandReview(!expandReview)} style={{ cursor: "pointer" }}>
-          <SL>
-            💡 覆盤方針 {expandReview ? "▲" : "▼"}
-          </SL>
-          <div style={{ fontSize: 12, color: TH.text }}>「法律讀完一節再休息，不要中途滑手機」</div>
-        </div>
-        {expandReview && (
-          <div style={{ marginTop: 8, borderTop: `1px solid ${TH.border}`, paddingTop: 8 }}>
-            <div style={{ fontSize: 10, color: TH.muted, marginBottom: 4 }}>📚 閱讀筆記</div>
-            <div style={{ fontSize: 11, color: "#9CA3AF" }}>• 習慣堆疊可以跟晨間儀式結合</div>
+        <SL>🎯 今日意圖回顧</SL>
+        {intentionReview.length === 0 ? (
+          <div style={{ fontSize: 11, color: TH.muted, lineHeight: 1.5 }}>
+            今天還沒有寫意圖的番茄。開始番茄前寫一句意圖，這裡會回顧「想專注什麼 vs 實際如何」。
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {(expandReview ? intentionReview : intentionReview.slice(0, 3)).map((s, i) => (
+              <div
+                key={i}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  background: "#0A0A0C",
+                  borderRadius: 8,
+                  padding: "7px 9px",
+                }}
+              >
+                <span style={{ fontSize: 14 }}>{s.rating || "🍅"}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: TH.text,
+                      fontWeight: 700,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    🎯 {s.intention}
+                  </div>
+                  <div style={{ fontSize: 9, color: TH.muted }}>
+                    {[s.name, s.cat1].filter(Boolean).join(" · ")} · {fmt(s.mins)}
+                  </div>
+                </div>
+              </div>
+            ))}
+            {intentionReview.length > 3 && (
+              <button
+                type="button"
+                onClick={() => setExpandReview(!expandReview)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: TH.muted,
+                  fontSize: 10,
+                  cursor: "pointer",
+                  padding: 4,
+                }}
+              >
+                {expandReview ? "收合 ▲" : `展開全部 ${intentionReview.length} 筆 ▼`}
+              </button>
+            )}
           </div>
         )}
       </Card>
