@@ -121,15 +121,15 @@ lib/
 |------|------|------|------|
 | 番茄 sessions | `LS_KEYS.sessions`，篩 `date` 當日且有 `startTime`／`endTime` | 分類色 `CAT.deepColorFull`，文字色 `readableTextOn(底色)`（深底白字／淺底黑字） | 唯讀（`stopPropagation`） |
 | 手動補登 | `LS_KEYS.dailyOverride` + 日期（`flowlife_v1_daily_override_YYYY-MM-DD`） | `CAT.cat1Color(cat1)`，文字色 `readableTextOn(底色)`，細白框 | 點色塊開 override popup |
-| 未利用時間 | `idleBlocks` useMemo（即時計算，不另存 localStorage） | 深灰 `#16161B`、虛線框、`未利用` 小字 | 唯讀（`stopPropagation`） |
+| 未利用時間 | `lib/idle.idleGapsWithin`（`availableSegments` 扣作息／班別後，再扣番茄／補登） | 深灰 `#16161B`、虛線框、`未利用` 小字 | 唯讀（`stopPropagation`） |
 
-**ACT「已使用」定義**（計算未利用空檔時，以下時段視為已占用、不畫灰塊）：
-- 當日番茄 `sessions`（有 `startTime`／`endTime`）
-- 當日 `dailyOverride` 手動補登（含 `act_*`／`man_*`）
-- PLN 的 **固定作息**（`kind: "fixed"`）與 **兼差班別**（`kind: "shift"`）
-- **不含** PLN 課表課程（`kind: "course"`）→ 若該時段無對應番茄，ACT 仍顯示未利用
+**未利用時間**（`idleBlocks`，演算法見 `lib/idle.ts`）：
+- **定義**：可用時間（已扣固定作息與班別）內、未被番茄／手動補登覆蓋的空檔
+- **fills 僅含**：當日番茄 `sessions`、當日 `dailyOverride`；**不含** PLN 課表課程
+- **off-hours 加碼**：作息／班別時段內的番茄不遮蓋可用時段的未利用灰塊（不當 fills）
+- **共用 API**：`availableSegments`／`idleGapsWithin`／`idleMinutes`／`splitSessionsByAvailability`（時間軸與週曆共用）
 
-**未利用時間範圍**（`idleBlocks`）：
+**未利用時間範圍**（視窗 `[DS, cutoff]`）：
 - **今天**：`DS`（06:30）→ 現在時刻（依 `nowPct`）
 - **過去日期**：`DS` → `DE`（23:00）整天
 - **未來日期**：不畫
@@ -277,8 +277,9 @@ TH.gold    = "#FBBF24"   // 金幣
 - 待辦完整顯示：早／午／晚時段無 3 筆上限、無 `+N`；`minHeight: 40` 隨內容長高
 - 標頭唯讀班別：`{place}{shifts}`（如「彩晚」「診晚」），來自 `dayPlans`；**不再**有週末早/晚開關
 
-**可用時間**（`lib/schedule.ts` → `availableMinutesFor`）：
-- 分母＝1440 −（固定作息 ∪ 當日 `day_plans` 班別）合併封鎖
+**可用時間**（`lib/schedule.ts` → `availableMinutesFor` / `blockedRanges`）：
+- 不可用區間單一來源：`blockedRanges(date)`＝固定作息 `ROUTINE_RANGES` ∪ 當日班別（已合併）
+- `availableMinutesFor`＝1440 − blocked 總長
 - 固定作息單一來源：`FIXED_ROUTINE`（`ROUTINE_RANGES` 衍生）— 睡眠 00:00–06:30、起床 06:30–07:00、早餐 07:00–08:00、午餐 12:00–13:00、午覺 13:00–13:30、晚餐 17:00–18:00、睡覺 23:00–24:00；無班別時基準可用 **750 分**（1440−690）
 - 週曆／月曆圈圈百分比皆吃此函式；課表改班別後重整即反映
 - **班別邏輯**（技術債 #1 **已完成**）：`SchedulePage`、`CalendarPage`、`VerticalTimeline` 皆 import `lib/schedule.ts`（`PLACE_NAME` / `shiftRange` / `loadDayPlans` / `weekdayOf` / `availableMinutesFor`）。時間軸與課表固定作息皆已改讀 `routineBlocksInWindow`／`FIXED_ROUTINE`，本地 `FIXED_BLOCKS`／手寫 `ROWS` 已移除
@@ -340,7 +341,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - WeekHeat 番茄鐘分佈已真實化（讀 `sessions`，最近 7 天，有起訖才畫色塊）；`MOCK.heat` 不再使用
 - 直式行程表 PLN 已串聯課表（`week_schedule` + `day_plans`）；課程區塊結束時間 = 開始 + 30 分（不跨過固定作息）；兼差區塊顏色對應兼差中分類（診所／彩券行）；PLN 唯讀
 - 直式行程表 ACT 已真實化：讀當日 `sessions`（有起訖才畫唯讀色塊）+ `dailyOverride` 手動補登（`act_`／`man_` key）；點 ACT 空白新增補登、點補登色塊可編輯；`MOCK.schedule.ACT` 已棄用
-- 直式行程表 ACT 未利用時間：空檔深灰墊底（zIndex 1）；已使用 = 番茄 + 補登 + 固定作息 + 兼差；課表課程不算已使用；今天填至現在、過去填整天、未來不填
+- 直式行程表 ACT 未利用時間：可用時間內空檔深灰墊底（`lib/idle`）；fills 僅番茄＋補登；作息／班別不畫灰、off-hours 番茄不遮蓋；今天填至現在、過去填整天、未來不填
 - 直式行程表待辦顯示開關：未完成／已完成可獨立隱藏（時間軸疊圖 only），持久化 `LS_KEYS.timelineTodoView`
 - 直式行程表三餐圖案統一為 🍴（起床／午覺／睡覺仍 😴）
 - **技術債 #2（實色底文字色寫死）已關閉**：新增 `lib/theme.ts:readableTextOn(bg)` 為單一來源，套用於 `VerticalTimeline` 的 `actSessions`／`dailyOverride`。未來任何在「實色背景上印文字」的新 UI，文字色一律改讀 `readableTextOn`，禁止再寫死 `#111`／`#fff`。
@@ -348,6 +349,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - 主頁「覆盤方針」假卡 → 改真實「🎯 今日意圖回顧」：列今日有意圖的番茄（評分＋意圖＋名稱·分類·時長），移除寫死假文字。為 Stage 2 專屬覆盤頁鋪路。
 - 作息統一為 `lib/schedule.FIXED_ROUTINE` 單一來源（含 `routineBlocksInWindow`）；`availableMinutesFor` 改讀 `ROUTINE_RANGES`；移除 `lib/utils.getAvailableMinutes` 死碼。
 - **第二層完成**——時間軸與課表顯示改吃 `FIXED_ROUTINE`，emoji 統一 🍴/😴，早餐 07:00–08:00、22:30 可排課。
+- **第三層完成**——未利用改「可用內」算法：抽 `lib/idle.ts`；`blockedRanges` 為不可用單一來源；時間軸灰塊＝可用時間內空檔（off-hours 番茄不遮蓋）。
 
 ---
 
@@ -356,7 +358,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - ⬜ 待辦提醒：依 `reminder` 觸發推播／系統通知（目前僅儲存設定）
 - ⬜ 健康模組
 - ⬜ 閱讀模組
-- ⬜ **覆盤／閱讀筆記佔位**：主頁假覆盤卡已除；專屬週／月洞察覆盤頁仍 ⬜（含未利用時間趨勢，需把 idle 計算抽成 lib）
+- ⬜ **覆盤／閱讀筆記佔位**：主頁假覆盤卡已除；專屬週／月洞察覆盤頁仍 ⬜（含未利用時間趨勢；`lib/idle.ts` 已就緒，週曆三段線待接 `splitSessionsByAvailability`）
 - ⬜ PWA 圖示（手機安裝用）
 - ⬜ Git 功能分支習慣建立
 - ⬜ Supabase（確定多人使用再做）

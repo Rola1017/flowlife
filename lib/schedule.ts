@@ -130,32 +130,39 @@ export function routineBlocksInWindow(startMin: number, endMin: number): Routine
   return out;
 }
 
-/** 某日可用分鐘數＝1440 −（固定不可用 ∪ 當天課表班別）合併後的總長 */
-export function availableMinutesFor(dateStr: string, dayPlans?: Record<string, DayPlan>): number {
+export type Interval = [number, number];
+
+function mergeRanges(ivs: Interval[]): Interval[] {
+  const s = ivs.filter(([a, b]) => b > a).sort((x, y) => x[0] - y[0]);
+  const out: Interval[] = [];
+  for (const [a, b] of s) {
+    const last = out[out.length - 1];
+    if (last && a <= last[1]) last[1] = Math.max(last[1], b);
+    else out.push([a, b]);
+  }
+  return out;
+}
+
+/** 某日不可用區間＝固定作息 ∪ 當日班別（全天分鐘制、已合併）— 單一來源 */
+export function blockedRanges(dateStr: string, dayPlans?: Record<string, DayPlan>): Interval[] {
   const plans = dayPlans ?? loadDayPlans();
   const day = weekdayOf(dateStr);
   const plan = plans[day];
-  const ranges: [number, number][] = [...ROUTINE_RANGES];
+  const ivs: Interval[] = [...ROUTINE_RANGES];
   if (plan) {
     for (const s of plan.shifts) {
       const r = shiftRange(plan.place, s, day);
       if (!r) continue;
       const [a, b] = r.split("~");
-      ranges.push([toMin(a), toMin(b)]);
+      ivs.push([toMin(a), toMin(b)]);
     }
   }
-  ranges.sort((x, y) => x[0] - y[0]);
-  let blocked = 0,
-    curS = -1,
-    curE = -1;
-  for (const [a, b] of ranges) {
-    if (a > curE) {
-      if (curE > curS) blocked += curE - curS;
-      curS = a;
-      curE = b;
-    } else curE = Math.max(curE, b);
-  }
-  if (curE > curS) blocked += curE - curS;
+  return mergeRanges(ivs);
+}
+
+/** 某日可用分鐘數＝1440 −（固定不可用 ∪ 當天課表班別）合併後的總長 */
+export function availableMinutesFor(dateStr: string, dayPlans?: Record<string, DayPlan>): number {
+  const blocked = blockedRanges(dateStr, dayPlans).reduce((s, [a, b]) => s + (b - a), 0);
   return Math.max(0, 1440 - blocked);
 }
 

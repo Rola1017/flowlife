@@ -6,6 +6,7 @@ import { CAT } from "@/lib/categories";
 import { pctPos, pctH, buildTimelineHours, DS, DE, toM } from "@/lib/utils";
 import { CFG } from "@/lib/config";
 import { PLACE_NAME, shiftRange, loadDayPlans, weekdayOf, routineBlocksInWindow } from "@/lib/schedule";
+import { availableSegments, idleGapsWithin } from "@/lib/idle";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 
 type TodoOverlay = {
@@ -151,40 +152,17 @@ export function VerticalTimeline({
   }, [dailyOverride, dailyOverrideKey, loadedOverrideKey]);
 
   const idleBlocks = useMemo(() => {
-    const intervals: [number, number][] = [];
-    for (const b of actSessions) intervals.push([toM(b.start), toM(b.end)]);
-    for (const ov of Object.values(dailyOverride)) intervals.push([toM(ov.startTime), toM(ov.endTime)]);
-    for (const it of schedulePln)
-      if (it.kind === "shift" || it.kind === "fixed") intervals.push([toM(it.start), toM(it.end)]);
-
     let cutoff: number;
     if (date === CFG.TODAY_STR) cutoff = Math.round(DS + Math.min(1, Math.max(0, nowPct / 100)) * (DE - DS));
     else if (date < CFG.TODAY_STR) cutoff = DE;
     else return [];
     if (cutoff <= DS) return [];
-
-    const clamped = intervals
-      .map(([s, e]) => [Math.max(DS, s), Math.min(cutoff, e)] as [number, number])
-      .filter(([s, e]) => e > s)
-      .sort((a, b) => a[0] - b[0]);
-    const merged: [number, number][] = [];
-    for (const [s, e] of clamped) {
-      const last = merged[merged.length - 1];
-      if (last && s <= last[1]) last[1] = Math.max(last[1], e);
-      else merged.push([s, e]);
-    }
-
-    const fmtM = (m: number) =>
-      `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
-    const gaps: { start: string; end: string }[] = [];
-    let pos = DS;
-    for (const [s, e] of merged) {
-      if (s > pos) gaps.push({ start: fmtM(pos), end: fmtM(s) });
-      pos = Math.max(pos, e);
-    }
-    if (pos < cutoff) gaps.push({ start: fmtM(pos), end: fmtM(cutoff) });
-    return gaps.filter((g) => toM(g.end) - toM(g.start) >= 5);
-  }, [actSessions, dailyOverride, schedulePln, date, nowPct]);
+    const avail = availableSegments(date, DS, cutoff);
+    const fills: [number, number][] = [];
+    for (const b of actSessions) fills.push([toM(b.start), toM(b.end)]);
+    for (const ov of Object.values(dailyOverride)) fills.push([toM(ov.startTime), toM(ov.endTime)]);
+    return idleGapsWithin(avail, fills, 5);
+  }, [actSessions, dailyOverride, date, nowPct]);
 
   const isVisibleTodo = (todo: TodoOverlay) => {
     const mins = toM(todo.startTime);
