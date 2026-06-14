@@ -118,8 +118,8 @@ lib/
 
 | 來源 | 讀取 | 渲染 | 編輯 |
 |------|------|------|------|
-| 番茄 sessions | `LS_KEYS.sessions`，篩 `date` 當日且有 `startTime`／`endTime` | 分類色 `CAT.deepColorFull`，黑字 `#111` | 唯讀（`stopPropagation`） |
-| 手動補登 | `LS_KEYS.dailyOverride` + 日期（`flowlife_v1_daily_override_YYYY-MM-DD`） | `CAT.cat1Color(cat1)`，白字，細白框 | 點色塊開 override popup |
+| 番茄 sessions | `LS_KEYS.sessions`，篩 `date` 當日且有 `startTime`／`endTime` | 分類色 `CAT.deepColorFull`，文字色 `readableTextOn(底色)`（深底白字／淺底黑字） | 唯讀（`stopPropagation`） |
+| 手動補登 | `LS_KEYS.dailyOverride` + 日期（`flowlife_v1_daily_override_YYYY-MM-DD`） | `CAT.cat1Color(cat1)`，文字色 `readableTextOn(底色)`，細白框 | 點色塊開 override popup |
 | 未利用時間 | `idleBlocks` useMemo（即時計算，不另存 localStorage） | 深灰 `#16161B`、虛線框、`未利用` 小字 | 唯讀（`stopPropagation`） |
 
 **ACT「已使用」定義**（計算未利用空檔時，以下時段視為已占用、不畫灰塊）：
