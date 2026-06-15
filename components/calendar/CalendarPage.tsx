@@ -646,9 +646,12 @@ export function CalendarPage({
                 day === CFG.TODAY.getDate() && curM === CFG.TODAY.getMonth() + 1 && curY === CFG.TODAY.getFullYear();
               const dateStr = `${curY}-${String(curM).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
               const availMins = availableMinutesFor(dateStr, dayPlans);
-              const pct = availMins > 0 ? Math.round((mins / availMins) * 100) : 0;
-              const firstDash = circ * Math.min(pct / 100, 1);
-              const overflowDash = circ * Math.min(Math.max(pct - 100, 0) / 100, 1);
+              const availSegs = availableSegments(dateStr, 0, 1440, dayPlans);
+              const { within, off } = splitSessionsByAvailability(sessionsByDate[dateStr] ?? [], availSegs);
+              const circOuter = 2 * Math.PI * 15;
+              const withinDash = availMins > 0 ? circ * Math.min(within / availMins, 1) : 0;
+              const offDash = availMins > 0 ? circOuter * Math.min(off / availMins, 1) : 0;
+              const pct = availMins > 0 ? Math.round(((within + off) / availMins) * 100) : 0;
               return (
                 <div
                   key={i}
@@ -663,7 +666,7 @@ export function CalendarPage({
                   <div style={{ position: "relative", width: 32, height: 32 }}>
                     <svg width={32} height={32} style={{ transform: "rotate(-90deg)" }}>
                       <circle cx={16} cy={16} r={13} fill="none" stroke={TH.border} strokeWidth={2.5} />
-                      {firstDash > 0 && (
+                      {withinDash > 0 && (
                         <circle
                           cx={16}
                           cy={16}
@@ -672,19 +675,19 @@ export function CalendarPage({
                           stroke={activeColor}
                           strokeWidth={2.5}
                           strokeLinecap="round"
-                          strokeDasharray={`${firstDash} ${circ}`}
+                          strokeDasharray={`${withinDash} ${circ}`}
                         />
                       )}
-                      {pct > 100 && (
+                      {offDash > 0 && (
                         <circle
                           cx={16}
                           cy={16}
-                          r={13}
+                          r={15}
                           fill="none"
                           stroke="#3B82F6"
-                          strokeWidth={2.5}
+                          strokeWidth={1.5}
                           strokeLinecap="round"
-                          strokeDasharray={`${overflowDash} ${circ}`}
+                          strokeDasharray={`${offDash} ${circOuter}`}
                         />
                       )}
                     </svg>
