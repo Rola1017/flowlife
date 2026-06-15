@@ -6,7 +6,7 @@ import { CAT } from "@/lib/categories";
 import { pctPos, pctH, buildTimelineHours, DS, DE, toM } from "@/lib/utils";
 import { CFG } from "@/lib/config";
 import { PLACE_NAME, shiftRange, loadDayPlans, weekdayOf, routineBlocksInWindow } from "@/lib/schedule";
-import { availableSegments, idleGapsWithin } from "@/lib/idle";
+import { actSessionsFor, actIdleFor } from "@/lib/timelineActual";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 
 type TodoOverlay = {
@@ -96,37 +96,7 @@ export function VerticalTimeline({
     return [...fixedBlocks, ...courseBlocks, ...shiftBlocks];
   }, [date]);
 
-  const actSessions = useMemo(() => {
-    type SRow = {
-      date: string;
-      name?: string;
-      cat1?: string;
-      cat2?: string;
-      cat3?: string;
-      startTime?: string;
-      endTime?: string;
-    };
-    const all = loadJSON<SRow[]>(LS_KEYS.sessions, []);
-    return all
-      .filter((s) => s.date === date && s.startTime && s.endTime)
-      .map((s) => {
-        const cat1 = s.cat1 ?? "";
-        const color =
-          CAT.deepColorFull(cat1, s.cat2 || undefined, s.cat3 || undefined) ||
-          CAT.cat1Color(cat1) ||
-          "#374151";
-        return {
-          start: s.startTime as string,
-          end: s.endTime as string,
-          label: s.name || s.cat3 || s.cat2 || cat1 || "番茄",
-          color,
-        };
-      })
-      .filter((b) => {
-        const p = pctPos(b.start);
-        return p >= 0 && p <= 100;
-      });
-  }, [date]);
+  const actSessions = useMemo(() => actSessionsFor(date), [date]);
 
   const [dailyOverride, setDailyOverride] = useState<DailyOverride>({});
   const [loadedOverrideKey, setLoadedOverrideKey] = useState("");
@@ -152,16 +122,10 @@ export function VerticalTimeline({
   }, [dailyOverride, dailyOverrideKey, loadedOverrideKey]);
 
   const idleBlocks = useMemo(() => {
-    let cutoff: number;
-    if (date === CFG.TODAY_STR) cutoff = Math.round(DS + Math.min(1, Math.max(0, nowPct / 100)) * (DE - DS));
-    else if (date < CFG.TODAY_STR) cutoff = DE;
-    else return [];
-    if (cutoff <= DS) return [];
-    const avail = availableSegments(date, DS, cutoff);
     const fills: [number, number][] = [];
     for (const b of actSessions) fills.push([toM(b.start), toM(b.end)]);
     for (const ov of Object.values(dailyOverride)) fills.push([toM(ov.startTime), toM(ov.endTime)]);
-    return idleGapsWithin(avail, fills, 5);
+    return actIdleFor(date, nowPct, fills);
   }, [actSessions, dailyOverride, date, nowPct]);
 
   const isVisibleTodo = (todo: TodoOverlay) => {

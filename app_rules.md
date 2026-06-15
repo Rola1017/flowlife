@@ -63,6 +63,7 @@ lib/
 ├── schedule.ts   ← 班別定義 + currentOrNextCourse 課程查找 + availableMinutesFor（單一來源）
 ├── types.ts      ← Session 等共用型別（含 intention／reflection／id）
 ├── sessions.ts   ← patchReflection（覆盤寫入單一來源）
+├── timelineActual.ts ← actSessionsFor / overridesFor / actIdleFor / buildActualSegments（VT＋迷你 bar 單一來源）
 ├── tabs.ts       ← TABS 導航設定
 └── storage.ts    ← LS_KEYS + loadJSON / saveJSON
 ```
@@ -116,7 +117,7 @@ lib/
 
 **固定作息**：PLN 欄固定作息讀 `routineBlocksInWindow(DS, DE)`，來源 `lib/schedule.FIXED_ROUTINE`（🍴 三餐／😴 起床·午覺；睡覺 23:00–24:00 在時間軸窗外不顯示）
 
-**ACT 資料來源**（`MOCK.schedule.ACT` 已棄用，VerticalTimeline 不再 import MOCK）：
+**ACT 資料來源**（VerticalTimeline 與迷你 ACT bar 共用 `lib/timelineActual.ts`）：
 
 | 來源 | 讀取 | 渲染 | 編輯 |
 |------|------|------|------|
@@ -349,7 +350,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - 修正 `CFG.TODAY_STR` UTC 跨日 bug：新增 `lib/dateStr.ts` 的 `toLocalDateStr`（經 `utils` 匯出）；全專案「今天」統一本地日期算法
 - WeekHeat 番茄鐘分佈已真實化（讀 `sessions`，最近 7 天，有起訖才畫色塊）；`MOCK.heat` 不再使用
 - 直式行程表 PLN 已串聯課表（`week_schedule` + `day_plans`）；課程區塊結束時間 = 開始 + 30 分（不跨過固定作息）；兼差區塊顏色對應兼差中分類（診所／彩券行）；PLN 唯讀
-- 直式行程表 ACT 已真實化：讀當日 `sessions`（有起訖才畫唯讀色塊）+ `dailyOverride` 手動補登（`act_`／`man_` key）；點 ACT 空白新增補登、點補登色塊可編輯；`MOCK.schedule.ACT` 已棄用
+- 直式行程表 ACT 已真實化：讀當日 `sessions`（有起訖才畫唯讀色塊）+ `dailyOverride` 手動補登（`act_`／`man_` key）；點 ACT 空白新增補登、點補登色塊可編輯
 - 直式行程表 ACT 未利用時間：可用時間內空檔深灰墊底（`lib/idle`）；fills 僅番茄＋補登；作息／班別不畫灰、off-hours 番茄不遮蓋；今天填至現在、過去填整天、未來不填
 - 直式行程表待辦顯示開關：未完成／已完成可獨立隱藏（時間軸疊圖 only），持久化 `LS_KEYS.timelineTodoView`
 - 直式行程表三餐圖案統一為 🍴（起床／午覺／睡覺仍 😴）
@@ -364,7 +365,8 @@ TH.gold    = "#FBBF24"   // 金幣
 - **habit-tracker8 派工 1/2**：待辦預設時間改 `nowHM`／`roundHM5`／`addMinHM`（+60 分）；未完成待辦疊圖 zIndex 7＞已完成 6；時段頁補登提示；月曆死碼 `pct` 清除。
 - **habit-tracker8 派工 2/2**：`Session.id`＋`reflection`；`lib/sessions.patchReflection` 覆盤寫入單一來源；評分後可選寫覆盤；意圖 UI 收合＋正名「小概念／小目標」。
 - **habit-tracker9 polish**：意圖框預設收合（`intentionOpen` 於開始專注重置）＋每顆番茄意圖重置（`beginFocus` 清 `intention` state，`confirmed` 仍保有值供記錄／顯示）。
-- **habit-tracker9 MOCK 還債**：刪零引用欄位 `schedule.PLN`、`todayPomos`、`heat`、`initTodos`；保留 `schedule.ACT`（迷你橫條）、`weekdaySchedule`（課表種子）、`shopItems`（商店種子）。
+- **habit-tracker9 MOCK 還債**：刪零引用欄位 `schedule.PLN`、`todayPomos`、`heat`、`initTodos`；保留 `weekdaySchedule`（課表種子）、`shopItems`（商店種子）。
+- **habit-tracker9 迷你 ACT bar 真實化**：抽 `lib/timelineActual.ts`；TimelinePage／DayViewPage 迷你 bar 改 `buildActualSegments`；VerticalTimeline 改呼叫同一組函式；刪 `MOCK.schedule`。
 
 ---
 
@@ -380,5 +382,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/06/15*
+*最後更新：2026/06/16*
 *維護原則：每次完成重要功能，同步更新第十、十一節*

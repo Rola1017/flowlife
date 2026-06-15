@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Card, SL } from "@/components/ui/Card";
 import { BackBtn } from "@/components/ui/BackBtn";
 import { DateTimePicker, formatDateTimeDisplay, splitTodoDateTime } from "@/components/ui/DateTimePicker";
@@ -9,7 +9,7 @@ import { VerticalTimeline } from "@/components/timeline/VerticalTimeline";
 import { CFG, TODO_REMINDER_OPTIONS, type TodoReminderId } from "@/lib/config";
 import { TH } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
-import { MOCK } from "@/lib/mock";
+import { buildActualSegments } from "@/lib/timelineActual";
 import { DS, DT, toM } from "@/lib/utils";
 
 function normalizeTimelineTime(time: string): string {
@@ -106,7 +106,10 @@ export function DayViewPage({
   const doneTL = done.filter(
     (t: { endAt?: string }) => t.endAt,
   ) as { id: number; text: string; startTime: string; endTime: string; endAt?: string }[];
-  const { ACT } = MOCK.schedule;
+  const { act: miniAct, idle: miniIdle } = useMemo(
+    () => buildActualSegments(date, nowPct),
+    [date, nowPct],
+  );
 
   const submitTodo = () => {
     const text = draft.text.trim();
@@ -189,18 +192,34 @@ export function DayViewPage({
             marginTop: 8,
           }}
         >
-          {ACT.map((item, i) => {
+          {miniIdle.map((item, i) => {
             const l = ((toM(item.start) - DS) / DT) * 100,
               w = ((toM(item.end) - toM(item.start)) / DT) * 100;
             return (
               <div
-                key={i}
+                key={`idle-${i}`}
                 style={{
                   position: "absolute",
                   left: `${l}%`,
                   width: `${w}%`,
                   height: "100%",
-                  background: item.deep ? "#1F2937" : item.idle ? "#374151" : CAT.cat1Color(item.cat1 ?? "") || "#6B7280",
+                  background: "#374151",
+                }}
+              />
+            );
+          })}
+          {miniAct.map((item, i) => {
+            const l = ((toM(item.start) - DS) / DT) * 100,
+              w = ((toM(item.end) - toM(item.start)) / DT) * 100;
+            return (
+              <div
+                key={`act-${i}`}
+                style={{
+                  position: "absolute",
+                  left: `${l}%`,
+                  width: `${w}%`,
+                  height: "100%",
+                  background: item.color,
                 }}
               />
             );
