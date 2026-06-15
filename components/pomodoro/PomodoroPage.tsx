@@ -160,6 +160,10 @@ export function PomodoroPage({
     }
   }, [rated]);
 
+  useEffect(() => {
+    if (mode === "focus") setIntentionOpen(false);
+  }, [mode]);
+
   const recentEventNames = useMemo(() => {
     const names = new Set<string>();
     const matchesCat = (record: { cat1?: string; cat2?: string; cat3?: string }) => {

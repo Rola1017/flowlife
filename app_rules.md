@@ -363,6 +363,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **月曆圓圈**也改新模型（內圈可用內＋底圈未利用、外圈 r=15 藍色加碼）；週／月視圖一致。
 - **habit-tracker8 派工 1/2**：待辦預設時間改 `nowHM`／`roundHM5`／`addMinHM`（+60 分）；未完成待辦疊圖 zIndex 7＞已完成 6；時段頁補登提示；月曆死碼 `pct` 清除。
 - **habit-tracker8 派工 2/2**：`Session.id`＋`reflection`；`lib/sessions.patchReflection` 覆盤寫入單一來源；評分後可選寫覆盤；意圖 UI 收合＋正名「小概念／小目標」。
+- **habit-tracker9 polish**：意圖框預設收合（`intentionOpen` 於開始專注重置）＋每顆番茄意圖重置（`beginFocus` 清 `intention` state，`confirmed` 仍保有值供記錄／顯示）。
 
 ---
 
@@ -378,5 +379,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026-05-19*
+*最後更新：2026/06/15*
 *維護原則：每次完成重要功能，同步更新第十、十一節*

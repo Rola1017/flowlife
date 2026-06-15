@@ -241,6 +241,7 @@ export function usePomodoro({
     focusStartRef.current = Date.now();
     focusStartClockRef.current = localDateParts().time;
     setConfirmed({ ...sel, intention: sel.intention ?? "" });
+    setIntention("");
     setSecs(dur * 60);
     elRef.current = 0;
     setMode("focus");
