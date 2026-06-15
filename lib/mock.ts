@@ -1,18 +1,6 @@
 export const MOCK = {
+  /** 迷你橫向 ACT bar（TimelinePage / DayViewPage）；VerticalTimeline 已改真實 sessions */
   schedule: {
-    PLN: [
-      { start: "06:30", end: "07:00", label: "起床晨間", cat1: "健康" },
-      { start: "07:00", end: "09:00", label: "法律讀書", cat1: "學習" },
-      { start: "09:00", end: "10:30", label: "事業規劃", cat1: "事業" },
-      { start: "10:30", end: "12:00", label: "線上課程", cat1: "學習" },
-      { start: "12:00", end: "13:30", label: "午餐+午覺", cat1: null },
-      { start: "13:30", end: "15:30", label: "兼差工作", cat1: "兼差" },
-      { start: "15:30", end: "17:00", label: "閱讀", cat1: "閱讀" },
-      { start: "17:00", end: "18:00", label: "晚餐", cat1: null },
-      { start: "18:00", end: "20:00", label: "重訓", cat1: "健康" },
-      { start: "20:00", end: "22:00", label: "娛樂", cat1: "活動" },
-      { start: "22:00", end: "22:40", label: "覆盤睡前", cat1: "學習" },
-    ],
     ACT: [
       { start: "06:45", end: "07:10", label: "起床", cat1: "健康" },
       { start: "07:10", end: "09:25", label: "法律讀書", cat1: "學習" },
@@ -25,27 +13,7 @@ export const MOCK = {
       { start: "15:30", end: "17:20", label: "閱讀", cat1: "閱讀" },
     ],
   },
-  todayPomos: [
-    { task: "法律讀書", cat1: "學習", cat2: "法律", cat3: "民法", mins: 95, rating: "😤" },
-    { task: "事業規劃", cat1: "事業", cat2: "架網站", cat3: "", mins: 60, rating: "😤" },
-    { task: "兼差工作", cat1: "兼差", cat2: "兼差A", cat3: "", mins: 45, rating: "🙂" },
-    { task: "閱讀溝通聖經", cat1: "閱讀", cat2: "溝通術", cat3: "", mins: 55, rating: "😤" },
-  ],
-  heat: [
-    { day: "04/26", s: [{ s: 7, e: 10, c: "學習" }, { s: 14, e: 16, c: "閱讀" }] },
-    { day: "04/27", s: [{ s: 8, e: 10, c: "學習" }, { s: 11, e: 12, c: "兼差" }, { s: 14, e: 16, c: "閱讀" }] },
-    { day: "04/28", s: [{ s: 7, e: 9, c: "學習" }, { s: 10, e: 12, c: "事業" }] },
-    { day: "04/29", s: [{ s: 7, e: 10, c: "學習" }, { s: 13, e: 15, c: "兼差" }, { s: 15, e: 17, c: "閱讀" }] },
-    { day: "04/30", s: [{ s: 7, e: 9, c: "學習" }, { s: 9, e: 10, c: "事業" }, { s: 10, e: 11, c: "兼差" }] },
-    { day: "05/01", s: [{ s: 8, e: 11, c: "學習" }, { s: 14, e: 16, c: "閱讀" }] },
-    { day: "今天", s: [{ s: 9, e: 11, c: "學習" }, { s: 14, e: 15, c: "閱讀" }] },
-  ],
-  initTodos: [
-    { id: 1, text: "取貨", cat: "重要+急", startTime: "", endTime: "", mustDo: true },
-    { id: 2, text: "台中會議", cat: "事業", startTime: "09:00", endTime: "12:00", mustDo: true },
-    { id: 3, text: "法律讀書", cat: "學習", startTime: "13:00", endTime: "15:00", mustDo: false },
-    { id: 4, text: "重訓", cat: "健康", startTime: "18:00", endTime: "20:00", mustDo: false },
-  ],
+  /** SchedulePage week_schedule 種子（localStorage 空時 fallback） */
   weekdaySchedule: {
     一: [
       { t: "08:00", n: "卡片盒", c: "學習" },
@@ -71,6 +39,7 @@ export const MOCK = {
     六: [],
     日: [],
   },
+  /** ShopPage 商品種子 */
   shopItems: [
     { id: 1, name: "手搖飲☕", price: 50, desc: "勞逸結合" },
     { id: 2, name: "新書📚", price: 200, desc: "知識投資" },
