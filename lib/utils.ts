@@ -36,6 +36,26 @@ export const nowStr = () => {
   return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 };
 
+/** 現在時刻 HH:mm（本地） */
+export function nowHM(): string {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+/** 取整到最近 5 分鐘 */
+export function roundHM5(hm: string): string {
+  const [h, m] = hm.split(":").map(Number);
+  const total = Math.min(Math.round((h * 60 + m) / 5) * 5, 23 * 60 + 59);
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+/** 加 n 分鐘，同日封頂 23:59 */
+export function addMinHM(hm: string, n: number): string {
+  const [h, m] = hm.split(":").map(Number);
+  const total = Math.min(h * 60 + m + n, 23 * 60 + 59);
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
 export const getPeriod = (h: number) => (h < 12 ? "早" : h < 18 ? "午" : "晚");
 
 export const pctPos = (t: string) => ((toM(t) - DS) / DT) * 100;

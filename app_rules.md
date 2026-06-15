@@ -58,7 +58,7 @@ lib/
 ├── categories.ts ← CATEGORY_TREE + CAT helpers
 ├── config.ts     ← CFG（TODAY_STR = toLocalDateStr() 本地日期，DAY_END = "23:00"）
 ├── mock.ts       ← MOCK 假資料
-├── utils.ts      ← fmt / toLocalDateStr / pctPos / pctH / buildTimelineHours / DS / DE / DT / toM
+├── utils.ts      ← fmt / nowHM / roundHM5 / addMinHM / toLocalDateStr / pctPos / pctH / buildTimelineHours / DS / DE / DT / toM
 ├── analytics.ts  ← 行事曆／圖表統計聚合（sessionMatches / buildCalendarStats）
 ├── schedule.ts   ← 班別定義 + currentOrNextCourse 課程查找 + availableMinutesFor（單一來源）
 ├── types.ts      ← Session 等共用型別（含 intention 意圖欄位）
@@ -137,7 +137,7 @@ lib/
 
 **override key 規則**：`act_*`（舊 MOCK 時代遺留）與 `man_*`（點 ACT 空白新增）共用同一 `dailyOverride` 物件與 `saveOverride` 存檔邏輯。
 
-**zIndex**：未利用(1) → PLN(2) → ACT 番茄／補登(3) → 分隔線(4) → 待辦浮層(6) → 紅線(10) → override popup(20)
+**zIndex**：未利用(1) → PLN(2) → ACT 番茄／補登(3) → 分隔線(4) → 待辦已完成(6) → 待辦未完成(7) → 紅線(10) → override popup(20)
 
 **點擊行為**（`handleTimelineClick` 左右分流，`clientX >= 50%` 為 ACT 側）：
 - 空白 **左半（PLN）** → `onTimeClick(time)` → 快速新增待辦（24 小時制）
@@ -193,6 +193,7 @@ lib/
 - `endTime`：排定結束時間
 - `date`：待辦所屬日期（`YYYY-MM-DD`），新增表單可選；未選或無效時 `makeTodo` 預設為 `CFG.TODAY_STR`
 - `reminder`：提醒設定（見第六節）；預設 `none`
+- **時段頁新增預設時間**：`lib/utils.nowHM` + `roundHM5` + `addMinHM`；開始＝當下取整 5 分、結束＝+`CFG.DEFAULT_TODO_DURATION_MIN`（60 分）；不再寫死 09:00／10:00
 
 ---
 
@@ -354,6 +355,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **第三層完成**——未利用改「可用內」算法：抽 `lib/idle.ts`；`blockedRanges` 為不可用單一來源；時間軸灰塊＝可用時間內空檔（off-hours 番茄不遮蓋）。
 - **週曆三段線完成**：95/10/5 模型上線（可用內＋未利用第一圈、加碼外圈藍線、`totalPct` 可破百）。
 - **月曆圓圈**也改新模型（內圈可用內＋底圈未利用、外圈 r=15 藍色加碼）；週／月視圖一致。
+- **habit-tracker8 派工 1/2**：待辦預設時間改 `nowHM`／`roundHM5`／`addMinHM`（+60 分）；未完成待辦疊圖 zIndex 7＞已完成 6；時段頁補登提示；月曆死碼 `pct` 清除。
 
 ---
 

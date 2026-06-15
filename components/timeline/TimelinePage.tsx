@@ -9,12 +9,20 @@ import { CFG, TODO_REMINDER_OPTIONS, type TodoReminderId } from "@/lib/config";
 import { TH } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { MOCK } from "@/lib/mock";
-import { DS, DT, toM } from "@/lib/utils";
+import { DS, DT, toM, nowHM, roundHM5, addMinHM } from "@/lib/utils";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
+
+function defaultTodoStartDateTime() {
+  return `${CFG.TODAY_STR} ${roundHM5(nowHM())}`;
+}
+
+function defaultTodoEndDateTime() {
+  return `${CFG.TODAY_STR} ${addMinHM(roundHM5(nowHM()), CFG.DEFAULT_TODO_DURATION_MIN)}`;
+}
 
 function normalizeTimelineTime(time: string): string {
   const m = time.trim().match(/^(\d{1,2}):(\d{1,2})$/);
-  if (!m) return "09:00";
+  if (!m) return roundHM5(nowHM());
   const h = Math.min(23, Math.max(0, parseInt(m[1], 10)));
   const min = Math.min(59, Math.max(0, parseInt(m[2], 10)));
   return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
@@ -279,6 +287,9 @@ export function TimelinePage({
             </button>
           ))}
         </div>
+        <div style={{ fontSize: 9, color: TH.muted, marginBottom: 4, lineHeight: 1.4 }}>
+          💡 點右側「實際」欄空白，可直接補登做過的事（免跑番茄鐘）
+        </div>
         <VerticalTimeline
           nowPct={nowPct}
           pendingTodos={pendingTL}
@@ -335,7 +346,14 @@ export function TimelinePage({
           type="button"
           onClick={() => {
             setAddOpen((o) => {
-              if (!o) setDraft((d) => ({ ...d, error: "" }));
+              if (!o) {
+                setDraft((d) => ({
+                  ...d,
+                  error: "",
+                  startDateTime: defaultTodoStartDateTime(),
+                  endDateTime: defaultTodoEndDateTime(),
+                }));
+              }
               return !o;
             });
           }}
@@ -390,7 +408,7 @@ export function TimelinePage({
                   ...v,
                   error: "",
                   startDateTime:
-                    v.startDateTime === null ? `${CFG.TODAY_STR} 09:00` : null,
+                    v.startDateTime === null ? defaultTodoStartDateTime() : null,
                 }))
               }
               onChange={(val) => setDraft((v) => ({ ...v, startDateTime: val, error: "" }))}
@@ -403,7 +421,7 @@ export function TimelinePage({
                 setDraft((v) => ({
                   ...v,
                   error: "",
-                  endDateTime: v.endDateTime === null ? `${CFG.TODAY_STR} 10:00` : null,
+                  endDateTime: v.endDateTime === null ? defaultTodoEndDateTime() : null,
                 }))
               }
               onChange={(val) => setDraft((v) => ({ ...v, endDateTime: val, error: "" }))}
@@ -504,7 +522,7 @@ export function TimelinePage({
                         ...v,
                         error: "",
                         startDateTime:
-                          v.startDateTime === null ? `${CFG.TODAY_STR} 09:00` : null,
+                          v.startDateTime === null ? defaultTodoStartDateTime() : null,
                       }
                     : v,
                 )
@@ -523,7 +541,7 @@ export function TimelinePage({
                     ? {
                         ...v,
                         error: "",
-                        endDateTime: v.endDateTime === null ? `${CFG.TODAY_STR} 10:00` : null,
+                        endDateTime: v.endDateTime === null ? defaultTodoEndDateTime() : null,
                       }
                     : v,
                 )

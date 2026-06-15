@@ -449,7 +449,7 @@ export function VerticalTimeline({
                 transform: "translateX(-50%)",
                 width: "fit-content",
                 maxWidth: "44%",
-                zIndex: 6,
+                zIndex: 7,
                 display: "flex",
                 flexDirection: "column",
                 overflow: "hidden",

@@ -651,7 +651,6 @@ export function CalendarPage({
               const circOuter = 2 * Math.PI * 15;
               const withinDash = availMins > 0 ? circ * Math.min(within / availMins, 1) : 0;
               const offDash = availMins > 0 ? circOuter * Math.min(off / availMins, 1) : 0;
-              const pct = availMins > 0 ? Math.round(((within + off) / availMins) * 100) : 0;
               return (
                 <div
                   key={i}

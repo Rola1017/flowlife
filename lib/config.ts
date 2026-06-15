@@ -39,6 +39,8 @@ export const CFG = {
   DAY_END: "23:00",
   /** 點「結束」後到變 done 的確認等待（ms） */
   END_CONFIRM: 1000,
+  /** 時段頁新增待辦預設時長（分鐘） */
+  DEFAULT_TODO_DURATION_MIN: 60,
   LIVE_TICK: 1000,
   /** 休息秒數（以番茄分鐘數作 key） */
   REST_SECONDS: { 1: 10, 5: 60, 25: 5 * 60, 60: 10 * 60, 90: 15 * 60, 120: 20 * 60 } as Record<number, number>,
