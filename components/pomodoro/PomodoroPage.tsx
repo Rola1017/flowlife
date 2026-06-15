@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type Dispatch, type SetStateAction } from "react";
 import { CFG } from "@/lib/config";
 import { CAT } from "@/lib/categories";
 import { TH } from "@/lib/theme";
@@ -123,6 +123,8 @@ export function PomodoroPage({
     confirmRating,
     selectDuration,
     abandonFocus,
+    lastSessionId,
+    updateReflection,
   } = usePomodoro({
     sessions,
     setSessions,
@@ -140,11 +142,23 @@ export function PomodoroPage({
   });
 
   const [showEventDropdown, setShowEventDropdown] = useState(false);
+  const [intentionOpen, setIntentionOpen] = useState(false);
+  const [reflectionOpen, setReflectionOpen] = useState(false);
+  const [reflectionDraft, setReflectionDraft] = useState("");
   const [editingCoinId, setEditingCoinId] = useState<number | null>(null);
   const [editTaskName, setEditTaskName] = useState("");
   const [editCat1, setEditCat1] = useState("");
   const [editCat2, setEditCat2] = useState("");
   const [editCat3, setEditCat3] = useState("");
+
+  const showIntentionInput = intentionOpen || !!intention.trim();
+
+  useEffect(() => {
+    if (!rated) {
+      setReflectionOpen(false);
+      setReflectionDraft("");
+    }
+  }, [rated]);
 
   const recentEventNames = useMemo(() => {
     const names = new Set<string>();
@@ -704,6 +718,89 @@ export function PomodoroPage({
       {rated && (
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 7, width: "100%" }}>
           <div style={{ fontSize: 11, color: TH.green }}>✓ 已記錄</div>
+          {!reflectionOpen ? (
+            <button
+              type="button"
+              onClick={() => setReflectionOpen(true)}
+              style={{
+                background: "none",
+                border: `1px solid ${TH.border}`,
+                borderRadius: 8,
+                padding: "6px 12px",
+                color: TH.muted,
+                fontSize: 11,
+                cursor: "pointer",
+              }}
+            >
+              ✍️ 寫覆盤（可選）
+            </button>
+          ) : (
+            <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 6 }}>
+              <textarea
+                value={reflectionDraft}
+                onChange={(e) => setReflectionDraft(e.target.value)}
+                placeholder="這顆番茄學到什麼？寫一句覆盤（可選）"
+                maxLength={200}
+                rows={3}
+                style={{
+                  width: "100%",
+                  background: TH.card,
+                  border: `1px solid ${TH.border}`,
+                  borderRadius: 8,
+                  padding: "8px 12px",
+                  color: TH.text,
+                  fontSize: 12,
+                  outline: "none",
+                  resize: "vertical",
+                  boxSizing: "border-box",
+                }}
+              />
+              <div style={{ display: "flex", gap: 6 }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (lastSessionId != null) {
+                      updateReflection(lastSessionId, reflectionDraft);
+                      setReflectionDraft("");
+                      setReflectionOpen(false);
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    border: "none",
+                    borderRadius: 8,
+                    padding: "6px 8px",
+                    background: TH.accent,
+                    color: "#fff",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  儲存覆盤
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReflectionDraft("");
+                    setReflectionOpen(false);
+                  }}
+                  style={{
+                    flex: 1,
+                    border: `1px solid ${TH.border}`,
+                    borderRadius: 8,
+                    padding: "6px 8px",
+                    background: "transparent",
+                    color: TH.muted,
+                    fontSize: 11,
+                    cursor: "pointer",
+                  }}
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
       <div style={{ position: "relative", width: "100%" }}>
@@ -779,24 +876,43 @@ export function PomodoroPage({
           </div>
         )}
       </div>
-      {mode !== "focus" && (
-        <input
-          value={intention}
-          onChange={(e) => setIntention(e.target.value)}
-          placeholder="這次想專注什麼？寫一句意圖（可選）"
-          maxLength={60}
-          style={{
-            width: "100%",
-            background: TH.card,
-            border: `1px solid ${TH.border}`,
-            borderRadius: 8,
-            padding: "8px 12px",
-            color: TH.text,
-            fontSize: 12,
-            outline: "none",
-          }}
-        />
-      )}
+      {mode !== "focus" &&
+        (showIntentionInput ? (
+          <input
+            value={intention}
+            onChange={(e) => setIntention(e.target.value)}
+            placeholder="想弄懂的小概念／小目標"
+            maxLength={60}
+            style={{
+              width: "100%",
+              background: TH.card,
+              border: `1px solid ${TH.border}`,
+              borderRadius: 8,
+              padding: "8px 12px",
+              color: TH.text,
+              fontSize: 12,
+              outline: "none",
+            }}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setIntentionOpen(true)}
+            style={{
+              width: "100%",
+              background: "none",
+              border: `1px dashed ${TH.border}`,
+              borderRadius: 8,
+              padding: "6px 10px",
+              color: TH.muted,
+              fontSize: 10,
+              textAlign: "left",
+              cursor: "pointer",
+            }}
+          >
+            ✍️ 這次想弄懂的小概念／小目標（可選）
+          </button>
+        ))}
       {mode !== "focus" && (
         <Card style={{ width: "100%", padding: 10 }}>
           <CategorySelector

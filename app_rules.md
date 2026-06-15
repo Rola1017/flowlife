@@ -61,7 +61,8 @@ lib/
 ├── utils.ts      ← fmt / nowHM / roundHM5 / addMinHM / toLocalDateStr / pctPos / pctH / buildTimelineHours / DS / DE / DT / toM
 ├── analytics.ts  ← 行事曆／圖表統計聚合（sessionMatches / buildCalendarStats）
 ├── schedule.ts   ← 班別定義 + currentOrNextCourse 課程查找 + availableMinutesFor（單一來源）
-├── types.ts      ← Session 等共用型別（含 intention 意圖欄位）
+├── types.ts      ← Session 等共用型別（含 intention／reflection／id）
+├── sessions.ts   ← patchReflection（覆盤寫入單一來源）
 ├── tabs.ts       ← TABS 導航設定
 └── storage.ts    ← LS_KEYS + loadJSON / saveJSON
 ```
@@ -249,7 +250,12 @@ TH.gold    = "#FBBF24"   // 金幣
 - `yLearn`：昨日 `sessions` 中 `cat1 === "學習"` 的 `mins` 加總（已移除 `MOCK.yesterdayPomos`）
 
 **意圖一句話**（`intention`）：
-- 開始番茄前可填「意圖一句話」（`intention`，≤60 字、可選）；開始後鎖定，專注中顯示在計時圈下方；寫入 `Session.intention`（空白不存）；`quickStart` 一鍵開始無意圖。為未來覆盤頁比對「意圖 vs 實際」鋪路。
+- UI 預設**收合**：小鈕「✍️ 這次想弄懂的小概念／小目標（可選）」點開才展開；已有內容時自動展開
+- placeholder 正名為「想弄懂的小概念／小目標」；≤60 字、可選；開始後鎖定，專注中顯示在計時圈下方；寫入 `Session.intention`（空白不存）；`quickStart` 無意圖
+
+**單顆覆盤**（`reflection`）：
+- 評分後可選填「✍️ 寫覆盤」；寫入 `Session.reflection`（空白不存）
+- 新 Session 帶 `id: Date.now()`；覆盤寫入**唯一路徑** `lib/sessions.patchReflection`（`usePomodoro.updateReflection` 內部呼叫）
 
 ---
 
@@ -356,6 +362,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **週曆三段線完成**：95/10/5 模型上線（可用內＋未利用第一圈、加碼外圈藍線、`totalPct` 可破百）。
 - **月曆圓圈**也改新模型（內圈可用內＋底圈未利用、外圈 r=15 藍色加碼）；週／月視圖一致。
 - **habit-tracker8 派工 1/2**：待辦預設時間改 `nowHM`／`roundHM5`／`addMinHM`（+60 分）；未完成待辦疊圖 zIndex 7＞已完成 6；時段頁補登提示；月曆死碼 `pct` 清除。
+- **habit-tracker8 派工 2/2**：`Session.id`＋`reflection`；`lib/sessions.patchReflection` 覆盤寫入單一來源；評分後可選寫覆盤；意圖 UI 收合＋正名「小概念／小目標」。
 
 ---
 

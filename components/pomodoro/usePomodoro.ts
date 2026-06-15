@@ -5,6 +5,7 @@ import { CFG } from "@/lib/config";
 import { buildLineSeries } from "@/lib/analytics";
 import { coinsForSecs, playRestEnd, toLocalDateStr } from "@/lib/utils";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
+import { patchReflection } from "@/lib/sessions";
 import type { Session } from "@/lib/types";
 
 export type PomodoroSessionRow = Session;
@@ -83,6 +84,7 @@ export function usePomodoro({
   const [coinIncomeLogReady, setCoinIncomeLogReady] = useState(false);
   const [focusReadyToBreak, setFocusReadyToBreak] = useState(false);
   const [focusOverrunSecs, setFocusOverrunSecs] = useState(0);
+  const [lastSessionId, setLastSessionId] = useState<number | null>(null);
 
   const intRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const focusStartRef = useRef<number | null>(null);
@@ -146,6 +148,7 @@ export function usePomodoro({
     hitRef.current.clear();
     restWasActiveRef.current = false;
     focusReadyToBreakRef.current = false;
+    setLastSessionId(null);
   }, [resetVersion]);
 
   useEffect(() => {
@@ -302,7 +305,9 @@ export function usePomodoro({
     const counted = mins > 1;
     const earned = coinsForSecs(el);
     const now = localDateParts();
+    const sessionId = Date.now();
     const row: Session = {
+      id: sessionId,
       date: now.date,
       name: confirmed!.name,
       cat1: confirmed!.cat1,
@@ -318,6 +323,7 @@ export function usePomodoro({
     };
     const ns = [...sessions, row];
     setSessions(ns);
+    setLastSessionId(sessionId);
 
     const tot = ns.filter((p) => p.counted).reduce((s, p) => s + p.mins, 0);
     let milestoneBonus = 0;
@@ -353,6 +359,10 @@ export function usePomodoro({
       ]);
     }
     setRewardFx({ id: Date.now(), amount: totalGain, big: dur > 25, treasure: isTreasure });
+  };
+
+  const updateReflection = (id: number, text: string) => {
+    setSessions((prev) => patchReflection(prev, id, text));
   };
 
   const selectDuration = (nextDur: number) => {
@@ -497,5 +507,7 @@ export function usePomodoro({
     confirmRating,
     selectDuration,
     abandonFocus,
+    lastSessionId,
+    updateReflection,
   };
 }
