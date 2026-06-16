@@ -11,6 +11,7 @@ import type { Session } from "@/lib/types";
 import { fmt, getDaysInMonth, getFirstDow } from "@/lib/utils";
 import { Chip } from "@/components/ui/Chip";
 import { TriCharts } from "@/components/charts/TriCharts";
+import { ReviewView } from "./ReviewView";
 
 const DOW = ["一", "二", "三", "四", "五", "六", "日"] as const;
 
@@ -121,11 +122,14 @@ export function CalendarPage({
   todos,
   sessions,
   onShowDay,
+  onPatchReflection,
 }: {
   todos: Record<string, unknown>[];
   sessions: Session[];
   onShowDay: (date: string, label: string) => void;
+  onPatchReflection: (id: number, text: string) => void;
 }) {
+  const [calMode, setCalMode] = useState<"calendar" | "review">("calendar");
   const [calView, setCalView] = useState("month");
   const [selCat1Set, setSelCat1Set] = useState<string[]>([]);
   const [selCat2, setSelCat2] = useState("");
@@ -238,23 +242,23 @@ export function CalendarPage({
       <div style={{ display: "flex", gap: 5 }}>
         {(
           [
-            ["week", "週曆"],
-            ["month", "月曆"],
+            ["calendar", "📆 行事曆"],
+            ["review", "🔍 覆盤"],
           ] as const
         ).map(([v, l]) => (
           <button
             key={v}
             type="button"
-            onClick={() => setCalView(v)}
+            onClick={() => setCalMode(v)}
             style={{
               flex: 1,
-              padding: "6px",
+              padding: "7px",
               borderRadius: 10,
-              border: `1px solid ${calView === v ? activeColor : TH.border}`,
-              background: calView === v ? activeColor + "22" : "transparent",
-              color: calView === v ? activeColor : TH.muted,
-              fontSize: 11,
-              fontWeight: 700,
+              border: `1px solid ${calMode === v ? TH.accent : TH.border}`,
+              background: calMode === v ? TH.accent + "22" : "transparent",
+              color: calMode === v ? TH.accent : TH.muted,
+              fontSize: 12,
+              fontWeight: 800,
               cursor: "pointer",
             }}
           >
@@ -311,6 +315,43 @@ export function CalendarPage({
           ))}
         </div>
       )}
+      {calMode === "review" && (
+        <ReviewView
+          sessions={sessions}
+          cats={selCat1Set}
+          cat2={selCat2}
+          onPatchReflection={onPatchReflection}
+        />
+      )}
+      {calMode === "calendar" && (
+        <>
+          <div style={{ display: "flex", gap: 5 }}>
+            {(
+              [
+                ["week", "週曆"],
+                ["month", "月曆"],
+              ] as const
+            ).map(([v, l]) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setCalView(v)}
+                style={{
+                  flex: 1,
+                  padding: "6px",
+                  borderRadius: 10,
+                  border: `1px solid ${calView === v ? activeColor : TH.border}`,
+                  background: calView === v ? activeColor + "22" : "transparent",
+                  color: calView === v ? activeColor : TH.muted,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
       {calView === "month" && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 5 }}>
           {(
@@ -733,6 +774,8 @@ export function CalendarPage({
       )}
       {calView === "month" && (
         <TriCharts chartData={chartData} lineD={lineD} period={period} onPeriodChange={setPeriod} label={chartLabel} />
+      )}
+        </>
       )}
     </div>
   );

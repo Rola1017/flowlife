@@ -297,6 +297,22 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
+## 八（補3）、覆盤頁 ReviewView（`components/calendar/ReviewView.tsx`）
+
+**入口**：`CalendarPage` 頂端 `calMode` 切換「📆 行事曆／🔍 覆盤」；預設行事曆；分類 chips 兩段與行事曆模式共用（`selCat1Set`／`selCat2`）。
+
+**資料來源**：真實 `sessions`，篩選「有意圖或覆盤」的番茄（`intention?.trim() || reflection?.trim()`）；零 MOCK。
+
+**期間視窗**：自帶 `period` state（3天／7天／14天／月／季），用 `lib/analytics.periodRange`；**不**與行事曆 `TriCharts` 的 `period` 共用。
+
+**分類篩選**：`lib/analytics.sessionMatches(s, cats, cat2)`。
+
+**清單卡片**：評分 emoji、名稱（或分類路徑）、時長、日期＋起訖＋分類路徑（›）；🎯 意圖唯讀；✍️ 覆盤可點 inline 編輯。
+
+**寫入唯一路徑**：`onPatchReflection(id, text)` → `App.updateSessions` → `lib/sessions.patchReflection`；無 id 舊資料唯讀。
+
+---
+
 ## 九、Cursor 開發必讀（重要提醒）
 
 1. **`SL` 元件** → `import { Card, SL } from "@/components/ui/Card"`
@@ -367,6 +383,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **habit-tracker9 polish**：意圖框預設收合（`intentionOpen` 於開始專注重置）＋每顆番茄意圖重置（`beginFocus` 清 `intention` state，`confirmed` 仍保有值供記錄／顯示）。
 - **habit-tracker9 MOCK 還債**：刪零引用欄位 `schedule.PLN`、`todayPomos`、`heat`、`initTodos`；保留 `weekdaySchedule`（課表種子）、`shopItems`（商店種子）。
 - **habit-tracker9 迷你 ACT bar 真實化**：抽 `lib/timelineActual.ts`；TimelinePage／DayViewPage 迷你 bar 改 `buildActualSegments`；VerticalTimeline 改呼叫同一組函式；刪 `MOCK.schedule`。
+- **habit-tracker10 覆盤頁 #2 骨架**：CalendarPage 頂端新增「📆 行事曆 / 🔍 覆盤」(calMode) 切換；新增 components/calendar/ReviewView.tsx，列出期間內「有意圖或有覆盤」的番茄成對清單（🎯意圖 → ✍️覆盤＋評分＋名稱·分類·時長），點卡片 inline 補/改覆盤，寫入唯一走 App.tsx 的 onPatchReflection → lib/sessions.patchReflection（updateSessions 持久化）。零新增假資料；分類 chips 與行事曆模式共用篩選；無 id 舊資料顯示唯讀。
 
 ---
 
@@ -375,7 +392,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - ⬜ 待辦提醒：依 `reminder` 觸發推播／系統通知（目前僅儲存設定）
 - ⬜ 健康模組
 - ⬜ 閱讀模組
-- ⬜ **覆盤／閱讀筆記佔位**：主頁假覆盤卡已除；專屬週／月洞察覆盤頁仍 ⬜（未利用時間趨勢可接 `lib/idle.idleMinutes`）
+- ⬜ **覆盤頁 #3/#4/#5**：最佳專注時段（startTime 分桶）、未利用時間趨勢（lib/idle.idleMinutes 折線）、計畫vs實際（重用 95/10/5 模型）— #2 骨架已完成。
 - ⬜ PWA 圖示（手機安裝用）
 - ⬜ Git 功能分支習慣建立
 - ⬜ Supabase（確定多人使用再做）

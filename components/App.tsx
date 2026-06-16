@@ -16,6 +16,7 @@ import { TH } from "@/lib/theme";
 import { TABS } from "@/lib/tabs";
 import { LS_KEYS, loadJSON, loadNumber, saveJSON, saveNumber } from "@/lib/storage";
 import type { Session } from "@/lib/types";
+import { patchReflection } from "@/lib/sessions";
 import { Card } from "@/components/ui/Card";
 import { Header } from "@/components/Header";
 import { HomePage } from "@/components/home/HomePage";
@@ -298,6 +299,8 @@ function AppContent() {
         todos={todos}
         sessions={sessions}
         onShowDay={(d, l) => push("dayView", { date: d, label: l })}
+        onPatchReflection={(id, text) =>
+          updateSessions((prev) => patchReflection(prev, id, text))}
       />
     ),
     health: () => (
