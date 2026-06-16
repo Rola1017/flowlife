@@ -384,6 +384,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **habit-tracker9 MOCK 還債**：刪零引用欄位 `schedule.PLN`、`todayPomos`、`heat`、`initTodos`；保留 `weekdaySchedule`（課表種子）、`shopItems`（商店種子）。
 - **habit-tracker9 迷你 ACT bar 真實化**：抽 `lib/timelineActual.ts`；TimelinePage／DayViewPage 迷你 bar 改 `buildActualSegments`；VerticalTimeline 改呼叫同一組函式；刪 `MOCK.schedule`。
 - **habit-tracker10 覆盤頁 #2 骨架**：CalendarPage 頂端新增「📆 行事曆 / 🔍 覆盤」(calMode) 切換；新增 components/calendar/ReviewView.tsx，列出期間內「有意圖或有覆盤」的番茄成對清單（🎯意圖 → ✍️覆盤＋評分＋名稱·分類·時長），點卡片 inline 補/改覆盤，寫入唯一走 App.tsx 的 onPatchReflection → lib/sessions.patchReflection（updateSessions 持久化）。零新增假資料；分類 chips 與行事曆模式共用篩選；無 id 舊資料顯示唯讀。
+- **habit-tracker10 月曆錨點根治**：CalendarPage 月份錨點改由 CFG.TODAY 推算（殺掉寫死的 2026／月基準 4），預設顯示本月；修好「選『月』圖表空白」與「今日小圓點不亮」兩個連動問題；翻頁自動跨年。
 
 ---
 

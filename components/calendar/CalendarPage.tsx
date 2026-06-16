@@ -133,12 +133,13 @@ export function CalendarPage({
   const [calView, setCalView] = useState("month");
   const [selCat1Set, setSelCat1Set] = useState<string[]>([]);
   const [selCat2, setSelCat2] = useState("");
-  const [monthOffset, setMonthOffset] = useState(1);
+  const [monthOffset, setMonthOffset] = useState(0);
   const [weekOffset, setWeekOffset] = useState(0);
   const [period, setPeriod] = useState("月");
-  const totalM = 4 - 1 + monthOffset;
-  const curY = 2026 + Math.floor(totalM / 12),
-    curM = (totalM % 12) + 1;
+  const baseM0 = CFG.TODAY.getFullYear() * 12 + CFG.TODAY.getMonth(); // 真實今天的絕對月索引
+  const totalM0 = baseM0 + monthOffset;
+  const curY = Math.floor(totalM0 / 12);
+  const curM = (totalM0 % 12) + 1;
   const dim = getDaysInMonth(curY, curM),
     fdow = getFirstDow(curY, curM);
   const prevM = curM === 1 ? 12 : curM - 1;
