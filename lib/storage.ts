@@ -20,6 +20,7 @@ export const LS_KEYS = {
   dayPlans: `${STORAGE_PREFIX}day_plans`,
   scheduleHistory: `${STORAGE_PREFIX}schedule_history`,
   timelineTodoView: `${STORAGE_PREFIX}timeline_todo_view`,
+  reviews: `${STORAGE_PREFIX}reviews`,
 } as const;
 
 function assertVersionedKey(key: string): void {

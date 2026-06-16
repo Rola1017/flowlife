@@ -12,6 +12,7 @@ import { fmt, getDaysInMonth, getFirstDow } from "@/lib/utils";
 import { Chip } from "@/components/ui/Chip";
 import { TriCharts } from "@/components/charts/TriCharts";
 import { ReviewView } from "./ReviewView";
+import { DayReview } from "./DayReview";
 
 const DOW = ["一", "二", "三", "四", "五", "六", "日"] as const;
 
@@ -130,6 +131,7 @@ export function CalendarPage({
   onPatchReflection: (id: number, text: string) => void;
 }) {
   const [calMode, setCalMode] = useState<"calendar" | "review">("calendar");
+  const [reviewSubMode, setReviewSubMode] = useState<"detail" | "summary">("detail");
   const [calView, setCalView] = useState("month");
   const [selCat1Set, setSelCat1Set] = useState<string[]>([]);
   const [selCat2, setSelCat2] = useState("");
@@ -317,12 +319,45 @@ export function CalendarPage({
         </div>
       )}
       {calMode === "review" && (
-        <ReviewView
-          sessions={sessions}
-          cats={selCat1Set}
-          cat2={selCat2}
-          onPatchReflection={onPatchReflection}
-        />
+        <>
+          <div style={{ display: "flex", gap: 5 }}>
+            {(
+              [
+                ["detail", "明細"],
+                ["summary", "總覆盤"],
+              ] as const
+            ).map(([v, l]) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setReviewSubMode(v)}
+                style={{
+                  flex: 1,
+                  padding: "7px",
+                  borderRadius: 10,
+                  border: `1px solid ${reviewSubMode === v ? TH.accent : TH.border}`,
+                  background: reviewSubMode === v ? TH.accent + "22" : "transparent",
+                  color: reviewSubMode === v ? TH.accent : TH.muted,
+                  fontSize: 12,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+          {reviewSubMode === "detail" ? (
+            <ReviewView
+              sessions={sessions}
+              cats={selCat1Set}
+              cat2={selCat2}
+              onPatchReflection={onPatchReflection}
+            />
+          ) : (
+            <DayReview sessions={sessions} />
+          )}
+        </>
       )}
       {calMode === "calendar" && (
         <>

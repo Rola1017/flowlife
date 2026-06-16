@@ -63,6 +63,7 @@ lib/
 ├── schedule.ts   ← 班別定義 + currentOrNextCourse 課程查找 + availableMinutesFor（單一來源）
 ├── types.ts      ← Session 等共用型別（含 intention／reflection／id）
 ├── sessions.ts   ← patchReflection（覆盤寫入單一來源）
+├── reviews.ts    ← upsertReview（覆盤表寫入單一來源）
 ├── timelineActual.ts ← actSessionsFor / overridesFor / actIdleFor / buildActualSegments（VT＋迷你 bar 單一來源）
 ├── tabs.ts       ← TABS 導航設定
 └── storage.ts    ← LS_KEYS + loadJSON / saveJSON
@@ -93,6 +94,8 @@ lib/
 | `flowlife_v1_purchase_log` | 商店購買記錄 |
 | `flowlife_v1_coin_income_log` | 金幣收入記錄 |
 | `flowlife_v1_daily_override_YYYY-MM-DD` | 行程表當天個別修改 |
+| `flowlife_v1_routine_override_YYYY-MM-DD` | 當日作息覆寫（睡眠／吃飯等不可用時間） |
+| `flowlife_v1_reviews` | 覆盤表（day/week/month/quarter/free 總結） |
 | `flowlife_v1_timeline_todo_view` | 直式行程表待辦疊圖顯示偏好 `{ pending, done }` |
 
 ---
@@ -317,6 +320,29 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
+## 八（補4）、覆盤表 reviews（`lib/reviews.ts` + `DayReview.tsx`）
+
+**儲存**：`LS_KEYS.reviews`（`flowlife_v1_reviews`），陣列 `ReviewEntry[]`。
+
+**型別**：
+- `ReviewScope`：`day` | `week` | `month` | `quarter` | `free`
+- `ReviewEntry`：`{ id, scope, periodKey, text, createdAt, updatedAt? }`
+- `periodKey`：`day`／`free` 用 `YYYY-MM-DD`（如 `2026-06-16`）；week/month/quarter 後續擴充
+
+**寫入單一來源**：`lib/reviews.ts` 的 `upsertReview(scope, periodKey, text)`；空白 text ＝刪除該筆；`loadReviews`／`getReview` 唯讀。
+
+**入口**：`CalendarPage` → 🔍 覆盤 → 子切換「明細／總覆盤」；預設「明細」＝既有 `ReviewView`。
+
+**DayReview（總覆盤）**：
+- **上半素材（唯讀）**：聚合今日 `sessions` 中有 `intention` 或 `reflection` 的番茄（🎯→✍️＋評分＋名稱·分類·時長）；零重複輸入、零 MOCK
+- **靈感**：「＋靈感」→ `upsertReview("free", 今日, text)`，唯讀列於素材下方
+- **下半總結**：textarea 綁 `getReview("day", 今日)`；失焦或「儲存」→ `upsertReview("day", 今日, text)`
+- 💡 小提示已加於頂部
+
+**與單顆覆盤分工**：番茄 `Session.reflection` 仍走 `patchReflection`；跨番茄「今日總結」走 `reviews`，兩者不重複。
+
+---
+
 ## 九、Cursor 開發必讀（重要提醒）
 
 1. **`SL` 元件** → `import { Card, SL } from "@/components/ui/Card"`
@@ -393,6 +419,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **habit-tracker10 番茄啟動後可改名稱/意圖**：專注中事件名稱、意圖綁 `confirmed` 快照可編輯，`confirmRating` 讀 `confirmed` 寫入最新值；保留每顆意圖重置（`beginFocus` 清 `intention` state）；一鍵開始番茄可中途補意圖。
 - **item 3 作息每日覆寫**：`lib/schedule.routineFor` + `routine_override_YYYY-MM-DD`；`blockedRanges` 上游接覆寫層；新增 `RoutineEditor`；VerticalTimeline 點作息塊開編輯、儲存後 PLN／未利用／週月曆可用圈同步重算；班別邏輯未動。
 - **item 3 收尾**：時段頁加作息 💡 小提示；今日有覆寫顯示「✏️ 今日作息已調整」；編輯器刪光儲存改 `clearRoutineOverride`；`end<=start` 擋下並提示。
+- **item 4 覆盤表第一步**：`lib/reviews.ts` + `DayReview` 今日總覆盤；CalendarPage 覆盤子切換「明細／總覆盤」；寫入走 `upsertReview`。
 
 ---
 
@@ -402,6 +429,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - ⬜ 健康模組
 - ⬜ 閱讀模組
 - ⬜ **覆盤頁 #3/#4/#5**：最佳專注時段（startTime 分桶）、未利用時間趨勢（lib/idle.idleMinutes 折線）、計畫vs實際（重用 95/10/5 模型）— #2 骨架已完成。
+- 🔄 **覆盤表 reviews（item 4）**：第一步完成（day/free 今日總覆盤 + DayReview）；週／月／季總覆盤待後續。
 - ⬜ PWA 圖示（手機安裝用）
 - ⬜ Git 功能分支習慣建立
 - ⬜ Supabase（確定多人使用再做）
