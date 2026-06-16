@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CFG } from "@/lib/config";
 import { TH, readableTextOn } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
@@ -18,6 +18,15 @@ export function DayReview({ sessions }: { sessions: Session[] }) {
   const [summaryDraft, setSummaryDraft] = useState(() => getReview("day", today)?.text ?? "");
   const [inspirationOpen, setInspirationOpen] = useState(false);
   const [inspirationDraft, setInspirationDraft] = useState("");
+  const [savedFlash, setSavedFlash] = useState(false);
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    },
+    [],
+  );
 
   const material = useMemo(
     () =>
@@ -35,6 +44,9 @@ export function DayReview({ sessions }: { sessions: Session[] }) {
 
   const saveSummary = () => {
     setReviews(upsertReview("day", today, summaryDraft));
+    setSavedFlash(true);
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    flashTimerRef.current = setTimeout(() => setSavedFlash(false), 1800);
   };
 
   const saveInspiration = () => {
@@ -239,6 +251,9 @@ export function DayReview({ sessions }: { sessions: Session[] }) {
       )}
 
       <div style={{ fontSize: 10, fontWeight: 800, color: TH.muted, marginTop: 4 }}>📝 今日總結</div>
+      <div style={{ fontSize: 9, color: TH.muted, paddingLeft: 2, lineHeight: 1.4 }}>
+        💡 失焦或按儲存都會存，存好會顯示「已儲存 ✓」
+      </div>
       <textarea
         value={summaryDraft}
         onChange={(e) => setSummaryDraft(e.target.value)}
@@ -259,23 +274,27 @@ export function DayReview({ sessions }: { sessions: Session[] }) {
           lineHeight: 1.5,
         }}
       />
-      <button
-        type="button"
-        onClick={saveSummary}
-        style={{
-          alignSelf: "flex-end",
-          fontSize: 10,
-          fontWeight: 700,
-          padding: "5px 14px",
-          borderRadius: 8,
-          border: "none",
-          background: TH.accent,
-          color: readableTextOn(TH.accent),
-          cursor: "pointer",
-        }}
-      >
-        儲存
-      </button>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
+        {savedFlash && (
+          <span style={{ fontSize: 10, color: TH.green, fontWeight: 700 }}>已儲存 ✓</span>
+        )}
+        <button
+          type="button"
+          onClick={saveSummary}
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            padding: "5px 14px",
+            borderRadius: 8,
+            border: "none",
+            background: TH.accent,
+            color: readableTextOn(TH.accent),
+            cursor: "pointer",
+          }}
+        >
+          儲存
+        </button>
+      </div>
     </div>
   );
 }

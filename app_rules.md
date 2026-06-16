@@ -64,6 +64,7 @@ lib/
 ├── types.ts      ← Session 等共用型別（含 intention／reflection／id）
 ├── sessions.ts   ← patchReflection（覆盤寫入單一來源）
 ├── reviews.ts    ← upsertReview（覆盤表寫入單一來源）
+├── period.ts     ← weekKey／monthKey／quarterKey／isoWeekLabel（期間 key 單一來源）
 ├── timelineActual.ts ← actSessionsFor / overridesFor / actIdleFor / buildActualSegments（VT＋迷你 bar 單一來源）
 ├── tabs.ts       ← TABS 導航設定
 └── storage.ts    ← LS_KEYS + loadJSON / saveJSON
@@ -327,7 +328,7 @@ TH.gold    = "#FBBF24"   // 金幣
 **型別**：
 - `ReviewScope`：`day` | `week` | `month` | `quarter` | `free`
 - `ReviewEntry`：`{ id, scope, periodKey, text, createdAt, updatedAt? }`
-- `periodKey`：`day`／`free` 用 `YYYY-MM-DD`（如 `2026-06-16`）；week/month/quarter 後續擴充
+- `periodKey`：`day`／`free`＝`YYYY-MM-DD`；`week`＝該週週一 `YYYY-MM-DD`（避開 ISO 週跨年地雷）；`month`＝`YYYY-MM`；`quarter`＝`YYYY-Q#`（如 `2026-Q2`）。「第 N 週」人類標籤用 `lib/period.isoWeekLabel`（顯示用，不進 key）。
 
 **寫入單一來源**：`lib/reviews.ts`；`loadReviews`／`getReview` 唯讀。**free 用 `addReview` append、`removeReview` 刪；day／week／month／quarter 用 `upsertReview` 單筆**（空白 text ＝刪除該筆）。
 
@@ -420,6 +421,15 @@ TH.gold    = "#FBBF24"   // 金幣
 - **item 3 作息每日覆寫**：`lib/schedule.routineFor` + `routine_override_YYYY-MM-DD`；`blockedRanges` 上游接覆寫層；新增 `RoutineEditor`；VerticalTimeline 點作息塊開編輯、儲存後 PLN／未利用／週月曆可用圈同步重算；班別邏輯未動。
 - **item 3 收尾**：時段頁加作息 💡 小提示；今日有覆寫顯示「✏️ 今日作息已調整」；編輯器刪光儲存改 `clearRoutineOverride`；`end<=start` 擋下並提示。
 - **item 4 覆盤表第一步**：`lib/reviews.ts` + `DayReview` 今日總覆盤；CalendarPage 覆盤子切換「明細／總覆盤」；寫入走 `upsertReview`。
+- **item 4 Batch A**：DayReview 今日總結加「已儲存 ✓」回饋（1.8s）；新增 `lib/period.ts` 期間 key 單一來源（週一 key、ISO 週標籤顯示用）。
+
+---
+
+## 暫緩決策帳本
+
+| 決策 | 內容 |
+|------|------|
+| reviews 上提 App.tsx | 現況 `DayReview` 自行 load/save；暫緩原因＝第二步只在覆盤頁內讀寫夠用；觸發上提時機＝做第三步主頁 22:30 浮現卡時（`HomePage` 需跨頁讀今日總覆盤狀態）。日後提醒時須附此脈絡。 |
 
 ---
 
