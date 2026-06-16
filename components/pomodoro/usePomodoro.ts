@@ -366,6 +366,11 @@ export function usePomodoro({
     setSessions((prev) => patchReflection(prev, id, text));
   };
 
+  const updateConfirmedName = (text: string) =>
+    setConfirmed((c) => (c ? { ...c, name: text } : c));
+  const updateConfirmedIntention = (text: string) =>
+    setConfirmed((c) => (c ? { ...c, intention: text } : c));
+
   const selectDuration = (nextDur: number) => {
     if (mode === "focus") return;
     setDur(nextDur);
@@ -510,5 +515,7 @@ export function usePomodoro({
     abandonFocus,
     lastSessionId,
     updateReflection,
+    updateConfirmedName,
+    updateConfirmedIntention,
   };
 }

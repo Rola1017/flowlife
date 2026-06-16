@@ -252,7 +252,10 @@ TH.gold    = "#FBBF24"   // 金幣
 
 **意圖一句話**（`intention`）：
 - UI 預設**收合**：小鈕「✍️ 這次想弄懂的小概念／小目標（可選）」點開才展開；已有內容時自動展開
-- placeholder 正名為「想弄懂的小概念／小目標」；≤60 字、可選；開始後鎖定，專注中顯示在計時圈下方；寫入 `Session.intention`（空白不存）；`quickStart` 無意圖
+- placeholder 正名為「想弄懂的小概念／小目標」；≤60 字、可選；**開始後仍可編輯**（綁定 `confirmed` 快照，專注中計時圈下方 input；`confirmRating` 寫入最新值）；寫入 `Session.intention`（空白不存）；`quickStart` 啟動時無意圖、專注中可補
+
+**事件名稱**（`taskName` / `confirmed.name`）：
+- 啟動前綁 `taskName`；**專注中仍可編輯**（綁定 `confirmed` 快照，`updateConfirmedName`；完成時 `confirmRating` 寫入最新值）；歷史下拉僅非專注中顯示
 
 **單顆覆盤**（`reflection`）：
 - 評分後可選填「✍️ 寫覆盤」；寫入 `Session.reflection`（空白不存）
@@ -371,7 +374,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - 直式行程表待辦顯示開關：未完成／已完成可獨立隱藏（時間軸疊圖 only），持久化 `LS_KEYS.timelineTodoView`
 - 直式行程表三餐圖案統一為 🍴（起床／午覺／睡覺仍 😴）
 - **技術債 #2（實色底文字色寫死）已關閉**：新增 `lib/theme.ts:readableTextOn(bg)` 為單一來源，套用於 `VerticalTimeline` 的 `actSessions`／`dailyOverride`。未來任何在「實色背景上印文字」的新 UI，文字色一律改讀 `readableTextOn`，禁止再寫死 `#111`／`#fff`。
-- 番茄「意圖一句話」：開始前填意圖→鎖定→專注中顯示→存進 `Session.intention`（可選，空白不存）。
+- 番茄「意圖一句話」：開始前填意圖→專注中仍可編輯（`confirmed` 快照）→存進 `Session.intention`（可選，空白不存）。
 - 主頁「覆盤方針」假卡 → 改真實「🎯 今日意圖回顧」：列今日有意圖的番茄（評分＋意圖＋名稱·分類·時長），移除寫死假文字。為 Stage 2 專屬覆盤頁鋪路。
 - 作息統一為 `lib/schedule.FIXED_ROUTINE` 單一來源（含 `routineBlocksInWindow`）；`availableMinutesFor` 改讀 `ROUTINE_RANGES`；移除 `lib/utils.getAvailableMinutes` 死碼。
 - **第二層完成**——時間軸與課表顯示改吃 `FIXED_ROUTINE`，emoji 統一 🍴/😴，早餐 07:00–08:00、22:30 可排課。
@@ -385,6 +388,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **habit-tracker9 迷你 ACT bar 真實化**：抽 `lib/timelineActual.ts`；TimelinePage／DayViewPage 迷你 bar 改 `buildActualSegments`；VerticalTimeline 改呼叫同一組函式；刪 `MOCK.schedule`。
 - **habit-tracker10 覆盤頁 #2 骨架**：CalendarPage 頂端新增「📆 行事曆 / 🔍 覆盤」(calMode) 切換；新增 components/calendar/ReviewView.tsx，列出期間內「有意圖或有覆盤」的番茄成對清單（🎯意圖 → ✍️覆盤＋評分＋名稱·分類·時長），點卡片 inline 補/改覆盤，寫入唯一走 App.tsx 的 onPatchReflection → lib/sessions.patchReflection（updateSessions 持久化）。零新增假資料；分類 chips 與行事曆模式共用篩選；無 id 舊資料顯示唯讀。
 - **habit-tracker10 月曆錨點根治**：CalendarPage 月份錨點改由 CFG.TODAY 推算（殺掉寫死的 2026／月基準 4），預設顯示本月；修好「選『月』圖表空白」與「今日小圓點不亮」兩個連動問題；翻頁自動跨年。
+- **habit-tracker10 番茄啟動後可改名稱/意圖**：專注中事件名稱、意圖綁 `confirmed` 快照可編輯，`confirmRating` 讀 `confirmed` 寫入最新值；保留每顆意圖重置（`beginFocus` 清 `intention` state）；一鍵開始番茄可中途補意圖。
 
 ---
 

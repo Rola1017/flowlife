@@ -125,6 +125,8 @@ export function PomodoroPage({
     abandonFocus,
     lastSessionId,
     updateReflection,
+    updateConfirmedName,
+    updateConfirmedIntention,
   } = usePomodoro({
     sessions,
     setSessions,
@@ -668,20 +670,26 @@ export function PomodoroPage({
         </div>
       </div>
 
-      {mode === "focus" && confirmed?.intention?.trim() && (
-        <div
+      {mode === "focus" && (
+        <input
+          value={confirmed?.intention ?? ""}
+          onChange={(e) => updateConfirmedIntention(e.target.value)}
+          placeholder="🎯 想弄懂的小概念／小目標（可中途補上）"
+          maxLength={60}
           style={{
             maxWidth: 320,
-            textAlign: "center",
-            fontSize: 12,
+            width: "100%",
+            background: TH.card,
+            border: `1px solid ${TH.border}`,
+            borderRadius: 8,
+            padding: "7px 12px",
             color: TH.accent,
+            fontSize: 12,
             fontWeight: 700,
-            lineHeight: 1.4,
-            padding: "0 12px",
+            textAlign: "center",
+            outline: "none",
           }}
-        >
-          🎯 {confirmed.intention}
-        </div>
+        />
       )}
 
       {showRating && !rated && (
@@ -809,22 +817,23 @@ export function PomodoroPage({
       )}
       <div style={{ position: "relative", width: "100%" }}>
         <input
-          value={taskName}
-          onChange={(e) => setTaskName(e.target.value)}
+          value={mode === "focus" ? (confirmed?.name ?? "") : taskName}
+          onChange={(e) =>
+            mode === "focus" ? updateConfirmedName(e.target.value) : setTaskName(e.target.value)
+          }
           onFocus={() => setShowEventDropdown(true)}
           onBlur={() => setTimeout(() => setShowEventDropdown(false), 150)}
           placeholder="輸入事件名稱（可選）..."
-          disabled={mode === "focus"}
           style={{
             width: "100%",
             background: TH.card,
             border: `1px solid ${TH.border}`,
             borderRadius: 8,
             padding: "8px 12px",
-            color: mode === "focus" ? TH.muted : TH.text,
+            color: TH.text,
             fontSize: 12,
             outline: "none",
-            opacity: mode === "focus" ? 0.6 : 1,
+            opacity: 1,
           }}
         />
         {showEventDropdown && recentEventNames.length > 0 && mode !== "focus" && (
