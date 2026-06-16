@@ -5,6 +5,7 @@ import { Card, SL } from "@/components/ui/Card";
 import { DateTimePicker, formatDateTimeDisplay, splitTodoDateTime } from "@/components/ui/DateTimePicker";
 import { TodoCard } from "@/components/todo/TodoCard";
 import { VerticalTimeline } from "@/components/timeline/VerticalTimeline";
+import { RoutineEditor } from "@/components/timeline/RoutineEditor";
 import { CFG, TODO_REMINDER_OPTIONS, type TodoReminderId } from "@/lib/config";
 import { TH } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
@@ -101,6 +102,8 @@ export function TimelinePage({
   const [showPending, setShowPending] = useState(true);
   const [showDone, setShowDone] = useState(true);
   const [todoViewLoaded, setTodoViewLoaded] = useState(false);
+  const [editRoutineDate, setEditRoutineDate] = useState<string | null>(null);
+  const [routineRev, setRoutineRev] = useState(0);
 
   useEffect(() => {
     const v = loadJSON<{ pending: boolean; done: boolean }>(LS_KEYS.timelineTodoView, {
@@ -131,7 +134,7 @@ export function TimelinePage({
   ) as { id: number; text: string; startTime: string; endTime: string; endAt?: string }[];
   const { act: miniAct, idle: miniIdle } = useMemo(
     () => buildActualSegments(CFG.TODAY_STR, nowPct),
-    [nowPct],
+    [nowPct, routineRev],
   );
 
   const submitTodo = () => {
@@ -316,6 +319,8 @@ export function TimelinePage({
           showPending={showPending}
           showDone={showDone}
           date={CFG.TODAY_STR}
+          routineRev={routineRev}
+          onEditRoutine={(d) => setEditRoutineDate(d)}
           onTimeClick={(time) => {
             const hm = normalizeTimelineTime(time);
             setQuickDraft({
@@ -330,6 +335,13 @@ export function TimelinePage({
           }}
         />
       </div>
+      {editRoutineDate && (
+        <RoutineEditor
+          date={editRoutineDate}
+          onClose={() => setEditRoutineDate(null)}
+          onSaved={() => setRoutineRev((v) => v + 1)}
+        />
+      )}
       <Card style={{ padding: "8px 12px" }}>
         <SL>今日待辦</SL>
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 6 }}>

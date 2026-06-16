@@ -34,6 +34,8 @@ export function VerticalTimeline({
   showDone = true,
   date = CFG.TODAY_STR,
   onTimeClick,
+  onEditRoutine,
+  routineRev = 0,
 }: {
   nowPct: number;
   showNowLine?: boolean;
@@ -43,6 +45,8 @@ export function VerticalTimeline({
   showDone?: boolean;
   date?: string;
   onTimeClick?: (time: string) => void;
+  onEditRoutine?: (date: string) => void;
+  routineRev?: number;
 }) {
   const hours = buildTimelineHours();
 
@@ -53,7 +57,7 @@ export function VerticalTimeline({
     const week = loadJSON<Record<string, Cell[]>>(LS_KEYS.weekSchedule, {});
     const cells = week[dayKey] ?? [];
 
-    const fixedBlocks = routineBlocksInWindow(DS, DE).map((b) => ({
+    const fixedBlocks = routineBlocksInWindow(DS, DE, date).map((b) => ({
       start: b.start,
       end: b.end,
       label: b.label,
@@ -94,7 +98,7 @@ export function VerticalTimeline({
     });
 
     return [...fixedBlocks, ...courseBlocks, ...shiftBlocks];
-  }, [date]);
+  }, [date, routineRev]);
 
   const actSessions = useMemo(() => actSessionsFor(date), [date]);
 
@@ -126,7 +130,7 @@ export function VerticalTimeline({
     for (const b of actSessions) fills.push([toM(b.start), toM(b.end)]);
     for (const ov of Object.values(dailyOverride)) fills.push([toM(ov.startTime), toM(ov.endTime)]);
     return actIdleFor(date, nowPct, fills);
-  }, [actSessions, dailyOverride, date, nowPct]);
+  }, [actSessions, dailyOverride, date, nowPct, routineRev]);
 
   const isVisibleTodo = (todo: TodoOverlay) => {
     const mins = toM(todo.startTime);
@@ -233,6 +237,14 @@ export function VerticalTimeline({
           return (
             <div
               key={`pln-${i}`}
+              onClick={
+                isFixed
+                  ? (e) => {
+                      e.stopPropagation();
+                      onEditRoutine?.(date);
+                    }
+                  : undefined
+              }
               style={{
                 position: "absolute",
                 top: `${top}%`,
@@ -248,6 +260,7 @@ export function VerticalTimeline({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: isFixed ? "center" : "flex-start",
+                cursor: isFixed ? "pointer" : undefined,
               }}
             >
               <div

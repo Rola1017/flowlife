@@ -13,6 +13,7 @@ export const LS_KEYS = {
   purchaseLog: `${STORAGE_PREFIX}purchase_log`,
   coinIncomeLog: `${STORAGE_PREFIX}coin_income_log`,
   dailyOverride: `${STORAGE_PREFIX}daily_override_`,
+  routineOverride: `${STORAGE_PREFIX}routine_override_`,
   categories: `${STORAGE_PREFIX}categories`,
   weekSchedule: `${STORAGE_PREFIX}week_schedule`,
   colorPalette: `${STORAGE_PREFIX}color_palette`,
@@ -72,6 +73,15 @@ export function saveJSON(key: string, value: unknown): void {
   } catch {
     /* quota / private mode */
   }
+}
+
+export function removeKey(key: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    assertVersionedKey(key);
+    localStorage.removeItem(key);
+    removeLegacyKey(key);
+  } catch {}
 }
 
 export function loadNumber(key: string, fallback: number): number {

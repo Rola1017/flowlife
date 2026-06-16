@@ -115,7 +115,7 @@ lib/
 - 關閉後對應疊圖隱藏（🙈），兩顆互不影響；都關時時間軸只剩課表／班別／補登／未利用
 - 持久化於 `LS_KEYS.timelineTodoView`（`{ pending: boolean, done: boolean }`）；mount 後讀取，避免 hydration 不一致
 
-**固定作息**：PLN 欄固定作息讀 `routineBlocksInWindow(DS, DE)`，來源 `lib/schedule.FIXED_ROUTINE`（🍴 三餐／😴 起床·午覺；睡覺 23:00–24:00 在時間軸窗外不顯示）
+**固定作息**：PLN 欄固定作息讀 `routineBlocksInWindow(DS, DE, date)`，來源 `lib/schedule.routineFor(date)`（預設 `FIXED_ROUTINE`；有當日覆寫則用覆寫）。🍴 三餐／😴 起床·午覺；睡覺 23:00–24:00 在時間軸窗外不顯示。**作息塊單點可編輯**：點 PLN 灰色作息塊 → `RoutineEditor` 調整當日作息覆寫（`stopPropagation`，不誤觸左欄新增待辦）。
 
 **ACT 資料來源**（VerticalTimeline 與迷你 ACT bar 共用 `lib/timelineActual.ts`）：
 
@@ -291,9 +291,10 @@ TH.gold    = "#FBBF24"   // 金幣
 - 標頭時段標籤：早 06-12／午 12-18／晚 **18-24**；唯讀班別 `{place}{shifts}`（如「彩晚」「診晚」），來自 `dayPlans`
 
 **可用時間**（`lib/schedule.ts` → `availableMinutesFor` / `blockedRanges`）：
-- 不可用區間單一來源：`blockedRanges(date)`＝固定作息 `ROUTINE_RANGES` ∪ 當日班別（已合併）
+- 不可用區間單一來源：`blockedRanges(date)`＝當日作息（`routineFor` → 預設 `FIXED_ROUTINE`，或 `routine_override_YYYY-MM-DD` 覆寫）∪ 當日班別（已合併）
 - `availableMinutesFor`＝1440 − blocked 總長
-- 固定作息單一來源：`FIXED_ROUTINE`（`ROUTINE_RANGES` 衍生）— 睡眠 00:00–06:30、起床 06:30–07:00、早餐 07:00–08:00、午餐 12:00–13:00、午覺 13:00–13:30、晚餐 17:00–18:00、睡覺 23:00–24:00；無班別時基準可用 **750 分**（1440−690）
+- 固定作息預設：`FIXED_ROUTINE` — 睡眠 00:00–06:30、起床 06:30–07:00、早餐 07:00–08:00、午餐 12:00–13:00、午覺 13:00–13:30、晚餐 17:00–18:00、睡覺 23:00–24:00；無班別時基準可用 **750 分**（1440−690）
+- **當日作息覆寫**：`LS_KEYS.routineOverride` + 日期（`flowlife_v1_routine_override_YYYY-MM-DD`）；`loadRoutineOverride`／`saveRoutineOverride`／`clearRoutineOverride`；`routineFor(date)` 為 `blockedRanges` 上游單一來源
 - 週曆／月曆圈圈百分比皆吃此函式；課表改班別後重整即反映
 - **班別邏輯**（技術債 #1 **已完成**）：`SchedulePage`、`CalendarPage`、`VerticalTimeline` 皆 import `lib/schedule.ts`（`PLACE_NAME` / `shiftRange` / `loadDayPlans` / `weekdayOf` / `availableMinutesFor`）。時間軸與課表固定作息皆已改讀 `routineBlocksInWindow`／`FIXED_ROUTINE`，本地 `FIXED_BLOCKS`／手寫 `ROWS` 已移除
 - 已移除 `LS_KEYS.weekendShifts` 與 `lib/utils.getAvailableMinutes` 死碼
@@ -376,7 +377,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **技術債 #2（實色底文字色寫死）已關閉**：新增 `lib/theme.ts:readableTextOn(bg)` 為單一來源，套用於 `VerticalTimeline` 的 `actSessions`／`dailyOverride`。未來任何在「實色背景上印文字」的新 UI，文字色一律改讀 `readableTextOn`，禁止再寫死 `#111`／`#fff`。
 - 番茄「意圖一句話」：開始前填意圖→專注中仍可編輯（`confirmed` 快照）→存進 `Session.intention`（可選，空白不存）。
 - 主頁「覆盤方針」假卡 → 改真實「🎯 今日意圖回顧」：列今日有意圖的番茄（評分＋意圖＋名稱·分類·時長），移除寫死假文字。為 Stage 2 專屬覆盤頁鋪路。
-- 作息統一為 `lib/schedule.FIXED_ROUTINE` 單一來源（含 `routineBlocksInWindow`）；`availableMinutesFor` 改讀 `ROUTINE_RANGES`；移除 `lib/utils.getAvailableMinutes` 死碼。
+- 作息統一為 `lib/schedule.FIXED_ROUTINE` 單一來源（含 `routineBlocksInWindow`）；`availableMinutesFor` 改讀 `routineFor`／`blockedRanges`；移除 `lib/utils.getAvailableMinutes` 死碼。
 - **第二層完成**——時間軸與課表顯示改吃 `FIXED_ROUTINE`，emoji 統一 🍴/😴，早餐 07:00–08:00、22:30 可排課。
 - **第三層完成**——未利用改「可用內」算法：抽 `lib/idle.ts`；`blockedRanges` 為不可用單一來源；時間軸灰塊＝可用時間內空檔（off-hours 番茄不遮蓋）。
 - **週曆三段線完成**：95/10/5 模型上線（可用內＋未利用第一圈、加碼外圈藍線、`totalPct` 可破百）。
@@ -389,6 +390,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **habit-tracker10 覆盤頁 #2 骨架**：CalendarPage 頂端新增「📆 行事曆 / 🔍 覆盤」(calMode) 切換；新增 components/calendar/ReviewView.tsx，列出期間內「有意圖或有覆盤」的番茄成對清單（🎯意圖 → ✍️覆盤＋評分＋名稱·分類·時長），點卡片 inline 補/改覆盤，寫入唯一走 App.tsx 的 onPatchReflection → lib/sessions.patchReflection（updateSessions 持久化）。零新增假資料；分類 chips 與行事曆模式共用篩選；無 id 舊資料顯示唯讀。
 - **habit-tracker10 月曆錨點根治**：CalendarPage 月份錨點改由 CFG.TODAY 推算（殺掉寫死的 2026／月基準 4），預設顯示本月；修好「選『月』圖表空白」與「今日小圓點不亮」兩個連動問題；翻頁自動跨年。
 - **habit-tracker10 番茄啟動後可改名稱/意圖**：專注中事件名稱、意圖綁 `confirmed` 快照可編輯，`confirmRating` 讀 `confirmed` 寫入最新值；保留每顆意圖重置（`beginFocus` 清 `intention` state）；一鍵開始番茄可中途補意圖。
+- **item 3 作息每日覆寫**：`lib/schedule.routineFor` + `routine_override_YYYY-MM-DD`；`blockedRanges` 上游接覆寫層；新增 `RoutineEditor`；VerticalTimeline 點作息塊開編輯、儲存後 PLN／未利用／週月曆可用圈同步重算；班別邏輯未動。
 
 ---
 

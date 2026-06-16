@@ -1,4 +1,4 @@
-import { LS_KEYS, loadJSON } from "@/lib/storage";
+import { LS_KEYS, loadJSON, saveJSON, removeKey } from "@/lib/storage";
 
 export type Place = "診" | "彩";
 export type DayPlan = { place: Place; shifts: string[] };
@@ -117,12 +117,36 @@ export const FIXED_ROUTINE: RoutineBlock[] = [
   { start: "23:00", end: "24:00", label: "😴 睡覺" },
 ];
 
-const ROUTINE_RANGES: [number, number][] = FIXED_ROUTINE.map((b) => [toMin(b.start), toMin(b.end)]);
+export function loadRoutineOverride(dateStr: string): RoutineBlock[] | null {
+  const v = loadJSON<RoutineBlock[] | null>(`${LS_KEYS.routineOverride}${dateStr}`, null);
+  return Array.isArray(v) && v.length > 0 ? v : null;
+}
+
+export function saveRoutineOverride(dateStr: string, blocks: RoutineBlock[]): void {
+  saveJSON(`${LS_KEYS.routineOverride}${dateStr}`, blocks);
+}
+
+export function clearRoutineOverride(dateStr: string): void {
+  removeKey(`${LS_KEYS.routineOverride}${dateStr}`);
+}
+
+/** 某日生效作息：有覆寫用覆寫，否則 FIXED_ROUTINE — 單一來源 */
+export function routineFor(dateStr?: string): RoutineBlock[] {
+  if (dateStr) {
+    const ov = loadRoutineOverride(dateStr);
+    if (ov) return ov;
+  }
+  return FIXED_ROUTINE;
+}
+
+function routineRangesFor(dateStr: string): [number, number][] {
+  return routineFor(dateStr).map((b) => [toMin(b.start), toMin(b.end)] as [number, number]);
+}
 
 /** 取 [startMin,endMin] 內、已裁切的作息塊（給直式行程表／課表顯示共用） */
-export function routineBlocksInWindow(startMin: number, endMin: number): RoutineBlock[] {
+export function routineBlocksInWindow(startMin: number, endMin: number, dateStr?: string): RoutineBlock[] {
   const out: RoutineBlock[] = [];
-  for (const b of FIXED_ROUTINE) {
+  for (const b of routineFor(dateStr)) {
     const s = Math.max(startMin, toMin(b.start));
     const e = Math.min(endMin, toMin(b.end));
     if (e > s) out.push({ start: fmtHM(s), end: fmtHM(e), label: b.label });
@@ -148,7 +172,7 @@ export function blockedRanges(dateStr: string, dayPlans?: Record<string, DayPlan
   const plans = dayPlans ?? loadDayPlans();
   const day = weekdayOf(dateStr);
   const plan = plans[day];
-  const ivs: Interval[] = [...ROUTINE_RANGES];
+  const ivs: Interval[] = [...routineRangesFor(dateStr)];
   if (plan) {
     for (const s of plan.shifts) {
       const r = shiftRange(plan.place, s, day);
