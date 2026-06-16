@@ -10,6 +10,7 @@ import { CFG, TODO_REMINDER_OPTIONS, type TodoReminderId } from "@/lib/config";
 import { TH } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { buildActualSegments } from "@/lib/timelineActual";
+import { loadRoutineOverride } from "@/lib/schedule";
 import { DS, DT, toM, nowHM, roundHM5, addMinHM } from "@/lib/utils";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 
@@ -135,6 +136,10 @@ export function TimelinePage({
   const { act: miniAct, idle: miniIdle } = useMemo(
     () => buildActualSegments(CFG.TODAY_STR, nowPct),
     [nowPct, routineRev],
+  );
+  const hasRoutineOverride = useMemo(
+    () => loadRoutineOverride(CFG.TODAY_STR) != null,
+    [routineRev],
   );
 
   const submitTodo = () => {
@@ -311,7 +316,22 @@ export function TimelinePage({
         </div>
         <div style={{ fontSize: 9, color: TH.muted, marginBottom: 4, lineHeight: 1.4 }}>
           💡 點右側「實際」欄空白，可直接補登做過的事（免跑番茄鐘）
+          <br />
+          💡 點左側灰色作息塊，可調整今天的睡眠／吃飯時間（如失眠晚起）
         </div>
+        {hasRoutineOverride && (
+          <div
+            style={{
+              fontSize: 9,
+              color: TH.accent,
+              fontWeight: 700,
+              marginBottom: 4,
+              textAlign: "right",
+            }}
+          >
+            ✏️ 今日作息已調整
+          </div>
+        )}
         <VerticalTimeline
           nowPct={nowPct}
           pendingTodos={pendingTL}

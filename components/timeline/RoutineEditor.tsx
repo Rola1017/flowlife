@@ -43,9 +43,16 @@ export function RoutineEditor({
   const [blocks, setBlocks] = useState<RoutineBlock[]>(() =>
     routineFor(date).map((b) => ({ ...b })),
   );
+  const [invalidIndices, setInvalidIndices] = useState<Set<number>>(() => new Set());
 
   const updateBlock = (i: number, patch: Partial<RoutineBlock>) => {
     setBlocks((prev) => prev.map((b, j) => (j === i ? { ...b, ...patch } : b)));
+    setInvalidIndices((prev) => {
+      if (!prev.has(i)) return prev;
+      const next = new Set(prev);
+      next.delete(i);
+      return next;
+    });
   };
 
   const removeBlock = (i: number) => {
@@ -59,8 +66,18 @@ export function RoutineEditor({
   };
 
   const handleSave = () => {
-    const valid = blocks.filter((b) => blockEndValid(b.start, b.end) && b.label.trim());
-    saveRoutineOverride(date, valid);
+    const bad = new Set<number>();
+    blocks.forEach((b, i) => {
+      if (!blockEndValid(b.start, b.end)) bad.add(i);
+    });
+    if (bad.size > 0) {
+      setInvalidIndices(bad);
+      return;
+    }
+    setInvalidIndices(new Set());
+    const valid = blocks.filter((b) => b.label.trim() && blockEndValid(b.start, b.end));
+    if (valid.length === 0) clearRoutineOverride(date);
+    else saveRoutineOverride(date, valid);
     onSaved();
     onClose();
   };
@@ -156,6 +173,9 @@ export function RoutineEditor({
                   刪
                 </button>
               </div>
+              {invalidIndices.has(i) && (
+                <div style={{ fontSize: 10, color: TH.red }}>⚠️ 結束需晚於開始</div>
+              )}
             </div>
           ))}
         </div>

@@ -115,7 +115,7 @@ lib/
 - 關閉後對應疊圖隱藏（🙈），兩顆互不影響；都關時時間軸只剩課表／班別／補登／未利用
 - 持久化於 `LS_KEYS.timelineTodoView`（`{ pending: boolean, done: boolean }`）；mount 後讀取，避免 hydration 不一致
 
-**固定作息**：PLN 欄固定作息讀 `routineBlocksInWindow(DS, DE, date)`，來源 `lib/schedule.routineFor(date)`（預設 `FIXED_ROUTINE`；有當日覆寫則用覆寫）。🍴 三餐／😴 起床·午覺；睡覺 23:00–24:00 在時間軸窗外不顯示。**作息塊單點可編輯**：點 PLN 灰色作息塊 → `RoutineEditor` 調整當日作息覆寫（`stopPropagation`，不誤觸左欄新增待辦）。
+**固定作息**：PLN 欄固定作息讀 `routineBlocksInWindow(DS, DE, date)`，來源 `lib/schedule.routineFor(date)`（預設 `FIXED_ROUTINE`；有當日覆寫則用覆寫）。🍴 三餐／😴 起床·午覺；睡覺 23:00–24:00 在時間軸窗外不顯示。**作息塊單點可編輯**：點 PLN 灰色作息塊 → `RoutineEditor` 調整當日作息覆寫（`stopPropagation`，不誤觸左欄新增待辦）。**今日已自訂標記**：`TimelinePage` 用 `loadRoutineOverride(CFG.TODAY_STR)` 判斷，有覆寫時顯示「✏️ 今日作息已調整」（`TH.accent`）；存檔／恢復後隨 `routineRev` 即時更新。
 
 **ACT 資料來源**（VerticalTimeline 與迷你 ACT bar 共用 `lib/timelineActual.ts`）：
 
@@ -326,6 +326,7 @@ TH.gold    = "#FBBF24"   // 金幣
 5. **圖表純 SVG** → 不裝任何圖表庫
 6. **next.config.ts** → `ignoreBuildErrors: true, ignoreDuringBuilds: true`
 7. **改動前確認範圍** → 先說「會影響哪些檔案」，確認後再動
+8. **💡 小提示** → 每個新功能都要在 UI 就近加一行 `💡` 操作提示（`fontSize: 9`、`TH.muted`），讓使用者不用猜怎麼用
 
 ---
 
@@ -391,6 +392,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **habit-tracker10 月曆錨點根治**：CalendarPage 月份錨點改由 CFG.TODAY 推算（殺掉寫死的 2026／月基準 4），預設顯示本月；修好「選『月』圖表空白」與「今日小圓點不亮」兩個連動問題；翻頁自動跨年。
 - **habit-tracker10 番茄啟動後可改名稱/意圖**：專注中事件名稱、意圖綁 `confirmed` 快照可編輯，`confirmRating` 讀 `confirmed` 寫入最新值；保留每顆意圖重置（`beginFocus` 清 `intention` state）；一鍵開始番茄可中途補意圖。
 - **item 3 作息每日覆寫**：`lib/schedule.routineFor` + `routine_override_YYYY-MM-DD`；`blockedRanges` 上游接覆寫層；新增 `RoutineEditor`；VerticalTimeline 點作息塊開編輯、儲存後 PLN／未利用／週月曆可用圈同步重算；班別邏輯未動。
+- **item 3 收尾**：時段頁加作息 💡 小提示；今日有覆寫顯示「✏️ 今日作息已調整」；編輯器刪光儲存改 `clearRoutineOverride`；`end<=start` 擋下並提示。
 
 ---
 
