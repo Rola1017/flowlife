@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
 import { buildCalendarStats, sessionMatches } from "@/lib/analytics";
@@ -125,16 +125,27 @@ export function CalendarPage({
   sessions,
   onShowDay,
   onPatchReflection,
+  intent,
+  onIntentConsumed,
 }: {
   todos: Record<string, unknown>[];
   sessions: Session[];
   onShowDay: (date: string, label: string) => void;
   onPatchReflection: (id: number, text: string) => void;
+  intent?: { review: "day" } | null;
+  onIntentConsumed?: () => void;
 }) {
   const [calMode, setCalMode] = useState<"calendar" | "review">("calendar");
   const [reviewSubMode, setReviewSubMode] = useState<
     "detail" | "day" | "week" | "month" | "quarter"
   >("day");
+
+  useEffect(() => {
+    if (!intent) return;
+    setCalMode("review");
+    setReviewSubMode(intent.review);
+    onIntentConsumed?.();
+  }, [intent, onIntentConsumed]);
   const [calView, setCalView] = useState("month");
   const [selCat1Set, setSelCat1Set] = useState<string[]>([]);
   const [selCat2, setSelCat2] = useState("");

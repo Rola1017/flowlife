@@ -81,6 +81,7 @@ lib/
 | `idleTrackStart` | ❌ | 未利用時間起始 timestamp |
 | `todos`（useTodos） | ✅ `flowlife_v1_todos` | 待辦清單 |
 | `subPage` | ❌ | 子頁面路由（schedule/shop/dayView） |
+| `calIntent` | ❌ | 一次性導航 intent（覆盤浮現卡→覆盤/日）；`{ review: "day" } \| null` |
 
 ---
 
@@ -349,6 +350,11 @@ TH.gold    = "#FBBF24"   // 金幣
 
 **與單顆覆盤分工**：番茄 `Session.reflection` 仍走 `patchReflection`；跨番茄「今日總結」走 `reviews`，兩者不重複。
 
+**主頁 ReviewNudgeCard**（`components/home/ReviewNudgeCard.tsx`）：
+- 顯示條件：`nowHM >= CFG.REVIEW_NUDGE_AFTER`（22:30）且今日 `getReview("day", TODAY_STR)` 無內容
+- 昨日總結唯讀展示（若有）；點「去寫今日總覆盤」→ `App.calIntent` → 覆盤 tab／「日」分頁
+- `reviews` 不上提 App；HomePage 直讀 `getReview`；`nowTick` 每 60s 刷新（跨 22:30 自動浮現）
+
 ---
 
 ## 九、Cursor 開發必讀（重要提醒）
@@ -430,6 +436,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **item 4 覆盤表第一步**：`lib/reviews.ts` + `DayReview` 今日總覆盤；CalendarPage 覆盤子切換「明細／總覆盤」；寫入走 `upsertReview`。
 - **item 4 Batch A**：DayReview 今日總結加「已儲存 ✓」回饋（1.8s）；新增 `lib/period.ts` 期間 key 單一來源（週一 key、ISO 週標籤顯示用）。
 - **item 4 Batch B**：週/月/季 `PeriodReview` + 俄羅斯娃娃聚合；覆盤子切換攤平五顆；`reviews.nextId` 防撞。
+- **item 4 Batch C**：主頁 `ReviewNudgeCard`（22:30 浮現卡 + `calIntent` 跳覆盤/日）；`CFG.REVIEW_NUDGE_AFTER`。
 
 ---
 
@@ -437,7 +444,7 @@ TH.gold    = "#FBBF24"   // 金幣
 
 | 決策 | 內容 |
 |------|------|
-| reviews 上提 App.tsx | 現況 `DayReview` 自行 load/save；暫緩原因＝第二步只在覆盤頁內讀寫夠用；觸發上提時機＝做第三步主頁 22:30 浮現卡時（`HomePage` 需跨頁讀今日總覆盤狀態）。日後提醒時須附此脈絡。 |
+| reviews 上提 App.tsx | 現況 `DayReview`／`ReviewNudgeCard` 各自 load/save 或直讀 `getReview`；暫緩原因＝覆盤頁與主頁不同 tab 不同時掛載，第三步經評估不需上提；**觸發上提時機＝未來同畫面同時出現浮現卡與覆盤編輯、需即時連動時**（附原脈絡：Batch C 走 `calIntent` 跳轉即可）。 |
 | 週/月/季靈感 | 現況靈感僅「日」；暫緩原因＝週 key＝週一日期會與日靈感撞同格；觸發＝若要週級靈感，把 free key 命名空間化為 `scope:periodKey`。 |
 | 過去期數導覽 | 現況只做當期；暫緩原因＝與日覆盤只做今日一致、先蓋穩聚合；觸發＝Rola 想回顧上週/上月時加期數前後導覽（periodKey 已支援任意期）。 |
 

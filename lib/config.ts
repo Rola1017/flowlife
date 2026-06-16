@@ -46,6 +46,8 @@ export const CFG = {
   REST_SECONDS: { 1: 10, 5: 60, 25: 5 * 60, 60: 10 * 60, 90: 15 * 60, 120: 20 * 60 } as Record<number, number>,
   /** 顯示用番茄時長（分鐘） */
   POMO_DURATIONS: [1, 5, 25, 60, 90],
+  /** 主頁今日總覆盤浮現卡顯示門檻（HH:MM，24h） */
+  REVIEW_NUDGE_AFTER: "22:30",
   COIN_TABLE: [
     { min: 1, coins: 1 },
     { min: 5, coins: 1 },

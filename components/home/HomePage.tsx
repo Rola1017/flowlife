@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Card, SL } from "@/components/ui/Card";
 import { TodoCard } from "@/components/todo/TodoCard";
 import { BattleCard } from "@/components/home/BattleCard";
+import { ReviewNudgeCard } from "@/components/home/ReviewNudgeCard";
 import { CourseBanner } from "@/components/schedule/CourseBanner";
 import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
@@ -19,6 +20,7 @@ export function HomePage({
   onEnd,
   onToggleDone,
   onEditTodo,
+  onWriteSummary,
 }: {
   todos: Record<string, unknown>[];
   todaySessions: Session[];
@@ -28,8 +30,15 @@ export function HomePage({
   onEnd: (id: number) => void;
   onToggleDone: (id: number) => void;
   onEditTodo: (id: number) => void;
+  onWriteSummary: () => void;
 }) {
   const [expandReview, setExpandReview] = useState(false);
+  const [nowTick, setNowTick] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => setNowTick((n) => n + 1), 60 * 1000);
+    return () => clearInterval(timer);
+  }, []);
   const yTot = yesterdaySessions.reduce((s, p) => s + p.mins, 0);
   const ydbTot = dayBeforeSessions.reduce((s, p) => s + p.mins, 0);
   const mustDo = todos.filter(
@@ -83,6 +92,7 @@ export function HomePage({
           />
         </div>
       </div>
+      <ReviewNudgeCard onWriteSummary={onWriteSummary} nowTick={nowTick} />
       <Card>
         <SL>🎯 今日意圖回顧</SL>
         {intentionReview.length === 0 ? (

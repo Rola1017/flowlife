@@ -89,6 +89,7 @@ export function App() {
 
 function AppContent() {
   const [tab, setTab] = useState("home");
+  const [calIntent, setCalIntent] = useState<{ review: "day" } | null>(null);
   const [subPage, setSubPage] = useState<{ type: string; props?: Record<string, unknown> } | null>(null);
   const [quote, setQuote] = useState("每一顆番茄鐘，都是打下江山的一刀。");
   const { coins, setCoins, resetCoins, spendCoins } = useCoins();
@@ -291,6 +292,10 @@ function AppContent() {
         todaySessions={todaySessions}
         yesterdaySessions={yesterdaySessions}
         dayBeforeSessions={dayBeforeSessions}
+        onWriteSummary={() => {
+          setTab("calendar");
+          setCalIntent({ review: "day" });
+        }}
       />
     ),
     timeline: () => <TimelinePage {...todoProps} onShowSchedule={() => push("schedule")} />,
@@ -301,6 +306,8 @@ function AppContent() {
         onShowDay={(d, l) => push("dayView", { date: d, label: l })}
         onPatchReflection={(id, text) =>
           updateSessions((prev) => patchReflection(prev, id, text))}
+        intent={calIntent}
+        onIntentConsumed={() => setCalIntent(null)}
       />
     ),
     health: () => (
