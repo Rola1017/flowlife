@@ -63,8 +63,8 @@ lib/
 ├── schedule.ts   ← 班別定義 + currentOrNextCourse 課程查找 + availableMinutesFor（單一來源）
 ├── types.ts      ← Session 等共用型別（含 intention／reflection／id）
 ├── sessions.ts   ← patchReflection（覆盤寫入單一來源）
-├── reviews.ts    ← upsertReview（覆盤表寫入單一來源）
-├── period.ts     ← weekKey／monthKey／quarterKey／isoWeekLabel（期間 key 單一來源）
+├── reviews.ts    ← upsertReview / addReview / removeReview / nextId（覆盤表寫入單一來源）
+├── period.ts     ← mondayOf／weekKey／monthKey／quarterKey／isoWeek／daysOfWeek／weekKeysOfMonth／monthKeysOfQuarter／weekLabel／monthLabel／quarterLabel（期間 key 單一來源）
 ├── timelineActual.ts ← actSessionsFor / overridesFor / actIdleFor / buildActualSegments（VT＋迷你 bar 單一來源）
 ├── tabs.ts       ← TABS 導航設定
 └── storage.ts    ← LS_KEYS + loadJSON / saveJSON
@@ -330,15 +330,22 @@ TH.gold    = "#FBBF24"   // 金幣
 - `ReviewEntry`：`{ id, scope, periodKey, text, createdAt, updatedAt? }`
 - `periodKey`：`day`／`free`＝`YYYY-MM-DD`；`week`＝該週週一 `YYYY-MM-DD`（避開 ISO 週跨年地雷）；`month`＝`YYYY-MM`；`quarter`＝`YYYY-Q#`（如 `2026-Q2`）。「第 N 週」人類標籤用 `lib/period.isoWeekLabel`（顯示用，不進 key）。
 
-**寫入單一來源**：`lib/reviews.ts`；`loadReviews`／`getReview` 唯讀。**free 用 `addReview` append、`removeReview` 刪；day／week／month／quarter 用 `upsertReview` 單筆**（空白 text ＝刪除該筆）。
+**寫入單一來源**：`lib/reviews.ts`；`loadReviews`／`getReview` 唯讀。**free 用 `addReview` append、`removeReview` 刪；day／week／month／quarter 用 `upsertReview` 單筆**（空白 text ＝刪除該筆）。新建 id 走 `nextId` 單調遞增（防撞）。
 
-**入口**：`CalendarPage` → 🔍 覆盤 → 子切換「明細／總覆盤」；預設「明細」＝既有 `ReviewView`。
+**入口**：`CalendarPage` → 🔍 覆盤 → 子切換「明細｜日｜週｜月｜季」；預設「日」。
 
-**DayReview（總覆盤）**：
+**ReviewView（明細）**：期間內番茄意圖/覆盤 inline 編輯（不變）。
+
+**DayReview（日）**：
 - **上半素材（唯讀）**：聚合今日 `sessions` 中有 `intention` 或 `reflection` 的番茄（🎯→✍️＋評分＋名稱·分類·時長）；零重複輸入、零 MOCK
 - **靈感**：「＋靈感」→ `addReview("free", 今日, text)`（同日可多則）；卡片「刪」→ `removeReview(id)`
 - **下半總結**：textarea 綁 `getReview("day", 今日)`；失焦或「儲存」→ `upsertReview("day", 今日, text)`
 - 💡 小提示已加於頂部
+
+**PeriodReview（週／月／季）**＝`components/calendar/PeriodReview.tsx`：
+- **俄羅斯娃娃聚合**：週←各日 `day` 總結；月←各週 `week` 總結（`weekKeysOfMonth`，週一落點歸屬）；季←各月 `month` 總結
+- **只做當期**（無翻頁）；上半子期素材唯讀、顯示「已寫 X / 共 Y」；下半 `upsertReview(scope, periodKey)` + savedFlash
+- **靈感僅「日」**；週/月/季無「＋靈感」
 
 **與單顆覆盤分工**：番茄 `Session.reflection` 仍走 `patchReflection`；跨番茄「今日總結」走 `reviews`，兩者不重複。
 
@@ -422,6 +429,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **item 3 收尾**：時段頁加作息 💡 小提示；今日有覆寫顯示「✏️ 今日作息已調整」；編輯器刪光儲存改 `clearRoutineOverride`；`end<=start` 擋下並提示。
 - **item 4 覆盤表第一步**：`lib/reviews.ts` + `DayReview` 今日總覆盤；CalendarPage 覆盤子切換「明細／總覆盤」；寫入走 `upsertReview`。
 - **item 4 Batch A**：DayReview 今日總結加「已儲存 ✓」回饋（1.8s）；新增 `lib/period.ts` 期間 key 單一來源（週一 key、ISO 週標籤顯示用）。
+- **item 4 Batch B**：週/月/季 `PeriodReview` + 俄羅斯娃娃聚合；覆盤子切換攤平五顆；`reviews.nextId` 防撞。
 
 ---
 
@@ -430,6 +438,8 @@ TH.gold    = "#FBBF24"   // 金幣
 | 決策 | 內容 |
 |------|------|
 | reviews 上提 App.tsx | 現況 `DayReview` 自行 load/save；暫緩原因＝第二步只在覆盤頁內讀寫夠用；觸發上提時機＝做第三步主頁 22:30 浮現卡時（`HomePage` 需跨頁讀今日總覆盤狀態）。日後提醒時須附此脈絡。 |
+| 週/月/季靈感 | 現況靈感僅「日」；暫緩原因＝週 key＝週一日期會與日靈感撞同格；觸發＝若要週級靈感，把 free key 命名空間化為 `scope:periodKey`。 |
+| 過去期數導覽 | 現況只做當期；暫緩原因＝與日覆盤只做今日一致、先蓋穩聚合；觸發＝Rola 想回顧上週/上月時加期數前後導覽（periodKey 已支援任意期）。 |
 
 ---
 
@@ -439,7 +449,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - ⬜ 健康模組
 - ⬜ 閱讀模組
 - ⬜ **覆盤頁 #3/#4/#5**：最佳專注時段（startTime 分桶）、未利用時間趨勢（lib/idle.idleMinutes 折線）、計畫vs實際（重用 95/10/5 模型）— #2 骨架已完成。
-- 🔄 **覆盤表 reviews（item 4）**：第一步完成（day/free 今日總覆盤 + DayReview）；週／月／季總覆盤待後續。
+- 🔄 **覆盤表 reviews（item 4）**：週/月/季總覆盤已完成（`PeriodReview`）；剩 ⬜ **過去期數導覽**（上週/上月翻頁）。
 - ⬜ PWA 圖示（手機安裝用）
 - ⬜ Git 功能分支習慣建立
 - ⬜ Supabase（確定多人使用再做）

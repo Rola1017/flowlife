@@ -49,3 +49,39 @@ export function daysOfWeek(weekKeyStr: string): string[] {
     return toLocalDateStr(x);
   });
 }
+
+/** 該月「週一落在此月」的各週 key（週一 YYYY-MM-DD） */
+export function weekKeysOfMonth(monthKeyStr: string): string[] {
+  const [y, m] = monthKeyStr.split("-").map(Number);
+  const keys: string[] = [];
+  const d = new Date(y, m - 1, 1);
+  const dow = (d.getDay() + 6) % 7;
+  if (dow !== 0) d.setDate(d.getDate() + (7 - dow));
+  while (d.getMonth() === m - 1) {
+    keys.push(toLocalDateStr(d));
+    d.setDate(d.getDate() + 7);
+  }
+  return keys;
+}
+
+/** 該季的三個月 key */
+export function monthKeysOfQuarter(qKey: string): string[] {
+  const [y, q] = qKey.split("-Q").map(Number);
+  const startM = (q - 1) * 3 + 1;
+  return [0, 1, 2].map((i) => `${y}-${String(startM + i).padStart(2, "0")}`);
+}
+
+export function weekLabel(weekKeyStr: string): string {
+  const [y, m, d] = weekKeyStr.split("-").map(Number);
+  return isoWeekLabel(new Date(y, m - 1, d));
+}
+
+export function monthLabel(monthKeyStr: string): string {
+  const [y, m] = monthKeyStr.split("-").map(Number);
+  return `${y} 年 ${m} 月`;
+}
+
+export function quarterLabel(qKey: string): string {
+  const [y, q] = qKey.split("-Q").map(Number);
+  return `${y} 年 第 ${q} 季`;
+}

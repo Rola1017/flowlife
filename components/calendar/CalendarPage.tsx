@@ -13,6 +13,7 @@ import { Chip } from "@/components/ui/Chip";
 import { TriCharts } from "@/components/charts/TriCharts";
 import { ReviewView } from "./ReviewView";
 import { DayReview } from "./DayReview";
+import { PeriodReview } from "./PeriodReview";
 
 const DOW = ["一", "二", "三", "四", "五", "六", "日"] as const;
 
@@ -131,7 +132,9 @@ export function CalendarPage({
   onPatchReflection: (id: number, text: string) => void;
 }) {
   const [calMode, setCalMode] = useState<"calendar" | "review">("calendar");
-  const [reviewSubMode, setReviewSubMode] = useState<"detail" | "summary">("detail");
+  const [reviewSubMode, setReviewSubMode] = useState<
+    "detail" | "day" | "week" | "month" | "quarter"
+  >("day");
   const [calView, setCalView] = useState("month");
   const [selCat1Set, setSelCat1Set] = useState<string[]>([]);
   const [selCat2, setSelCat2] = useState("");
@@ -324,7 +327,10 @@ export function CalendarPage({
             {(
               [
                 ["detail", "明細"],
-                ["summary", "總覆盤"],
+                ["day", "日"],
+                ["week", "週"],
+                ["month", "月"],
+                ["quarter", "季"],
               ] as const
             ).map(([v, l]) => (
               <button
@@ -333,12 +339,12 @@ export function CalendarPage({
                 onClick={() => setReviewSubMode(v)}
                 style={{
                   flex: 1,
-                  padding: "7px",
+                  padding: "7px 4px",
                   borderRadius: 10,
                   border: `1px solid ${reviewSubMode === v ? TH.accent : TH.border}`,
                   background: reviewSubMode === v ? TH.accent + "22" : "transparent",
                   color: reviewSubMode === v ? TH.accent : TH.muted,
-                  fontSize: 12,
+                  fontSize: 11,
                   fontWeight: 800,
                   cursor: "pointer",
                 }}
@@ -347,16 +353,18 @@ export function CalendarPage({
               </button>
             ))}
           </div>
-          {reviewSubMode === "detail" ? (
+          {reviewSubMode === "detail" && (
             <ReviewView
               sessions={sessions}
               cats={selCat1Set}
               cat2={selCat2}
               onPatchReflection={onPatchReflection}
             />
-          ) : (
-            <DayReview sessions={sessions} />
           )}
+          {reviewSubMode === "day" && <DayReview sessions={sessions} />}
+          {reviewSubMode === "week" && <PeriodReview scope="week" />}
+          {reviewSubMode === "month" && <PeriodReview scope="month" />}
+          {reviewSubMode === "quarter" && <PeriodReview scope="quarter" />}
         </>
       )}
       {calMode === "calendar" && (

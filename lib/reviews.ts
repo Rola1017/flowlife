@@ -20,6 +20,11 @@ export function getReview(scope: ReviewScope, periodKey: string): ReviewEntry | 
   return loadReviews().find((r) => r.scope === scope && r.periodKey === periodKey);
 }
 
+function nextId(existing: ReviewEntry[]): number {
+  const maxId = existing.reduce((m, r) => Math.max(m, r.id), 0);
+  return Math.max(Date.now(), maxId + 1);
+}
+
 /** 覆盤表寫入單一來源：空白 text 視為刪除該筆 */
 export function upsertReview(scope: ReviewScope, periodKey: string, text: string): ReviewEntry[] {
   const trimmed = text.trim();
@@ -38,7 +43,7 @@ export function upsertReview(scope: ReviewScope, periodKey: string, text: string
     next = [
       ...prev,
       {
-        id: Date.now(),
+        id: nextId(prev),
         scope,
         periodKey,
         text: trimmed,
@@ -55,10 +60,11 @@ export function upsertReview(scope: ReviewScope, periodKey: string, text: string
 export function addReview(scope: ReviewScope, periodKey: string, text: string): ReviewEntry[] {
   const trimmed = text.trim();
   if (!trimmed) return loadReviews();
+  const prev = loadReviews();
   const next = [
-    ...loadReviews(),
+    ...prev,
     {
-      id: Date.now(),
+      id: nextId(prev),
       scope,
       periodKey,
       text: trimmed,
