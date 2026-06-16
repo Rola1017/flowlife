@@ -5,7 +5,7 @@ import { CFG } from "@/lib/config";
 import { TH, readableTextOn } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { fmt } from "@/lib/utils";
-import { getReview, loadReviews, upsertReview } from "@/lib/reviews";
+import { addReview, getReview, loadReviews, removeReview, upsertReview } from "@/lib/reviews";
 import type { Session } from "@/lib/types";
 
 function catPath(s: Session): string {
@@ -39,7 +39,7 @@ export function DayReview({ sessions }: { sessions: Session[] }) {
 
   const saveInspiration = () => {
     if (!inspirationDraft.trim()) return;
-    setReviews(upsertReview("free", today, inspirationDraft));
+    setReviews(addReview("free", today, inspirationDraft));
     setInspirationDraft("");
     setInspirationOpen(false);
   };
@@ -132,12 +132,29 @@ export function DayReview({ sessions }: { sessions: Session[] }) {
                 border: `1px solid ${TH.border}`,
                 borderRadius: 8,
                 padding: "8px 10px",
-                fontSize: 11,
-                color: TH.text,
-                lineHeight: 1.5,
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 8,
               }}
             >
-              {r.text}
+              <div style={{ flex: 1, fontSize: 11, color: TH.text, lineHeight: 1.5 }}>{r.text}</div>
+              <button
+                type="button"
+                onClick={() => setReviews(removeReview(r.id))}
+                style={{
+                  border: `1px solid ${TH.border}`,
+                  borderRadius: 6,
+                  padding: "2px 8px",
+                  background: "transparent",
+                  color: TH.red,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              >
+                刪
+              </button>
             </div>
           ))}
         </div>

@@ -50,3 +50,27 @@ export function upsertReview(scope: ReviewScope, periodKey: string, text: string
   saveJSON(LS_KEYS.reviews, next);
   return next;
 }
+
+/** 追加一則（靈感等多則場景）；空白 text 不動 */
+export function addReview(scope: ReviewScope, periodKey: string, text: string): ReviewEntry[] {
+  const trimmed = text.trim();
+  if (!trimmed) return loadReviews();
+  const next = [
+    ...loadReviews(),
+    {
+      id: Date.now(),
+      scope,
+      periodKey,
+      text: trimmed,
+      createdAt: new Date().toISOString(),
+    },
+  ];
+  saveJSON(LS_KEYS.reviews, next);
+  return next;
+}
+
+export function removeReview(id: number): ReviewEntry[] {
+  const next = loadReviews().filter((r) => r.id !== id);
+  saveJSON(LS_KEYS.reviews, next);
+  return next;
+}

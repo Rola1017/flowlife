@@ -329,13 +329,13 @@ TH.gold    = "#FBBF24"   // 金幣
 - `ReviewEntry`：`{ id, scope, periodKey, text, createdAt, updatedAt? }`
 - `periodKey`：`day`／`free` 用 `YYYY-MM-DD`（如 `2026-06-16`）；week/month/quarter 後續擴充
 
-**寫入單一來源**：`lib/reviews.ts` 的 `upsertReview(scope, periodKey, text)`；空白 text ＝刪除該筆；`loadReviews`／`getReview` 唯讀。
+**寫入單一來源**：`lib/reviews.ts`；`loadReviews`／`getReview` 唯讀。**free 用 `addReview` append、`removeReview` 刪；day／week／month／quarter 用 `upsertReview` 單筆**（空白 text ＝刪除該筆）。
 
 **入口**：`CalendarPage` → 🔍 覆盤 → 子切換「明細／總覆盤」；預設「明細」＝既有 `ReviewView`。
 
 **DayReview（總覆盤）**：
 - **上半素材（唯讀）**：聚合今日 `sessions` 中有 `intention` 或 `reflection` 的番茄（🎯→✍️＋評分＋名稱·分類·時長）；零重複輸入、零 MOCK
-- **靈感**：「＋靈感」→ `upsertReview("free", 今日, text)`，唯讀列於素材下方
+- **靈感**：「＋靈感」→ `addReview("free", 今日, text)`（同日可多則）；卡片「刪」→ `removeReview(id)`
 - **下半總結**：textarea 綁 `getReview("day", 今日)`；失焦或「儲存」→ `upsertReview("day", 今日, text)`
 - 💡 小提示已加於頂部
 
