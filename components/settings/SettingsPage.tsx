@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { BackBtn } from "@/components/ui/BackBtn";
 import { Card, SL } from "@/components/ui/Card";
+import { AuthPanel } from "@/components/auth/AuthPanel";
 import { TH } from "@/lib/theme";
 
 export function SettingsPage({
@@ -25,6 +26,11 @@ export function SettingsPage({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <BackBtn onBack={onBack} label="設定" />
+
+      <Card>
+        <SL>雲端同步（測試中）</SL>
+        <AuthPanel />
+      </Card>
 
       <Card>
         <SL>未利用時間</SL>

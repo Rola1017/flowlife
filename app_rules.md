@@ -442,6 +442,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **待辦↔未利用整合**：時間軸未利用 `fills` 新增來源「已執行待辦」——用實際執行時間 `startAt`～`endAt`（非排定 `startTime`/`endTime`，`toM(e)>toM(s)` 才碳），與 `showDone` 顯示開關無關（`doneTodos` prop 為完整清單）；只打勾沒進行的點待辦無 `startAt`、不碳掉維持未利用。補登小框可從今天已完成待辦一鍵帶入名稱（晶片）。
 - **歷史頁可改時長/刪除**：`SessionHistoryPage` 每日彙總下列逐顆 session（依 `endTime` 由晚到早）；改時長／刪除（二次確認）走 `lib/sessions.setSessionMins`／`removeSession`（單一寫入來源，回傳 `{sessions, coinDelta}`，為 Supabase S2 預留接縫），只動餘額＋該筆 `earnedCoins` 基礎幣、餘額 `Math.max(0,...)` 不為負；里程碑/寶箱不回溯、`coinIncomeLog` 帳本不變；無 `id` 舊資料改/刪鈕 disabled。`Session` 新增 `manual?` 欄。
 - **歷史頁可手動補番茄**：頂端「＋ 手動補番茄」表單（名稱/日期/起訖/分類/可選評分），`toM(end)>toM(start)` 驗證；走 `lib/sessions.buildManualSession`（`manual:true`、依時長 `coinsForSecs` 發基礎幣、`id=Date.now()`）；有起訖故自動進時間軸 `actSessions`、碳掉該段未利用；可再用改時長/刪除（有 id）。
+- **Supabase S1-2 Auth**：`@supabase/ssr` browser/server client（`lib/supabase/client.ts`／`server.ts`）＋根目錄 `middleware.ts` 每次請求 `getUser()` 刷新 session；`components/auth/AuthPanel.tsx` 最小 email 登入/註冊（`onAuthStateChange` 同步、登出），掛在設定頁「雲端同步（測試中）」卡；只用 publishable key，secret 不入前端；**本批未接資料表**（reviews 同步留 S1-3）。
 
 ---
 
