@@ -4,22 +4,38 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CFG } from "@/lib/config";
 import { TH, readableTextOn } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
-import { fmt } from "@/lib/utils";
-import { addReview, getReview, loadReviews, removeReview, upsertReview } from "@/lib/reviews";
+import { fmt, toLocalDateStr } from "@/lib/utils";
+import {
+  addReview,
+  getReview,
+  loadReviews,
+  removeReview,
+  subscribeReviews,
+  upsertReview,
+} from "@/lib/reviews";
 import type { Session } from "@/lib/types";
+
+const WEEKDAY_TW = ["日", "一", "二", "三", "四", "五", "六"];
 
 function catPath(s: Session): string {
   return [s.cat1, s.cat2, s.cat3].filter(Boolean).join(" › ");
 }
 
 export function DayReview({ sessions }: { sessions: Session[] }) {
-  const today = CFG.TODAY_STR;
+  const [dayOffset, setDayOffset] = useState(0); // 0=今天，負=過去
+  const dayKey = useMemo(() => {
+    const d = new Date(CFG.TODAY);
+    d.setDate(d.getDate() + dayOffset);
+    return toLocalDateStr(d);
+  }, [dayOffset]);
+
   const [reviews, setReviews] = useState(() => loadReviews());
-  const [summaryDraft, setSummaryDraft] = useState(() => getReview("day", today)?.text ?? "");
+  const [summaryDraft, setSummaryDraft] = useState(() => getReview("day", dayKey)?.text ?? "");
   const [inspirationOpen, setInspirationOpen] = useState(false);
   const [inspirationDraft, setInspirationDraft] = useState("");
   const [savedFlash, setSavedFlash] = useState(false);
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const editingRef = useRef(false);
 
   useEffect(
     () => () => {
@@ -28,22 +44,45 @@ export function DayReview({ sessions }: { sessions: Session[] }) {
     [],
   );
 
+  // 切換日期：一律重設草稿與素材（navigation 重設，不受編輯守衛影響）
+  useEffect(() => {
+    setSummaryDraft(getReview("day", dayKey)?.text ?? "");
+    setReviews(loadReviews());
+  }, [dayKey]);
+
+  // 即時刷新：訂閱雲端/他處變更，但正在打字時不蓋掉草稿
+  useEffect(() => {
+    const unsub = subscribeReviews(() => {
+      setReviews(loadReviews());
+      if (!editingRef.current) {
+        setSummaryDraft(getReview("day", dayKey)?.text ?? "");
+      }
+    });
+    return unsub;
+  }, [dayKey]);
+
+  const dayNavLabel = useMemo(() => {
+    const d = new Date(`${dayKey}T00:00:00`);
+    const base = `${d.getMonth() + 1}/${d.getDate()}（週${WEEKDAY_TW[d.getDay()]}）`;
+    return dayOffset === 0 ? `${base} · 今天` : base;
+  }, [dayKey, dayOffset]);
+
   const material = useMemo(
     () =>
       sessions
-        .filter((s) => s.date === today)
+        .filter((s) => s.date === dayKey)
         .filter((s) => s.intention?.trim() || s.reflection?.trim())
         .sort((a, b) => (b.startTime ?? "").localeCompare(a.startTime ?? "")),
-    [sessions, today],
+    [sessions, dayKey],
   );
 
   const freeNotes = useMemo(
-    () => reviews.filter((r) => r.scope === "free" && r.periodKey === today),
-    [reviews, today],
+    () => reviews.filter((r) => r.scope === "free" && r.periodKey === dayKey),
+    [reviews, dayKey],
   );
 
   const saveSummary = () => {
-    setReviews(upsertReview("day", today, summaryDraft));
+    setReviews(upsertReview("day", dayKey, summaryDraft));
     setSavedFlash(true);
     if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
     flashTimerRef.current = setTimeout(() => setSavedFlash(false), 1800);
@@ -51,7 +90,7 @@ export function DayReview({ sessions }: { sessions: Session[] }) {
 
   const saveInspiration = () => {
     if (!inspirationDraft.trim()) return;
-    setReviews(addReview("free", today, inspirationDraft));
+    setReviews(addReview("free", dayKey, inspirationDraft));
     setInspirationDraft("");
     setInspirationOpen(false);
   };
@@ -62,7 +101,55 @@ export function DayReview({ sessions }: { sessions: Session[] }) {
         💡 番茄覆盤是素材，這裡寫一句今天的總結；吃飯/通勤想到的也能用「＋靈感」記下
       </div>
 
-      <div style={{ fontSize: 10, fontWeight: 800, color: TH.muted }}>📋 今日素材（唯讀）</div>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 14,
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setDayOffset((o) => o - 1)}
+          style={{
+            border: "none",
+            background: "transparent",
+            color: TH.muted,
+            fontSize: 22,
+            lineHeight: 1,
+            cursor: "pointer",
+            padding: "0 4px",
+          }}
+        >
+          ‹
+        </button>
+        <div style={{ fontSize: 11, fontWeight: 800, color: TH.text, textAlign: "center" }}>
+          {dayNavLabel}
+        </div>
+        <button
+          type="button"
+          onClick={() => setDayOffset((o) => Math.min(0, o + 1))}
+          disabled={dayOffset === 0}
+          style={{
+            border: "none",
+            background: "transparent",
+            color: TH.muted,
+            fontSize: 22,
+            lineHeight: 1,
+            cursor: dayOffset === 0 ? "default" : "pointer",
+            opacity: dayOffset === 0 ? 0.35 : 1,
+            padding: "0 4px",
+          }}
+        >
+          ›
+        </button>
+      </div>
+      <div style={{ fontSize: 9, color: TH.muted, textAlign: "center", lineHeight: 1.4 }}>
+        💡 用 ‹ › 可翻看過去某天的總結；今天以外只能往回看
+      </div>
+
+      <div style={{ fontSize: 10, fontWeight: 800, color: TH.muted }}>📋 當日素材（唯讀）</div>
 
       {material.length === 0 ? (
         <div style={{ fontSize: 10, color: TH.muted, textAlign: "center", padding: 16, lineHeight: 1.6 }}>
@@ -250,14 +337,18 @@ export function DayReview({ sessions }: { sessions: Session[] }) {
         </div>
       )}
 
-      <div style={{ fontSize: 10, fontWeight: 800, color: TH.muted, marginTop: 4 }}>📝 今日總結</div>
+      <div style={{ fontSize: 10, fontWeight: 800, color: TH.muted, marginTop: 4 }}>📝 當日總結</div>
       <div style={{ fontSize: 9, color: TH.muted, paddingLeft: 2, lineHeight: 1.4 }}>
         💡 失焦或按儲存都會存，存好會顯示「已儲存 ✓」
       </div>
       <textarea
         value={summaryDraft}
         onChange={(e) => setSummaryDraft(e.target.value)}
-        onBlur={saveSummary}
+        onFocus={() => (editingRef.current = true)}
+        onBlur={() => {
+          editingRef.current = false;
+          saveSummary();
+        }}
         placeholder="今天整體學到什麼、明天要調整什麼？"
         style={{
           width: "100%",

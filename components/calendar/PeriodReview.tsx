@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { CFG } from "@/lib/config";
 import { TH, readableTextOn } from "@/lib/theme";
-import { getReview, loadReviews, upsertReview } from "@/lib/reviews";
+import { getReview, loadReviews, subscribeReviews, upsertReview } from "@/lib/reviews";
 import {
   weekKey,
   monthKey,
@@ -39,12 +40,18 @@ const PERIOD_TITLE = {
 } as const;
 
 export function PeriodReview({ scope }: { scope: "week" | "month" | "quarter" }) {
+  const [offset, setOffset] = useState(0);
+
   const periodKey = useMemo(() => {
-    const now = new Date();
-    if (scope === "week") return weekKey(now);
-    if (scope === "month") return monthKey(now);
-    return quarterKey(now);
-  }, [scope]);
+    const t = CFG.TODAY;
+    if (scope === "week") {
+      const d = new Date(t);
+      d.setDate(d.getDate() + offset * 7);
+      return weekKey(d);
+    }
+    if (scope === "month") return monthKey(new Date(t.getFullYear(), t.getMonth() + offset, 1));
+    return quarterKey(new Date(t.getFullYear(), t.getMonth() + offset * 3, 1));
+  }, [scope, offset]);
 
   const [reviews, setReviews] = useState(() => loadReviews());
   const [summaryDraft, setSummaryDraft] = useState(
@@ -52,6 +59,7 @@ export function PeriodReview({ scope }: { scope: "week" | "month" | "quarter" })
   );
   const [savedFlash, setSavedFlash] = useState(false);
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const editingRef = useRef(false);
 
   useEffect(
     () => () => {
@@ -60,9 +68,24 @@ export function PeriodReview({ scope }: { scope: "week" | "month" | "quarter" })
     [],
   );
 
+  // 切換 scope 時回到當期
+  useEffect(() => setOffset(0), [scope]);
+
+  // navigation 重設：切 scope/期數無條件重設草稿與素材
   useEffect(() => {
     setSummaryDraft(getReview(scope, periodKey)?.text ?? "");
     setReviews(loadReviews());
+  }, [scope, periodKey]);
+
+  // 即時刷新：訂閱變更，正在打字時不蓋掉草稿
+  useEffect(() => {
+    const unsub = subscribeReviews(() => {
+      setReviews(loadReviews());
+      if (!editingRef.current) {
+        setSummaryDraft(getReview(scope, periodKey)?.text ?? "");
+      }
+    });
+    return unsub;
   }, [scope, periodKey]);
 
   const childItems = useMemo(() => {
@@ -101,8 +124,52 @@ export function PeriodReview({ scope }: { scope: "week" | "month" | "quarter" })
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ fontSize: 9, color: TH.muted, paddingLeft: 2, lineHeight: 1.5 }}>{HINTS[scope]}</div>
 
-      <div style={{ fontSize: 11, fontWeight: 800, color: TH.text, textAlign: "center" }}>
-        {PERIOD_TITLE[scope](periodKey)}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 14,
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setOffset((o) => o - 1)}
+          style={{
+            border: "none",
+            background: "transparent",
+            color: TH.muted,
+            fontSize: 22,
+            lineHeight: 1,
+            cursor: "pointer",
+            padding: "0 4px",
+          }}
+        >
+          ‹
+        </button>
+        <div style={{ fontSize: 11, fontWeight: 800, color: TH.text, textAlign: "center" }}>
+          {PERIOD_TITLE[scope](periodKey)}
+        </div>
+        <button
+          type="button"
+          onClick={() => setOffset((o) => Math.min(0, o + 1))}
+          disabled={offset === 0}
+          style={{
+            border: "none",
+            background: "transparent",
+            color: TH.muted,
+            fontSize: 22,
+            lineHeight: 1,
+            cursor: offset === 0 ? "default" : "pointer",
+            opacity: offset === 0 ? 0.35 : 1,
+            padding: "0 4px",
+          }}
+        >
+          ›
+        </button>
+      </div>
+      <div style={{ fontSize: 9, color: TH.muted, textAlign: "center", lineHeight: 1.4 }}>
+        💡 用 ‹ › 可翻看上週/上月/上季的總結
       </div>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -147,7 +214,11 @@ export function PeriodReview({ scope }: { scope: "week" | "month" | "quarter" })
       <textarea
         value={summaryDraft}
         onChange={(e) => setSummaryDraft(e.target.value)}
-        onBlur={saveSummary}
+        onFocus={() => (editingRef.current = true)}
+        onBlur={() => {
+          editingRef.current = false;
+          saveSummary();
+        }}
         placeholder={
           scope === "week"
             ? "本週整體學到什麼、下週要調整什麼？"

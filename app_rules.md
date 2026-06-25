@@ -340,13 +340,15 @@ TH.gold    = "#FBBF24"   // 金幣
 **DayReview（日）**：
 - **上半素材（唯讀）**：聚合今日 `sessions` 中有 `intention` 或 `reflection` 的番茄（🎯→✍️＋評分＋名稱·分類·時長）；零重複輸入、零 MOCK
 - **靈感**：「＋靈感」→ `addReview("free", 今日, text)`（同日可多則）；卡片「刪」→ `removeReview(id)`
-- **下半總結**：textarea 綁 `getReview("day", 今日)`；失焦或「儲存」→ `upsertReview("day", 今日, text)`
+- **下半總結**：textarea 綁 `getReview("day", dayKey)`；失焦或「儲存」→ `upsertReview("day", dayKey, text)`
 - 💡 小提示已加於頂部
+- **支援過去期數導覽**（內部 `dayOffset`／`dayKey` 由 `CFG.TODAY` 推算，‹ › 翻頁、不可往未來）＋已訂閱 `subscribeReviews` 即時刷新（編輯中 textarea 有 `editingRef` 守衛不被覆蓋）
 
 **PeriodReview（週／月／季）**＝`components/calendar/PeriodReview.tsx`：
 - **俄羅斯娃娃聚合**：週←各日 `day` 總結；月←各週 `week` 總結（`weekKeysOfMonth`，週一落點歸屬）；季←各月 `month` 總結
-- **只做當期**（無翻頁）；上半子期素材唯讀、顯示「已寫 X / 共 Y」；下半 `upsertReview(scope, periodKey)` + savedFlash
+- 上半子期素材唯讀、顯示「已寫 X / 共 Y」；下半 `upsertReview(scope, periodKey)` + savedFlash
 - **靈感僅「日」**；週/月/季無「＋靈感」
+- **支援過去期數導覽**（內部 `offset`、`periodKey` 依 `CFG.TODAY` 推算，‹ › 翻頁、不可往未來；切 scope 自動歸 0）＋已訂閱 `subscribeReviews` 即時刷新（編輯中 textarea 有 `editingRef` 守衛不被覆蓋）
 
 **與單顆覆盤分工**：番茄 `Session.reflection` 仍走 `patchReflection`；跨番茄「今日總結」走 `reviews`，兩者不重複。
 
@@ -443,7 +445,8 @@ TH.gold    = "#FBBF24"   // 金幣
 - **歷史頁可改時長/刪除**：`SessionHistoryPage` 每日彙總下列逐顆 session（依 `endTime` 由晚到早）；改時長／刪除（二次確認）走 `lib/sessions.setSessionMins`／`removeSession`（單一寫入來源，回傳 `{sessions, coinDelta}`，為 Supabase S2 預留接縫），只動餘額＋該筆 `earnedCoins` 基礎幣、餘額 `Math.max(0,...)` 不為負；里程碑/寶箱不回溯、`coinIncomeLog` 帳本不變；無 `id` 舊資料改/刪鈕 disabled。`Session` 新增 `manual?` 欄。
 - **歷史頁可手動補番茄**：頂端「＋ 手動補番茄」表單（名稱/日期/起訖/分類/可選評分），`toM(end)>toM(start)` 驗證；走 `lib/sessions.buildManualSession`（`manual:true`、依時長 `coinsForSecs` 發基礎幣、`id=Date.now()`）；有起訖故自動進時間軸 `actSessions`、碳掉該段未利用；可再用改時長/刪除（有 id）。
 - **Supabase S1-2 Auth**：`@supabase/ssr` browser/server client（`lib/supabase/client.ts`／`server.ts`）＋根目錄 `middleware.ts` 每次請求 `getUser()` 刷新 session；`components/auth/AuthPanel.tsx` 最小 email 登入/註冊（`onAuthStateChange` 同步、登出），掛在設定頁「雲端同步（測試中）」卡；只用 publishable key，secret 不入前端；**本批未接資料表**（reviews 同步留 S1-3）。
-- **Supabase S1-3 reviews 雲端同步**（路A：本地快取＋背景同步、last-write-wins）：`lib/reviews.ts` 加雲端層——`syncReviewsFromCloud`（拉＋合併＋自動遷移本地較新者）、`pushSingletonCloud`/`deleteSingletonCloud`（手動「先查再 update/insert」避 partial-index `onConflict`）；寫入函式末端 fire-and-forget（`void`，不擋 UI）推雲；`subscribeReviews`/`emitReviews` pub-sub；只同步單筆覆盤 `day/week/month/quarter`，**free 靈感暫不上雲**（本地行為不變）；未登入 `getUid` 回 null 即純本地。新增 `components/hooks/useReviewCloudSync`（App 掛一次、`onAuthStateChange` 觸發同步）。元件即時刷新留 S1-3b。
+- **Supabase S1-3 reviews 雲端同步**（路A：本地快取＋背景同步、last-write-wins）：`lib/reviews.ts` 加雲端層——`syncReviewsFromCloud`（拉＋合併＋自動遷移本地較新者）、`pushSingletonCloud`/`deleteSingletonCloud`（手動「先查再 update/insert」避 partial-index `onConflict`）；寫入函式末端 fire-and-forget（`void`，不擋 UI）推雲；`subscribeReviews`/`emitReviews` pub-sub；只同步單筆覆盤 `day/week/month/quarter`，**free 靈感暫不上雲**（本地行為不變）；未登入 `getUid` 回 null 即純本地。新增 `components/hooks/useReviewCloudSync`（App 掛一次、`onAuthStateChange` 觸發同步）。
+- **reviews 兩洞合補**：`DayReview`/`PeriodReview` 加過去期數導覽（內部 `dayOffset`／`offset`，`CFG.TODAY` 推算 key，‹ › 翻頁、「下一期」當期 disabled 不可往未來；切 scope 自動歸 0）＋訂閱 `subscribeReviews` 即時刷新（`editingRef` 守衛：focus 中遠端刷新不蓋草稿，blur 即存）。未動 `lib/reviews.ts`。
 
 ### 2026/06/26 — Supabase S1 完成 ＋ 番茄記錄修正
 
@@ -463,10 +466,10 @@ TH.gold    = "#FBBF24"   // 金幣
 |------|------|
 | reviews 上提 App.tsx | 現況 `DayReview`／`ReviewNudgeCard` 各自 load/save 或直讀 `getReview`；暫緩原因＝覆盤頁與主頁不同 tab 不同時掛載，第三步經評估不需上提；**觸發上提時機＝未來同畫面同時出現浮現卡與覆盤編輯、需即時連動時**（附原脈絡：Batch C 走 `calIntent` 跳轉即可）。 |
 | 週/月/季靈感 | 現況靈感僅「日」；暫緩原因＝週 key＝週一日期會與日靈感撞同格；觸發＝若要週級靈感，把 free key 命名空間化為 `scope:periodKey`。 |
-| 過去期數導覽 | 現況只做當期；暫緩原因＝與日覆盤只做今日一致、先蓋穩聚合；觸發＝Rola 想回顧上週/上月時加期數前後導覽（periodKey 已支援任意期）。 |
+| ~~過去期數導覽~~ ✅ 已完成 | 日/週/月/季皆可用 ‹ › 往過去翻（`dayOffset`／`offset`，`CFG.TODAY` 推算，不可往未來），舊總結可編輯儲存走該期 key。 |
 | free 靈感上雲 | 現況靈感僅本地（多則）；觸發＝要跨裝置同步靈感時（需逐則穩定 id）。 |
-| 過去期數 UI 入口 | 日/週/月/季鎖在當期，舊總結 UI 進不去（資料在雲端安全）；觸發＝要回看/編輯過去期間。 |
-| S1-3b 覆盤頁即時刷新 | `DayReview`/`PeriodReview` 尚未訂閱 `subscribeReviews`，跨裝置需手動重整；觸發＝做即時同步體驗時。 |
+| ~~過去期數 UI 入口~~ ✅ 已完成 | 四分頁皆有 ‹ › 導覽鈕可回看/編輯過去期間。 |
+| ~~S1-3b 覆盤頁即時刷新~~ ✅ 已完成 | `DayReview`/`PeriodReview` 已訂閱 `subscribeReviews`，雲端/他處變更自動刷新；`editingRef` 守衛打字中不被覆蓋。 |
 | 開回 email confirmation | 測試階段關閉信箱驗證；觸發＝上線前。 |
 | 關閉開放註冊 | Supabase Auth 目前開放註冊；觸發＝主帳號建好後關閉。 |
 | 自訂 SMTP | 觸發＝多人版上線。 |
@@ -484,13 +487,13 @@ TH.gold    = "#FBBF24"   // 金幣
 - ⬜ 健康模組
 - ⬜ 閱讀模組
 - ⬜ **覆盤頁 #3/#4/#5**：最佳專注時段（startTime 分桶）、未利用時間趨勢（lib/idle.idleMinutes 折線）、計畫vs實際（重用 95/10/5 模型）— #2 骨架已完成。
-- 🔄 **覆盤表 reviews（item 4）**：週/月/季總覆盤已完成（`PeriodReview`）；剩 ⬜ **過去期數導覽**（上週/上月翻頁）。
+- ✅ **覆盤表 reviews（item 4）**：日/週/月/季總覆盤＋過去期數導覽（‹ › 翻頁）＋訂閱即時刷新皆完成。
 - ⬜ PWA 圖示（手機安裝用）
 - ⬜ Git 功能分支習慣建立
 - ✅ **Supabase S1 完成**（reviews 試點端到端雲端同步已真機驗證）；多表全面同步留 S2
-- ⬜ **過去期數導覽**（上週/上月翻頁，資料已在雲端）
+- ✅ **過去期數導覽**（日/週/月/季 ‹ › 翻頁，資料已在雲端）
 
 ---
 
-*最後更新：2026/06/26*
+*最後更新：2026/06/26（reviews 兩洞合補：過去期數導覽＋即時刷新）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*
