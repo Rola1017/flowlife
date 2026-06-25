@@ -132,7 +132,7 @@ export function TimelinePage({
   ) as { id: number; text: string; startTime: string; endTime: string }[];
   const doneTL = done.filter(
     (t: { endAt?: string }) => t.endAt,
-  ) as { id: number; text: string; startTime: string; endTime: string; endAt?: string }[];
+  ) as { id: number; text: string; startTime: string; endTime: string; endAt?: string; startAt?: string }[];
   const { act: miniAct, idle: miniIdle } = useMemo(
     () => buildActualSegments(CFG.TODAY_STR, nowPct),
     [nowPct, routineRev],

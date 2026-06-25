@@ -14,6 +14,7 @@ type TodoOverlay = {
   text: string;
   startTime: string;
   endTime: string;
+  startAt?: string;
   endAt?: string;
 };
 
@@ -129,8 +130,15 @@ export function VerticalTimeline({
     const fills: [number, number][] = [];
     for (const b of actSessions) fills.push([toM(b.start), toM(b.end)]);
     for (const ov of Object.values(dailyOverride)) fills.push([toM(ov.startTime), toM(ov.endTime)]);
+    // 已執行待辦碳掉未利用：用「實際執行時間」startAt/endAt（不是排定 startTime/endTime），
+    // 只取有真實時段者。與 showDone 顯示開關無關——doneTodos prop 一直是完整清單。
+    for (const td of doneTodos ?? []) {
+      const s = td.startAt ? td.startAt.slice(0, 5) : "";
+      const e = td.endAt ? td.endAt.slice(0, 5) : "";
+      if (s && e && toM(e) > toM(s)) fills.push([toM(s), toM(e)]);
+    }
     return actIdleFor(date, nowPct, fills);
-  }, [actSessions, dailyOverride, date, nowPct, routineRev]);
+  }, [actSessions, dailyOverride, doneTodos, date, nowPct, routineRev]);
 
   const isVisibleTodo = (todo: TodoOverlay) => {
     const mins = toM(todo.startTime);
@@ -304,6 +312,31 @@ export function VerticalTimeline({
               boxShadow: "0 8px 24px rgba(0,0,0,.35)",
             }}
           >
+            {(doneTodos?.length ?? 0) > 0 && (
+              <>
+                <div style={{ fontSize: 9, color: TH.muted }}>💡 帶入待辦名稱</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                  {doneTodos?.map((td) => (
+                    <button
+                      key={`chip-${td.id}`}
+                      type="button"
+                      onClick={() => setOverrideDraft((v) => (v ? { ...v, label: td.text } : v))}
+                      style={{
+                        fontSize: 9,
+                        padding: "2px 6px",
+                        border: `1px solid ${TH.border}`,
+                        borderRadius: 10,
+                        background: "transparent",
+                        color: TH.muted,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {td.text}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
             <input
               value={overrideDraft.label}
               onChange={(e) => setOverrideDraft((v) => (v ? { ...v, label: e.target.value } : v))}
