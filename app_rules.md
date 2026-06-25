@@ -445,6 +445,15 @@ TH.gold    = "#FBBF24"   // 金幣
 - **Supabase S1-2 Auth**：`@supabase/ssr` browser/server client（`lib/supabase/client.ts`／`server.ts`）＋根目錄 `middleware.ts` 每次請求 `getUser()` 刷新 session；`components/auth/AuthPanel.tsx` 最小 email 登入/註冊（`onAuthStateChange` 同步、登出），掛在設定頁「雲端同步（測試中）」卡；只用 publishable key，secret 不入前端；**本批未接資料表**（reviews 同步留 S1-3）。
 - **Supabase S1-3 reviews 雲端同步**（路A：本地快取＋背景同步、last-write-wins）：`lib/reviews.ts` 加雲端層——`syncReviewsFromCloud`（拉＋合併＋自動遷移本地較新者）、`pushSingletonCloud`/`deleteSingletonCloud`（手動「先查再 update/insert」避 partial-index `onConflict`）；寫入函式末端 fire-and-forget（`void`，不擋 UI）推雲；`subscribeReviews`/`emitReviews` pub-sub；只同步單筆覆盤 `day/week/month/quarter`，**free 靈感暫不上雲**（本地行為不變）；未登入 `getUid` 回 null 即純本地。新增 `components/hooks/useReviewCloudSync`（App 掛一次、`onAuthStateChange` 觸發同步）。元件即時刷新留 S1-3b。
 
+### 2026/06/26 — Supabase S1 完成 ＋ 番茄記錄修正
+
+- **Supabase S1 完成**（reviews 試點端到端雲端同步：增/查/改/刪＋localStorage→雲端自動遷移已真機驗證）：
+  - 資料層：`lib/reviews.ts` 路A（本地快取＋背景同步＋last-write-wins＋手動 upsert 避 partial-index）、pub-sub（`subscribeReviews`/`emitReviews`）、`useReviewCloudSync`（App 掛載、登入觸發）。
+  - 連線：`@supabase/ssr`（`lib/supabase/client.ts`、`server.ts`、`middleware.ts` 刷新 session）、`AuthPanel` email 登入（掛設定頁）。
+  - DB：`public.reviews`（uuid 主鍵、`user_id`＋RLS 四 policy、partial unique on `(user_id,scope,period_key) where scope<>'free'`、grant authenticated）。
+- **番茄記錄修正功能（B1~B3b）**：Settings 歸零未利用；待辦 `startAt`～`endAt` 自動碳掉未利用＋補登帶入待辦名；歷史頁改時長/刪除（金幣連動）＋手動補番茄（`manual:true`、依時長發幣、自動碳未利用）；`lib/sessions.ts` 為單一寫入來源。
+- **usePomodoro 不變量**：專注/休息中強制熄滅 idle（不累加），修掉 08:00/13:30 自動 idle 在專注中誤點燃。
+
 ---
 
 ## 暫緩決策帳本
@@ -454,6 +463,17 @@ TH.gold    = "#FBBF24"   // 金幣
 | reviews 上提 App.tsx | 現況 `DayReview`／`ReviewNudgeCard` 各自 load/save 或直讀 `getReview`；暫緩原因＝覆盤頁與主頁不同 tab 不同時掛載，第三步經評估不需上提；**觸發上提時機＝未來同畫面同時出現浮現卡與覆盤編輯、需即時連動時**（附原脈絡：Batch C 走 `calIntent` 跳轉即可）。 |
 | 週/月/季靈感 | 現況靈感僅「日」；暫緩原因＝週 key＝週一日期會與日靈感撞同格；觸發＝若要週級靈感，把 free key 命名空間化為 `scope:periodKey`。 |
 | 過去期數導覽 | 現況只做當期；暫緩原因＝與日覆盤只做今日一致、先蓋穩聚合；觸發＝Rola 想回顧上週/上月時加期數前後導覽（periodKey 已支援任意期）。 |
+| free 靈感上雲 | 現況靈感僅本地（多則）；觸發＝要跨裝置同步靈感時（需逐則穩定 id）。 |
+| 過去期數 UI 入口 | 日/週/月/季鎖在當期，舊總結 UI 進不去（資料在雲端安全）；觸發＝要回看/編輯過去期間。 |
+| S1-3b 覆盤頁即時刷新 | `DayReview`/`PeriodReview` 尚未訂閱 `subscribeReviews`，跨裝置需手動重整；觸發＝做即時同步體驗時。 |
+| 開回 email confirmation | 測試階段關閉信箱驗證；觸發＝上線前。 |
+| 關閉開放註冊 | Supabase Auth 目前開放註冊；觸發＝主帳號建好後關閉。 |
+| 自訂 SMTP | 觸發＝多人版上線。 |
+| Google 一鍵登入 | 加值功能；觸發＝有需求時。 |
+| idleTotalSecs 跨日歸零 | 待議；觸發＝確認跨日行為後。 |
+| 待辦進行中即時碳掉未利用 | 目前完成（有 `endAt`）後才碳；觸發＝要「進行中」即時碳掉時。 |
+| 「明細」分頁改名 | 建議改「番茄反思」以與期間總結區隔；觸發＝命名定案時。 |
+| session/分類 name-based 改 uuid | `Session.id` 用 `Date.now()`、分類仍 name-based；觸發＝S2 統一改 uuid＋分類穩定 ID。 |
 
 ---
 
@@ -466,9 +486,10 @@ TH.gold    = "#FBBF24"   // 金幣
 - 🔄 **覆盤表 reviews（item 4）**：週/月/季總覆盤已完成（`PeriodReview`）；剩 ⬜ **過去期數導覽**（上週/上月翻頁）。
 - ⬜ PWA 圖示（手機安裝用）
 - ⬜ Git 功能分支習慣建立
-- ⬜ Supabase（確定多人使用再做）
+- ✅ **Supabase S1 完成**（reviews 試點端到端雲端同步已真機驗證）；多表全面同步留 S2
+- ⬜ **過去期數導覽**（上週/上月翻頁，資料已在雲端）
 
 ---
 
-*最後更新：2026/06/16*
+*最後更新：2026/06/26*
 *維護原則：每次完成重要功能，同步更新第十、十一節*
