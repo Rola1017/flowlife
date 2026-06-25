@@ -440,6 +440,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **bugfix 專注中誤累積未利用**：根因＝`App.tsx` 平日 08:00／13:30 自動 `setIdleTrackStart` 未檢查專注；修法＝`usePomodoro` 不變量 effect（`mode==="focus"` 或 `restSecs>0` 時立即熄滅 idle、不累加）。
 - **Settings 歸零未利用時間**：設定頁新增「未利用時間」卡，一鍵 `handleResetIdle` 只清 `idleTrackStart`＋`idleTotalSecs`（歸零用 `DEFAULT_IDLE_TOTAL_SECS` 常數），不動番茄/金幣/評分；附「已歸零 ✓」回饋。
 - **待辦↔未利用整合**：時間軸未利用 `fills` 新增來源「已執行待辦」——用實際執行時間 `startAt`～`endAt`（非排定 `startTime`/`endTime`，`toM(e)>toM(s)` 才碳），與 `showDone` 顯示開關無關（`doneTodos` prop 為完整清單）；只打勾沒進行的點待辦無 `startAt`、不碳掉維持未利用。補登小框可從今天已完成待辦一鍵帶入名稱（晶片）。
+- **歷史頁可改時長/刪除**：`SessionHistoryPage` 每日彙總下列逐顆 session（依 `endTime` 由晚到早）；改時長／刪除（二次確認）走 `lib/sessions.setSessionMins`／`removeSession`（單一寫入來源，回傳 `{sessions, coinDelta}`，為 Supabase S2 預留接縫），只動餘額＋該筆 `earnedCoins` 基礎幣、餘額 `Math.max(0,...)` 不為負；里程碑/寶箱不回溯、`coinIncomeLog` 帳本不變；無 `id` 舊資料改/刪鈕 disabled。`Session` 新增 `manual?` 欄。
 
 ---
 

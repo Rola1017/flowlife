@@ -19,4 +19,6 @@ export type Session = {
   intention?: string;
   /** 單顆覆盤一句話（可選；空白不存） */
   reflection?: string;
+  /** 是否為手動補登（非真實番茄計時） */
+  manual?: boolean;
 };

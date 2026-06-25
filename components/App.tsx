@@ -16,7 +16,7 @@ import { TH } from "@/lib/theme";
 import { TABS } from "@/lib/tabs";
 import { LS_KEYS, loadJSON, loadNumber, saveJSON, saveNumber } from "@/lib/storage";
 import type { Session } from "@/lib/types";
-import { patchReflection } from "@/lib/sessions";
+import { patchReflection, setSessionMins, removeSession } from "@/lib/sessions";
 import { Card } from "@/components/ui/Card";
 import { Header } from "@/components/Header";
 import { HomePage } from "@/components/home/HomePage";
@@ -240,6 +240,17 @@ function AppContent() {
     setIdleTotalSecs(DEFAULT_IDLE_TOTAL_SECS);
   };
 
+  const handleEditSessionMins = (id: number, newMins: number) => {
+    const { sessions: next, coinDelta } = setSessionMins(sessions, id, newMins);
+    updateSessions(next);
+    if (coinDelta !== 0) setCoins((c) => Math.max(0, c + coinDelta));
+  };
+  const handleDeleteSession = (id: number) => {
+    const { sessions: next, coinDelta } = removeSession(sessions, id);
+    updateSessions(next);
+    if (coinDelta !== 0) setCoins((c) => Math.max(0, c + coinDelta));
+  };
+
   const todoProps = {
     todos,
     onStart: handleStart,
@@ -275,7 +286,14 @@ function AppContent() {
     ),
     shop: () => <ShopPage coins={coins} onSpend={spendCoins} onBack={pop} />,
     coinHistory: () => <CoinHistoryPage onBack={pop} />,
-    sessionHistory: () => <SessionHistoryPage sessions={sessions} onBack={pop} />,
+    sessionHistory: () => (
+      <SessionHistoryPage
+        sessions={sessions}
+        onBack={pop}
+        onEditMins={handleEditSessionMins}
+        onDelete={handleDeleteSession}
+      />
+    ),
     dayView: (props = {}) => (
       <DayViewPage
         date={props.date as string}
