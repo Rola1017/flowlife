@@ -17,6 +17,7 @@ import { TABS } from "@/lib/tabs";
 import { LS_KEYS, loadJSON, loadNumber, saveJSON, saveNumber } from "@/lib/storage";
 import type { Session } from "@/lib/types";
 import { patchReflection, setSessionMins, removeSession, buildManualSession } from "@/lib/sessions";
+import { useReviewCloudSync } from "@/components/hooks/useReviewCloudSync";
 import { Card } from "@/components/ui/Card";
 import { Header } from "@/components/Header";
 import { HomePage } from "@/components/home/HomePage";
@@ -97,6 +98,7 @@ function AppContent() {
   const [neutral, setNeutral] = useState(DEFAULT_RATINGS.neutral);
   const [distracted, setDistracted] = useState(DEFAULT_RATINGS.distracted);
   const [idleTrackStart, setIdleTrackStart] = useState<number | null>(null);
+  useReviewCloudSync();
   const [idleTotalSecs, setIdleTotalSecs] = useState(DEFAULT_IDLE_TOTAL_SECS);
   const [restEndAt, setRestEndAt] = useState<number | null>(null);
   const [hydrated, setHydrated] = useState(false);

@@ -443,6 +443,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **歷史頁可改時長/刪除**：`SessionHistoryPage` 每日彙總下列逐顆 session（依 `endTime` 由晚到早）；改時長／刪除（二次確認）走 `lib/sessions.setSessionMins`／`removeSession`（單一寫入來源，回傳 `{sessions, coinDelta}`，為 Supabase S2 預留接縫），只動餘額＋該筆 `earnedCoins` 基礎幣、餘額 `Math.max(0,...)` 不為負；里程碑/寶箱不回溯、`coinIncomeLog` 帳本不變；無 `id` 舊資料改/刪鈕 disabled。`Session` 新增 `manual?` 欄。
 - **歷史頁可手動補番茄**：頂端「＋ 手動補番茄」表單（名稱/日期/起訖/分類/可選評分），`toM(end)>toM(start)` 驗證；走 `lib/sessions.buildManualSession`（`manual:true`、依時長 `coinsForSecs` 發基礎幣、`id=Date.now()`）；有起訖故自動進時間軸 `actSessions`、碳掉該段未利用；可再用改時長/刪除（有 id）。
 - **Supabase S1-2 Auth**：`@supabase/ssr` browser/server client（`lib/supabase/client.ts`／`server.ts`）＋根目錄 `middleware.ts` 每次請求 `getUser()` 刷新 session；`components/auth/AuthPanel.tsx` 最小 email 登入/註冊（`onAuthStateChange` 同步、登出），掛在設定頁「雲端同步（測試中）」卡；只用 publishable key，secret 不入前端；**本批未接資料表**（reviews 同步留 S1-3）。
+- **Supabase S1-3 reviews 雲端同步**（路A：本地快取＋背景同步、last-write-wins）：`lib/reviews.ts` 加雲端層——`syncReviewsFromCloud`（拉＋合併＋自動遷移本地較新者）、`pushSingletonCloud`/`deleteSingletonCloud`（手動「先查再 update/insert」避 partial-index `onConflict`）；寫入函式末端 fire-and-forget（`void`，不擋 UI）推雲；`subscribeReviews`/`emitReviews` pub-sub；只同步單筆覆盤 `day/week/month/quarter`，**free 靈感暫不上雲**（本地行為不變）；未登入 `getUid` 回 null 即純本地。新增 `components/hooks/useReviewCloudSync`（App 掛一次、`onAuthStateChange` 觸發同步）。元件即時刷新留 S1-3b。
 
 ---
 
