@@ -237,6 +237,16 @@ export function usePomodoro({
     return () => clearInterval(t);
   }, [idleTrackStart]);
 
+  // 不變量：專注中（或休息進行中）未利用時間必為關。
+  // 任何來源（如 App.tsx 平日 08:00／13:30 自動排程）誤點燃 idle，都在此立即熄滅，
+  // 且「不累加」——那段時間是專注/休息，不是閒置（這是刻意的，勿改成累加）。
+  useEffect(() => {
+    if ((mode === "focus" || restSecs > 0) && idleTrackStart) {
+      setIdleTrackStart(null);
+      setIdleSecs(0);
+    }
+  }, [mode, restSecs, idleTrackStart, setIdleTrackStart]);
+
   const beginFocus = (sel: { name: string; cat1: string; cat2: string; cat3: string; intention?: string }) => {
     focusStartRef.current = Date.now();
     focusStartClockRef.current = localDateParts().time;

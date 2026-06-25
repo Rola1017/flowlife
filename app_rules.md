@@ -437,6 +437,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **item 4 Batch A**：DayReview 今日總結加「已儲存 ✓」回饋（1.8s）；新增 `lib/period.ts` 期間 key 單一來源（週一 key、ISO 週標籤顯示用）。
 - **item 4 Batch B**：週/月/季 `PeriodReview` + 俄羅斯娃娃聚合；覆盤子切換攤平五顆；`reviews.nextId` 防撞。
 - **item 4 Batch C**：主頁 `ReviewNudgeCard`（22:30 浮現卡 + `calIntent` 跳覆盤/日）；`CFG.REVIEW_NUDGE_AFTER`。
+- **bugfix 專注中誤累積未利用**：根因＝`App.tsx` 平日 08:00／13:30 自動 `setIdleTrackStart` 未檢查專注；修法＝`usePomodoro` 不變量 effect（`mode==="focus"` 或 `restSecs>0` 時立即熄滅 idle、不累加）。
 
 ---
 
