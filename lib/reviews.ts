@@ -12,7 +12,9 @@ export type ReviewEntry = {
   updatedAt?: string;
 };
 
-const supabase = createSupabaseBrowserClient();
+function sb() {
+  return createSupabaseBrowserClient();
+}
 
 const listeners = new Set<() => void>();
 export function subscribeReviews(cb: () => void) {
@@ -26,14 +28,14 @@ function emitReviews() {
 }
 
 async function getUid(): Promise<string | null> {
-  const { data } = await supabase.auth.getUser();
+  const { data } = await sb().auth.getUser();
   return data.user?.id ?? null;
 }
 
 /** 推單筆到雲端（手動 upsert，避開 partial-index onConflict） */
 async function pushSingletonCloud(uid: string, r: ReviewEntry) {
   if (r.scope === "free") return;
-  const { data: ex } = await supabase
+  const { data: ex } = await sb()
     .from("reviews")
     .select("id")
     .eq("user_id", uid)
@@ -47,13 +49,13 @@ async function pushSingletonCloud(uid: string, r: ReviewEntry) {
     text: r.text,
     updated_at: r.updatedAt ?? r.createdAt,
   };
-  if (ex) await supabase.from("reviews").update(payload).eq("id", ex.id);
-  else await supabase.from("reviews").insert(payload);
+  if (ex) await sb().from("reviews").update(payload).eq("id", ex.id);
+  else await sb().from("reviews").insert(payload);
 }
 
 async function deleteSingletonCloud(uid: string, scope: ReviewScope, periodKey: string) {
   if (scope === "free") return;
-  await supabase
+  await sb()
     .from("reviews")
     .delete()
     .eq("user_id", uid)
@@ -65,7 +67,7 @@ async function deleteSingletonCloud(uid: string, scope: ReviewScope, periodKey: 
 export async function syncReviewsFromCloud() {
   const uid = await getUid();
   if (!uid) return; // 沒登入＝純本地
-  const { data: cloud, error } = await supabase
+  const { data: cloud, error } = await sb()
     .from("reviews")
     .select("scope,period_key,text,created_at,updated_at")
     .eq("user_id", uid)
