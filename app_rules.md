@@ -438,6 +438,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **item 4 Batch B**：週/月/季 `PeriodReview` + 俄羅斯娃娃聚合；覆盤子切換攤平五顆；`reviews.nextId` 防撞。
 - **item 4 Batch C**：主頁 `ReviewNudgeCard`（22:30 浮現卡 + `calIntent` 跳覆盤/日）；`CFG.REVIEW_NUDGE_AFTER`。
 - **bugfix 專注中誤累積未利用**：根因＝`App.tsx` 平日 08:00／13:30 自動 `setIdleTrackStart` 未檢查專注；修法＝`usePomodoro` 不變量 effect（`mode==="focus"` 或 `restSecs>0` 時立即熄滅 idle、不累加）。
+- **Settings 歸零未利用時間**：設定頁新增「未利用時間」卡，一鍵 `handleResetIdle` 只清 `idleTrackStart`＋`idleTotalSecs`（歸零用 `DEFAULT_IDLE_TOTAL_SECS` 常數），不動番茄/金幣/評分；附「已歸零 ✓」回饋。
 
 ---
 

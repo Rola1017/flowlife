@@ -235,6 +235,11 @@ function AppContent() {
     setResetVersion((v) => v + 1);
   };
 
+  const handleResetIdle = () => {
+    setIdleTrackStart(null);
+    setIdleTotalSecs(DEFAULT_IDLE_TOTAL_SECS);
+  };
+
   const todoProps = {
     todos,
     onStart: handleStart,
@@ -257,6 +262,7 @@ function AppContent() {
         onResetAllData={handleResetAllData}
         onResetTodos={resetTodos}
         onClearRecords={handleClearRecords}
+        onResetIdle={handleResetIdle}
       />
     ),
     categoryManager: (props = {}) => (

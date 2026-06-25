@@ -10,18 +10,56 @@ export function SettingsPage({
   onResetAllData,
   onResetTodos,
   onClearRecords,
+  onResetIdle,
 }: {
   onBack: () => void;
   onResetAllData: () => void;
   onResetTodos: (todos: Record<string, unknown>[]) => void;
   onClearRecords: () => void;
+  onResetIdle: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
   const [clearingRecords, setClearingRecords] = useState(false);
+  const [idleDone, setIdleDone] = useState(false);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <BackBtn onBack={onBack} label="設定" />
+
+      <Card>
+        <SL>未利用時間</SL>
+        <div style={{ color: TH.muted, fontSize: 11, lineHeight: 1.5, marginBottom: 12 }}>
+          把「未利用時間累積」歸零。只清這個統計，不動番茄、金幣、評分。
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+          <button
+            type="button"
+            onClick={() => {
+              onResetIdle();
+              setIdleDone(true);
+              setTimeout(() => setIdleDone(false), 1800);
+            }}
+            style={{
+              padding: "10px 14px",
+              borderRadius: 12,
+              border: `1px solid ${TH.border}`,
+              background: "transparent",
+              color: TH.muted,
+              fontSize: 12,
+              fontWeight: 800,
+              cursor: "pointer",
+            }}
+          >
+            歸零未利用時間
+          </button>
+          {idleDone && (
+            <span style={{ color: TH.green, fontSize: 11, fontWeight: 700 }}>已歸零 ✓</span>
+          )}
+        </div>
+        <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4 }}>
+          💡 番茄頁「未利用時間累積中」數字異常時，可來這裡一鍵歸零
+        </div>
+      </Card>
 
       <Card>
         <SL>清除番茄/金幣記錄</SL>
