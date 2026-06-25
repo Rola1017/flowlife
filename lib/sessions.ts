@@ -1,5 +1,5 @@
 import type { Session } from "@/lib/types";
-import { coinsForSecs } from "@/lib/utils";
+import { coinsForSecs, toM } from "@/lib/utils";
 
 /** 覆盤寫入單一來源：依 id 更新 reflection（空白→undefined） */
 export function patchReflection(sessions: Session[], id: number, text: string): Session[] {
@@ -26,4 +26,33 @@ export function removeSession(sessions: Session[], id: number) {
   const target = sessions.find((s) => s.id === id);
   const coinDelta = target ? -(target.earnedCoins ?? 0) : 0;
   return { sessions: sessions.filter((s) => s.id !== id), coinDelta };
+}
+
+/** 手動補一顆番茄（單一寫入來源）；必填起訖、依時長發基礎幣、標 manual */
+export function buildManualSession(input: {
+  date: string;
+  name: string;
+  cat1: string;
+  startTime: string;
+  endTime: string;
+  rating?: string;
+}): { session: Session; coinGain: number } {
+  const mins = Math.max(1, toM(input.endTime) - toM(input.startTime));
+  const earned = coinsForSecs(mins * 60);
+  const session: Session = {
+    id: Date.now(),
+    date: input.date,
+    name: input.name.trim() || "手動番茄",
+    cat1: input.cat1,
+    cat2: "",
+    cat3: "",
+    mins,
+    rating: input.rating || "",
+    earnedCoins: earned,
+    counted: mins > 1,
+    startTime: input.startTime,
+    endTime: input.endTime,
+    manual: true,
+  };
+  return { session, coinGain: earned };
 }

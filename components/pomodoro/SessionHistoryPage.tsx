@@ -2,9 +2,20 @@
 
 import { useMemo, useState } from "react";
 import { TH } from "@/lib/theme";
-import { fmt } from "@/lib/utils";
+import { fmt, toM } from "@/lib/utils";
+import { CFG } from "@/lib/config";
+import { CAT } from "@/lib/categories";
 import { BackBtn } from "@/components/ui/BackBtn";
 import type { Session } from "@/lib/types";
+
+type ManualInput = {
+  date: string;
+  name: string;
+  cat1: string;
+  startTime: string;
+  endTime: string;
+  rating?: string;
+};
 
 function formatDateLabel(date: string) {
   const [y, m, day] = date.split("-");
@@ -197,16 +208,212 @@ function SessionRow({
   );
 }
 
+const manualInputStyle = {
+  background: "#15151B",
+  border: `1px solid ${TH.border}`,
+  borderRadius: 8,
+  padding: "8px 10px",
+  color: TH.text,
+  fontSize: 12,
+  outline: "none",
+  colorScheme: "dark",
+  width: "100%",
+  boxSizing: "border-box",
+} as const;
+
+function ManualForm({ onAddManual }: { onAddManual: (input: ManualInput) => void }) {
+  const [open, setOpen] = useState(false);
+  const cat1List = CAT.cat1List();
+  const [draft, setDraft] = useState<ManualInput>({
+    date: CFG.TODAY_STR,
+    name: "",
+    cat1: (cat1List[0] as string) ?? "",
+    startTime: "",
+    endTime: "",
+    rating: "",
+  });
+  const [error, setError] = useState("");
+
+  const reset = () => {
+    setDraft({
+      date: CFG.TODAY_STR,
+      name: "",
+      cat1: (cat1List[0] as string) ?? "",
+      startTime: "",
+      endTime: "",
+      rating: "",
+    });
+    setError("");
+  };
+
+  const submit = () => {
+    if (!draft.name.trim()) {
+      setError("請填名稱");
+      return;
+    }
+    if (!draft.startTime || !draft.endTime) {
+      setError("請填起訖時間");
+      return;
+    }
+    if (toM(draft.endTime) <= toM(draft.startTime)) {
+      setError("結束需晚於開始");
+      return;
+    }
+    onAddManual({ ...draft, name: draft.name.trim() });
+    reset();
+    setOpen(false);
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          width: "100%",
+          padding: "8px",
+          borderRadius: 10,
+          border: `1px dashed ${TH.accent}`,
+          background: open ? TH.accent + "12" : "transparent",
+          color: TH.accent,
+          fontSize: 12,
+          fontWeight: 800,
+          cursor: "pointer",
+        }}
+      >
+        ＋ 手動補番茄
+      </button>
+      {open && (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+            padding: 10,
+            borderRadius: 12,
+            border: `1px solid ${TH.border}`,
+            background: "#0A0A0C",
+          }}
+        >
+          <input
+            value={draft.name}
+            onChange={(e) => setDraft((v) => ({ ...v, name: e.target.value }))}
+            placeholder="名稱（必填）"
+            style={manualInputStyle}
+          />
+          <input
+            type="date"
+            value={draft.date}
+            onChange={(e) => setDraft((v) => ({ ...v, date: e.target.value }))}
+            style={manualInputStyle}
+          />
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              type="time"
+              value={draft.startTime}
+              onChange={(e) => setDraft((v) => ({ ...v, startTime: e.target.value }))}
+              style={manualInputStyle}
+            />
+            <input
+              type="time"
+              value={draft.endTime}
+              onChange={(e) => setDraft((v) => ({ ...v, endTime: e.target.value }))}
+              style={manualInputStyle}
+            />
+          </div>
+          <select
+            value={draft.cat1}
+            onChange={(e) => setDraft((v) => ({ ...v, cat1: e.target.value }))}
+            style={manualInputStyle}
+          >
+            {cat1List.map((c) => (
+              <option key={c as string} value={c as string}>
+                {c as string}
+              </option>
+            ))}
+          </select>
+          <div style={{ display: "flex", gap: 6 }}>
+            {(["😤", "🙂", "😴"] as const).map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => setDraft((v) => ({ ...v, rating: v.rating === r ? "" : r }))}
+                style={{
+                  flex: 1,
+                  padding: "6px",
+                  borderRadius: 8,
+                  border: `1px solid ${draft.rating === r ? TH.accent : TH.border}`,
+                  background: draft.rating === r ? TH.accent + "22" : "transparent",
+                  fontSize: 16,
+                  cursor: "pointer",
+                }}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+          {error && (
+            <div style={{ fontSize: 11, color: TH.red, textAlign: "center" }}>⚠️ {error}</div>
+          )}
+          <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4 }}>
+            💡 手動補的番茄會依時長發金幣，並自動標記在時間軸、扣掉該段未利用
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              type="button"
+              onClick={submit}
+              style={{
+                flex: 1,
+                padding: "9px",
+                borderRadius: 10,
+                border: "none",
+                background: TH.accent,
+                color: "#fff",
+                fontSize: 12,
+                fontWeight: 900,
+                cursor: "pointer",
+              }}
+            >
+              新增番茄
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                reset();
+                setOpen(false);
+              }}
+              style={{
+                padding: "9px 12px",
+                borderRadius: 10,
+                border: `1px solid ${TH.border}`,
+                background: "transparent",
+                color: TH.muted,
+                fontSize: 12,
+                fontWeight: 800,
+                cursor: "pointer",
+              }}
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function SessionHistoryPage({
   sessions,
   onBack,
   onEditMins,
   onDelete,
+  onAddManual,
 }: {
   sessions: Session[];
   onBack: () => void;
   onEditMins: (id: number, newMins: number) => void;
   onDelete: (id: number) => void;
+  onAddManual: (input: ManualInput) => void;
 }) {
   const grouped = useMemo(() => {
     const map: Record<string, Session[]> = {};
@@ -225,6 +432,8 @@ export function SessionHistoryPage({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <BackBtn onBack={onBack} label="番茄鐘歷史" />
+
+      <ManualForm onAddManual={onAddManual} />
 
       {sortedDates.length === 0 ? (
         <div style={{ fontSize: 10, color: TH.muted, textAlign: "center", padding: 16 }}>

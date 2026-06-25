@@ -16,7 +16,7 @@ import { TH } from "@/lib/theme";
 import { TABS } from "@/lib/tabs";
 import { LS_KEYS, loadJSON, loadNumber, saveJSON, saveNumber } from "@/lib/storage";
 import type { Session } from "@/lib/types";
-import { patchReflection, setSessionMins, removeSession } from "@/lib/sessions";
+import { patchReflection, setSessionMins, removeSession, buildManualSession } from "@/lib/sessions";
 import { Card } from "@/components/ui/Card";
 import { Header } from "@/components/Header";
 import { HomePage } from "@/components/home/HomePage";
@@ -250,6 +250,18 @@ function AppContent() {
     updateSessions(next);
     if (coinDelta !== 0) setCoins((c) => Math.max(0, c + coinDelta));
   };
+  const handleAddManualSession = (input: {
+    date: string;
+    name: string;
+    cat1: string;
+    startTime: string;
+    endTime: string;
+    rating?: string;
+  }) => {
+    const { session, coinGain } = buildManualSession(input);
+    updateSessions((prev) => [...prev, session]);
+    if (coinGain > 0) setCoins((c) => c + coinGain);
+  };
 
   const todoProps = {
     todos,
@@ -292,6 +304,7 @@ function AppContent() {
         onBack={pop}
         onEditMins={handleEditSessionMins}
         onDelete={handleDeleteSession}
+        onAddManual={handleAddManualSession}
       />
     ),
     dayView: (props = {}) => (
