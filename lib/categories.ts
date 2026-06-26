@@ -1,66 +1,79 @@
-import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
+import { LS_KEYS, loadJSON, saveJSON, snapshotForS2 } from "@/lib/storage";
 
 export type SmallCat = string;
-export type MidCat = { name: string; color: string; subs: SmallCat[] };
-export type BigCat = { name: string; color: string; mids: MidCat[] };
+export type MidCat = { id: string; name: string; color: string; subs: SmallCat[] };
+export type BigCat = { id: string; name: string; color: string; mids: MidCat[] };
 export type CategoryData = BigCat[];
 
 export const DEFAULT_CATEGORIES: CategoryData = [
   {
+    id: "big-learning",
     name: "學習",
     color: "#FFFF37",
     mids: [
-      { name: "法律", color: "#a154e8", subs: ["勞動社會法", "保險法", "民法", "行政法", "刑法", "民事訴訟法"] },
-      { name: "保險", color: "#93571b", subs: ["意外險", "醫療險", "儲蓄險"] },
-      { name: "英文", color: "#ec69ec", subs: ["口說", "文法", "寫作"] },
+      { id: "mid-law", name: "法律", color: "#a154e8", subs: ["勞動社會法", "保險法", "民法", "行政法", "刑法", "民事訴訟法"] },
+      { id: "mid-insurance", name: "保險", color: "#93571b", subs: ["意外險", "醫療險", "儲蓄險"] },
+      { id: "mid-english", name: "英文", color: "#ec69ec", subs: ["口說", "文法", "寫作"] },
     ],
   },
   {
+    id: "big-business",
     name: "事業",
     color: "#0000E3",
     mids: [
-      { name: "架網站", color: "#2a2ac6", subs: [] },
-      { name: "知識萃取", color: "#6868df", subs: [] },
+      { id: "mid-website", name: "架網站", color: "#2a2ac6", subs: [] },
+      { id: "mid-knowledge", name: "知識萃取", color: "#6868df", subs: [] },
     ],
   },
   {
+    id: "big-reading",
     name: "閱讀",
     color: "#a154e8",
     mids: [
-      { name: "溝通術", color: "#2382e1", subs: [] },
-      { name: "情緒療癒", color: "#d18fc9", subs: [] },
-      { name: "學習技巧", color: "#46A3FF", subs: [] },
-      { name: "金融", color: "#FFFF37", subs: ["投資", "經濟學"] },
-      { name: "商業", color: "#1010e0", subs: [] },
+      { id: "mid-communication", name: "溝通術", color: "#2382e1", subs: [] },
+      { id: "mid-emotion", name: "情緒療癒", color: "#d18fc9", subs: [] },
+      { id: "mid-studyskill", name: "學習技巧", color: "#46A3FF", subs: [] },
+      { id: "mid-finance", name: "金融", color: "#FFFF37", subs: ["投資", "經濟學"] },
+      { id: "mid-commerce", name: "商業", color: "#1010e0", subs: [] },
     ],
   },
   {
+    id: "big-health",
     name: "健康",
     color: "#00EC00",
     mids: [
-      { name: "重訓", color: "#f33535", subs: [] },
-      { name: "有氧", color: "#5df95d", subs: [] },
+      { id: "mid-weight", name: "重訓", color: "#f33535", subs: [] },
+      { id: "mid-cardio", name: "有氧", color: "#5df95d", subs: [] },
     ],
   },
   {
+    id: "big-sidejob",
     name: "兼差",
     color: "#AD5A5A",
     mids: [
-      { name: "兼差A", color: "#ec8383", subs: [] },
-      { name: "兼差B", color: "#6b3333", subs: [] },
+      { id: "mid-sidejob-a", name: "兼差A", color: "#ec8383", subs: [] },
+      { id: "mid-sidejob-b", name: "兼差B", color: "#6b3333", subs: [] },
     ],
   },
   {
+    id: "big-activity",
     name: "活動",
     color: "#350561",
     mids: [
-      { name: "展覽", color: "#C2FF68", subs: [] },
-      { name: "旅遊", color: "#4DFFFF", subs: [] },
-      { name: "聚會", color: "#93571b", subs: [] },
+      { id: "mid-exhibition", name: "展覽", color: "#C2FF68", subs: [] },
+      { id: "mid-travel", name: "旅遊", color: "#4DFFFF", subs: [] },
+      { id: "mid-gathering", name: "聚會", color: "#93571b", subs: [] },
     ],
   },
-  { name: "未分類", color: "#9D9D9D", mids: [] },
+  { id: "big-uncategorized", name: "未分類", color: "#9D9D9D", mids: [] },
 ];
+
+function genCatId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `cat_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+}
 
 const SMALL_CAT_PALETTE = [
   "#EF4444",
@@ -156,8 +169,10 @@ export function loadCategories(): CategoryData {
   const data = loadJSON<CategoryData>(LS_KEYS.categories, DEFAULT_CATEGORIES);
   return data.map((big) => ({
     ...big,
+    id: big.id || genCatId(),
     mids: big.mids.map((mid, mi) => ({
       ...mid,
+      id: mid.id || genCatId(),
       color: (mid as MidCat & { color?: string }).color ?? cat2Color(big.color, mi),
     })),
   }));
@@ -165,6 +180,26 @@ export function loadCategories(): CategoryData {
 
 export function saveCategories(data: CategoryData): void {
   saveJSON(LS_KEYS.categories, data);
+}
+
+/** S2-1：為既有存檔的 big/mid 補上穩定 id（先備份、冪等、有變動才寫檔） */
+export function migrateCategoryIds(): void {
+  snapshotForS2();
+  const data = loadJSON<CategoryData>(LS_KEYS.categories, DEFAULT_CATEGORIES);
+  let changed = false;
+  for (const big of data) {
+    if (!big.id) {
+      big.id = genCatId();
+      changed = true;
+    }
+    for (const mid of big.mids) {
+      if (!mid.id) {
+        mid.id = genCatId();
+        changed = true;
+      }
+    }
+  }
+  if (changed) saveCategories(data);
 }
 
 export const CAT = {

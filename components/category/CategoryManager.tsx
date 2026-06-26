@@ -286,7 +286,7 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
       window.alert("名稱已存在");
       return;
     }
-    persist([...cloneData(categories), { name: name.trim(), color: "#3B82F6", mids: [] }]);
+    persist([...cloneData(categories), { id: crypto.randomUUID(), name: name.trim(), color: "#3B82F6", mids: [] }]);
   };
 
   const addMid = (bi: number) => {
@@ -297,7 +297,7 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
       window.alert("名稱已存在");
       return;
     }
-    next[bi].mids.push({ name: name.trim(), color: next[bi].color, subs: [] });
+    next[bi].mids.push({ id: crypto.randomUUID(), name: name.trim(), color: next[bi].color, subs: [] });
     persist(next);
     setExpandedBig((e) => ({ ...e, [bi]: true }));
   };

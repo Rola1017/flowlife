@@ -15,6 +15,7 @@ import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
 import { TABS } from "@/lib/tabs";
 import { LS_KEYS, loadJSON, loadNumber, saveJSON, saveNumber } from "@/lib/storage";
+import { migrateCategoryIds } from "@/lib/categories";
 import type { Session } from "@/lib/types";
 import { patchReflection, setSessionMins, removeSession, buildManualSession } from "@/lib/sessions";
 import { useReviewCloudSync } from "@/components/hooks/useReviewCloudSync";
@@ -118,6 +119,7 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
+    migrateCategoryIds();
     updateSessions(loadJSON<Session[]>(LS_KEYS.sessions, []));
     const r = loadJSON<Partial<typeof DEFAULT_RATINGS>>(LS_KEYS.ratingCounts, {});
     setFocused(typeof r.focused === "number" ? r.focused : DEFAULT_RATINGS.focused);

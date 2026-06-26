@@ -457,6 +457,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **番茄記錄修正功能（B1~B3b）**：Settings 歸零未利用；待辦 `startAt`～`endAt` 自動碳掉未利用＋補登帶入待辦名；歷史頁改時長/刪除（金幣連動）＋手動補番茄（`manual:true`、依時長發幣、自動碳未利用）；`lib/sessions.ts` 為單一寫入來源。
 - **usePomodoro 不變量**：專注/休息中強制熄滅 idle（不累加），修掉 08:00/13:30 自動 idle 在專注中誤點燃。
 - **修 Vercel build**：browser client 改 lazy singleton、`reviews.ts` 移除 import-time 實例化，避免 prerender 在缺 env 時崩潰（型別改用 `ReturnType<typeof makeBrowserClient>` 保具體推斷，消除 implicit-any 外溢）。
+- **S2-1 分類 ID 化＋全量備份**：`BigCat`/`MidCat` 加必填 `id`（`DEFAULT_CATEGORIES` 補固定 slug id、`small` 維持 `string[]`）；`migrateCategoryIds`（掛載跑一次、先 `snapshotForS2` 再補 id、冪等只在有變動時寫檔）；`loadCategories` 讀取端對缺 id 者 in-memory 補上（不寫檔防呆）；CategoryManager 新增大/中類帶 `crypto.randomUUID()`；`storage.snapshotForS2`/`hasS2Backup` 一次性備份 categories/sessions/coinIncomeLog/weekSchedule 原始字串。CAT 存取器形狀不變、畫面零變化。
 
 ---
 
@@ -477,7 +478,7 @@ TH.gold    = "#FBBF24"   // 金幣
 | idleTotalSecs 跨日歸零 | 待議；觸發＝確認跨日行為後。 |
 | 待辦進行中即時碳掉未利用 | 目前完成（有 `endAt`）後才碳；觸發＝要「進行中」即時碳掉時。 |
 | 「明細」分頁改名 | 建議改「番茄反思」以與期間總結區隔；觸發＝命名定案時。 |
-| session/分類 name-based 改 uuid | `Session.id` 用 `Date.now()`、分類仍 name-based；觸發＝S2 統一改 uuid＋分類穩定 ID。 |
+| session/分類 name-based 改 uuid | **進行中：S2-1**——分類 big/mid 已加穩定 `id`（`migrateCategoryIds` 補既有存檔、`crypto.randomUUID`），small 待後續；`Session.id` 仍 `Date.now()`、消費端仍 name-based（CAT 存取器形狀不變）；觸發完成＝消費端改吃 id。 |
 
 ---
 
@@ -492,8 +493,9 @@ TH.gold    = "#FBBF24"   // 金幣
 - ⬜ Git 功能分支習慣建立
 - ✅ **Supabase S1 完成**（reviews 試點端到端雲端同步已真機驗證）；多表全面同步留 S2
 - ✅ **過去期數導覽**（日/週/月/季 ‹ › 翻頁，資料已在雲端）
+- 🔄 **S2 分類 ID 化**：✅ S2-1 完成（big/mid 已加穩定 `id`＋`migrateCategoryIds`＋`snapshotForS2` 全量備份）；⬜ small 分類 id、⬜ 消費端（sessions/週課表）改吃 id 取代 name-based。
 
 ---
 
-*最後更新：2026/06/26（reviews 兩洞合補：過去期數導覽＋即時刷新）*
+*最後更新：2026/06/26（S2-1 分類 big/mid 加穩定 id＋S2 全量備份）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*

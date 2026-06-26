@@ -21,6 +21,7 @@ export const LS_KEYS = {
   scheduleHistory: `${STORAGE_PREFIX}schedule_history`,
   timelineTodoView: `${STORAGE_PREFIX}timeline_todo_view`,
   reviews: `${STORAGE_PREFIX}reviews`,
+  s2Backup: `${STORAGE_PREFIX}s2_backup`,
 } as const;
 
 function assertVersionedKey(key: string): void {
@@ -105,5 +106,30 @@ export function saveNumber(key: string, value: number): void {
     removeLegacyKey(key);
   } catch {
     /* ignore */
+  }
+}
+
+export function hasS2Backup(): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem(LS_KEYS.s2Backup) != null;
+}
+
+/** S2 一次性全量備份（冪等）：已存在備份就不覆蓋，只在首次遷移前留底 */
+export function snapshotForS2(): void {
+  if (typeof window === "undefined") return;
+  if (hasS2Backup()) return;
+  try {
+    const backup = {
+      takenAt: new Date().toISOString(),
+      data: {
+        categories: localStorage.getItem(LS_KEYS.categories),
+        pomodoroSessions: localStorage.getItem(LS_KEYS.pomodoroSessions),
+        coinIncomeLog: localStorage.getItem(LS_KEYS.coinIncomeLog),
+        weekSchedule: localStorage.getItem(LS_KEYS.weekSchedule),
+      },
+    };
+    localStorage.setItem(LS_KEYS.s2Backup, JSON.stringify(backup));
+  } catch {
+    /* quota / private mode */
   }
 }
