@@ -19,6 +19,8 @@ import { migrateCategoryIds } from "@/lib/categories";
 import type { Session } from "@/lib/types";
 import { patchReflection, setSessionMins, removeSession, buildManualSession, stampSession, ensureSessionUuid } from "@/lib/sessions";
 import { useReviewCloudSync } from "@/components/hooks/useReviewCloudSync";
+import { useSessionCloudSync } from "@/components/hooks/useSessionCloudSync";
+import { subscribeSessions, syncSessionDiffToCloud } from "@/lib/sessionsCloud";
 import { Card } from "@/components/ui/Card";
 import { Header } from "@/components/Header";
 import { HomePage } from "@/components/home/HomePage";
@@ -112,6 +114,7 @@ function AppContent() {
   const [distracted, setDistracted] = useState(DEFAULT_RATINGS.distracted);
   const [idleTrackStart, setIdleTrackStart] = useState<number | null>(null);
   useReviewCloudSync();
+  useSessionCloudSync();
   const [idleTotalSecs, setIdleTotalSecs] = useState(DEFAULT_IDLE_TOTAL_SECS);
   const [restEndAt, setRestEndAt] = useState<number | null>(null);
   const [hydrated, setHydrated] = useState(false);
@@ -127,6 +130,7 @@ function AppContent() {
       const raw = typeof updater === "function" ? updater(prev) : updater;
       const next = raw.some((s) => !s.uuid || (s.cat1 && !s.cat1Id)) ? raw.map(stampSession) : raw;
       saveJSON(LS_KEYS.sessions, next);
+      void syncSessionDiffToCloud(prev, next);
       return next;
     });
   }, []);
@@ -148,6 +152,12 @@ function AppContent() {
       linkRowsToSessions(sessions);
     }
   }, [hydrated, coinLogHydrated, sessions, linkRowsToSessions]);
+
+  // 雲端同步回來時，把本地最新讀進畫面（用原始 setSessions，避免再次觸發推送）
+  useEffect(
+    () => subscribeSessions(() => setSessions(loadJSON<Session[]>(LS_KEYS.sessions, []))),
+    [],
+  );
 
   const todaySessions = useMemo(
     () => sessions.filter((s) => s.date === CFG.TODAY_STR),

@@ -27,7 +27,9 @@ export function stampSession(s: Session): Session {
 /** 覆盤寫入單一來源：依 id 更新 reflection（空白→undefined） */
 export function patchReflection(sessions: Session[], id: number, text: string): Session[] {
   const trimmed = text.trim();
-  return sessions.map((s) => (s.id === id ? { ...s, reflection: trimmed || undefined } : s));
+  return sessions.map((s) =>
+    s.id === id ? { ...s, reflection: trimmed || undefined, updatedAt: new Date().toISOString() } : s,
+  );
 }
 
 /** 改某顆時長（單一寫入來源）；回傳新陣列＋基礎幣差額（為 Supabase S2 預留接縫） */
@@ -39,7 +41,7 @@ export function setSessionMins(sessions: Session[], id: number, newMins: number)
     const newBase = coinsForSecs(safe * 60);
     const oldBase = s.earnedCoins ?? 0;
     coinDelta = newBase - oldBase;
-    return { ...s, mins: safe, earnedCoins: newBase, counted: safe > 1 };
+    return { ...s, mins: safe, earnedCoins: newBase, counted: safe > 1, updatedAt: new Date().toISOString() };
   });
   return { sessions: next, coinDelta };
 }
@@ -78,6 +80,7 @@ export function buildManualSession(input: {
     startTime: input.startTime,
     endTime: input.endTime,
     manual: true,
+    updatedAt: new Date().toISOString(),
   };
   return { session, coinGain: earned };
 }

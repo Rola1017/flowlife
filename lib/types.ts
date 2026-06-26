@@ -27,4 +27,6 @@ export type Session = {
   cat3Id?: string;
   /** 跨裝置唯一主鍵（上雲用；number id 仍保留給本地相容） */
   uuid?: string;
+  /** 最後修改時間（ISO；雲端同步 last-write-wins 用） */
+  updatedAt?: string;
 };

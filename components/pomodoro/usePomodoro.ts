@@ -325,6 +325,7 @@ export function usePomodoro({
       startTime: focusStartClockRef.current ?? undefined,
       endTime: now.time,
       intention: confirmed!.intention?.trim() || undefined,
+      updatedAt: new Date().toISOString(),
     };
     const ns = [...sessions, row];
     setSessions(ns);

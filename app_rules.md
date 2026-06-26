@@ -371,6 +371,7 @@ TH.gold    = "#FBBF24"   // 金幣
 7. **改動前確認範圍** → 先說「會影響哪些檔案」，確認後再動
 8. **💡 小提示** → 每個新功能都要在 UI 就近加一行 `💡` 操作提示（`fontSize: 9`、`TH.muted`），讓使用者不用猜怎麼用
 9. **金幣記錄＝`useCoinLog` 單一來源** → `coinIncomeLog` 只在 `App.tsx` 經 `useCoinLog()` 持有並讀/寫 `LS_KEYS.coinIncomeLog`，往下傳 prop；`usePomodoro`／`PomodoroPage`／`CoinHistoryPage` 一律用傳入的 `coinIncomeLog`/`setCoinIncomeLog`，禁止任何元件再自開一份 state 或各自 load/save（避免雙份互蓋）
+10. **番茄雲端同步＝`lib/sessionsCloud`** → 番茄上雲（push/delete/拉合併）一律走 `sessionsCloud`（uuid 主鍵、last-write-wins by `updatedAt`、localStorage 為本機快取/備援）；寫入路徑由 `App.updateSessions` 末端 `syncSessionDiffToCloud(prev,next)` 自動增量推送，禁止元件各自直連 supabase 寫 sessions
 
 ---
 
@@ -461,6 +462,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **修 Vercel build**：browser client 改 lazy singleton、`reviews.ts` 移除 import-time 實例化，避免 prerender 在缺 env 時崩潰（型別改用 `ReturnType<typeof makeBrowserClient>` 保具體推斷，消除 implicit-any 外溢）。
 - **S2-1 分類 ID 化＋全量備份**：`BigCat`/`MidCat` 加必填 `id`（`DEFAULT_CATEGORIES` 補固定 slug id、`small` 維持 `string[]`）；`migrateCategoryIds`（掛載跑一次、先 `snapshotForS2` 再補 id、冪等只在有變動時寫檔）；`loadCategories` 讀取端對缺 id 者 in-memory 補上（不寫檔防呆）；CategoryManager 新增大/中類帶 `crypto.randomUUID()`；`storage.snapshotForS2`/`hasS2Backup` 一次性備份 categories/sessions/coinIncomeLog/weekSchedule 原始字串。CAT 存取器形狀不變、畫面零變化。
 - **S2-1b 小分類 ID 化（整棵樹完成）**：`SmallCat` 由 `string` 改 `{ id, name }`，`DEFAULT_CATEGORIES` 所有 subs 補固定 `sml-*` id；`migrateCategoryIds` subs 迴圈正規化（`string→{id,name}`、缺 id 補 `genCatId`，冪等仍先 `snapshotForS2`）＋`loadCategories` `normalizeSub` 同時吃舊 string／物件雙格式做讀取防呆；`CAT.cat3List` 改回 `subs.map(s=>s.name)`、`cat3Color` 改 `findIndex(s=>s.name===cat3)`（消費端仍拿名字陣列、零改動）；CategoryManager subs 全改讀 `.name`（render key 改 `sub.id`、addSub push `{id,name}`、updateSubName 改 `.name`、刪除確認取 `.name`，cascadeRename cat3 仍用名字未動）；新增 `storage.restoreFromS2Backup`（一鍵還原四鍵、無備份回 false，本步未接 UI）。畫面零變化。
+- **番茄上雲（S2-cloud）**：新增 `lib/sessionsCloud.ts`（比照 `lib/reviews.ts`：`sb`/`getUid`/`subscribeSessions`/`emitSessions`、`toRow`/`fromRow` 物件↔SQL 欄位、`pushSessionCloud(uuid)` upsert onConflict uuid、`deleteSessionCloud(uuid)`、`syncSessionsFromCloud` 拉合併 last-write-wins＋本地較新者回推、`syncSessionDiffToCloud(prev,next)` 增量 fire-and-forget）＋`components/hooks/useSessionCloudSync`（掛載＋`onAuthStateChange` 觸發同步）；`Session` 加 `updatedAt`（`confirmRating`/`buildManualSession`/`setSessionMins`/`patchReflection` 四寫入點皆蓋 ISO 時戳）；`App.updateSessions` 存檔後 `syncSessionDiffToCloud`、新增 `subscribeSessions` effect（用原始 `setSessions` 讀回本地、不再觸發推送）、並列 `useSessionCloudSync()`。uuid 為雲端主鍵、未登入＝純本地、localStorage 全程保留。
 - **Batch 2b 收尾**：① 一次性回填舊金幣連結——`useCoinLog.linkRowsToSessions(sessions)`（無 `sessionUuid` 的舊金幣列依 `date`/起訖時間對到舊番茄 `uuid`、有變動才寫）＋ return `coinLogHydrated`；`App` 用 `didLinkCoinRef` 在 `hydrated && coinLogHydrated` 時跑一次，讓舊番茄改時長/刪除也能連動金幣。② `DEFAULT_CATEGORIES` 換成使用者實際分類樹（含自訂顏色與 uuid 形式 id；型別維持 `BigCat[]`）。③ 移除臨時「📋 複製分類設定」鈕。
 - **金幣連動修正（Batch 2）**：修「手動補番茄沒進金幣記錄、刪番茄沒清金幣列、改時長金額沒同步」三問題——`useCoinLog` 以 `bumpCoinAmountBySession(uuid, delta)`（依差額調整、`Math.max(0,...)`、保留里程碑/寶箱加成）取代 `updateCoinAmountBySession`；`App.handleAddManualSession` 改 `ensureSessionUuid` 後 `appendCoinRow`（帶 `sessionUuid`）、`handleDeleteSession` 先抓 target 再 `removeCoinRowsBySession`、`handleEditSessionMins` 用 `coinDelta` 呼 `bumpCoinAmountBySession`。舊番茄/舊金幣列無 uuid 者連動不生效（本批不回填）。**臨時**：`CategoryManager` 最下方加「📋 複製分類設定（給 Claude）」唯讀複製鈕，**下批移除**。
 - **金幣記錄收歸單一來源 `useCoinLog`**：新增 `components/useCoinLog.ts`（比照 `useCoins`，讀/寫 `LS_KEYS.coinIncomeLog`＋`appendCoinRow`/`removeCoinRowsBySession`/`updateCoinAmountBySession`/`resetCoinLog`），由 `App.tsx` 持有並往下傳 prop；`usePomodoro` 刪掉自己那份 state＋load/save effect、改吃 `coinIncomeLog`/`setCoinIncomeLog` prop；`PomodoroPage`/`CoinHistoryPage` 同改吃 prop（不再各自存）。消除雙份狀態互蓋的隱藏雷（金幣頁編輯後再跑番茄不會被覆蓋）。`CoinIncomeLogRow` 加 `sessionUuid?`，`confirmRating` 產生 session 時給 `uuid` 並讓金幣列帶 `sessionUuid`（為下一批「依番茄連動刪/改」鋪路）。行為零變化。
@@ -504,9 +506,10 @@ TH.gold    = "#FBBF24"   // 金幣
 - ✅ **Supabase S1 完成**（reviews 試點端到端雲端同步已真機驗證）；多表全面同步留 S2
 - ✅ **過去期數導覽**（日/週/月/季 ‹ › 翻頁，資料已在雲端）
 - 🔄 **S2 分類 ID 化**：✅ S2-1/1b（整棵樹 id 化）＋✅ S2-2a（番茄並存 `cat1Id/2Id/3Id`、尚未被讀取）；⬜ **S2-2b** 改名/顯示改用編號、退役 `cascadeRename`；⬜ 週課表/coinLog 編號化。
-- 🔄 **S2-3 番茄 uuid**：✅ 完成（`Session.uuid` 並存、`updateSessions` 經 `stampSession` 補 uuid，尚未被讀取）；⬜ 下一步番茄上雲改用 uuid 跨裝置主鍵。
+- ✅ **S2-3 番茄 uuid**：`Session.uuid` 並存、`updateSessions` 經 `stampSession` 補 uuid。
+- ✅ **番茄上雲（S2-cloud）完成**：`lib/sessionsCloud`＋`useSessionCloudSync`（uuid 主鍵、last-write-wins、localStorage 為快取/備援、未登入純本地）；`Session.updatedAt` 四寫入點蓋時戳；`updateSessions` 增量推雲＋訂閱讀回。Supabase `sessions` 表需含對應欄位＋RLS（user_id）。
 
 ---
 
-*最後更新：2026/06/26（舊金幣回填連結＋預設分類更新為實際分類樹＋移除臨時複製鈕）*
+*最後更新：2026/06/26（番茄上雲 S2-cloud：lib/sessionsCloud＋useSessionCloudSync，uuid 主鍵、last-write-wins）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*
