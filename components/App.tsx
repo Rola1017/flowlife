@@ -99,11 +99,14 @@ function AppContent() {
   const {
     coinIncomeLog,
     setCoinIncomeLog,
+    coinLogHydrated,
     resetCoinLog,
     appendCoinRow,
     removeCoinRowsBySession,
     bumpCoinAmountBySession,
+    linkRowsToSessions,
   } = useCoinLog();
+  const didLinkCoinRef = useRef(false);
   const [focused, setFocused] = useState(DEFAULT_RATINGS.focused);
   const [neutral, setNeutral] = useState(DEFAULT_RATINGS.neutral);
   const [distracted, setDistracted] = useState(DEFAULT_RATINGS.distracted);
@@ -138,6 +141,13 @@ function AppContent() {
     setIdleTotalSecs(loadNumber(LS_KEYS.idleTotalSecs, DEFAULT_IDLE_TOTAL_SECS));
     setHydrated(true);
   }, [updateSessions]);
+
+  useEffect(() => {
+    if (hydrated && coinLogHydrated && !didLinkCoinRef.current) {
+      didLinkCoinRef.current = true;
+      linkRowsToSessions(sessions);
+    }
+  }, [hydrated, coinLogHydrated, sessions, linkRowsToSessions]);
 
   const todaySessions = useMemo(
     () => sessions.filter((s) => s.date === CFG.TODAY_STR),

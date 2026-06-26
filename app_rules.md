@@ -461,6 +461,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **修 Vercel build**：browser client 改 lazy singleton、`reviews.ts` 移除 import-time 實例化，避免 prerender 在缺 env 時崩潰（型別改用 `ReturnType<typeof makeBrowserClient>` 保具體推斷，消除 implicit-any 外溢）。
 - **S2-1 分類 ID 化＋全量備份**：`BigCat`/`MidCat` 加必填 `id`（`DEFAULT_CATEGORIES` 補固定 slug id、`small` 維持 `string[]`）；`migrateCategoryIds`（掛載跑一次、先 `snapshotForS2` 再補 id、冪等只在有變動時寫檔）；`loadCategories` 讀取端對缺 id 者 in-memory 補上（不寫檔防呆）；CategoryManager 新增大/中類帶 `crypto.randomUUID()`；`storage.snapshotForS2`/`hasS2Backup` 一次性備份 categories/sessions/coinIncomeLog/weekSchedule 原始字串。CAT 存取器形狀不變、畫面零變化。
 - **S2-1b 小分類 ID 化（整棵樹完成）**：`SmallCat` 由 `string` 改 `{ id, name }`，`DEFAULT_CATEGORIES` 所有 subs 補固定 `sml-*` id；`migrateCategoryIds` subs 迴圈正規化（`string→{id,name}`、缺 id 補 `genCatId`，冪等仍先 `snapshotForS2`）＋`loadCategories` `normalizeSub` 同時吃舊 string／物件雙格式做讀取防呆；`CAT.cat3List` 改回 `subs.map(s=>s.name)`、`cat3Color` 改 `findIndex(s=>s.name===cat3)`（消費端仍拿名字陣列、零改動）；CategoryManager subs 全改讀 `.name`（render key 改 `sub.id`、addSub push `{id,name}`、updateSubName 改 `.name`、刪除確認取 `.name`，cascadeRename cat3 仍用名字未動）；新增 `storage.restoreFromS2Backup`（一鍵還原四鍵、無備份回 false，本步未接 UI）。畫面零變化。
+- **Batch 2b 收尾**：① 一次性回填舊金幣連結——`useCoinLog.linkRowsToSessions(sessions)`（無 `sessionUuid` 的舊金幣列依 `date`/起訖時間對到舊番茄 `uuid`、有變動才寫）＋ return `coinLogHydrated`；`App` 用 `didLinkCoinRef` 在 `hydrated && coinLogHydrated` 時跑一次，讓舊番茄改時長/刪除也能連動金幣。② `DEFAULT_CATEGORIES` 換成使用者實際分類樹（含自訂顏色與 uuid 形式 id；型別維持 `BigCat[]`）。③ 移除臨時「📋 複製分類設定」鈕。
 - **金幣連動修正（Batch 2）**：修「手動補番茄沒進金幣記錄、刪番茄沒清金幣列、改時長金額沒同步」三問題——`useCoinLog` 以 `bumpCoinAmountBySession(uuid, delta)`（依差額調整、`Math.max(0,...)`、保留里程碑/寶箱加成）取代 `updateCoinAmountBySession`；`App.handleAddManualSession` 改 `ensureSessionUuid` 後 `appendCoinRow`（帶 `sessionUuid`）、`handleDeleteSession` 先抓 target 再 `removeCoinRowsBySession`、`handleEditSessionMins` 用 `coinDelta` 呼 `bumpCoinAmountBySession`。舊番茄/舊金幣列無 uuid 者連動不生效（本批不回填）。**臨時**：`CategoryManager` 最下方加「📋 複製分類設定（給 Claude）」唯讀複製鈕，**下批移除**。
 - **金幣記錄收歸單一來源 `useCoinLog`**：新增 `components/useCoinLog.ts`（比照 `useCoins`，讀/寫 `LS_KEYS.coinIncomeLog`＋`appendCoinRow`/`removeCoinRowsBySession`/`updateCoinAmountBySession`/`resetCoinLog`），由 `App.tsx` 持有並往下傳 prop；`usePomodoro` 刪掉自己那份 state＋load/save effect、改吃 `coinIncomeLog`/`setCoinIncomeLog` prop；`PomodoroPage`/`CoinHistoryPage` 同改吃 prop（不再各自存）。消除雙份狀態互蓋的隱藏雷（金幣頁編輯後再跑番茄不會被覆蓋）。`CoinIncomeLogRow` 加 `sessionUuid?`，`confirmRating` 產生 session 時給 `uuid` 並讓金幣列帶 `sessionUuid`（為下一批「依番茄連動刪/改」鋪路）。行為零變化。
 - **補番茄表單兩項**：① 名稱改非必填（移除 submit 名稱檢查、placeholder 改「名稱（可留空）」），`buildManualSession` 名稱留空時依序退用 `cat3→cat2→cat1→"手動番茄"`；② 新增「📅 從課表帶入」（表單最上方）：`schedule.loadScheduleCourses()` 為週課表課程清單**單一讀取來源**（去重＋依 `cat1+n` 排序），點一筆一鍵帶入大/中/小分類與名稱（顏色點＋名稱＋分類路徑）；課表為空（`courses.length>0` 守衛）不顯示該區塊。
@@ -507,5 +508,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/06/26（金幣連動修正：手動補/刪/改時長同步金幣記錄＋臨時複製分類鈕待移除）*
+*最後更新：2026/06/26（舊金幣回填連結＋預設分類更新為實際分類樹＋移除臨時複製鈕）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*

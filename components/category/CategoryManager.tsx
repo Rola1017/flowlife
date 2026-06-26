@@ -622,24 +622,6 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
         >
           + 新增大分類
         </button>
-
-        <button
-          type="button"
-          onClick={() => navigator.clipboard?.writeText(JSON.stringify(loadCategories(), null, 2))}
-          style={{
-            marginTop: 12,
-            width: "100%",
-            padding: "8px",
-            borderRadius: 8,
-            border: `1px dashed ${TH.border}`,
-            background: "transparent",
-            color: TH.muted,
-            fontSize: 11,
-            cursor: "pointer",
-          }}
-        >
-          📋 複製分類設定（給 Claude）
-        </button>
       </Card>
     </div>
   );

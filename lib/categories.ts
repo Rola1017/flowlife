@@ -5,105 +5,116 @@ export type MidCat = { id: string; name: string; color: string; subs: SmallCat[]
 export type BigCat = { id: string; name: string; color: string; mids: MidCat[] };
 export type CategoryData = BigCat[];
 
-export const DEFAULT_CATEGORIES: CategoryData = [
+export const DEFAULT_CATEGORIES: BigCat[] = [
   {
-    id: "big-learning",
     name: "學習",
     color: "#FFFF37",
+    id: "b1dbddc9-fb0e-4db7-b2ff-9c120f4a0a93",
     mids: [
       {
-        id: "mid-law",
         name: "法律",
-        color: "#a154e8",
+        color: "#4444f8",
+        id: "99c789ba-d4e8-4f7a-826f-906d96a1d5e3",
         subs: [
-          { id: "sml-labor-law", name: "勞動社會法" },
-          { id: "sml-insurance-law", name: "保險法" },
-          { id: "sml-civil-law", name: "民法" },
-          { id: "sml-admin-law", name: "行政法" },
-          { id: "sml-criminal-law", name: "刑法" },
-          { id: "sml-civil-procedure", name: "民事訴訟法" },
+          { id: "d3084363-57d9-40fc-8c88-daaa09fa49be", name: "勞健保暨勞動法規管理師" },
+          { id: "0c26061f-0229-425e-b43e-3f259ec08c4f", name: "乙級技術士（紅人學院許朝茂老師）" },
+          { id: "5827b6cc-2ade-4351-805c-5f1afb62a991", name: "謝清風老師" },
+          { id: "923fdc72-379c-4a7b-b734-60080096e53f", name: "沈以軒律師團隊" },
         ],
       },
       {
-        id: "mid-insurance",
-        name: "保險",
-        color: "#93571b",
-        subs: [
-          { id: "sml-accident-ins", name: "意外險" },
-          { id: "sml-medical-ins", name: "醫療險" },
-          { id: "sml-savings-ins", name: "儲蓄險" },
-        ],
-      },
-      {
-        id: "mid-english",
         name: "英文",
         color: "#ec69ec",
+        id: "57e5ab7d-15e1-4356-bf94-7b2a74357696",
         subs: [
-          { id: "sml-speaking", name: "口說" },
-          { id: "sml-grammar", name: "文法" },
-          { id: "sml-writing", name: "寫作" },
+          { id: "1411c24c-d4dc-4915-8fec-5f18e8ae99f0", name: "聽力" },
+          { id: "b8d06c26-66d1-4643-9a52-b873e37d6e3c", name: "寫作" },
         ],
       },
-    ],
-  },
-  {
-    id: "big-business",
-    name: "事業",
-    color: "#0000E3",
-    mids: [
-      { id: "mid-website", name: "架網站", color: "#2a2ac6", subs: [] },
-      { id: "mid-knowledge", name: "知識萃取", color: "#6868df", subs: [] },
-    ],
-  },
-  {
-    id: "big-reading",
-    name: "閱讀",
-    color: "#a154e8",
-    mids: [
-      { id: "mid-communication", name: "溝通術", color: "#2382e1", subs: [] },
-      { id: "mid-emotion", name: "情緒療癒", color: "#d18fc9", subs: [] },
-      { id: "mid-studyskill", name: "學習技巧", color: "#46A3FF", subs: [] },
       {
-        id: "mid-finance",
+        name: "線上課",
+        color: "#41764c",
+        id: "0140a964-5627-44eb-b4ea-9a11e29cd2e6",
+        subs: [
+          { id: "29b7e978-43ad-4999-8c4a-af3c64438a20", name: "雷蒙claude迷你課" },
+          { id: "944c5fe2-e80b-40fa-9b8b-b8b9952f47dc", name: "卡片盒" },
+          { id: "d1880c1a-01db-49d1-bc66-a23fe079f603", name: "金頭腦" },
+          { id: "5f646ee2-40fb-417b-9518-221d71ebbc9f", name: "雷蒙超級個體術" },
+          { id: "d104df7e-c376-4b01-9a88-05aff72aba69", name: "n8n超級個體包" },
+          { id: "e3acb34f-e4ce-4493-8ae5-32bbd31929ec", name: "30 種零門檻 AI 工作應用術" },
+        ],
+      },
+      {
+        name: "保險",
+        color: "#93571b",
+        id: "d0a29a9d-b9ae-4a64-b257-3254e69cf578",
+        subs: [
+          { id: "d1d58736-16eb-4901-ace4-00b3bba5be8c", name: "意外險" },
+          { id: "5bd3eba4-269e-4465-901b-598536791c46", name: "醫療險" },
+          { id: "f49a709b-3a21-4f6a-8866-243d32353dcf", name: "儲蓄險" },
+        ],
+      },
+      { name: "RemNote復習", color: "#85b1db", id: "09e2adc5-dcb0-4cb1-85ca-665d047df672", subs: [] },
+    ],
+  },
+  {
+    name: "事業",
+    color: "#4DFFFF",
+    id: "3eebe052-5748-44e0-89b1-0d3525284de6",
+    mids: [
+      { name: "架設網站", color: "#46A3FF", id: "eaaae17b-7ce8-4d89-bcf5-1453af16cc86", subs: [] },
+      { name: "知識萃取", color: "#6868df", id: "0c743144-b3e0-4911-9ad0-8904b995f727", subs: [] },
+    ],
+  },
+  {
+    name: "閱讀",
+    color: "#4EFEB3",
+    id: "a84b9136-9426-4952-b955-9188e7b69a12",
+    mids: [
+      { name: "溝通術", color: "#2382e1", id: "f2e5b7ff-b278-42a9-9a2d-50dedd4f8ae7", subs: [] },
+      { name: "情緒療癒", color: "#d18fc9", id: "63d08bcf-6c19-4d37-a5b3-c46bcd6cdbaf", subs: [] },
+      { name: "學習技巧", color: "#46A3FF", id: "a70296b5-f0b6-4711-a9c4-a1c8ab39d906", subs: [] },
+      {
         name: "金融",
         color: "#FFFF37",
+        id: "1f1c2d1b-4c66-4761-a9e8-7dbc4a3c5f2f",
         subs: [
-          { id: "sml-investment", name: "投資" },
-          { id: "sml-economics", name: "經濟學" },
+          { id: "90b5d31d-dbca-486d-b336-fb25e09e4676", name: "投資" },
+          { id: "1cedf0f7-442e-4506-9c94-16fd27c65494", name: "經濟學" },
         ],
       },
-      { id: "mid-commerce", name: "商業", color: "#1010e0", subs: [] },
+      { name: "商業", color: "#1010e0", id: "9efc0d4c-ad6f-478c-a568-61f78848c232", subs: [] },
     ],
   },
   {
-    id: "big-health",
     name: "健康",
     color: "#00EC00",
+    id: "c310502a-299b-423e-86a8-0765bc0d6d40",
     mids: [
-      { id: "mid-weight", name: "重訓", color: "#f33535", subs: [] },
-      { id: "mid-cardio", name: "有氧", color: "#5df95d", subs: [] },
+      { name: "重訓", color: "#f33535", id: "324f3116-5c1d-4dc4-9ca8-70523c885282", subs: [] },
+      { name: "有氧", color: "#5df95d", id: "665d5c58-cb97-4ac0-9443-7ef56517c74f", subs: [] },
     ],
   },
   {
-    id: "big-sidejob",
     name: "兼差",
-    color: "#AD5A5A",
+    color: "#3e3d3d",
+    id: "afe8c121-2aeb-4467-8518-0b8f50e3b39f",
     mids: [
-      { id: "mid-sidejob-a", name: "兼差A", color: "#ec8383", subs: [] },
-      { id: "mid-sidejob-b", name: "兼差B", color: "#6b3333", subs: [] },
+      { name: "彩券行", color: "#ec8383", id: "e98a7e74-6356-438b-ba1b-02492e450353", subs: [] },
+      { name: "診所", color: "#6b3333", id: "800db2c6-ae45-48c7-94ad-e5876465b32c", subs: [] },
     ],
   },
   {
-    id: "big-activity",
     name: "活動",
-    color: "#350561",
+    color: "#5b2191",
+    id: "aad5ebfb-470c-45a0-baf8-e050d670f2af",
     mids: [
-      { id: "mid-exhibition", name: "展覽", color: "#C2FF68", subs: [] },
-      { id: "mid-travel", name: "旅遊", color: "#4DFFFF", subs: [] },
-      { id: "mid-gathering", name: "聚會", color: "#93571b", subs: [] },
+      { name: "展覽", color: "#C2FF68", id: "b0ada8e1-cfef-4fc2-8679-372abc915a59", subs: [] },
+      { name: "旅遊", color: "#4DFFFF", id: "a2d811b1-b034-4e20-b0dc-61b6117bab52", subs: [] },
+      { name: "聚會", color: "#93571b", id: "591648dc-38a4-4ee7-aa97-80030cde154d", subs: [] },
     ],
   },
-  { id: "big-uncategorized", name: "未分類", color: "#9D9D9D", mids: [] },
+  { name: "未分類", color: "#9D9D9D", id: "cd6c4a3d-08cd-42d5-aef3-440b87058d10", mids: [] },
 ];
 
 function genCatId(): string {
