@@ -456,7 +456,7 @@ TH.gold    = "#FBBF24"   // 金幣
   - DB：`public.reviews`（uuid 主鍵、`user_id`＋RLS 四 policy、partial unique on `(user_id,scope,period_key) where scope<>'free'`、grant authenticated）。
 - **番茄記錄修正功能（B1~B3b）**：Settings 歸零未利用；待辦 `startAt`～`endAt` 自動碳掉未利用＋補登帶入待辦名；歷史頁改時長/刪除（金幣連動）＋手動補番茄（`manual:true`、依時長發幣、自動碳未利用）；`lib/sessions.ts` 為單一寫入來源。
 - **usePomodoro 不變量**：專注/休息中強制熄滅 idle（不累加），修掉 08:00/13:30 自動 idle 在專注中誤點燃。
-- **修 Vercel build**：browser client 改 lazy singleton、`reviews.ts` 移除 import-time 實例化，避免 prerender 在缺 env 時崩潰。
+- **修 Vercel build**：browser client 改 lazy singleton、`reviews.ts` 移除 import-time 實例化，避免 prerender 在缺 env 時崩潰（型別改用 `ReturnType<typeof makeBrowserClient>` 保具體推斷，消除 implicit-any 外溢）。
 
 ---
 

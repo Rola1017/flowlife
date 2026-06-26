@@ -153,7 +153,7 @@ export function DayReview({ sessions }: { sessions: Session[] }) {
 
       {material.length === 0 ? (
         <div style={{ fontSize: 10, color: TH.muted, textAlign: "center", padding: 16, lineHeight: 1.6 }}>
-          今天還沒有寫過意圖或覆盤的番茄。
+          這天還沒有寫過意圖或覆盤的番茄。
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
