@@ -228,6 +228,19 @@ export function saveCategories(data: CategoryData): void {
   saveJSON(LS_KEYS.categories, data);
 }
 
+/** 由名字解析出分類穩定編號（找不到回 undefined） */
+export function resolveCatIds(
+  cat1: string,
+  cat2?: string,
+  cat3?: string,
+): { cat1Id?: string; cat2Id?: string; cat3Id?: string } {
+  const data = loadCategories();
+  const big = data.find((c) => c.name === cat1);
+  const mid = cat2 ? big?.mids.find((m) => m.name === cat2) : undefined;
+  const sml = cat3 && mid ? mid.subs.find((s) => s.name === cat3) : undefined;
+  return { cat1Id: big?.id, cat2Id: mid?.id, cat3Id: sml?.id };
+}
+
 /** S2-1/1b：為既有存檔的 big/mid/small 補上穩定 id（先備份、冪等、有變動才寫檔） */
 export function migrateCategoryIds(): void {
   snapshotForS2();

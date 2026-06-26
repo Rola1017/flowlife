@@ -21,4 +21,8 @@ export type Session = {
   reflection?: string;
   /** 是否為手動補登（非真實番茄計時） */
   manual?: boolean;
+  /** S2-2a 分類穩定編號（與名字並存，過渡期；找不到名字時留空、不清舊值） */
+  cat1Id?: string;
+  cat2Id?: string;
+  cat3Id?: string;
 };

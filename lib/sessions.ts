@@ -1,5 +1,18 @@
 import type { Session } from "@/lib/types";
 import { coinsForSecs, toM } from "@/lib/utils";
+import { resolveCatIds } from "@/lib/categories";
+
+/** 依名字補上分類穩定編號（只補不覆蓋；找不到名字絕不清掉舊編號） */
+export function stampSessionCatIds(s: Session): Session {
+  if (!s.cat1) return s;
+  const ids = resolveCatIds(s.cat1, s.cat2, s.cat3);
+  return {
+    ...s,
+    cat1Id: ids.cat1Id ?? s.cat1Id,
+    cat2Id: ids.cat2Id ?? s.cat2Id,
+    cat3Id: ids.cat3Id ?? s.cat3Id,
+  };
+}
 
 /** 覆盤寫入單一來源：依 id 更新 reflection（空白→undefined） */
 export function patchReflection(sessions: Session[], id: number, text: string): Session[] {
