@@ -6,12 +6,15 @@ import { fmt, toM } from "@/lib/utils";
 import { CFG } from "@/lib/config";
 import { CAT } from "@/lib/categories";
 import { BackBtn } from "@/components/ui/BackBtn";
+import { CategorySelector } from "@/components/pomodoro/CategorySelector";
 import type { Session } from "@/lib/types";
 
 type ManualInput = {
   date: string;
   name: string;
   cat1: string;
+  cat2: string;
+  cat3: string;
   startTime: string;
   endTime: string;
   rating?: string;
@@ -52,6 +55,8 @@ function SessionRow({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const editable = s.id != null;
   const timeLabel = s.startTime && s.endTime ? `${s.startTime}~${s.endTime}` : "";
+  const catParts = [s.cat3, s.cat2, s.cat1].filter(Boolean);
+  const catColor = CAT.deepColorFull(s.cat1, s.cat2, s.cat3);
 
   return (
     <div
@@ -67,22 +72,22 @@ function SessionRow({
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <span style={{ fontSize: 13 }}>{s.rating || "🍅"}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              color: TH.text,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {s.name || "番茄"}
-            {s.manual && (
-              <span style={{ fontSize: 8, color: TH.muted, fontWeight: 600, marginLeft: 4 }}>手動</span>
-            )}
+          {s.cat1 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: catColor, flexShrink: 0 }} />
+              <span style={{ fontSize: 12, fontWeight: 800, color: TH.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {catParts[0]}
+              </span>
+              {catParts.length > 1 && (
+                <span style={{ fontSize: 9, color: TH.muted, whiteSpace: "nowrap", flexShrink: 0 }}>
+                  {catParts.slice(1).join(" · ")}
+                </span>
+              )}
+            </div>
+          )}
+          <div style={{ fontSize: 9, color: TH.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {s.name || "番茄"}{s.manual ? " · 手動" : ""}{timeLabel ? ` · ${timeLabel}` : ""}
           </div>
-          {timeLabel && <div style={{ fontSize: 8, color: TH.muted }}>{timeLabel}</div>}
         </div>
         <span style={{ fontSize: 10, fontWeight: 700, color: TH.text }}>{fmt(s.mins)}</span>
         <button
@@ -228,6 +233,8 @@ function ManualForm({ onAddManual }: { onAddManual: (input: ManualInput) => void
     date: CFG.TODAY_STR,
     name: "",
     cat1: (cat1List[0] as string) ?? "",
+    cat2: "",
+    cat3: "",
     startTime: "",
     endTime: "",
     rating: "",
@@ -239,6 +246,8 @@ function ManualForm({ onAddManual }: { onAddManual: (input: ManualInput) => void
       date: CFG.TODAY_STR,
       name: "",
       cat1: (cat1List[0] as string) ?? "",
+      cat2: "",
+      cat3: "",
       startTime: "",
       endTime: "",
       rating: "",
@@ -321,17 +330,15 @@ function ManualForm({ onAddManual }: { onAddManual: (input: ManualInput) => void
               style={manualInputStyle}
             />
           </div>
-          <select
-            value={draft.cat1}
-            onChange={(e) => setDraft((v) => ({ ...v, cat1: e.target.value }))}
-            style={manualInputStyle}
-          >
-            {cat1List.map((c) => (
-              <option key={c as string} value={c as string}>
-                {c as string}
-              </option>
-            ))}
-          </select>
+          <CategorySelector
+            cat1={draft.cat1}
+            cat2={draft.cat2}
+            cat3={draft.cat3}
+            onChange={(n) => setDraft((v) => ({ ...v, ...n }))}
+          />
+          <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4 }}>
+            💡 補番茄也能選到中／小分類，跟課表用同一套分類
+          </div>
           <div style={{ display: "flex", gap: 6 }}>
             {(["😤", "🙂", "😴"] as const).map((r) => (
               <button

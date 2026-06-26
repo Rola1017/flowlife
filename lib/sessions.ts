@@ -46,6 +46,8 @@ export function buildManualSession(input: {
   date: string;
   name: string;
   cat1: string;
+  cat2?: string;
+  cat3?: string;
   startTime: string;
   endTime: string;
   rating?: string;
@@ -57,8 +59,8 @@ export function buildManualSession(input: {
     date: input.date,
     name: input.name.trim() || "手動番茄",
     cat1: input.cat1,
-    cat2: "",
-    cat3: "",
+    cat2: input.cat2 ?? "",
+    cat3: input.cat3 ?? "",
     mins,
     rating: input.rating || "",
     earnedCoins: earned,

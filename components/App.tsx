@@ -259,6 +259,8 @@ function AppContent() {
     date: string;
     name: string;
     cat1: string;
+    cat2: string;
+    cat3: string;
     startTime: string;
     endTime: string;
     rating?: string;
