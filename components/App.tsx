@@ -17,7 +17,7 @@ import { TABS } from "@/lib/tabs";
 import { LS_KEYS, loadJSON, loadNumber, saveJSON, saveNumber } from "@/lib/storage";
 import { migrateCategoryIds } from "@/lib/categories";
 import type { Session } from "@/lib/types";
-import { patchReflection, setSessionMins, removeSession, buildManualSession, stampSession } from "@/lib/sessions";
+import { patchReflection, setSessionMins, removeSession, buildManualSession, stampSession, ensureSessionUuid } from "@/lib/sessions";
 import { useReviewCloudSync } from "@/components/hooks/useReviewCloudSync";
 import { Card } from "@/components/ui/Card";
 import { Header } from "@/components/Header";
@@ -96,7 +96,14 @@ function AppContent() {
   const [subPage, setSubPage] = useState<{ type: string; props?: Record<string, unknown> } | null>(null);
   const [quote, setQuote] = useState("每一顆番茄鐘，都是打下江山的一刀。");
   const { coins, setCoins, resetCoins, spendCoins } = useCoins();
-  const { coinIncomeLog, setCoinIncomeLog, resetCoinLog } = useCoinLog();
+  const {
+    coinIncomeLog,
+    setCoinIncomeLog,
+    resetCoinLog,
+    appendCoinRow,
+    removeCoinRowsBySession,
+    bumpCoinAmountBySession,
+  } = useCoinLog();
   const [focused, setFocused] = useState(DEFAULT_RATINGS.focused);
   const [neutral, setNeutral] = useState(DEFAULT_RATINGS.neutral);
   const [distracted, setDistracted] = useState(DEFAULT_RATINGS.distracted);
@@ -253,11 +260,15 @@ function AppContent() {
     const { sessions: next, coinDelta } = setSessionMins(sessions, id, newMins);
     updateSessions(next);
     if (coinDelta !== 0) setCoins((c) => Math.max(0, c + coinDelta));
+    const target = sessions.find((s) => s.id === id);
+    if (target?.uuid && coinDelta !== 0) bumpCoinAmountBySession(target.uuid, coinDelta);
   };
   const handleDeleteSession = (id: number) => {
+    const target = sessions.find((s) => s.id === id);
     const { sessions: next, coinDelta } = removeSession(sessions, id);
     updateSessions(next);
     if (coinDelta !== 0) setCoins((c) => Math.max(0, c + coinDelta));
+    if (target?.uuid) removeCoinRowsBySession(target.uuid);
   };
   const handleAddManualSession = (input: {
     date: string;
@@ -270,8 +281,26 @@ function AppContent() {
     rating?: string;
   }) => {
     const { session, coinGain } = buildManualSession(input);
-    updateSessions((prev) => [...prev, session]);
-    if (coinGain > 0) setCoins((c) => c + coinGain);
+    const withUuid = ensureSessionUuid(session);
+    updateSessions((prev) => [...prev, withUuid]);
+    if (coinGain > 0) {
+      setCoins((c) => c + coinGain);
+      const t = withUuid.startTime ?? "";
+      appendCoinRow({
+        id: Date.now(),
+        date: withUuid.date,
+        time: t,
+        at: `${withUuid.date} ${t}`.trim(),
+        taskName: withUuid.name,
+        amount: coinGain,
+        cat1: withUuid.cat1,
+        cat2: withUuid.cat2 || undefined,
+        cat3: withUuid.cat3 || undefined,
+        startTime: withUuid.startTime,
+        endTime: withUuid.endTime,
+        sessionUuid: withUuid.uuid,
+      });
+    }
   };
 
   const todoProps = {

@@ -23,8 +23,10 @@ export function useCoinLog() {
   const appendCoinRow = (row: CoinIncomeLogRow) => setCoinIncomeLog((l) => [row, ...l]);
   const removeCoinRowsBySession = (uuid: string) =>
     setCoinIncomeLog((l) => l.filter((r) => r.sessionUuid !== uuid));
-  const updateCoinAmountBySession = (uuid: string, amount: number) =>
-    setCoinIncomeLog((l) => l.map((r) => (r.sessionUuid === uuid ? { ...r, amount } : r)));
+  const bumpCoinAmountBySession = (uuid: string, delta: number) =>
+    setCoinIncomeLog((l) =>
+      l.map((r) => (r.sessionUuid === uuid ? { ...r, amount: Math.max(0, r.amount + delta) } : r)),
+    );
   const resetCoinLog = () => setCoinIncomeLog([]);
 
   return {
@@ -32,7 +34,7 @@ export function useCoinLog() {
     setCoinIncomeLog,
     appendCoinRow,
     removeCoinRowsBySession,
-    updateCoinAmountBySession,
+    bumpCoinAmountBySession,
     resetCoinLog,
   };
 }
