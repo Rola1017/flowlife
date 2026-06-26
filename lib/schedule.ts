@@ -193,6 +193,23 @@ export function availableMinutesFor(dateStr: string, dayPlans?: Record<string, D
 export type CourseInfo = { t: string; n: string; cat1: string; cat2: string; cat3: string };
 export type CourseNow = { status: "current" | "next"; course: CourseInfo; endTime: string };
 
+/** 週課表所有不重複課程清單（單一讀取來源；給「從課表帶入」等重用） */
+export function loadScheduleCourses(): CourseInfo[] {
+  const week = loadJSON<Record<string, CourseInfo[]>>(LS_KEYS.weekSchedule, {});
+  const seen = new Set<string>();
+  const out: CourseInfo[] = [];
+  for (const day of Object.keys(week)) {
+    for (const c of week[day] ?? []) {
+      if (!c || (!c.n?.trim() && !c.cat1)) continue;
+      const key = `${c.cat1}|${c.cat2}|${c.cat3}|${c.n}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(c);
+    }
+  }
+  return out.sort((a, b) => (a.cat1 + a.n).localeCompare(b.cat1 + b.n));
+}
+
 /** 依「現在時間」找當前課（落在某格 30 分鐘內）或今天接下來的下一堂課 */
 export function currentOrNextCourse(now: Date = new Date()): CourseNow | null {
   const dayKey = WEEKDAY_FROM_DOW[now.getDay()];

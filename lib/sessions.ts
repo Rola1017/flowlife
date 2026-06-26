@@ -57,7 +57,7 @@ export function buildManualSession(input: {
   const session: Session = {
     id: Date.now(),
     date: input.date,
-    name: input.name.trim() || "手動番茄",
+    name: input.name.trim() || input.cat3 || input.cat2 || input.cat1 || "手動番茄",
     cat1: input.cat1,
     cat2: input.cat2 ?? "",
     cat3: input.cat3 ?? "",

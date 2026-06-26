@@ -5,6 +5,7 @@ import { TH } from "@/lib/theme";
 import { fmt, toM } from "@/lib/utils";
 import { CFG } from "@/lib/config";
 import { CAT } from "@/lib/categories";
+import { loadScheduleCourses } from "@/lib/schedule";
 import { BackBtn } from "@/components/ui/BackBtn";
 import { CategorySelector } from "@/components/pomodoro/CategorySelector";
 import type { Session } from "@/lib/types";
@@ -229,6 +230,8 @@ const manualInputStyle = {
 function ManualForm({ onAddManual }: { onAddManual: (input: ManualInput) => void }) {
   const [open, setOpen] = useState(false);
   const cat1List = CAT.cat1List();
+  const courses = useMemo(() => loadScheduleCourses(), []);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const [draft, setDraft] = useState<ManualInput>({
     date: CFG.TODAY_STR,
     name: "",
@@ -256,10 +259,6 @@ function ManualForm({ onAddManual }: { onAddManual: (input: ManualInput) => void
   };
 
   const submit = () => {
-    if (!draft.name.trim()) {
-      setError("請填名稱");
-      return;
-    }
     if (!draft.startTime || !draft.endTime) {
       setError("請填起訖時間");
       return;
@@ -304,10 +303,67 @@ function ManualForm({ onAddManual }: { onAddManual: (input: ManualInput) => void
             background: "#0A0A0C",
           }}
         >
+          {courses.length > 0 && (
+            <div>
+              <button
+                type="button"
+                onClick={() => setScheduleOpen((o) => !o)}
+                style={{
+                  width: "100%",
+                  padding: "7px",
+                  borderRadius: 8,
+                  border: `1px dashed ${TH.border}`,
+                  background: "transparent",
+                  color: TH.text,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                📅 從課表帶入{scheduleOpen ? " ▲" : " ▼"}
+              </button>
+              <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4, marginTop: 4 }}>
+                💡 點課表課程可一鍵帶入分類與名稱；名稱可留空
+              </div>
+              {scheduleOpen && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6, maxHeight: 180, overflowY: "auto" }}>
+                  {courses.map((c, i) => {
+                    const parts = [c.cat3, c.cat2, c.cat1].filter(Boolean);
+                    const dot = CAT.deepColorFull(c.cat1, c.cat2, c.cat3);
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => {
+                          setDraft((v) => ({ ...v, cat1: c.cat1, cat2: c.cat2 || "", cat3: c.cat3 || "", name: c.n || v.name }));
+                          setScheduleOpen(false);
+                        }}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          padding: "6px 8px",
+                          borderRadius: 8,
+                          border: `1px solid ${TH.border}`,
+                          background: "#0A0A0C",
+                          cursor: "pointer",
+                          textAlign: "left",
+                        }}
+                      >
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: dot, flexShrink: 0 }} />
+                        <span style={{ fontSize: 11, fontWeight: 700, color: TH.text }}>{c.n || "(未命名)"}</span>
+                        {parts.length > 0 && <span style={{ fontSize: 9, color: TH.muted }}>{parts.join(" · ")}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
           <input
             value={draft.name}
             onChange={(e) => setDraft((v) => ({ ...v, name: e.target.value }))}
-            placeholder="名稱（必填）"
+            placeholder="名稱（可留空）"
             style={manualInputStyle}
           />
           <input

@@ -459,6 +459,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **修 Vercel build**：browser client 改 lazy singleton、`reviews.ts` 移除 import-time 實例化，避免 prerender 在缺 env 時崩潰（型別改用 `ReturnType<typeof makeBrowserClient>` 保具體推斷，消除 implicit-any 外溢）。
 - **S2-1 分類 ID 化＋全量備份**：`BigCat`/`MidCat` 加必填 `id`（`DEFAULT_CATEGORIES` 補固定 slug id、`small` 維持 `string[]`）；`migrateCategoryIds`（掛載跑一次、先 `snapshotForS2` 再補 id、冪等只在有變動時寫檔）；`loadCategories` 讀取端對缺 id 者 in-memory 補上（不寫檔防呆）；CategoryManager 新增大/中類帶 `crypto.randomUUID()`；`storage.snapshotForS2`/`hasS2Backup` 一次性備份 categories/sessions/coinIncomeLog/weekSchedule 原始字串。CAT 存取器形狀不變、畫面零變化。
 - **S2-1b 小分類 ID 化（整棵樹完成）**：`SmallCat` 由 `string` 改 `{ id, name }`，`DEFAULT_CATEGORIES` 所有 subs 補固定 `sml-*` id；`migrateCategoryIds` subs 迴圈正規化（`string→{id,name}`、缺 id 補 `genCatId`，冪等仍先 `snapshotForS2`）＋`loadCategories` `normalizeSub` 同時吃舊 string／物件雙格式做讀取防呆；`CAT.cat3List` 改回 `subs.map(s=>s.name)`、`cat3Color` 改 `findIndex(s=>s.name===cat3)`（消費端仍拿名字陣列、零改動）；CategoryManager subs 全改讀 `.name`（render key 改 `sub.id`、addSub push `{id,name}`、updateSubName 改 `.name`、刪除確認取 `.name`，cascadeRename cat3 仍用名字未動）；新增 `storage.restoreFromS2Backup`（一鍵還原四鍵、無備份回 false，本步未接 UI）。畫面零變化。
+- **補番茄表單兩項**：① 名稱改非必填（移除 submit 名稱檢查、placeholder 改「名稱（可留空）」），`buildManualSession` 名稱留空時依序退用 `cat3→cat2→cat1→"手動番茄"`；② 新增「📅 從課表帶入」（表單最上方）：`schedule.loadScheduleCourses()` 為週課表課程清單**單一讀取來源**（去重＋依 `cat1+n` 排序），點一筆一鍵帶入大/中/小分類與名稱（顏色點＋名稱＋分類路徑）；課表為空（`courses.length>0` 守衛）不顯示該區塊。
 - **番茄歷史頁兩項改善**：① 手動補番茄改用 `CategorySelector`（重用課表同一套大/中/小三層、選大才出中、選中才出小），`CategorySelector.onShowCategoryManager` 改可選（不傳則不顯示 ⚙️、不會跳離半填表單；PomodoroPage 仍傳故照常顯示），`buildManualSession` input／session 補 `cat2`/`cat3`、`App.handleAddManualSession` input 型別同步加 `cat2`/`cat3`；② 歷史每顆 `SessionRow` 改「分類為主」：最前顏色圓點（`CAT.deepColorFull`）＋小分類（最深層）大字、中/大分類小字在後（`catParts=[cat3,cat2,cat1].filter(Boolean)`），名稱/手動/時間降為次行小字；右側 mins/✏️/🗑 與編輯刪除區未動。
 - **S2-2a 番茄並存分類編號**：`Session` 加可選 `cat1Id/cat2Id/cat3Id`（與名字並存）；`categories.resolveCatIds(cat1,cat2?,cat3?)` 由名字查編號；`sessions.stampSessionCatIds`（`!cat1` 原樣回、`??` 只補不覆蓋、找不到名字不清舊編號）；`App.updateSessions` 存檔前 `raw.some(s=>s.cat1&&!s.cat1Id)` 才 `map(stampSessionCatIds)`（單一接縫覆蓋所有番茄產生路徑＋啟動順手補舊番茄）；本步無處讀編號＝純並存 groundwork、行為零變化，未動計時邏輯/`cascadeRename`。
 
@@ -500,5 +501,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/06/26（番茄歷史頁：手動補番茄可選大/中/小分類＋每顆顯示小→中→大＋顏色圓點）*
+*最後更新：2026/06/26（補番茄表單：名稱改非必填＋從課表課程一鍵帶入）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*
