@@ -53,6 +53,8 @@ export function PomodoroPage({
   restEndAt,
   setRestEndAt,
   resetVersion,
+  coinIncomeLog,
+  setCoinIncomeLog: setCoinIncomeLogProp,
 }: {
   sessions: Session[];
   setSessions: Dispatch<SetStateAction<Session[]>>;
@@ -75,6 +77,8 @@ export function PomodoroPage({
   restEndAt: number | null;
   setRestEndAt: Dispatch<SetStateAction<number | null>>;
   resetVersion: number;
+  coinIncomeLog: CoinIncomeLogRow[];
+  setCoinIncomeLog: Dispatch<SetStateAction<CoinIncomeLogRow[]>>;
 }) {
   const {
     dur,
@@ -141,6 +145,8 @@ export function PomodoroPage({
     restEndAt,
     setRestEndAt,
     resetVersion,
+    coinIncomeLog,
+    setCoinIncomeLog: setCoinIncomeLogProp,
   });
 
   const [showEventDropdown, setShowEventDropdown] = useState(false);

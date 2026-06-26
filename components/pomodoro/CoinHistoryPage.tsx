@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useMemo, useState, type CSSProperties, type Dispatch, type SetStateAction } from "react";
 import { CFG } from "@/lib/config";
 import { CAT } from "@/lib/categories";
 import { TH } from "@/lib/theme";
-import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 import { BackBtn } from "@/components/ui/BackBtn";
 import type { CoinIncomeLogRow } from "@/components/pomodoro/usePomodoro";
 
@@ -38,9 +37,15 @@ const durLabel = (s?: string, e?: string): string => {
   return mins > 0 ? ` · ${mins}分` : "";
 };
 
-export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
-  const [coinIncomeLog, setCoinIncomeLog] = useState<CoinIncomeLogRow[]>([]);
-  const [hydrated, setHydrated] = useState(false);
+export function CoinHistoryPage({
+  coinIncomeLog,
+  setCoinIncomeLog,
+  onBack,
+}: {
+  coinIncomeLog: CoinIncomeLogRow[];
+  setCoinIncomeLog: Dispatch<SetStateAction<CoinIncomeLogRow[]>>;
+  onBack: () => void;
+}) {
   const [period, setPeriod] = useState<PeriodFilter>("all");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
@@ -50,17 +55,6 @@ export function CoinHistoryPage({ onBack }: { onBack: () => void }) {
   const [editCat1, setEditCat1] = useState("");
   const [editCat2, setEditCat2] = useState("");
   const [editCat3, setEditCat3] = useState("");
-
-  useEffect(() => {
-    const saved = loadJSON<unknown>(LS_KEYS.coinIncomeLog, []);
-    if (Array.isArray(saved)) setCoinIncomeLog(saved as CoinIncomeLogRow[]);
-    setHydrated(true);
-  }, []);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    saveJSON(LS_KEYS.coinIncomeLog, coinIncomeLog);
-  }, [coinIncomeLog, hydrated]);
 
   const today = CFG.TODAY_STR;
   const weekStart = useMemo(() => getWeekStartMonday(today), [today]);

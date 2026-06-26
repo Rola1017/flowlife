@@ -33,6 +33,7 @@ import { ShopPage } from "@/components/shop/ShopPage";
 import { CoinHistoryPage } from "@/components/pomodoro/CoinHistoryPage";
 import { SessionHistoryPage } from "@/components/pomodoro/SessionHistoryPage";
 import { useCoins } from "@/components/useCoins";
+import { useCoinLog } from "@/components/useCoinLog";
 import { useTodos } from "@/components/todo/useTodos";
 import { TodoEditSheet } from "@/components/todo/TodoEditSheet";
 
@@ -95,6 +96,7 @@ function AppContent() {
   const [subPage, setSubPage] = useState<{ type: string; props?: Record<string, unknown> } | null>(null);
   const [quote, setQuote] = useState("每一顆番茄鐘，都是打下江山的一刀。");
   const { coins, setCoins, resetCoins, spendCoins } = useCoins();
+  const { coinIncomeLog, setCoinIncomeLog, resetCoinLog } = useCoinLog();
   const [focused, setFocused] = useState(DEFAULT_RATINGS.focused);
   const [neutral, setNeutral] = useState(DEFAULT_RATINGS.neutral);
   const [distracted, setDistracted] = useState(DEFAULT_RATINGS.distracted);
@@ -206,6 +208,7 @@ function AppContent() {
   const handleResetAllData = () => {
     clearFlowLifeStorage();
     resetCoins();
+    resetCoinLog();
     setFocused(DEFAULT_RATINGS.focused);
     setNeutral(DEFAULT_RATINGS.neutral);
     setDistracted(DEFAULT_RATINGS.distracted);
@@ -230,6 +233,7 @@ function AppContent() {
       ].forEach((k) => localStorage.removeItem(k));
     }
     resetCoins();
+    resetCoinLog();
     setFocused(DEFAULT_RATINGS.focused);
     setNeutral(DEFAULT_RATINGS.neutral);
     setDistracted(DEFAULT_RATINGS.distracted);
@@ -304,7 +308,13 @@ function AppContent() {
       />
     ),
     shop: () => <ShopPage coins={coins} onSpend={spendCoins} onBack={pop} />,
-    coinHistory: () => <CoinHistoryPage onBack={pop} />,
+    coinHistory: () => (
+      <CoinHistoryPage
+        coinIncomeLog={coinIncomeLog}
+        setCoinIncomeLog={setCoinIncomeLog}
+        onBack={pop}
+      />
+    ),
     sessionHistory: () => (
       <SessionHistoryPage
         sessions={sessions}
@@ -376,6 +386,8 @@ function AppContent() {
       onShowCategoryManager={() => push("categoryManager")}
       onShowCoinHistory={() => push("coinHistory")}
       onShowSessionHistory={() => push("sessionHistory")}
+      coinIncomeLog={coinIncomeLog}
+      setCoinIncomeLog={setCoinIncomeLog}
       focused={focused}
       setFocused={setFocused}
       neutral={neutral}

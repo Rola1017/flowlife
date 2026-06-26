@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateActio
 import { CFG } from "@/lib/config";
 import { buildLineSeries } from "@/lib/analytics";
 import { coinsForSecs, playRestEnd, toLocalDateStr } from "@/lib/utils";
-import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 import { patchReflection } from "@/lib/sessions";
 import type { Session } from "@/lib/types";
 
@@ -25,6 +24,8 @@ export type CoinIncomeLogRow = {
   cat3?: string;
   startTime?: string;
   endTime?: string;
+  /** 連動的番茄 uuid（為「依番茄連動刪/改」鋪路；舊記錄無此欄） */
+  sessionUuid?: string;
 };
 
 // 日期與 toLocalDateStr / CFG.TODAY_STR 一致（本地 YYYY-MM-DD，非 UTC）
@@ -49,6 +50,8 @@ export function usePomodoro({
   restEndAt,
   setRestEndAt,
   resetVersion,
+  coinIncomeLog,
+  setCoinIncomeLog,
 }: {
   sessions: Session[];
   setSessions: Dispatch<SetStateAction<Session[]>>;
@@ -63,6 +66,8 @@ export function usePomodoro({
   restEndAt: number | null;
   setRestEndAt: Dispatch<SetStateAction<number | null>>;
   resetVersion: number;
+  coinIncomeLog: CoinIncomeLogRow[];
+  setCoinIncomeLog: Dispatch<SetStateAction<CoinIncomeLogRow[]>>;
 }) {
   const REWARD_FX_MS = 3700;
 
@@ -80,8 +85,6 @@ export function usePomodoro({
   const [confirmed, setConfirmed] = useState<ConfirmedPomodoro | null>(null);
   const [idleSecs, setIdleSecs] = useState(0);
   const [rewardFx, setRewardFx] = useState<RewardFx | null>(null);
-  const [coinIncomeLog, setCoinIncomeLog] = useState<CoinIncomeLogRow[]>([]);
-  const [coinIncomeLogReady, setCoinIncomeLogReady] = useState(false);
   const [focusReadyToBreak, setFocusReadyToBreak] = useState(false);
   const [focusOverrunSecs, setFocusOverrunSecs] = useState(0);
   const [lastSessionId, setLastSessionId] = useState<number | null>(null);
@@ -112,17 +115,6 @@ export function usePomodoro({
       if (tot >= m.mins) hitRef.current.add(m.mins);
     });
   }, [sessions]);
-
-  useEffect(() => {
-    const saved = loadJSON<unknown>(LS_KEYS.coinIncomeLog, []);
-    if (Array.isArray(saved)) setCoinIncomeLog(saved as CoinIncomeLogRow[]);
-    setCoinIncomeLogReady(true);
-  }, []);
-
-  useEffect(() => {
-    if (!coinIncomeLogReady) return;
-    saveJSON(LS_KEYS.coinIncomeLog, coinIncomeLog);
-  }, [coinIncomeLog, coinIncomeLogReady]);
 
   useEffect(() => {
     if (resetVersion === lastHandledResetVersionRef.current) return;
@@ -317,8 +309,10 @@ export function usePomodoro({
     const earned = coinsForSecs(el);
     const now = localDateParts();
     const sessionId = Date.now();
+    const sUuid = crypto.randomUUID();
     const row: Session = {
       id: sessionId,
+      uuid: sUuid,
       date: now.date,
       name: confirmed!.name,
       cat1: confirmed!.cat1,
@@ -365,6 +359,7 @@ export function usePomodoro({
           cat3: confirmed?.cat3,
           startTime: focusStartClockRef.current ?? undefined,
           endTime: now.time,
+          sessionUuid: sUuid,
         },
         ...log,
       ]);
