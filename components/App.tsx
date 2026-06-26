@@ -17,7 +17,7 @@ import { TABS } from "@/lib/tabs";
 import { LS_KEYS, loadJSON, loadNumber, saveJSON, saveNumber } from "@/lib/storage";
 import { migrateCategoryIds } from "@/lib/categories";
 import type { Session } from "@/lib/types";
-import { patchReflection, setSessionMins, removeSession, buildManualSession, stampSessionCatIds } from "@/lib/sessions";
+import { patchReflection, setSessionMins, removeSession, buildManualSession, stampSession } from "@/lib/sessions";
 import { useReviewCloudSync } from "@/components/hooks/useReviewCloudSync";
 import { Card } from "@/components/ui/Card";
 import { Header } from "@/components/Header";
@@ -113,7 +113,7 @@ function AppContent() {
   const updateSessions = useCallback((updater: SetStateAction<Session[]>) => {
     setSessions((prev) => {
       const raw = typeof updater === "function" ? updater(prev) : updater;
-      const next = raw.some((s) => s.cat1 && !s.cat1Id) ? raw.map(stampSessionCatIds) : raw;
+      const next = raw.some((s) => !s.uuid || (s.cat1 && !s.cat1Id)) ? raw.map(stampSession) : raw;
       saveJSON(LS_KEYS.sessions, next);
       return next;
     });

@@ -461,6 +461,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **S2-1b 小分類 ID 化（整棵樹完成）**：`SmallCat` 由 `string` 改 `{ id, name }`，`DEFAULT_CATEGORIES` 所有 subs 補固定 `sml-*` id；`migrateCategoryIds` subs 迴圈正規化（`string→{id,name}`、缺 id 補 `genCatId`，冪等仍先 `snapshotForS2`）＋`loadCategories` `normalizeSub` 同時吃舊 string／物件雙格式做讀取防呆；`CAT.cat3List` 改回 `subs.map(s=>s.name)`、`cat3Color` 改 `findIndex(s=>s.name===cat3)`（消費端仍拿名字陣列、零改動）；CategoryManager subs 全改讀 `.name`（render key 改 `sub.id`、addSub push `{id,name}`、updateSubName 改 `.name`、刪除確認取 `.name`，cascadeRename cat3 仍用名字未動）；新增 `storage.restoreFromS2Backup`（一鍵還原四鍵、無備份回 false，本步未接 UI）。畫面零變化。
 - **補番茄表單兩項**：① 名稱改非必填（移除 submit 名稱檢查、placeholder 改「名稱（可留空）」），`buildManualSession` 名稱留空時依序退用 `cat3→cat2→cat1→"手動番茄"`；② 新增「📅 從課表帶入」（表單最上方）：`schedule.loadScheduleCourses()` 為週課表課程清單**單一讀取來源**（去重＋依 `cat1+n` 排序），點一筆一鍵帶入大/中/小分類與名稱（顏色點＋名稱＋分類路徑）；課表為空（`courses.length>0` 守衛）不顯示該區塊。
 - **番茄歷史頁兩項改善**：① 手動補番茄改用 `CategorySelector`（重用課表同一套大/中/小三層、選大才出中、選中才出小），`CategorySelector.onShowCategoryManager` 改可選（不傳則不顯示 ⚙️、不會跳離半填表單；PomodoroPage 仍傳故照常顯示），`buildManualSession` input／session 補 `cat2`/`cat3`、`App.handleAddManualSession` input 型別同步加 `cat2`/`cat3`；② 歷史每顆 `SessionRow` 改「分類為主」：最前顏色圓點（`CAT.deepColorFull`）＋小分類（最深層）大字、中/大分類小字在後（`catParts=[cat3,cat2,cat1].filter(Boolean)`），名稱/手動/時間降為次行小字；右側 mins/✏️/🗑 與編輯刪除區未動。
+- **S2-3 番茄並存 uuid 跨裝置主鍵**：`Session` 加可選 `uuid`（與 number `id` 並存，上雲主鍵用、`id` 不轉型）；`sessions.ensureSessionUuid`（`s.uuid ? s : 補 crypto.randomUUID()`，只補不覆蓋、冪等）＋`stampSession = stampSessionCatIds(ensureSessionUuid(s))` 合一入口；`App.updateSessions` 守衛改 `raw.some(s => !s.uuid || (s.cat1 && !s.cat1Id)) ? raw.map(stampSession) : raw`（啟動載入順手替舊番茄補 uuid）；本步無處讀 uuid＝純前置、行為零變化，未動計時/number id。
 - **S2-2a 番茄並存分類編號**：`Session` 加可選 `cat1Id/cat2Id/cat3Id`（與名字並存）；`categories.resolveCatIds(cat1,cat2?,cat3?)` 由名字查編號；`sessions.stampSessionCatIds`（`!cat1` 原樣回、`??` 只補不覆蓋、找不到名字不清舊編號）；`App.updateSessions` 存檔前 `raw.some(s=>s.cat1&&!s.cat1Id)` 才 `map(stampSessionCatIds)`（單一接縫覆蓋所有番茄產生路徑＋啟動順手補舊番茄）；本步無處讀編號＝純並存 groundwork、行為零變化，未動計時邏輯/`cascadeRename`。
 
 ---
@@ -482,7 +483,7 @@ TH.gold    = "#FBBF24"   // 金幣
 | idleTotalSecs 跨日歸零 | 待議；觸發＝確認跨日行為後。 |
 | 待辦進行中即時碳掉未利用 | 目前完成（有 `endAt`）後才碳；觸發＝要「進行中」即時碳掉時。 |
 | 「明細」分頁改名 | 建議改「番茄反思」以與期間總結區隔；觸發＝命名定案時。 |
-| session/分類 name-based 改 uuid | **S2-2a 完成：番茄已並存編號**——`Session` 加可選 `cat1Id/cat2Id/cat3Id`，`updateSessions` 存檔前經 `stampSessionCatIds`（`resolveCatIds` 由名字查編號、`??` 只補不覆蓋、找不到不清舊值）單一接縫補編號（含啟動載入順手補舊番茄）；名字仍為現行權威、尚無處讀取編號（行為零變化）。**待 S2-2b**：改名/顯示改用編號、退役 `cascadeRename`；週課表/coinLog 編號化續接。 |
+| session/分類 name-based 改 uuid | **S2-2a＋S2-3 完成**——番茄並存 `cat1Id/cat2Id/cat3Id`（`stampSessionCatIds`）＋並存 `uuid` 跨裝置主鍵（`ensureSessionUuid`，只補不覆蓋、冪等），`App.updateSessions` 經 `stampSession` 單一接縫補（含啟動載入補舊番茄）；名字/number `id` 仍為現行權威、尚無處讀編號或 uuid（行為零變化）。**待**：番茄上雲使用 uuid 主鍵、S2-2b 改名/顯示改用編號退役 `cascadeRename`、週課表/coinLog 編號化。 |
 
 ---
 
@@ -497,9 +498,10 @@ TH.gold    = "#FBBF24"   // 金幣
 - ⬜ Git 功能分支習慣建立
 - ✅ **Supabase S1 完成**（reviews 試點端到端雲端同步已真機驗證）；多表全面同步留 S2
 - ✅ **過去期數導覽**（日/週/月/季 ‹ › 翻頁，資料已在雲端）
-- 🔄 **S2 分類 ID 化**：✅ S2-1/1b（整棵樹 id 化）＋✅ S2-2a（番茄並存 `cat1Id/2Id/3Id`、`updateSessions` 補編號、尚未被讀取）；⬜ **S2-2b** 改名/顯示改用編號、退役 `cascadeRename`；⬜ 週課表/coinLog 編號化。
+- 🔄 **S2 分類 ID 化**：✅ S2-1/1b（整棵樹 id 化）＋✅ S2-2a（番茄並存 `cat1Id/2Id/3Id`、尚未被讀取）；⬜ **S2-2b** 改名/顯示改用編號、退役 `cascadeRename`；⬜ 週課表/coinLog 編號化。
+- 🔄 **S2-3 番茄 uuid**：✅ 完成（`Session.uuid` 並存、`updateSessions` 經 `stampSession` 補 uuid，尚未被讀取）；⬜ 下一步番茄上雲改用 uuid 跨裝置主鍵。
 
 ---
 
-*最後更新：2026/06/26（補番茄表單：名稱改非必填＋從課表課程一鍵帶入）*
+*最後更新：2026/06/26（S2-3 番茄並存 uuid 跨裝置主鍵，additive、畫面零變化）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*

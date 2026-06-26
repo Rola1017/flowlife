@@ -14,6 +14,16 @@ export function stampSessionCatIds(s: Session): Session {
   };
 }
 
+/** 補跨裝置唯一主鍵（只補不覆蓋、冪等） */
+export function ensureSessionUuid(s: Session): Session {
+  return s.uuid ? s : { ...s, uuid: crypto.randomUUID() };
+}
+
+/** 補分類編號＋補 uuid 的單一入口 */
+export function stampSession(s: Session): Session {
+  return stampSessionCatIds(ensureSessionUuid(s));
+}
+
 /** 覆盤寫入單一來源：依 id 更新 reflection（空白→undefined） */
 export function patchReflection(sessions: Session[], id: number, text: string): Session[] {
   const trimmed = text.trim();

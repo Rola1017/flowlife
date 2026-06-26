@@ -25,4 +25,6 @@ export type Session = {
   cat1Id?: string;
   cat2Id?: string;
   cat3Id?: string;
+  /** 跨裝置唯一主鍵（上雲用；number id 仍保留給本地相容） */
+  uuid?: string;
 };
