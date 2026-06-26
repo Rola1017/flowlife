@@ -330,25 +330,25 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
     const name = window.prompt("新小分類名稱");
     if (!name?.trim()) return;
     const next = cloneData(categories);
-    if (next[bi].mids[mi].subs.includes(name.trim())) {
+    if (next[bi].mids[mi].subs.some((s) => s.name === name.trim())) {
       window.alert("名稱已存在");
       return;
     }
-    next[bi].mids[mi].subs.push(name.trim());
+    next[bi].mids[mi].subs.push({ id: crypto.randomUUID(), name: name.trim() });
     persist(next);
     setExpandedMid((e) => ({ ...e, [`${bi}-${mi}`]: true }));
   };
 
   const updateSubName = (bi: number, mi: number, si: number, name: string) => {
-    const oldName = categories[bi].mids[mi].subs[si];
+    const oldName = categories[bi].mids[mi].subs[si].name;
     const next = cloneData(categories);
-    next[bi].mids[mi].subs[si] = name;
+    next[bi].mids[mi].subs[si].name = name;
     persist(next);
     cascadeRename("cat3", oldName, name);
   };
 
   const deleteSub = (bi: number, mi: number, si: number) => {
-    if (!window.confirm(`刪除小分類「${categories[bi].mids[mi].subs[si]}」？`)) return;
+    if (!window.confirm(`刪除小分類「${categories[bi].mids[mi].subs[si].name}」？`)) return;
     const next = cloneData(categories);
     next[bi].mids[mi].subs.splice(si, 1);
     persist(next);
@@ -546,7 +546,7 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
                           <div style={{ paddingLeft: 4 }}>
                             {mid.subs.map((sub, si) => (
                               <div
-                                key={`${sub}-${si}`}
+                                key={sub.id}
                                 style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}
                               >
                                 <button
@@ -575,7 +575,7 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
                                   }}
                                 />
                                 <RenameInput
-                                  value={sub}
+                                  value={sub.name}
                                   onCommit={(n) => updateSubName(bi, mi, si, n)}
                                   style={{ fontSize: 10, fontWeight: 500 }}
                                 />

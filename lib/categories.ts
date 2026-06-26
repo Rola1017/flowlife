@@ -1,6 +1,6 @@
 import { LS_KEYS, loadJSON, saveJSON, snapshotForS2 } from "@/lib/storage";
 
-export type SmallCat = string;
+export type SmallCat = { id: string; name: string };
 export type MidCat = { id: string; name: string; color: string; subs: SmallCat[] };
 export type BigCat = { id: string; name: string; color: string; mids: MidCat[] };
 export type CategoryData = BigCat[];
@@ -11,9 +11,39 @@ export const DEFAULT_CATEGORIES: CategoryData = [
     name: "學習",
     color: "#FFFF37",
     mids: [
-      { id: "mid-law", name: "法律", color: "#a154e8", subs: ["勞動社會法", "保險法", "民法", "行政法", "刑法", "民事訴訟法"] },
-      { id: "mid-insurance", name: "保險", color: "#93571b", subs: ["意外險", "醫療險", "儲蓄險"] },
-      { id: "mid-english", name: "英文", color: "#ec69ec", subs: ["口說", "文法", "寫作"] },
+      {
+        id: "mid-law",
+        name: "法律",
+        color: "#a154e8",
+        subs: [
+          { id: "sml-labor-law", name: "勞動社會法" },
+          { id: "sml-insurance-law", name: "保險法" },
+          { id: "sml-civil-law", name: "民法" },
+          { id: "sml-admin-law", name: "行政法" },
+          { id: "sml-criminal-law", name: "刑法" },
+          { id: "sml-civil-procedure", name: "民事訴訟法" },
+        ],
+      },
+      {
+        id: "mid-insurance",
+        name: "保險",
+        color: "#93571b",
+        subs: [
+          { id: "sml-accident-ins", name: "意外險" },
+          { id: "sml-medical-ins", name: "醫療險" },
+          { id: "sml-savings-ins", name: "儲蓄險" },
+        ],
+      },
+      {
+        id: "mid-english",
+        name: "英文",
+        color: "#ec69ec",
+        subs: [
+          { id: "sml-speaking", name: "口說" },
+          { id: "sml-grammar", name: "文法" },
+          { id: "sml-writing", name: "寫作" },
+        ],
+      },
     ],
   },
   {
@@ -33,7 +63,15 @@ export const DEFAULT_CATEGORIES: CategoryData = [
       { id: "mid-communication", name: "溝通術", color: "#2382e1", subs: [] },
       { id: "mid-emotion", name: "情緒療癒", color: "#d18fc9", subs: [] },
       { id: "mid-studyskill", name: "學習技巧", color: "#46A3FF", subs: [] },
-      { id: "mid-finance", name: "金融", color: "#FFFF37", subs: ["投資", "經濟學"] },
+      {
+        id: "mid-finance",
+        name: "金融",
+        color: "#FFFF37",
+        subs: [
+          { id: "sml-investment", name: "投資" },
+          { id: "sml-economics", name: "經濟學" },
+        ],
+      },
       { id: "mid-commerce", name: "商業", color: "#1010e0", subs: [] },
     ],
   },
@@ -73,6 +111,13 @@ function genCatId(): string {
     return crypto.randomUUID();
   }
   return `cat_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+}
+
+/** 把單一 sub 正規化為 { id, name }，同時吃舊格式 string 與缺 id 的物件 */
+function normalizeSub(sub: unknown): SmallCat {
+  if (typeof sub === "string") return { id: genCatId(), name: sub };
+  const o = sub as Partial<SmallCat>;
+  return { id: o.id || genCatId(), name: o.name ?? "" };
 }
 
 const SMALL_CAT_PALETTE = [
@@ -174,6 +219,7 @@ export function loadCategories(): CategoryData {
       ...mid,
       id: mid.id || genCatId(),
       color: (mid as MidCat & { color?: string }).color ?? cat2Color(big.color, mi),
+      subs: (mid.subs ?? []).map(normalizeSub),
     })),
   }));
 }
@@ -182,7 +228,7 @@ export function saveCategories(data: CategoryData): void {
   saveJSON(LS_KEYS.categories, data);
 }
 
-/** S2-1：為既有存檔的 big/mid 補上穩定 id（先備份、冪等、有變動才寫檔） */
+/** S2-1/1b：為既有存檔的 big/mid/small 補上穩定 id（先備份、冪等、有變動才寫檔） */
 export function migrateCategoryIds(): void {
   snapshotForS2();
   const data = loadJSON<CategoryData>(LS_KEYS.categories, DEFAULT_CATEGORIES);
@@ -197,6 +243,19 @@ export function migrateCategoryIds(): void {
         mid.id = genCatId();
         changed = true;
       }
+      const rawSubs = (mid.subs ?? []) as unknown[];
+      mid.subs = rawSubs.map((sub) => {
+        if (typeof sub === "string") {
+          changed = true;
+          return { id: genCatId(), name: sub };
+        }
+        const o = sub as Partial<SmallCat>;
+        if (!o.id) {
+          changed = true;
+          return { id: genCatId(), name: o.name ?? "" };
+        }
+        return o as SmallCat;
+      });
     }
   }
   if (changed) saveCategories(data);
@@ -212,12 +271,15 @@ export const CAT = {
     return mid?.color ?? "#6B7280";
   },
   cat3List: (cat1: string, cat2: string) =>
-    loadCategories().find((c) => c.name === cat1)?.mids.find((m) => m.name === cat2)?.subs ?? [],
+    loadCategories()
+      .find((c) => c.name === cat1)
+      ?.mids.find((m) => m.name === cat2)
+      ?.subs.map((s) => s.name) ?? [],
   cat3Color: (cat1: string, cat2: string, cat3: string) => {
     const big = loadCategories().find((c) => c.name === cat1);
     const mid = big?.mids.find((m) => m.name === cat2);
     if (!mid) return "#6B7280";
-    const idx = mid.subs.indexOf(cat3);
+    const idx = mid.subs.findIndex((s) => s.name === cat3);
     return cat3ColorFrom(mid.color, Math.max(idx, 0));
   },
   deepColor: (cat1: string, cat2?: string) => (cat2 ? CAT.cat2Color(cat1, cat2) : CAT.cat1Color(cat1)),

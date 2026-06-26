@@ -458,6 +458,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **usePomodoro 不變量**：專注/休息中強制熄滅 idle（不累加），修掉 08:00/13:30 自動 idle 在專注中誤點燃。
 - **修 Vercel build**：browser client 改 lazy singleton、`reviews.ts` 移除 import-time 實例化，避免 prerender 在缺 env 時崩潰（型別改用 `ReturnType<typeof makeBrowserClient>` 保具體推斷，消除 implicit-any 外溢）。
 - **S2-1 分類 ID 化＋全量備份**：`BigCat`/`MidCat` 加必填 `id`（`DEFAULT_CATEGORIES` 補固定 slug id、`small` 維持 `string[]`）；`migrateCategoryIds`（掛載跑一次、先 `snapshotForS2` 再補 id、冪等只在有變動時寫檔）；`loadCategories` 讀取端對缺 id 者 in-memory 補上（不寫檔防呆）；CategoryManager 新增大/中類帶 `crypto.randomUUID()`；`storage.snapshotForS2`/`hasS2Backup` 一次性備份 categories/sessions/coinIncomeLog/weekSchedule 原始字串。CAT 存取器形狀不變、畫面零變化。
+- **S2-1b 小分類 ID 化（整棵樹完成）**：`SmallCat` 由 `string` 改 `{ id, name }`，`DEFAULT_CATEGORIES` 所有 subs 補固定 `sml-*` id；`migrateCategoryIds` subs 迴圈正規化（`string→{id,name}`、缺 id 補 `genCatId`，冪等仍先 `snapshotForS2`）＋`loadCategories` `normalizeSub` 同時吃舊 string／物件雙格式做讀取防呆；`CAT.cat3List` 改回 `subs.map(s=>s.name)`、`cat3Color` 改 `findIndex(s=>s.name===cat3)`（消費端仍拿名字陣列、零改動）；CategoryManager subs 全改讀 `.name`（render key 改 `sub.id`、addSub push `{id,name}`、updateSubName 改 `.name`、刪除確認取 `.name`，cascadeRename cat3 仍用名字未動）；新增 `storage.restoreFromS2Backup`（一鍵還原四鍵、無備份回 false，本步未接 UI）。畫面零變化。
 
 ---
 
@@ -478,7 +479,7 @@ TH.gold    = "#FBBF24"   // 金幣
 | idleTotalSecs 跨日歸零 | 待議；觸發＝確認跨日行為後。 |
 | 待辦進行中即時碳掉未利用 | 目前完成（有 `endAt`）後才碳；觸發＝要「進行中」即時碳掉時。 |
 | 「明細」分頁改名 | 建議改「番茄反思」以與期間總結區隔；觸發＝命名定案時。 |
-| session/分類 name-based 改 uuid | **進行中：S2-1**——分類 big/mid 已加穩定 `id`（`migrateCategoryIds` 補既有存檔、`crypto.randomUUID`），small 待後續；`Session.id` 仍 `Date.now()`、消費端仍 name-based（CAT 存取器形狀不變）；觸發完成＝消費端改吃 id。 |
+| session/分類 name-based 改 uuid | **S2-1/1b 完成**——整棵分類樹 big/mid/small 皆有穩定 `id`（`migrateCategoryIds` 遷移既有存檔含 subs `string→{id,name}`、`loadCategories` 讀取防呆、`snapshotForS2`／`restoreFromS2Backup` 保險）；CAT 存取器形狀不變、消費端零改動。**待 S2-2**：番茄/週課表/coinLog 改吃分類 id 取代 name-based（屆時 cascadeRename 可退役）。 |
 
 ---
 
@@ -493,9 +494,9 @@ TH.gold    = "#FBBF24"   // 金幣
 - ⬜ Git 功能分支習慣建立
 - ✅ **Supabase S1 完成**（reviews 試點端到端雲端同步已真機驗證）；多表全面同步留 S2
 - ✅ **過去期數導覽**（日/週/月/季 ‹ › 翻頁，資料已在雲端）
-- 🔄 **S2 分類 ID 化**：✅ S2-1 完成（big/mid 已加穩定 `id`＋`migrateCategoryIds`＋`snapshotForS2` 全量備份）；⬜ small 分類 id、⬜ 消費端（sessions/週課表）改吃 id 取代 name-based。
+- 🔄 **S2 分類 ID 化**：✅ S2-1/1b 完成（整棵樹 big/mid/small 皆有穩定 `id`＋`migrateCategoryIds`＋`snapshotForS2`/`restoreFromS2Backup` 保險）；⬜ **S2-2** 消費端（sessions/週課表/coinLog）改吃 id 取代 name-based（屆時 cascadeRename 退役）。
 
 ---
 
-*最後更新：2026/06/26（S2-1 分類 big/mid 加穩定 id＋S2 全量備份）*
+*最後更新：2026/06/26（S2-1b 小分類加穩定 id，整棵分類樹 id 化完成＋一鍵還原備份）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*

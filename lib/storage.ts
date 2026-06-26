@@ -133,3 +133,29 @@ export function snapshotForS2(): void {
     /* quota / private mode */
   }
 }
+
+/** 一鍵還原 S2 備份：把備份中非 null 的四鍵原始字串寫回；無備份回 false */
+export function restoreFromS2Backup(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const raw = localStorage.getItem(LS_KEYS.s2Backup);
+    if (raw == null) return false;
+    type BackupField = "categories" | "pomodoroSessions" | "coinIncomeLog" | "weekSchedule";
+    const backup = JSON.parse(raw) as {
+      data?: Partial<Record<BackupField, string | null>>;
+    };
+    const map: Record<BackupField, string> = {
+      categories: LS_KEYS.categories,
+      pomodoroSessions: LS_KEYS.pomodoroSessions,
+      coinIncomeLog: LS_KEYS.coinIncomeLog,
+      weekSchedule: LS_KEYS.weekSchedule,
+    };
+    for (const field of Object.keys(map) as BackupField[]) {
+      const val = backup.data?.[field];
+      if (val != null) localStorage.setItem(map[field], val);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
