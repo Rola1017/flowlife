@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
+import { APP_STATE_KEYS, pushAppState, subscribeAppState } from "@/lib/appStateCloud";
 import type { CoinIncomeLogRow } from "@/components/pomodoro/usePomodoro";
 import type { Session } from "@/lib/types";
 
@@ -9,10 +10,14 @@ import type { Session } from "@/lib/types";
 export function useCoinLog() {
   const [coinIncomeLog, setCoinIncomeLog] = useState<CoinIncomeLogRow[]>([]);
   const [hydrated, setHydrated] = useState(false);
+  const lastPushedRef = useRef<CoinIncomeLogRow[] | null>(null);
 
   useEffect(() => {
     const saved = loadJSON<unknown>(LS_KEYS.coinIncomeLog, []);
-    if (Array.isArray(saved)) setCoinIncomeLog(saved as CoinIncomeLogRow[]);
+    if (Array.isArray(saved)) {
+      lastPushedRef.current = saved as CoinIncomeLogRow[];
+      setCoinIncomeLog(saved as CoinIncomeLogRow[]);
+    }
     setHydrated(true);
   }, []);
 
@@ -20,6 +25,25 @@ export function useCoinLog() {
     if (!hydrated) return;
     saveJSON(LS_KEYS.coinIncomeLog, coinIncomeLog);
   }, [coinIncomeLog, hydrated]);
+
+  // 本地變動才推（lastPushedRef 擋掉遠端套用後回推）
+  useEffect(() => {
+    if (!hydrated) return;
+    if (lastPushedRef.current === coinIncomeLog) return;
+    lastPushedRef.current = coinIncomeLog;
+    void pushAppState(APP_STATE_KEYS.coinLog, coinIncomeLog);
+  }, [coinIncomeLog, hydrated]);
+
+  // 遠端套用：雲端較新時讀回本地
+  useEffect(
+    () =>
+      subscribeAppState(APP_STATE_KEYS.coinLog, () => {
+        const v = loadJSON<CoinIncomeLogRow[]>(LS_KEYS.coinIncomeLog, []);
+        lastPushedRef.current = v;
+        setCoinIncomeLog(v);
+      }),
+    [],
+  );
 
   const appendCoinRow = (row: CoinIncomeLogRow) => setCoinIncomeLog((l) => [row, ...l]);
   const removeCoinRowsBySession = (uuid: string) =>

@@ -22,6 +22,7 @@ export const LS_KEYS = {
   timelineTodoView: `${STORAGE_PREFIX}timeline_todo_view`,
   reviews: `${STORAGE_PREFIX}reviews`,
   s2Backup: `${STORAGE_PREFIX}s2_backup`,
+  appStateMeta: `${STORAGE_PREFIX}_appstate_meta`,
 } as const;
 
 function assertVersionedKey(key: string): void {

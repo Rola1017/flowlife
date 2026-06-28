@@ -20,6 +20,7 @@ import type { Session } from "@/lib/types";
 import { patchReflection, setSessionMins, removeSession, buildManualSession, stampSession, ensureSessionUuid } from "@/lib/sessions";
 import { useReviewCloudSync } from "@/components/hooks/useReviewCloudSync";
 import { useSessionCloudSync } from "@/components/hooks/useSessionCloudSync";
+import { useAppStateCloudSync } from "@/components/hooks/useAppStateCloudSync";
 import { subscribeSessions, syncSessionDiffToCloud } from "@/lib/sessionsCloud";
 import { Card } from "@/components/ui/Card";
 import { Header } from "@/components/Header";
@@ -115,6 +116,7 @@ function AppContent() {
   const [idleTrackStart, setIdleTrackStart] = useState<number | null>(null);
   useReviewCloudSync();
   useSessionCloudSync();
+  useAppStateCloudSync();
   const [idleTotalSecs, setIdleTotalSecs] = useState(DEFAULT_IDLE_TOTAL_SECS);
   const [restEndAt, setRestEndAt] = useState<number | null>(null);
   const [hydrated, setHydrated] = useState(false);
