@@ -463,6 +463,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **修 Vercel build**：browser client 改 lazy singleton、`reviews.ts` 移除 import-time 實例化，避免 prerender 在缺 env 時崩潰（型別改用 `ReturnType<typeof makeBrowserClient>` 保具體推斷，消除 implicit-any 外溢）。
 - **S2-1 分類 ID 化＋全量備份**：`BigCat`/`MidCat` 加必填 `id`（`DEFAULT_CATEGORIES` 補固定 slug id、`small` 維持 `string[]`）；`migrateCategoryIds`（掛載跑一次、先 `snapshotForS2` 再補 id、冪等只在有變動時寫檔）；`loadCategories` 讀取端對缺 id 者 in-memory 補上（不寫檔防呆）；CategoryManager 新增大/中類帶 `crypto.randomUUID()`；`storage.snapshotForS2`/`hasS2Backup` 一次性備份 categories/sessions/coinIncomeLog/weekSchedule 原始字串。CAT 存取器形狀不變、畫面零變化。
 - **S2-1b 小分類 ID 化（整棵樹完成）**：`SmallCat` 由 `string` 改 `{ id, name }`，`DEFAULT_CATEGORIES` 所有 subs 補固定 `sml-*` id；`migrateCategoryIds` subs 迴圈正規化（`string→{id,name}`、缺 id 補 `genCatId`，冪等仍先 `snapshotForS2`）＋`loadCategories` `normalizeSub` 同時吃舊 string／物件雙格式做讀取防呆；`CAT.cat3List` 改回 `subs.map(s=>s.name)`、`cat3Color` 改 `findIndex(s=>s.name===cat3)`（消費端仍拿名字陣列、零改動）；CategoryManager subs 全改讀 `.name`（render key 改 `sub.id`、addSub push `{id,name}`、updateSubName 改 `.name`、刪除確認取 `.name`，cascadeRename cat3 仍用名字未動）；新增 `storage.restoreFromS2Backup`（一鍵還原四鍵、無備份回 false，本步未接 UI）。畫面零變化。
+- **修「重置會被雲端拉回」**：`lib/reviews.ts` 加 `clearReviewsCloud()`（比照 getUid/sb，刪 reviews 表該 user_id 列）；`App.handleResetAllData` 於 `clearFlowLifeStorage()` 後加 `saveCategories(DEFAULT_CATEGORIES)`（分類重置＋推雲蓋舊）與 `void clearReviewsCloud()`（清雲端覆盤）。至此重置後雲端＝番茄空/金幣0/記錄空/分類預設/覆盤空，不再被下次同步拉回；`handleClearRecords` 未動。
 - **分類上雲（沿用 app_state 單例）**：`appStateCloud` 的 `APP_STATE_KEYS`/`LS_FOR_KEY`/`DEFAULT_FOR_KEY` 各加 `categories`（預設 `[]`，不 import `DEFAULT_CATEGORIES` 避循環）；`syncAppStateFromCloud` 迴圈自動納入、套用時既有 `emit("categories")` 通知。`saveCategories` 存檔後加 `void pushAppState(APP_STATE_KEYS.categories, data)`（雲端套回走 saveJSON 不經 saveCategories→不互推）。`App` 加 `const [,bumpCat]=useState(0)`＋訂閱 `subscribeAppState("categories")` 觸發重畫。至此番茄/金幣/分類全上雲跨裝置一致。
 - **金幣餘額/金幣記錄上雲（app_state）**：新增 `lib/appStateCloud.ts`（`sb`/`getUid`、`APP_STATE_KEYS={coins,coinLog}`、本地 meta `loadMeta`/`setMetaTs`(`LS_KEYS.appStateMeta`)、`subscribeAppState`/`emit` 以 key 分組、`pushAppState(key,value)` upsert onConflict `user_id,key`、`syncAppStateFromCloud` 兩 key 各做 雲無→推本地／雲新→寫回 LS＋meta＋emit／本地新→推雲）＋`components/hooks/useAppStateCloudSync`（掛載＋`onAuthStateChange` 同步）；`useCoins`/`useCoinLog` 加 `lastPushedRef`（hydrate 設值、本地變動才推、訂閱套回擋回推）；`App` 並列 `useAppStateCloudSync()`。`LS_KEYS` 加 `appStateMeta`。Supabase 需建 `app_state(user_id,key,value jsonb,updated_at)`＋unique(user_id,key)＋RLS。未登入＝純本地。
 - **番茄上雲（S2-cloud）**：新增 `lib/sessionsCloud.ts`（比照 `lib/reviews.ts`：`sb`/`getUid`/`subscribeSessions`/`emitSessions`、`toRow`/`fromRow` 物件↔SQL 欄位、`pushSessionCloud(uuid)` upsert onConflict uuid、`deleteSessionCloud(uuid)`、`syncSessionsFromCloud` 拉合併 last-write-wins＋本地較新者回推、`syncSessionDiffToCloud(prev,next)` 增量 fire-and-forget）＋`components/hooks/useSessionCloudSync`（掛載＋`onAuthStateChange` 觸發同步）；`Session` 加 `updatedAt`（`confirmRating`/`buildManualSession`/`setSessionMins`/`patchReflection` 四寫入點皆蓋 ISO 時戳）；`App.updateSessions` 存檔後 `syncSessionDiffToCloud`、新增 `subscribeSessions` effect（用原始 `setSessions` 讀回本地、不再觸發推送）、並列 `useSessionCloudSync()`。uuid 為雲端主鍵、未登入＝純本地、localStorage 全程保留。
@@ -493,7 +494,7 @@ TH.gold    = "#FBBF24"   // 金幣
 | idleTotalSecs 跨日歸零 | 待議；觸發＝確認跨日行為後。 |
 | 待辦進行中即時碳掉未利用 | 目前完成（有 `endAt`）後才碳；觸發＝要「進行中」即時碳掉時。 |
 | 「明細」分頁改名 | 建議改「番茄反思」以與期間總結區隔；觸發＝命名定案時。 |
-| reset 未清雲端 | 「重置所有資料」目前只清本機，雲端 `app_state`／`sessions` 會在下次同步被拉回；暫緩原因＝本批先做上行同步；**觸發＝上線前**，reset 時一併清雲端（delete app_state + sessions by user_id）。 |
+| ~~reset 未清雲端~~ ✅ 已解決 | `handleResetAllData` 已清雲端全部：番茄(`updateSessions([])`)、金幣(`resetCoins`/`resetCoinLog`→push 0/[])、分類(`saveCategories(DEFAULT_CATEGORIES)`→推雲)、覆盤(`clearReviewsCloud()`)；重置後雲端＝番茄空/金幣0/記錄空/分類預設/覆盤空，不再被拉回。 |
 | ~~分類尚未上雲~~ ✅ 已完成 | 分類沿用 app_state 單例 `key="categories"`，`saveCategories` 推雲＋`App` 訂閱刷新（番茄/金幣/分類全上雲）。 |
 | session/分類 name-based 改 uuid | **S2-2a＋S2-3 完成**——番茄並存 `cat1Id/cat2Id/cat3Id`（`stampSessionCatIds`）＋並存 `uuid` 跨裝置主鍵（`ensureSessionUuid`，只補不覆蓋、冪等），`App.updateSessions` 經 `stampSession` 單一接縫補（含啟動載入補舊番茄）；名字/number `id` 仍為現行權威、尚無處讀編號或 uuid（行為零變化）。**待**：番茄上雲使用 uuid 主鍵、S2-2b 改名/顯示改用編號退役 `cascadeRename`、週課表/coinLog 編號化。 |
 
@@ -518,5 +519,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/06/29（分類上雲：沿用 app_state 單例 key="categories"，saveCategories 推雲＋App bumpCat 同步後刷新；至此番茄/金幣/分類全上雲）*
+*最後更新：2026/06/29（修重置被雲端拉回：reset 一併清雲端分類(saveCategories DEFAULT)＋覆盤(clearReviewsCloud)；雲端全清不再回拉）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*

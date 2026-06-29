@@ -15,7 +15,8 @@ import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
 import { TABS } from "@/lib/tabs";
 import { LS_KEYS, loadJSON, loadNumber, saveJSON, saveNumber } from "@/lib/storage";
-import { migrateCategoryIds } from "@/lib/categories";
+import { migrateCategoryIds, saveCategories, DEFAULT_CATEGORIES } from "@/lib/categories";
+import { clearReviewsCloud } from "@/lib/reviews";
 import type { Session } from "@/lib/types";
 import { patchReflection, setSessionMins, removeSession, buildManualSession, stampSession, ensureSessionUuid } from "@/lib/sessions";
 import { useReviewCloudSync } from "@/components/hooks/useReviewCloudSync";
@@ -244,6 +245,8 @@ function AppContent() {
 
   const handleResetAllData = () => {
     clearFlowLifeStorage();
+    saveCategories(DEFAULT_CATEGORIES); // 分類重置為預設並推上雲，蓋掉雲端舊分類
+    void clearReviewsCloud(); // 清掉雲端覆盤，避免下次同步被拉回
     resetCoins();
     resetCoinLog();
     setFocused(DEFAULT_RATINGS.focused);

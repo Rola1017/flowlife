@@ -32,6 +32,13 @@ async function getUid(): Promise<string | null> {
   return data.user?.id ?? null;
 }
 
+/** 清掉雲端該使用者所有覆盤（重置全部資料用，避免下次同步被拉回） */
+export async function clearReviewsCloud(): Promise<void> {
+  const uid = await getUid();
+  if (!uid) return;
+  await sb().from("reviews").delete().eq("user_id", uid);
+}
+
 /** 推單筆到雲端（手動 upsert，避開 partial-index onConflict） */
 async function pushSingletonCloud(uid: string, r: ReviewEntry) {
   if (r.scope === "free") return;
