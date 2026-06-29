@@ -10,6 +10,8 @@ export type ReviewEntry = {
   text: string;
   createdAt: string;
   updatedAt?: string;
+  /** free(靈感) 跨裝置唯一鍵（對應 reviews 表 id 欄；單筆覆盤不用） */
+  uuid?: string;
 };
 
 function sb() {
@@ -60,6 +62,46 @@ async function pushSingletonCloud(uid: string, r: ReviewEntry) {
   else await sb().from("reviews").insert(payload);
 }
 
+/** 對 free 且無 uuid 者補上 uuid（冪等） */
+function ensureFreeUuids(list: ReviewEntry[]): { list: ReviewEntry[]; changed: boolean } {
+  let changed = false;
+  const next = list.map((r) => {
+    if (r.scope === "free" && !r.uuid) {
+      changed = true;
+      return { ...r, uuid: crypto.randomUUID() };
+    }
+    return r;
+  });
+  return { list: changed ? next : list, changed };
+}
+
+/** 推一則 free 到雲端（以 uuid 為 reviews 表 id 主鍵 upsert） */
+async function pushFreeCloud(entry: ReviewEntry) {
+  if (!entry.uuid) return;
+  const uid = await getUid();
+  if (!uid) return;
+  await sb()
+    .from("reviews")
+    .upsert(
+      {
+        id: entry.uuid,
+        user_id: uid,
+        scope: "free",
+        period_key: entry.periodKey,
+        text: entry.text,
+        updated_at: entry.updatedAt ?? entry.createdAt,
+      },
+      { onConflict: "id" },
+    );
+}
+
+/** 從雲端刪除一則 free */
+async function deleteFreeCloud(uuid: string) {
+  const uid = await getUid();
+  if (!uid) return;
+  await sb().from("reviews").delete().eq("user_id", uid).eq("id", uuid);
+}
+
 async function deleteSingletonCloud(uid: string, scope: ReviewScope, periodKey: string) {
   if (scope === "free") return;
   await sb()
@@ -84,7 +126,7 @@ export async function syncReviewsFromCloud() {
   const keyOf = (s: string, k: string) => `${s}|${k}`;
   const stamp = (c?: string, u?: string) => u ?? c ?? "";
   const localSingles = local.filter((r) => r.scope !== "free");
-  const localFree = local.filter((r) => r.scope === "free"); // 原樣保留
+  let localFree = local.filter((r) => r.scope === "free");
   const map = new Map<string, ReviewEntry>();
   for (const r of localSingles) map.set(keyOf(r.scope, r.periodKey), r);
   for (const c of cloud) {
@@ -110,7 +152,46 @@ export async function syncReviewsFromCloud() {
       await pushSingletonCloud(uid, r);
     }
   }
-  const merged = [...Array.from(map.values()), ...localFree];
+  // free(靈感) 以 uuid 為鍵做 last-write-wins 合併
+  const ensured = ensureFreeUuids(localFree);
+  if (ensured.changed) {
+    localFree = ensured.list;
+    saveJSON(LS_KEYS.reviews, [...localSingles, ...localFree]);
+  }
+  const { data: cloudFree } = await sb()
+    .from("reviews")
+    .select("id,period_key,text,created_at,updated_at")
+    .eq("user_id", uid)
+    .eq("scope", "free");
+  const freeMap = new Map<string, ReviewEntry>();
+  for (const r of localFree) if (r.uuid) freeMap.set(r.uuid, r);
+  if (cloudFree) {
+    for (const c of cloudFree) {
+      const cur = freeMap.get(c.id);
+      const cloudEntry: ReviewEntry = {
+        id: cur?.id ?? Math.max(Date.now(), 1),
+        scope: "free",
+        periodKey: c.period_key,
+        text: c.text,
+        createdAt: c.created_at,
+        updatedAt: c.updated_at ?? undefined,
+        uuid: c.id,
+      };
+      if (!cur) freeMap.set(c.id, cloudEntry);
+      else if (stamp(c.created_at, c.updated_at) > stamp(cur.createdAt, cur.updatedAt))
+        freeMap.set(c.id, cloudEntry);
+    }
+    const cloudFreeIds = new Set(cloudFree.map((c) => c.id));
+    for (const r of localFree) {
+      if (!r.uuid) continue;
+      const c = cloudFree.find((x) => x.id === r.uuid);
+      if (!cloudFreeIds.has(r.uuid) || stamp(r.createdAt, r.updatedAt) > stamp(c?.created_at, c?.updated_at))
+        void pushFreeCloud(r);
+    }
+  }
+  const mergedFree = Array.from(freeMap.values());
+
+  const merged = [...Array.from(map.values()), ...mergedFree];
   saveJSON(LS_KEYS.reviews, merged);
   emitReviews();
 }
@@ -179,19 +260,18 @@ export function addReview(scope: ReviewScope, periodKey: string, text: string): 
   const trimmed = text.trim();
   if (!trimmed) return loadReviews();
   const prev = loadReviews();
-  const next = [
-    ...prev,
-    {
-      id: nextId(prev),
-      scope,
-      periodKey,
-      text: trimmed,
-      createdAt: new Date().toISOString(),
-    },
-  ];
+  const entry: ReviewEntry = {
+    id: nextId(prev),
+    scope,
+    periodKey,
+    text: trimmed,
+    createdAt: new Date().toISOString(),
+    ...(scope === "free" ? { uuid: crypto.randomUUID() } : {}),
+  };
+  const next = [...prev, entry];
   saveJSON(LS_KEYS.reviews, next);
   emitReviews();
-  // addReview(free) 本批不推雲端（本地行為不變）
+  if (scope === "free") void pushFreeCloud(entry);
   return next;
 }
 
@@ -205,6 +285,8 @@ export function removeReview(id: number): ReviewEntry[] {
     void getUid().then((uid) => {
       if (uid) void deleteSingletonCloud(uid, target.scope, target.periodKey);
     });
+  } else if (target?.scope === "free" && target.uuid) {
+    void deleteFreeCloud(target.uuid);
   }
   return next;
 }

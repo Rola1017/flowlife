@@ -463,6 +463,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **修 Vercel build**：browser client 改 lazy singleton、`reviews.ts` 移除 import-time 實例化，避免 prerender 在缺 env 時崩潰（型別改用 `ReturnType<typeof makeBrowserClient>` 保具體推斷，消除 implicit-any 外溢）。
 - **S2-1 分類 ID 化＋全量備份**：`BigCat`/`MidCat` 加必填 `id`（`DEFAULT_CATEGORIES` 補固定 slug id、`small` 維持 `string[]`）；`migrateCategoryIds`（掛載跑一次、先 `snapshotForS2` 再補 id、冪等只在有變動時寫檔）；`loadCategories` 讀取端對缺 id 者 in-memory 補上（不寫檔防呆）；CategoryManager 新增大/中類帶 `crypto.randomUUID()`；`storage.snapshotForS2`/`hasS2Backup` 一次性備份 categories/sessions/coinIncomeLog/weekSchedule 原始字串。CAT 存取器形狀不變、畫面零變化。
 - **S2-1b 小分類 ID 化（整棵樹完成）**：`SmallCat` 由 `string` 改 `{ id, name }`，`DEFAULT_CATEGORIES` 所有 subs 補固定 `sml-*` id；`migrateCategoryIds` subs 迴圈正規化（`string→{id,name}`、缺 id 補 `genCatId`，冪等仍先 `snapshotForS2`）＋`loadCategories` `normalizeSub` 同時吃舊 string／物件雙格式做讀取防呆；`CAT.cat3List` 改回 `subs.map(s=>s.name)`、`cat3Color` 改 `findIndex(s=>s.name===cat3)`（消費端仍拿名字陣列、零改動）；CategoryManager subs 全改讀 `.name`（render key 改 `sub.id`、addSub push `{id,name}`、updateSubName 改 `.name`、刪除確認取 `.name`，cascadeRename cat3 仍用名字未動）；新增 `storage.restoreFromS2Backup`（一鍵還原四鍵、無備份回 false，本步未接 UI）。畫面零變化。
+- **覆盤靈感(free)上雲（row-based）**：`ReviewEntry` 加 `uuid?`；新增 `ensureFreeUuids`(冪等補號)、`pushFreeCloud`(以 uuid 當 reviews 表 `id` 主鍵 upsert onConflict id)、`deleteFreeCloud`；`addReview(free)` 給 uuid＋推雲、`removeReview(free)` 刪雲；`syncReviewsFromCloud` 末段對 free 做 uuid-last-write-wins 合併（拉 `.eq scope free`、雲有本地無→加、兩邊有→較新者勝、本地新/雲無→推）。reviews 表已有 uuid 主鍵 id、不受 partial-unique(scope<>'free') 影響，免改 schema。至此日/週/月/季＋靈感全上雲。
 - **修「重置會被雲端拉回」**：`lib/reviews.ts` 加 `clearReviewsCloud()`（比照 getUid/sb，刪 reviews 表該 user_id 列）；`App.handleResetAllData` 於 `clearFlowLifeStorage()` 後加 `saveCategories(DEFAULT_CATEGORIES)`（分類重置＋推雲蓋舊）與 `void clearReviewsCloud()`（清雲端覆盤）。至此重置後雲端＝番茄空/金幣0/記錄空/分類預設/覆盤空，不再被下次同步拉回；`handleClearRecords` 未動。
 - **分類上雲（沿用 app_state 單例）**：`appStateCloud` 的 `APP_STATE_KEYS`/`LS_FOR_KEY`/`DEFAULT_FOR_KEY` 各加 `categories`（預設 `[]`，不 import `DEFAULT_CATEGORIES` 避循環）；`syncAppStateFromCloud` 迴圈自動納入、套用時既有 `emit("categories")` 通知。`saveCategories` 存檔後加 `void pushAppState(APP_STATE_KEYS.categories, data)`（雲端套回走 saveJSON 不經 saveCategories→不互推）。`App` 加 `const [,bumpCat]=useState(0)`＋訂閱 `subscribeAppState("categories")` 觸發重畫。至此番茄/金幣/分類全上雲跨裝置一致。
 - **金幣餘額/金幣記錄上雲（app_state）**：新增 `lib/appStateCloud.ts`（`sb`/`getUid`、`APP_STATE_KEYS={coins,coinLog}`、本地 meta `loadMeta`/`setMetaTs`(`LS_KEYS.appStateMeta`)、`subscribeAppState`/`emit` 以 key 分組、`pushAppState(key,value)` upsert onConflict `user_id,key`、`syncAppStateFromCloud` 兩 key 各做 雲無→推本地／雲新→寫回 LS＋meta＋emit／本地新→推雲）＋`components/hooks/useAppStateCloudSync`（掛載＋`onAuthStateChange` 同步）；`useCoins`/`useCoinLog` 加 `lastPushedRef`（hydrate 設值、本地變動才推、訂閱套回擋回推）；`App` 並列 `useAppStateCloudSync()`。`LS_KEYS` 加 `appStateMeta`。Supabase 需建 `app_state(user_id,key,value jsonb,updated_at)`＋unique(user_id,key)＋RLS。未登入＝純本地。
@@ -484,7 +485,7 @@ TH.gold    = "#FBBF24"   // 金幣
 | reviews 上提 App.tsx | 現況 `DayReview`／`ReviewNudgeCard` 各自 load/save 或直讀 `getReview`；暫緩原因＝覆盤頁與主頁不同 tab 不同時掛載，第三步經評估不需上提；**觸發上提時機＝未來同畫面同時出現浮現卡與覆盤編輯、需即時連動時**（附原脈絡：Batch C 走 `calIntent` 跳轉即可）。 |
 | 週/月/季靈感 | 現況靈感僅「日」；暫緩原因＝週 key＝週一日期會與日靈感撞同格；觸發＝若要週級靈感，把 free key 命名空間化為 `scope:periodKey`。 |
 | ~~過去期數導覽~~ ✅ 已完成 | 日/週/月/季皆可用 ‹ › 往過去翻（`dayOffset`／`offset`，`CFG.TODAY` 推算，不可往未來），舊總結可編輯儲存走該期 key。 |
-| free 靈感上雲 | 現況靈感僅本地（多則）；觸發＝要跨裝置同步靈感時（需逐則穩定 id）。 |
+| ~~free 靈感上雲~~ ✅ 已解決 | 靈感(free) row-based 上雲：每則 `uuid`(對應 reviews 表 `id` 主鍵)、`ensureFreeUuids` 冪等補號、`addReview(free)`→`pushFreeCloud`、`removeReview(free)`→`deleteFreeCloud`、`syncReviewsFromCloud` 末段 uuid-LWW 合併；免改 schema。 |
 | ~~過去期數 UI 入口~~ ✅ 已完成 | 四分頁皆有 ‹ › 導覽鈕可回看/編輯過去期間。 |
 | ~~S1-3b 覆盤頁即時刷新~~ ✅ 已完成 | `DayReview`/`PeriodReview` 已訂閱 `subscribeReviews`，雲端/他處變更自動刷新；`editingRef` 守衛打字中不被覆蓋。 |
 | 開回 email confirmation | 測試階段關閉信箱驗證；觸發＝上線前。 |
@@ -506,7 +507,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - ⬜ 健康模組
 - ⬜ 閱讀模組
 - ⬜ **覆盤頁 #3/#4/#5**：最佳專注時段（startTime 分桶）、未利用時間趨勢（lib/idle.idleMinutes 折線）、計畫vs實際（重用 95/10/5 模型）— #2 骨架已完成。
-- ✅ **覆盤表 reviews（item 4）**：日/週/月/季總覆盤＋過去期數導覽（‹ › 翻頁）＋訂閱即時刷新皆完成。
+- ✅ **覆盤表 reviews（item 4）**：日/週/月/季總覆盤＋過去期數導覽（‹ › 翻頁）＋訂閱即時刷新皆完成；✅ 靈感(free) 也 row-based 上雲（uuid 鍵、LWW），覆盤全分頁全上雲。
 - ⬜ PWA 圖示（手機安裝用）
 - ⬜ Git 功能分支習慣建立
 - ✅ **Supabase S1 完成**（reviews 試點端到端雲端同步已真機驗證）；多表全面同步留 S2
@@ -519,5 +520,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/06/29（修重置被雲端拉回：reset 一併清雲端分類(saveCategories DEFAULT)＋覆盤(clearReviewsCloud)；雲端全清不再回拉）*
+*最後更新：2026/06/29（覆盤靈感 free 上雲 row-based：每則 uuid 對應 reviews 表 id、ensureFreeUuids/pushFreeCloud/deleteFreeCloud＋sync uuid-LWW；免改 schema）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*
