@@ -463,6 +463,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **修 Vercel build**：browser client 改 lazy singleton、`reviews.ts` 移除 import-time 實例化，避免 prerender 在缺 env 時崩潰（型別改用 `ReturnType<typeof makeBrowserClient>` 保具體推斷，消除 implicit-any 外溢）。
 - **S2-1 分類 ID 化＋全量備份**：`BigCat`/`MidCat` 加必填 `id`（`DEFAULT_CATEGORIES` 補固定 slug id、`small` 維持 `string[]`）；`migrateCategoryIds`（掛載跑一次、先 `snapshotForS2` 再補 id、冪等只在有變動時寫檔）；`loadCategories` 讀取端對缺 id 者 in-memory 補上（不寫檔防呆）；CategoryManager 新增大/中類帶 `crypto.randomUUID()`；`storage.snapshotForS2`/`hasS2Backup` 一次性備份 categories/sessions/coinIncomeLog/weekSchedule 原始字串。CAT 存取器形狀不變、畫面零變化。
 - **S2-1b 小分類 ID 化（整棵樹完成）**：`SmallCat` 由 `string` 改 `{ id, name }`，`DEFAULT_CATEGORIES` 所有 subs 補固定 `sml-*` id；`migrateCategoryIds` subs 迴圈正規化（`string→{id,name}`、缺 id 補 `genCatId`，冪等仍先 `snapshotForS2`）＋`loadCategories` `normalizeSub` 同時吃舊 string／物件雙格式做讀取防呆；`CAT.cat3List` 改回 `subs.map(s=>s.name)`、`cat3Color` 改 `findIndex(s=>s.name===cat3)`（消費端仍拿名字陣列、零改動）；CategoryManager subs 全改讀 `.name`（render key 改 `sub.id`、addSub push `{id,name}`、updateSubName 改 `.name`、刪除確認取 `.name`，cascadeRename cat3 仍用名字未動）；新增 `storage.restoreFromS2Backup`（一鍵還原四鍵、無備份回 false，本步未接 UI）。畫面零變化。
+- **S3-1 班別設定資料化**：新增 `WorkplaceConfig`/`ShiftDef`/`ShiftRangeDef` 型別＋`DEFAULT_WORKPLACES`（診/彩兩處、逐字對齊現行寫死時間；午班用 `days:["一","三","五"]`/`["二","四","六","日"]` 分流）；`PLACE_NAME`/`PLACE_SHIFTS` 改 `Object.fromEntries` 自設定推算、`shiftRange`/`shiftTimes` 改 `findShift`+`rangeForDay` 讀設定，`shiftTimes` 由 range 以 `t+30<=end` 推算消除與 `shiftRange` 各寫死一份的重複；對外匯出名稱/型別/簽名/回傳值零變化（六種班別逐字驗證一致：診早 08:30~12:00 末格 11:30、診午一三五 14:00 起／二四六日 14:30 起、診晚 18:00~22:00、彩早 07:30~14:00 末格 13:30、彩晚 14:00~22:00）；`isMonWedFri` 已不再被內部使用但保留匯出未刪；`SchedulePage`/`VerticalTimeline` 一行未改。
 - **覆盤靈感(free)上雲（row-based）**：`ReviewEntry` 加 `uuid?`；新增 `ensureFreeUuids`(冪等補號)、`pushFreeCloud`(以 uuid 當 reviews 表 `id` 主鍵 upsert onConflict id)、`deleteFreeCloud`；`addReview(free)` 給 uuid＋推雲、`removeReview(free)` 刪雲；`syncReviewsFromCloud` 末段對 free 做 uuid-last-write-wins 合併（拉 `.eq scope free`、雲有本地無→加、兩邊有→較新者勝、本地新/雲無→推）。reviews 表已有 uuid 主鍵 id、不受 partial-unique(scope<>'free') 影響，免改 schema。至此日/週/月/季＋靈感全上雲。
 - **修「重置會被雲端拉回」**：`lib/reviews.ts` 加 `clearReviewsCloud()`（比照 getUid/sb，刪 reviews 表該 user_id 列）；`App.handleResetAllData` 於 `clearFlowLifeStorage()` 後加 `saveCategories(DEFAULT_CATEGORIES)`（分類重置＋推雲蓋舊）與 `void clearReviewsCloud()`（清雲端覆盤）。至此重置後雲端＝番茄空/金幣0/記錄空/分類預設/覆盤空，不再被下次同步拉回；`handleClearRecords` 未動。
 - **分類上雲（沿用 app_state 單例）**：`appStateCloud` 的 `APP_STATE_KEYS`/`LS_FOR_KEY`/`DEFAULT_FOR_KEY` 各加 `categories`（預設 `[]`，不 import `DEFAULT_CATEGORIES` 避循環）；`syncAppStateFromCloud` 迴圈自動納入、套用時既有 `emit("categories")` 通知。`saveCategories` 存檔後加 `void pushAppState(APP_STATE_KEYS.categories, data)`（雲端套回走 saveJSON 不經 saveCategories→不互推）。`App` 加 `const [,bumpCat]=useState(0)`＋訂閱 `subscribeAppState("categories")` 觸發重畫。至此番茄/金幣/分類全上雲跨裝置一致。
@@ -497,6 +498,7 @@ TH.gold    = "#FBBF24"   // 金幣
 | 「明細」分頁改名 | 建議改「番茄反思」以與期間總結區隔；觸發＝命名定案時。 |
 | ~~reset 未清雲端~~ ✅ 已解決 | `handleResetAllData` 已清雲端全部：番茄(`updateSessions([])`)、金幣(`resetCoins`/`resetCoinLog`→push 0/[])、分類(`saveCategories(DEFAULT_CATEGORIES)`→推雲)、覆盤(`clearReviewsCloud()`)；重置後雲端＝番茄空/金幣0/記錄空/分類預設/覆盤空，不再被拉回。 |
 | ~~分類尚未上雲~~ ✅ 已完成 | 分類沿用 app_state 單例 `key="categories"`，`saveCategories` 推雲＋`App` 訂閱刷新（番茄/金幣/分類全上雲）。 |
+| 技術債 #1 班別硬寫死 | **S3-1 資料化第一步完成**——`shiftRange`/`shiftTimes`/`PLACE_NAME`/`PLACE_SHIFTS` 改自 `DEFAULT_WORKPLACES` 推算、消除 shiftTimes/shiftRange 重複寫死、對外簽名零變化；**剩**：S3-2 設定上雲（app_state `key="workplaces"`）＋S3-3 編輯 UI。 |
 | session/分類 name-based 改 uuid | **S2-2a＋S2-3 完成**——番茄並存 `cat1Id/cat2Id/cat3Id`（`stampSessionCatIds`）＋並存 `uuid` 跨裝置主鍵（`ensureSessionUuid`，只補不覆蓋、冪等），`App.updateSessions` 經 `stampSession` 單一接縫補（含啟動載入補舊番茄）；名字/number `id` 仍為現行權威、尚無處讀編號或 uuid（行為零變化）。**待**：番茄上雲使用 uuid 主鍵、S2-2b 改名/顯示改用編號退役 `cascadeRename`、週課表/coinLog 編號化。 |
 
 ---
@@ -517,8 +519,9 @@ TH.gold    = "#FBBF24"   // 金幣
 - ✅ **番茄上雲（S2-cloud）完成**：`lib/sessionsCloud`＋`useSessionCloudSync`（uuid 主鍵、last-write-wins、localStorage 為快取/備援、未登入純本地）；`Session.updatedAt` 四寫入點蓋時戳；`updateSessions` 增量推雲＋訂閱讀回。Supabase `sessions` 表需含對應欄位＋RLS（user_id）。
 - ✅ **金幣餘額/金幣記錄上雲（app_state）完成**：`lib/appStateCloud`＋`useAppStateCloudSync`，單例以 `(user_id,key)` 為主鍵（`key="coins"`／`"coin_income_log"`），last-write-wins by 本地 meta（`LS_KEYS.appStateMeta`）vs 雲端 `updated_at`；`useCoins`/`useCoinLog` 用 `lastPushedRef` 擋遠端套用後回推。Supabase `app_state` 表需含 `(user_id,key,value jsonb,updated_at)`＋unique(user_id,key)＋RLS。
 - ✅ **分類上雲完成（番茄＋金幣＋分類全上雲，跨裝置一致）**：分類沿用 app_state 單例（`key="categories"`）；`saveCategories` 本地存檔後 `void pushAppState`，雲端套回走 appStateCloud→`saveJSON`（不經 saveCategories→不互推）；`App` 訂閱 `subscribeAppState("categories")` 用 `bumpCat` 觸發重畫讓子元件重讀 `CAT.*`。
+- 🔄 **S3 班別設定可編輯**：✅ **S3-1 完成**（班別資料化：`WorkplaceConfig`/`DEFAULT_WORKPLACES`，`shiftRange`/`shiftTimes` 改讀設定、對外簽名零變化）；⬜ **S3-2** 班別設定上雲（沿用 app_state 單例 `key="workplaces"`）；⬜ **S3-3** 班別編輯 UI。
 
 ---
 
-*最後更新：2026/06/29（覆盤靈感 free 上雲 row-based：每則 uuid 對應 reviews 表 id、ensureFreeUuids/pushFreeCloud/deleteFreeCloud＋sync uuid-LWW；免改 schema）*
+*最後更新：2026/06/29（S3-1 班別設定資料化：WorkplaceConfig/DEFAULT_WORKPLACES，shiftRange/shiftTimes 改讀設定＋消除重複寫死，對外簽名零變化；isMonWedFri 保留未刪）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*

@@ -3,8 +3,61 @@ import { LS_KEYS, loadJSON, saveJSON, removeKey } from "@/lib/storage";
 export type Place = "診" | "彩";
 export type DayPlan = { place: Place; shifts: string[] };
 
-export const PLACE_NAME: Record<Place, string> = { 診: "診所", 彩: "彩券行" };
-export const PLACE_SHIFTS: Record<Place, string[]> = { 診: ["早", "午", "晚"], 彩: ["早", "晚"] };
+export type ShiftRangeDef = { days: string[] | null; start: string; end: string };
+export type ShiftDef = { id: string; label: string; ranges: ShiftRangeDef[] };
+export type WorkplaceConfig = { id: Place; name: string; color?: string; shifts: ShiftDef[] };
+
+// 內容＝現行寫死值逐字對齊，不可改任何時間
+export const DEFAULT_WORKPLACES: WorkplaceConfig[] = [
+  {
+    id: "診",
+    name: "診所",
+    shifts: [
+      { id: "早", label: "早", ranges: [{ days: null, start: "08:30", end: "12:00" }] },
+      {
+        id: "午",
+        label: "午",
+        ranges: [
+          { days: ["一", "三", "五"], start: "14:00", end: "18:00" },
+          { days: ["二", "四", "六", "日"], start: "14:30", end: "18:00" },
+        ],
+      },
+      { id: "晚", label: "晚", ranges: [{ days: null, start: "18:00", end: "22:00" }] },
+    ],
+  },
+  {
+    id: "彩",
+    name: "彩券行",
+    shifts: [
+      { id: "早", label: "早", ranges: [{ days: null, start: "07:30", end: "14:00" }] },
+      { id: "晚", label: "晚", ranges: [{ days: null, start: "14:00", end: "22:00" }] },
+    ],
+  },
+];
+
+const toMinHM = (t: string) => {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+};
+const fmtHM3 = (m: number) =>
+  `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+
+function findShift(place: Place, shift: string, list: WorkplaceConfig[] = DEFAULT_WORKPLACES) {
+  return list.find((w) => w.id === place)?.shifts.find((s) => s.id === shift || s.label === shift);
+}
+
+// 依星期挑當天生效範圍：優先 days 含該日者，否則 days===null 通用範圍
+function rangeForDay(sh: ReturnType<typeof findShift>, day: string): ShiftRangeDef | undefined {
+  if (!sh) return undefined;
+  return sh.ranges.find((r) => r.days?.includes(day)) ?? sh.ranges.find((r) => r.days == null);
+}
+
+export const PLACE_NAME: Record<Place, string> = Object.fromEntries(
+  DEFAULT_WORKPLACES.map((w) => [w.id, w.name]),
+) as Record<Place, string>;
+export const PLACE_SHIFTS: Record<Place, string[]> = Object.fromEntries(
+  DEFAULT_WORKPLACES.map((w) => [w.id, w.shifts.map((s) => s.label)]),
+) as Record<Place, string[]>;
 
 export const DEFAULT_PLANS: Record<string, DayPlan> = {
   一: { place: "診", shifts: ["晚"] },
@@ -26,63 +79,16 @@ export function weekdayOf(dateStr: string): string {
 export const isMonWedFri = (day: string) => day === "一" || day === "三" || day === "五";
 
 export function shiftRange(place: Place, shift: string, day: string): string {
-  if (place === "診") {
-    if (shift === "早") return "08:30~12:00";
-    if (shift === "午") return isMonWedFri(day) ? "14:00~18:00" : "14:30~18:00";
-    if (shift === "晚") return "18:00~22:00";
-  } else {
-    if (shift === "早") return "07:30~14:00";
-    if (shift === "晚") return "14:00~22:00";
-  }
-  return "";
+  const r = rangeForDay(findShift(place, shift), day);
+  return r ? `${r.start}~${r.end}` : "";
 }
 
 export function shiftTimes(place: Place, shift: string, day: string): string[] {
-  if (place === "診") {
-    if (shift === "早") return ["08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30"];
-    if (shift === "午")
-      return isMonWedFri(day)
-        ? ["14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30"]
-        : ["14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30"];
-    if (shift === "晚") return ["18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00", "21:30"];
-  } else {
-    if (shift === "早")
-      return [
-        "07:30",
-        "08:00",
-        "08:30",
-        "09:00",
-        "09:30",
-        "10:00",
-        "10:30",
-        "11:00",
-        "11:30",
-        "12:00",
-        "12:30",
-        "13:00",
-        "13:30",
-      ];
-    if (shift === "晚")
-      return [
-        "14:00",
-        "14:30",
-        "15:00",
-        "15:30",
-        "16:00",
-        "16:30",
-        "17:00",
-        "17:30",
-        "18:00",
-        "18:30",
-        "19:00",
-        "19:30",
-        "20:00",
-        "20:30",
-        "21:00",
-        "21:30",
-      ];
-  }
-  return [];
+  const r = rangeForDay(findShift(place, shift), day);
+  if (!r) return [];
+  const out: string[] = [];
+  for (let t = toMinHM(r.start); t + 30 <= toMinHM(r.end); t += 30) out.push(fmtHM3(t));
+  return out;
 }
 
 export function loadDayPlans(): Record<string, DayPlan> {
