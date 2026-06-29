@@ -8,8 +8,8 @@ import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 import {
   type Place,
   type DayPlan,
-  PLACE_NAME,
-  PLACE_SHIFTS,
+  placeName,
+  placeShifts,
   shiftTimes,
   shiftRange,
   loadDayPlans,
@@ -162,7 +162,7 @@ export function SchedulePage({
   };
 
   const isWE = (d: string) => d === "六" || d === "日";
-  const placeColor = (place: Place) => CAT.cat2Color("兼差", PLACE_NAME[place]);
+  const placeColor = (place: Place) => CAT.cat2Color("兼差", placeName(place));
 
   const shiftTimesForDay = (day: string): string[] => {
     const plan = dayPlans[day];
@@ -177,7 +177,7 @@ export function SchedulePage({
     setDayPlans((prev) => {
       const cur = prev[day];
       const newPlace: Place = cur.place === "診" ? "彩" : "診";
-      const valid = PLACE_SHIFTS[newPlace];
+      const valid = placeShifts(newPlace);
       return {
         ...prev,
         [day]: { place: newPlace, shifts: cur.shifts.filter((s) => valid.includes(s)) },
@@ -875,7 +875,7 @@ export function SchedulePage({
               <div style={timeBackdropStyle} />
               {DAYS.map((d) => {
                 const plan = dayPlans[d];
-                const shiftsOfPlace = PLACE_SHIFTS[plan.place];
+                const shiftsOfPlace = placeShifts(plan.place);
                 return (
                   <div
                     key={`plan-${d}`}
@@ -996,7 +996,7 @@ export function SchedulePage({
                           lineHeight: 1.2,
                         }}
                       >
-                        {`兼差:${PLACE_NAME[plan.place]}`}
+                        {`兼差:${placeName(plan.place)}`}
                       </span>
                       <span
                         style={{

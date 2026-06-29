@@ -1,7 +1,7 @@
 import { LS_KEYS, loadJSON, saveJSON, removeKey } from "@/lib/storage";
 import { pushAppState, APP_STATE_KEYS } from "@/lib/appStateCloud";
 
-export type Place = "診" | "彩";
+export type Place = string;
 export type DayPlan = { place: Place; shifts: string[] };
 
 export type ShiftRangeDef = { days: string[] | null; start: string; end: string };
@@ -68,13 +68,15 @@ function rangeForDay(sh: ReturnType<typeof findShift>, day: string): ShiftRangeD
   return sh.ranges.find((r) => r.days?.includes(day)) ?? sh.ranges.find((r) => r.days == null);
 }
 
-// S3-3 將改為讀 loadWorkplaces() 的 live 取值（屆時同步更新 SchedulePage/VerticalTimeline 取用點）
-export const PLACE_NAME: Record<Place, string> = Object.fromEntries(
-  DEFAULT_WORKPLACES.map((w) => [w.id, w.name]),
-) as Record<Place, string>;
-export const PLACE_SHIFTS: Record<Place, string[]> = Object.fromEntries(
-  DEFAULT_WORKPLACES.map((w) => [w.id, w.shifts.map((s) => s.label)]),
-) as Record<Place, string[]>;
+export function listWorkplaces(): WorkplaceConfig[] {
+  return loadWorkplaces();
+}
+export function placeName(id: Place): string {
+  return loadWorkplaces().find((w) => w.id === id)?.name ?? id; // 找不到回 id，不崩
+}
+export function placeShifts(id: Place): string[] {
+  return loadWorkplaces().find((w) => w.id === id)?.shifts.map((s) => s.label) ?? [];
+}
 
 export const DEFAULT_PLANS: Record<string, DayPlan> = {
   一: { place: "診", shifts: ["晚"] },

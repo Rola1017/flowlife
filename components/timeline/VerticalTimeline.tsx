@@ -5,7 +5,7 @@ import { TH, readableTextOn } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { pctPos, pctH, buildTimelineHours, DS, DE, toM } from "@/lib/utils";
 import { CFG } from "@/lib/config";
-import { PLACE_NAME, shiftRange, loadDayPlans, weekdayOf, routineBlocksInWindow } from "@/lib/schedule";
+import { placeName, shiftRange, loadDayPlans, weekdayOf, routineBlocksInWindow } from "@/lib/schedule";
 import { actSessionsFor, actIdleFor } from "@/lib/timelineActual";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 
@@ -91,8 +91,8 @@ export function VerticalTimeline({
         {
           start,
           end,
-          label: `兼差:${PLACE_NAME[plan.place]}`,
-          color: CAT.cat2Color("兼差", PLACE_NAME[plan.place]),
+          label: `兼差:${placeName(plan.place)}`,
+          color: CAT.cat2Color("兼差", placeName(plan.place)),
           kind: "shift" as const,
         },
       ];
