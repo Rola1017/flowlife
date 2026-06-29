@@ -233,6 +233,15 @@ export function SchedulePage({
     color: MEAL_TIMES.has(t) ? "#FDE68A" : TH.muted,
   });
 
+  // 時間欄凍結：左右捲動恆顯。不透明背板蓋住捲到底下的日格（zIndex 高於日格與班別覆蓋層）
+  const timeBackdropStyle: CSSProperties = {
+    position: "sticky",
+    left: 0,
+    zIndex: 6,
+    background: TH.bg,
+    height: "100%",
+  };
+
   const fixedCellStyle: CSSProperties = {
     height: ROW_H,
     background: TH.card,
@@ -825,8 +834,10 @@ export function SchedulePage({
                 marginBottom: GAP,
               }}
             >
-              <div style={{ fontSize: 9, color: TH.muted, textAlign: "center", alignSelf: "end" }}>
-                時間
+              <div
+                style={{ ...timeBackdropStyle, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}
+              >
+                <div style={{ fontSize: 9, color: TH.muted, textAlign: "center" }}>時間</div>
               </div>
               {DAYS.map((d) => (
                 <div
@@ -861,7 +872,7 @@ export function SchedulePage({
                 marginBottom: GAP,
               }}
             >
-              <div />
+              <div style={timeBackdropStyle} />
               {DAYS.map((d) => {
                 const plan = dayPlans[d];
                 const shiftsOfPlace = PLACE_SHIFTS[plan.place];
@@ -906,7 +917,9 @@ export function SchedulePage({
                 if (row.span === "all") {
                   return (
                     <div key={row.times.join("-")} style={fixedRowStyle}>
-                      <div style={timeColStyleFor(row.times[0])}>{row.times[0]}</div>
+                      <div style={timeBackdropStyle}>
+                        <div style={timeColStyleFor(row.times[0])}>{row.times[0]}</div>
+                      </div>
                       <div style={{ ...fixedCellStyle, gridColumn: "2 / -1", height: "100%" }}>
                         {row.label}
                       </div>
@@ -915,7 +928,9 @@ export function SchedulePage({
                 }
                 return (
                   <div key={row.times.join("-")} style={fixedRowStyle}>
-                    <div style={timeColStyleFor(row.times[0])}>{row.times[0]}</div>
+                    <div style={timeBackdropStyle}>
+                      <div style={timeColStyleFor(row.times[0])}>{row.times[0]}</div>
+                    </div>
                     <div style={{ ...fixedCellStyle, gridColumn: "span 5", height: "100%" }}>
                       {row.label}
                     </div>
@@ -926,7 +941,9 @@ export function SchedulePage({
               }
               return (
                 <div key={row.time} style={rowGridStyle}>
-                  <div style={timeColStyleFor(row.time)}>{row.time}</div>
+                  <div style={timeBackdropStyle}>
+                    <div style={timeColStyleFor(row.time)}>{row.time}</div>
+                  </div>
                   {DAYS.map((d) => renderClassCell(d, row.time))}
                 </div>
               );
