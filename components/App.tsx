@@ -22,6 +22,7 @@ import { useReviewCloudSync } from "@/components/hooks/useReviewCloudSync";
 import { useSessionCloudSync } from "@/components/hooks/useSessionCloudSync";
 import { useAppStateCloudSync } from "@/components/hooks/useAppStateCloudSync";
 import { subscribeSessions, syncSessionDiffToCloud } from "@/lib/sessionsCloud";
+import { APP_STATE_KEYS, subscribeAppState } from "@/lib/appStateCloud";
 import { Card } from "@/components/ui/Card";
 import { Header } from "@/components/Header";
 import { HomePage } from "@/components/home/HomePage";
@@ -158,6 +159,13 @@ function AppContent() {
   // 雲端同步回來時，把本地最新讀進畫面（用原始 setSessions，避免再次觸發推送）
   useEffect(
     () => subscribeSessions(() => setSessions(loadJSON<Session[]>(LS_KEYS.sessions, []))),
+    [],
+  );
+
+  // 分類雲端同步回來 → 觸發重畫，讓所有讀分類的子元件拿到最新
+  const [, bumpCat] = useState(0);
+  useEffect(
+    () => subscribeAppState(APP_STATE_KEYS.categories, () => bumpCat((v) => v + 1)),
     [],
   );
 

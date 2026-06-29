@@ -13,6 +13,7 @@ async function getUid(): Promise<string | null> {
 export const APP_STATE_KEYS = {
   coins: "coins",
   coinLog: "coin_income_log",
+  categories: "categories",
 } as const;
 
 type AppStateKey = (typeof APP_STATE_KEYS)[keyof typeof APP_STATE_KEYS];
@@ -20,11 +21,13 @@ type AppStateKey = (typeof APP_STATE_KEYS)[keyof typeof APP_STATE_KEYS];
 const LS_FOR_KEY: Record<AppStateKey, string> = {
   [APP_STATE_KEYS.coins]: LS_KEYS.coins,
   [APP_STATE_KEYS.coinLog]: LS_KEYS.coinIncomeLog,
+  [APP_STATE_KEYS.categories]: LS_KEYS.categories,
 };
 
 const DEFAULT_FOR_KEY: Record<AppStateKey, unknown> = {
   [APP_STATE_KEYS.coins]: 0,
   [APP_STATE_KEYS.coinLog]: [],
+  [APP_STATE_KEYS.categories]: [],
 };
 
 // 本地 meta：每個 key 的最後修改時間 {key: iso}

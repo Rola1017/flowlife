@@ -1,4 +1,5 @@
 import { LS_KEYS, loadJSON, saveJSON, snapshotForS2 } from "@/lib/storage";
+import { APP_STATE_KEYS, pushAppState } from "@/lib/appStateCloud";
 
 export type SmallCat = { id: string; name: string };
 export type MidCat = { id: string; name: string; color: string; subs: SmallCat[] };
@@ -237,6 +238,7 @@ export function loadCategories(): CategoryData {
 
 export function saveCategories(data: CategoryData): void {
   saveJSON(LS_KEYS.categories, data);
+  void pushAppState(APP_STATE_KEYS.categories, data);
 }
 
 /** 由名字解析出分類穩定編號（找不到回 undefined） */
