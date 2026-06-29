@@ -1,4 +1,5 @@
 import { LS_KEYS, loadJSON, saveJSON, removeKey } from "@/lib/storage";
+import { pushAppState, APP_STATE_KEYS } from "@/lib/appStateCloud";
 
 export type Place = "診" | "彩";
 export type DayPlan = { place: Place; shifts: string[] };
@@ -35,14 +36,29 @@ export const DEFAULT_WORKPLACES: WorkplaceConfig[] = [
   },
 ];
 
-const toMinHM = (t: string) => {
+export function loadWorkplaces(): WorkplaceConfig[] {
+  const v = loadJSON<WorkplaceConfig[]>(LS_KEYS.workplaces, DEFAULT_WORKPLACES);
+  return Array.isArray(v) && v.length > 0 ? v : DEFAULT_WORKPLACES; // 永不回空，fail-safe
+}
+export function saveWorkplaces(list: WorkplaceConfig[]): void {
+  saveJSON(LS_KEYS.workplaces, list);
+  void pushAppState(APP_STATE_KEYS.workplaces, list);
+}
+/** 首次無本地設定時種入預設（只寫本地、不推雲，交給 sync 對帳避免覆蓋他機編輯） */
+export function ensureWorkplacesSeeded(): void {
+  if (loadJSON<WorkplaceConfig[] | null>(LS_KEYS.workplaces, null) == null) {
+    saveJSON(LS_KEYS.workplaces, DEFAULT_WORKPLACES);
+  }
+}
+
+const toMin = (t: string) => {
   const [h, m] = t.split(":").map(Number);
   return h * 60 + m;
 };
-const fmtHM3 = (m: number) =>
+const fmtHM = (m: number) =>
   `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 
-function findShift(place: Place, shift: string, list: WorkplaceConfig[] = DEFAULT_WORKPLACES) {
+function findShift(place: Place, shift: string, list: WorkplaceConfig[] = loadWorkplaces()) {
   return list.find((w) => w.id === place)?.shifts.find((s) => s.id === shift || s.label === shift);
 }
 
@@ -52,6 +68,7 @@ function rangeForDay(sh: ReturnType<typeof findShift>, day: string): ShiftRangeD
   return sh.ranges.find((r) => r.days?.includes(day)) ?? sh.ranges.find((r) => r.days == null);
 }
 
+// S3-3 將改為讀 loadWorkplaces() 的 live 取值（屆時同步更新 SchedulePage/VerticalTimeline 取用點）
 export const PLACE_NAME: Record<Place, string> = Object.fromEntries(
   DEFAULT_WORKPLACES.map((w) => [w.id, w.name]),
 ) as Record<Place, string>;
@@ -87,7 +104,7 @@ export function shiftTimes(place: Place, shift: string, day: string): string[] {
   const r = rangeForDay(findShift(place, shift), day);
   if (!r) return [];
   const out: string[] = [];
-  for (let t = toMinHM(r.start); t + 30 <= toMinHM(r.end); t += 30) out.push(fmtHM3(t));
+  for (let t = toMin(r.start); t + 30 <= toMin(r.end); t += 30) out.push(fmtHM(t));
   return out;
 }
 
@@ -97,14 +114,6 @@ export function loadDayPlans(): Record<string, DayPlan> {
   for (const d of DAYS) merged[d] = loaded[d] ?? DEFAULT_PLANS[d] ?? { place: "彩", shifts: [] };
   return merged;
 }
-
-const toMin = (t: string) => {
-  const [h, m] = t.split(":").map(Number);
-  return h * 60 + m;
-};
-
-const fmtHM = (m: number) =>
-  `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 
 export type RoutineBlock = { start: string; end: string; label: string };
 

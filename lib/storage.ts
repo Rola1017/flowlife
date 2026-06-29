@@ -23,6 +23,7 @@ export const LS_KEYS = {
   reviews: `${STORAGE_PREFIX}reviews`,
   s2Backup: `${STORAGE_PREFIX}s2_backup`,
   appStateMeta: `${STORAGE_PREFIX}_appstate_meta`,
+  workplaces: `${STORAGE_PREFIX}workplaces`,
 } as const;
 
 function assertVersionedKey(key: string): void {

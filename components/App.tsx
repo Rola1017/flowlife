@@ -24,6 +24,7 @@ import { useSessionCloudSync } from "@/components/hooks/useSessionCloudSync";
 import { useAppStateCloudSync } from "@/components/hooks/useAppStateCloudSync";
 import { subscribeSessions, syncSessionDiffToCloud } from "@/lib/sessionsCloud";
 import { APP_STATE_KEYS, subscribeAppState } from "@/lib/appStateCloud";
+import { ensureWorkplacesSeeded } from "@/lib/schedule";
 import { Card } from "@/components/ui/Card";
 import { Header } from "@/components/Header";
 import { HomePage } from "@/components/home/HomePage";
@@ -141,6 +142,7 @@ function AppContent() {
 
   useEffect(() => {
     migrateCategoryIds();
+    ensureWorkplacesSeeded();
     updateSessions(loadJSON<Session[]>(LS_KEYS.sessions, []));
     const r = loadJSON<Partial<typeof DEFAULT_RATINGS>>(LS_KEYS.ratingCounts, {});
     setFocused(typeof r.focused === "number" ? r.focused : DEFAULT_RATINGS.focused);
@@ -167,6 +169,13 @@ function AppContent() {
   const [, bumpCat] = useState(0);
   useEffect(
     () => subscribeAppState(APP_STATE_KEYS.categories, () => bumpCat((v) => v + 1)),
+    [],
+  );
+
+  // 班表雲端同步回來 → 觸發重畫，讓讀 loadWorkplaces() 的 schedule 取新值
+  const [, bumpWp] = useState(0);
+  useEffect(
+    () => subscribeAppState(APP_STATE_KEYS.workplaces, () => bumpWp((n) => n + 1)),
     [],
   );
 
