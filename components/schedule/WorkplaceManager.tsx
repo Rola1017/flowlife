@@ -19,6 +19,18 @@ const timeInputStyle: CSSProperties = {
   colorScheme: "dark",
 };
 
+const nameInputStyle: CSSProperties = {
+  background: "#15151B",
+  border: `1px solid ${TH.border}`,
+  borderRadius: 6,
+  color: TH.text,
+  fontSize: 13,
+  fontWeight: 700,
+  padding: "4px 8px",
+  outline: "none",
+  flex: 1,
+};
+
 export function WorkplaceManager({
   workplaces,
   onChange,
@@ -28,6 +40,11 @@ export function WorkplaceManager({
   onChange: (next: WorkplaceConfig[]) => void;
   onClose: () => void;
 }) {
+  const setName = (wpId: string, name: string) =>
+    onChange(workplaces.map((w) => (w.id === wpId ? { ...w, name } : w)));
+  const setColor = (wpId: string, color: string) =>
+    onChange(workplaces.map((w) => (w.id === wpId ? { ...w, color } : w)));
+
   const patchRange = (
     wpId: string,
     shiftId: string,
@@ -144,8 +161,25 @@ export function WorkplaceManager({
       {workplaces.map((w) => (
         <div key={w.id} style={{ marginTop: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 13, fontWeight: 800, color: TH.text }}>{w.name}</span>
-            <span style={{ fontSize: 9, color: TH.muted }}>名稱/顏色下批可改</span>
+            <input
+              value={w.name}
+              onChange={(e) => setName(w.id, e.target.value)}
+              style={nameInputStyle}
+            />
+            <input
+              type="color"
+              value={w.color ?? "#888888"}
+              onChange={(e) => setColor(w.id, e.target.value)}
+              style={{
+                width: 30,
+                height: 26,
+                padding: 0,
+                border: `1px solid ${TH.border}`,
+                borderRadius: 6,
+                background: "transparent",
+                cursor: "pointer",
+              }}
+            />
           </div>
 
           {w.shifts.map((s) => (

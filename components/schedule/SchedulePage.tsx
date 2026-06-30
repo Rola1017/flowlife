@@ -174,7 +174,8 @@ export function SchedulePage({
   };
 
   const isWE = (d: string) => d === "六" || d === "日";
-  const placeColor = (place: Place) => CAT.cat2Color("兼差", placeName(place));
+  const placeColor = (place: Place) =>
+    workplaces.find((w) => w.id === place)?.color ?? CAT.cat2Color("兼差", placeName(place));
 
   const shiftTimesForDay = (day: string): string[] =>
     (dayPlans[day]?.picks ?? []).flatMap((p) => shiftTimes(p.place, p.shift, day));
@@ -255,6 +256,18 @@ export function SchedulePage({
     () => subscribeAppState(APP_STATE_KEYS.workplaces, () => setWorkplaces(loadWorkplaces())),
     [],
   );
+
+  // 一次性把現有分類色種進 workplace.color（之後與名稱脫鉤；只補缺漏、不動自訂色）
+  const colorSeeded = useRef(false);
+  useEffect(() => {
+    if (colorSeeded.current) return;
+    colorSeeded.current = true;
+    if (workplaces.some((w) => !w.color)) {
+      handleWpChange(
+        workplaces.map((w) => (w.color ? w : { ...w, color: CAT.cat2Color("兼差", w.name) })),
+      );
+    }
+  }, [workplaces]);
 
   const rowGridStyle: CSSProperties = {
     display: "grid",
