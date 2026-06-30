@@ -78,6 +78,7 @@ function findShift(place: Place, shift: string, list: WorkplaceConfig[] = loadWo
 // 依星期挑當天生效範圍：優先 days 含該日者，否則 days===null 通用範圍
 function rangeForDay(sh: ReturnType<typeof findShift>, day: string): ShiftRangeDef | undefined {
   if (!sh) return undefined;
+  if (sh.ranges.length === 1) return sh.ranges[0]; // 單段→套用所有可上班日（不看 days）
   return sh.ranges.find((r) => r.days?.includes(day)) ?? sh.ranges.find((r) => r.days == null);
 }
 

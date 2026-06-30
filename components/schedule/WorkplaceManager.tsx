@@ -272,7 +272,7 @@ export function WorkplaceManager({
         </div>
       </div>
       <div style={{ fontSize: 10, color: TH.muted, marginTop: 4 }}>
-        💡 班別的日子鈕＝「這段時間套用在哪些日子」；顯示「其它日子（預設）」即套用所有日子。要排這個班，去課表上點亮即可。
+        💡 「🟢 可上班日」＝這個班排在哪些天；下面設「幾點到幾點」。點亮可上班日後，去課表勾選即顯示。只有要「同一個班、不同日子用不同時間」時，才按「＋不同日子不同時間」。
       </div>
 
       {workplaces.map((w) => (
@@ -375,21 +375,27 @@ export function WorkplaceManager({
                       ri < s.ranges.length - 1 ? `1px dashed ${TH.border}` : "none",
                   }}
                 >
-                  <div style={{ fontSize: 10, color: TH.muted }}>
-                    {r.days && r.days.length ? `指定日子：${r.days.join("、")}` : "其它日子（預設）"}
-                  </div>
-                  <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
-                    {DAYW.map((dw) => (
-                      <Chip
-                        key={dw}
-                        label={dw}
-                        active={(r.days ?? []).includes(dw)}
-                        color={TH.cyan}
-                        onClick={() => toggleDay(w.id, s.id, ri, dw)}
-                        style={{ fontSize: 9, padding: "2px 7px" }}
-                      />
-                    ))}
-                  </div>
+                  {s.ranges.length > 1 && (
+                    <>
+                      <div style={{ fontSize: 10, color: TH.muted }}>
+                        {r.days && r.days.length
+                          ? `指定日子：${r.days.join("、")}`
+                          : "其它日子（預設）"}
+                      </div>
+                      <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+                        {DAYW.map((dw) => (
+                          <Chip
+                            key={dw}
+                            label={dw}
+                            active={(r.days ?? []).includes(dw)}
+                            color={TH.cyan}
+                            onClick={() => toggleDay(w.id, s.id, ri, dw)}
+                            style={{ fontSize: 9, padding: "2px 7px" }}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <input
                       type="time"
