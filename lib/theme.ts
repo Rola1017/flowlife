@@ -35,6 +35,17 @@ function hexToRgb(hex: string): [number, number, number] | null {
  * 深色底 → 亮字；淺色底 → 暗字。非 hex 或解析失敗 → 安全預設亮字（本 App 為深色介面）。
  * 用 YIQ 感知亮度近似（便宜、夠用）；門檻 128 為經典中點。
  */
+/** 深色介面上的「標籤文字色」：太暗的色往白色混以確保可讀，保留色相。非 hex → 安全亮灰。 */
+export function labelOnDark(hex: string): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return "#E5E7EB";
+  const [r, g, b] = rgb;
+  const lum = (r * 299 + g * 587 + b * 114) / 1000; // 0~255
+  if (lum >= 140) return hex;
+  const mix = (c: number) => Math.round(c + (255 - c) * 0.55);
+  return `#${[mix(r), mix(g), mix(b)].map((c) => c.toString(16).padStart(2, "0")).join("")}`;
+}
+
 export function readableTextOn(bg: string, dark = "#111111", light = "#FFFFFF"): string {
   const rgb = hexToRgb(bg);
   if (!rgb) return light;

@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { TH } from "@/lib/theme";
+import { TH, labelOnDark } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
-import { MOCK } from "@/lib/mock";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 import {
   type Place,
@@ -84,16 +83,21 @@ const STEP = ROW_H + GAP;
 const DAYS = ["一", "二", "三", "四", "五", "六", "日"] as const;
 const COL_W = `calc((100% - 44px - ${7 * GAP}px) / 7)`;
 
+const inFixedSlot = (t: string) =>
+  FIXED_ROUTINE.some((b) => toM(b.start) <= toM(t) && toM(t) < toM(b.end));
+
 function normalizeSchedule(raw: Record<string, RawSchedRow[]>): Record<string, SchedRow[]> {
   const out: Record<string, SchedRow[]> = {};
   for (const [day, rows] of Object.entries(raw)) {
-    out[day] = rows.map((row) => ({
-      t: row.t,
-      n: row.n,
-      cat1: row.cat1 ?? row.c ?? "學習",
-      cat2: row.cat2 ?? "",
-      cat3: row.cat3 ?? "",
-    }));
+    out[day] = rows
+      .map((row) => ({
+        t: row.t,
+        n: row.n,
+        cat1: row.cat1 ?? row.c ?? "學習",
+        cat2: row.cat2 ?? "",
+        cat3: row.cat3 ?? "",
+      }))
+      .filter((r) => !inFixedSlot(r.t));
   }
   return out;
 }
@@ -126,7 +130,7 @@ export function SchedulePage({
 }) {
   const [sched, setSched] = useState<Record<string, SchedRow[]>>(() =>
     normalizeSchedule(
-      loadJSON(LS_KEYS.weekSchedule, MOCK.weekdaySchedule as Record<string, RawSchedRow[]>),
+      loadJSON<Record<string, RawSchedRow[]>>(LS_KEYS.weekSchedule, {}),
     ),
   );
   const [dayPlans, setDayPlans] = useState<Record<string, DayPlan>>(loadDayPlans);
@@ -457,7 +461,7 @@ export function SchedulePage({
             style={{
               fontSize: 8,
               fontWeight: 700,
-              color: col ?? undefined,
+              color: col ? labelOnDark(col) : undefined,
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
@@ -1091,7 +1095,7 @@ export function SchedulePage({
                     >
                       <span
                         style={{
-                          color: col,
+                          color: labelOnDark(col),
                           fontSize: 8,
                           fontWeight: 700,
                           lineHeight: 1.2,
@@ -1101,7 +1105,7 @@ export function SchedulePage({
                       </span>
                       <span
                         style={{
-                          color: col,
+                          color: labelOnDark(col),
                           fontSize: 8,
                           fontWeight: 700,
                           lineHeight: 1.2,
@@ -1109,10 +1113,10 @@ export function SchedulePage({
                       >
                         {rangeStart}
                       </span>
-                      <span style={{ color: col, fontSize: 7, lineHeight: 1 }}>～</span>
+                      <span style={{ color: labelOnDark(col), fontSize: 7, lineHeight: 1 }}>～</span>
                       <span
                         style={{
-                          color: col,
+                          color: labelOnDark(col),
                           fontSize: 8,
                           fontWeight: 700,
                           lineHeight: 1.2,

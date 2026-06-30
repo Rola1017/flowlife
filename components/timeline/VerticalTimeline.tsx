@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
-import { TH, readableTextOn } from "@/lib/theme";
+import { TH, readableTextOn, labelOnDark } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { pctPos, pctH, buildTimelineHours, DS, DE, toM } from "@/lib/utils";
 import { CFG } from "@/lib/config";
@@ -295,7 +295,7 @@ export function VerticalTimeline({
               <div
                 style={{
                   fontSize: isFixed ? 8 : 9,
-                  color: isFixed ? TH.muted : col || "#9CA3AF",
+                  color: isFixed ? TH.muted : col ? labelOnDark(col) : "#9CA3AF",
                   fontWeight: 700,
                   overflow: "hidden",
                   textOverflow: "ellipsis",
