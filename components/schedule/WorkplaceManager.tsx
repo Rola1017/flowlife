@@ -4,7 +4,7 @@ import type { CSSProperties } from "react";
 import { TH } from "@/lib/theme";
 import { Card, SL } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
-import type { ShiftRangeDef, WorkplaceConfig } from "@/lib/schedule";
+import { DEFAULT_WORKPLACES, type ShiftRangeDef, type WorkplaceConfig } from "@/lib/schedule";
 
 const DAYW = ["一", "二", "三", "四", "五", "六", "日"];
 
@@ -214,21 +214,48 @@ export function WorkplaceManager({
     <Card style={{ border: `1px solid ${TH.accent}44` }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <SL>🏢 管理工作場所（時間）</SL>
-        <button
-          type="button"
-          onClick={onClose}
-          style={{
-            fontSize: 11,
-            padding: "4px 10px",
-            borderRadius: 8,
-            border: `1px solid ${TH.border}`,
-            background: "transparent",
-            color: TH.muted,
-            cursor: "pointer",
-          }}
-        >
-          完成
-        </button>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button
+            type="button"
+            onClick={() => {
+              if (
+                window.confirm(
+                  "重設工作場所為預設（診所/彩券行）？自訂場所/班別會清除，課表與番茄不受影響。",
+                )
+              )
+                onChange(DEFAULT_WORKPLACES);
+            }}
+            style={{
+              fontSize: 11,
+              padding: "4px 10px",
+              borderRadius: 8,
+              border: `1px solid ${TH.border}`,
+              background: "transparent",
+              color: TH.muted,
+              cursor: "pointer",
+            }}
+          >
+            ↺ 重設為預設
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              fontSize: 11,
+              padding: "4px 10px",
+              borderRadius: 8,
+              border: `1px solid ${TH.border}`,
+              background: "transparent",
+              color: TH.muted,
+              cursor: "pointer",
+            }}
+          >
+            完成
+          </button>
+        </div>
+      </div>
+      <div style={{ fontSize: 10, color: TH.muted, marginTop: 4 }}>
+        💡 班別的日子鈕＝「這段時間套用在哪些日子」；顯示「其它日子（預設）」即套用所有日子。要排這個班，去課表上點亮即可。
       </div>
 
       {workplaces.map((w) => (

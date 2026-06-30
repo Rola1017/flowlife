@@ -7,6 +7,7 @@ import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 import {
   type Place,
   type DayPlan,
+  type DayPick,
   type WorkplaceConfig,
   placeName,
   pickOverlaps,
@@ -136,15 +137,30 @@ export function SchedulePage({
   const [dayPlans, setDayPlans] = useState<Record<string, DayPlan>>(loadDayPlans);
   const [workplaces, setWorkplaces] = useState<WorkplaceConfig[]>(loadWorkplaces);
   const [showWpMgr, setShowWpMgr] = useState(false);
-  const pruneOrphanPicks = (wps: WorkplaceConfig[]) => {
-    const valid = new Set<string>();
-    wps.forEach((w) => w.shifts.forEach((s) => valid.add(`${w.id}__${s.id}`)));
+  const reconcileDayPlans = (wps: WorkplaceConfig[]) => {
     setDayPlans((prev) => {
       let changed = false;
       const next: Record<string, DayPlan> = {};
       for (const [day, plan] of Object.entries(prev)) {
-        const picks = (plan.picks ?? []).filter((p) => valid.has(`${p.place}__${p.shift}`));
-        if (picks.length !== (plan.picks?.length ?? 0)) changed = true;
+        const picks: DayPick[] = [];
+        for (const p of plan.picks ?? []) {
+          const wp = wps.find((w) => w.id === p.place);
+          if (!wp) {
+            changed = true;
+            continue;
+          }
+          if (wp.shifts.some((s) => s.id === p.shift)) {
+            picks.push(p);
+            continue;
+          }
+          const byLabel = wp.shifts.find((s) => s.label === p.shift);
+          if (byLabel) {
+            picks.push({ place: p.place, shift: byLabel.id });
+            changed = true;
+            continue;
+          }
+          changed = true;
+        }
         next[day] = { picks };
       }
       return changed ? next : prev;
@@ -153,13 +169,13 @@ export function SchedulePage({
   const handleWpChange = (next: WorkplaceConfig[]) => {
     setWorkplaces(next);
     saveWorkplaces(next);
-    pruneOrphanPicks(next);
+    reconcileDayPlans(next);
   };
   const orphanPrunedOnce = useRef(false);
   useEffect(() => {
     if (orphanPrunedOnce.current) return;
     orphanPrunedOnce.current = true;
-    pruneOrphanPicks(workplaces);
+    reconcileDayPlans(workplaces);
   }, [workplaces]);
   type EditTarget = { d: string; t: string };
   const [editTargets, setEditTargets] = useState<EditTarget[] | null>(null);

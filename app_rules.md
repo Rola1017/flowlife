@@ -463,6 +463,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **修 Vercel build**：browser client 改 lazy singleton、`reviews.ts` 移除 import-time 實例化，避免 prerender 在缺 env 時崩潰（型別改用 `ReturnType<typeof makeBrowserClient>` 保具體推斷，消除 implicit-any 外溢）。
 - **S2-1 分類 ID 化＋全量備份**：`BigCat`/`MidCat` 加必填 `id`（`DEFAULT_CATEGORIES` 補固定 slug id、`small` 維持 `string[]`）；`migrateCategoryIds`（掛載跑一次、先 `snapshotForS2` 再補 id、冪等只在有變動時寫檔）；`loadCategories` 讀取端對缺 id 者 in-memory 補上（不寫檔防呆）；CategoryManager 新增大/中類帶 `crypto.randomUUID()`；`storage.snapshotForS2`/`hasS2Backup` 一次性備份 categories/sessions/coinIncomeLog/weekSchedule 原始字串。CAT 存取器形狀不變、畫面零變化。
 - **S2-1b 小分類 ID 化（整棵樹完成）**：`SmallCat` 由 `string` 改 `{ id, name }`，`DEFAULT_CATEGORIES` 所有 subs 補固定 `sml-*` id；`migrateCategoryIds` subs 迴圈正規化（`string→{id,name}`、缺 id 補 `genCatId`，冪等仍先 `snapshotForS2`）＋`loadCategories` `normalizeSub` 同時吃舊 string／物件雙格式做讀取防呆；`CAT.cat3List` 改回 `subs.map(s=>s.name)`、`cat3Color` 改 `findIndex(s=>s.name===cat3)`（消費端仍拿名字陣列、零改動）；CategoryManager subs 全改讀 `.name`（render key 改 `sub.id`、addSub push `{id,name}`、updateSubName 改 `.name`、刪除確認取 `.name`，cascadeRename cat3 仍用名字未動）；新增 `storage.restoreFromS2Backup`（一鍵還原四鍵、無備份回 false，本步未接 UI）。畫面零變化。
+- **孤兒排班修復（reconcile 取代 prune）**：班別刪除後重建 id 變新→舊排班變孤兒，原 `pruneOrphanPicks` 直接刪除會弄丟使用者真實排班。改 `reconcileDayPlans`：id 仍有效保留；id 失效但同 `label` 班別存在→改寫成新 id（接回）；場所/班別都無→才移除。`handleWpChange` 與開頁 `orphanPrunedOnce` effect 皆改呼叫 reconcile；`changed` guard 無變動不推雲、idempotent（下次開頁 id 已有效不再改）。`WorkplaceManager` 標題列加「↺ 重設為預設」救援鈕（confirm→`onChange(DEFAULT_WORKPLACES)`，課表/番茄不受影響）＋頂部 💡 日子鈕語意說明。`findShift` 維持只認 id。
 - **修 findShift phantom（只認 id ＋開頁清孤兒）**：`findShift` 移除 `|| s.label === shift`、只認 `s.id`，消除「按鈕未亮卻畫出班別塊」的不一致——因 `pickActive`/`pruneOrphanPicks` 已以 id 判斷、所有 `shiftRange`/`shiftTimes` 呼叫端皆傳 id，名字相容已無必要且有害（殘留排班按名解析出時間→畫塊＋擋重疊）。`SchedulePage` 加只跑一次的 effect（`orphanPrunedOnce` ref）開頁 `pruneOrphanPicks(workplaces)` 清掉指向不存在 id 的殘留（guard 無變動不推雲）。畫塊/時間/重疊與按鈕點亮全面以 id 一致；預設 id==label，舊真實排班仍解析得到不受影響。
 - **S3-3c-2 增刪工作場所/班別**：`WorkplaceManager` 班別名稱可改（`setShiftLabel`＋`<input>`）、`＋新增班別`/`刪除班別`（`addShift`/`removeShift`）、`＋新增工作場所`/`刪除此場所`（`addWorkplace`/`removeWorkplace`，至少留一家、disabled 灰掉）；`genId` 以 `x` 前綴＋時戳亂數避撞既有「診/彩」。`SchedulePage` 每日排班 chip 改存 `s.id`（`pickActive`/`pickDisabled`/`togglePick` 第三參數；顯示仍 `s.label`；舊資料 label==id 相容）；`handleWpChange` 連帶 `pruneOrphanPicks` 以 `(placeId__shiftId)` 白名單清孤兒排班（刪場所/班別即時消失）。順手修 `theme.ts` `readableTextOn` JSDoc 回正位。S3 班別使用者化至此完成，剩 3c-d 單次微調（邊緣）。
 - **修 weekSchedule MOCK 殘留＋標籤深色提亮**：① 課表假資料根除——`SchedulePage` `sched` useState 預設由 `MOCK.weekdaySchedule` 改空 `{}`、移除 `MOCK` import；`normalizeSchedule` 加 `inFixedSlot` 過濾掉落在 `FIXED_ROUTINE` 時段內的無效課格（重開排班頁即清、`saveJSON` 寫回乾淨版）。② 新增 `theme.labelOnDark(hex)`（lum<140 才往白混 0.55 保色相、非 hex 回 `#E5E7EB`）並套用：`VerticalTimeline` 課程/班別標籤、`SchedulePage` `renderClassCell` 課名＋兼差色塊四 span，深色分類色文字自動提亮可讀。MOCK 清查：`SchedulePage` 已改空；`ShopPage` `useState(MOCK.shopItems)` 為純本地展示、不寫入/不同步，保留不動；`lib/mock.ts` 定義保留。
@@ -509,7 +510,7 @@ TH.gold    = "#FBBF24"   // 金幣
 | 「明細」分頁改名 | 建議改「番茄反思」以與期間總結區隔；觸發＝命名定案時。 |
 | ~~reset 未清雲端~~ ✅ 已解決 | `handleResetAllData` 已清雲端全部：番茄(`updateSessions([])`)、金幣(`resetCoins`/`resetCoinLog`→push 0/[])、分類(`saveCategories(DEFAULT_CATEGORIES)`→推雲)、覆盤(`clearReviewsCloud()`)；重置後雲端＝番茄空/金幣0/記錄空/分類預設/覆盤空，不再被拉回。 |
 | ~~分類尚未上雲~~ ✅ 已完成 | 分類沿用 app_state 單例 `key="categories"`，`saveCategories` 推雲＋`App` 訂閱刷新（番茄/金幣/分類全上雲）。 |
-| 技術債 #1 班別硬寫死 | ✅ **S3 班別使用者化完成**（S3-1~3c-2）：資料化、上雲、跨店 picks、重疊擋、時間/名稱/顏色可編、場所/班別增刪＋孤兒清理、pick 改存班別 id、`findShift` 只認 id（畫塊與按鈕點亮一致、開頁清殘留）。**剩**：⬜ S3-3d 單次微調（邊緣）。 |
+| 技術債 #1 班別硬寫死 | ✅ **S3 班別使用者化完成**（S3-1~3c-2）：資料化、上雲、跨店 picks、重疊擋、時間/名稱/顏色可編、場所/班別增刪、pick 存班別 id、`findShift` 只認 id、孤兒排班 `reconcileDayPlans`（id 失效以 label 接回新 id、真孤兒才移除）＋WorkplaceManager「重設為預設」救援鈕。**剩**：⬜ S3-3d 單次微調（邊緣）。 |
 | ~~工作場所顏色綁分類名~~ ✅ 已解 | 3c-1b 顏色已解綁存入 `workplace.color`（`colorSeeded` 種子＋`placeColor`/`VerticalTimeline` 優先讀 color），改名不掉色。註：工作場所色與分類色現為兩套，logged 兼差時間色仍走 `CAT.cat2Color`。 |
 | session/分類 name-based 改 uuid | **S2-2a＋S2-3 完成**——番茄並存 `cat1Id/cat2Id/cat3Id`（`stampSessionCatIds`）＋並存 `uuid` 跨裝置主鍵（`ensureSessionUuid`，只補不覆蓋、冪等），`App.updateSessions` 經 `stampSession` 單一接縫補（含啟動載入補舊番茄）；名字/number `id` 仍為現行權威、尚無處讀編號或 uuid（行為零變化）。**待**：番茄上雲使用 uuid 主鍵、S2-2b 改名/顯示改用編號退役 `cascadeRename`、週課表/coinLog 編號化。 |
 
@@ -535,5 +536,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/06/30（修 findShift 只認 id：消除按鈕未亮卻畫出班別塊的 phantom、開頁一次性 pruneOrphanPicks 清殘留；畫塊/時間/重疊與按鈕點亮全面以 id 一致）*
+*最後更新：2026/06/30（孤兒排班 reconcileDayPlans 取代 prune：班別重建 id 失效時以 label 接回新 id、不再直接刪真實排班；WorkplaceManager 加「重設為預設」救援鈕＋日子鈕說明）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*
