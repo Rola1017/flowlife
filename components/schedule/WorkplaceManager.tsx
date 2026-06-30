@@ -8,6 +8,8 @@ import type { ShiftRangeDef, WorkplaceConfig } from "@/lib/schedule";
 
 const DAYW = ["一", "二", "三", "四", "五", "六", "日"];
 
+const genId = () => `x${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+
 const timeInputStyle: CSSProperties = {
   background: "#15151B",
   border: `1px solid ${TH.border}`,
@@ -29,6 +31,18 @@ const nameInputStyle: CSSProperties = {
   padding: "4px 8px",
   outline: "none",
   flex: 1,
+};
+
+const shiftLabelInputStyle: CSSProperties = {
+  background: "#15151B",
+  border: `1px solid ${TH.border}`,
+  borderRadius: 6,
+  color: TH.text,
+  fontSize: 12,
+  fontWeight: 700,
+  padding: "4px 8px",
+  outline: "none",
+  width: 90,
 };
 
 export function WorkplaceManager({
@@ -137,6 +151,65 @@ export function WorkplaceManager({
       ),
     );
 
+  const setShiftLabel = (wpId: string, shiftId: string, label: string) =>
+    onChange(
+      workplaces.map((w) =>
+        w.id !== wpId
+          ? w
+          : { ...w, shifts: w.shifts.map((s) => (s.id !== shiftId ? s : { ...s, label })) },
+      ),
+    );
+  const addShift = (wpId: string) =>
+    onChange(
+      workplaces.map((w) =>
+        w.id !== wpId
+          ? w
+          : {
+              ...w,
+              shifts: [
+                ...w.shifts,
+                {
+                  id: genId(),
+                  label: "新班",
+                  ranges: [{ days: null, start: "09:00", end: "18:00" }],
+                },
+              ],
+            },
+      ),
+    );
+  const removeShift = (wpId: string, shiftId: string) =>
+    onChange(
+      workplaces.map((w) =>
+        w.id !== wpId ? w : { ...w, shifts: w.shifts.filter((s) => s.id !== shiftId) },
+      ),
+    );
+  const addWorkplace = () =>
+    onChange([
+      ...workplaces,
+      {
+        id: genId(),
+        name: "新場所",
+        color: "#64748B",
+        shifts: [
+          { id: genId(), label: "班", ranges: [{ days: null, start: "09:00", end: "18:00" }] },
+        ],
+      },
+    ]);
+  const removeWorkplace = (wpId: string) => {
+    if (workplaces.length <= 1) return;
+    onChange(workplaces.filter((w) => w.id !== wpId));
+  };
+
+  const deleteBtnStyle: CSSProperties = {
+    fontSize: 10,
+    padding: "4px 8px",
+    borderRadius: 8,
+    border: "1px solid #EF444444",
+    background: "#EF444422",
+    color: TH.red,
+    cursor: "pointer",
+  };
+
   return (
     <Card style={{ border: `1px solid ${TH.accent}44` }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -180,6 +253,19 @@ export function WorkplaceManager({
                 cursor: "pointer",
               }}
             />
+            <button
+              type="button"
+              onClick={() => removeWorkplace(w.id)}
+              disabled={workplaces.length <= 1}
+              style={{
+                ...deleteBtnStyle,
+                marginLeft: "auto",
+                opacity: workplaces.length <= 1 ? 0.35 : 1,
+                cursor: workplaces.length <= 1 ? "not-allowed" : "pointer",
+              }}
+            >
+              刪除此場所
+            </button>
           </div>
 
           {w.shifts.map((s) => (
@@ -193,8 +279,27 @@ export function WorkplaceManager({
                 background: "#0D0D0F",
               }}
             >
-              <div style={{ fontSize: 12, fontWeight: 700, color: TH.text, marginBottom: 6 }}>
-                {s.label} 班
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  marginBottom: 6,
+                }}
+              >
+                <input
+                  value={s.label}
+                  onChange={(e) => setShiftLabel(w.id, s.id, e.target.value)}
+                  style={shiftLabelInputStyle}
+                />
+                <span style={{ fontSize: 12, fontWeight: 700, color: TH.text }}>班</span>
+                <button
+                  type="button"
+                  onClick={() => removeShift(w.id, s.id)}
+                  style={{ ...deleteBtnStyle, marginLeft: "auto" }}
+                >
+                  刪除班別
+                </button>
               </div>
 
               {s.ranges.map((r, ri) => (
@@ -278,8 +383,43 @@ export function WorkplaceManager({
               </button>
             </div>
           ))}
+
+          <button
+            type="button"
+            onClick={() => addShift(w.id)}
+            style={{
+              marginTop: 8,
+              fontSize: 10,
+              padding: "4px 10px",
+              borderRadius: 8,
+              border: `1px solid ${TH.border}`,
+              background: "transparent",
+              color: TH.muted,
+              cursor: "pointer",
+            }}
+          >
+            ＋ 新增班別
+          </button>
         </div>
       ))}
+
+      <button
+        type="button"
+        onClick={addWorkplace}
+        style={{
+          marginTop: 16,
+          fontSize: 11,
+          padding: "6px 12px",
+          borderRadius: 8,
+          border: `1px solid ${TH.accent}44`,
+          background: `${TH.accent}11`,
+          color: TH.accent,
+          cursor: "pointer",
+          width: "100%",
+        }}
+      >
+        ＋ 新增工作場所
+      </button>
     </Card>
   );
 }

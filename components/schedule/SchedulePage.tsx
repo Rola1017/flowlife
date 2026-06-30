@@ -136,9 +136,24 @@ export function SchedulePage({
   const [dayPlans, setDayPlans] = useState<Record<string, DayPlan>>(loadDayPlans);
   const [workplaces, setWorkplaces] = useState<WorkplaceConfig[]>(loadWorkplaces);
   const [showWpMgr, setShowWpMgr] = useState(false);
+  const pruneOrphanPicks = (wps: WorkplaceConfig[]) => {
+    const valid = new Set<string>();
+    wps.forEach((w) => w.shifts.forEach((s) => valid.add(`${w.id}__${s.id}`)));
+    setDayPlans((prev) => {
+      let changed = false;
+      const next: Record<string, DayPlan> = {};
+      for (const [day, plan] of Object.entries(prev)) {
+        const picks = (plan.picks ?? []).filter((p) => valid.has(`${p.place}__${p.shift}`));
+        if (picks.length !== (plan.picks?.length ?? 0)) changed = true;
+        next[day] = { picks };
+      }
+      return changed ? next : prev;
+    });
+  };
   const handleWpChange = (next: WorkplaceConfig[]) => {
     setWorkplaces(next);
     saveWorkplaces(next);
+    pruneOrphanPicks(next);
   };
   type EditTarget = { d: string; t: string };
   const [editTargets, setEditTargets] = useState<EditTarget[] | null>(null);
@@ -987,15 +1002,15 @@ export function SchedulePage({
                         {w.name}
                       </div>
                       {w.shifts.map((s) => {
-                        const disabled = pickDisabled(d, w.id, s.label);
+                        const disabled = pickDisabled(d, w.id, s.id);
                         return (
                           <Chip
-                            key={`${w.id}-${s.label}`}
+                            key={`${w.id}-${s.id}`}
                             label={s.label}
-                            active={pickActive(d, w.id, s.label)}
+                            active={pickActive(d, w.id, s.id)}
                             color={placeColor(w.id)}
                             onClick={() => {
-                              if (!disabled) togglePick(d, w.id, s.label);
+                              if (!disabled) togglePick(d, w.id, s.id);
                             }}
                             style={{
                               fontSize: 8,

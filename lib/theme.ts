@@ -30,11 +30,6 @@ function hexToRgb(hex: string): [number, number, number] | null {
   ];
 }
 
-/**
- * 依底色感知亮度，回傳「印在該底色上清晰可讀」的文字色。
- * 深色底 → 亮字；淺色底 → 暗字。非 hex 或解析失敗 → 安全預設亮字（本 App 為深色介面）。
- * 用 YIQ 感知亮度近似（便宜、夠用）；門檻 128 為經典中點。
- */
 /** 深色介面上的「標籤文字色」：太暗的色往白色混以確保可讀，保留色相。非 hex → 安全亮灰。 */
 export function labelOnDark(hex: string): string {
   const rgb = hexToRgb(hex);
@@ -46,6 +41,11 @@ export function labelOnDark(hex: string): string {
   return `#${[mix(r), mix(g), mix(b)].map((c) => c.toString(16).padStart(2, "0")).join("")}`;
 }
 
+/**
+ * 依底色感知亮度，回傳「印在該底色上清晰可讀」的文字色。
+ * 深色底 → 亮字；淺色底 → 暗字。非 hex 或解析失敗 → 安全預設亮字（本 App 為深色介面）。
+ * 用 YIQ 感知亮度近似（便宜、夠用）；門檻 128 為經典中點。
+ */
 export function readableTextOn(bg: string, dark = "#111111", light = "#FFFFFF"): string {
   const rgb = hexToRgb(bg);
   if (!rgb) return light;
