@@ -9,7 +9,8 @@ import {
   type Place,
   type DayPlan,
   placeName,
-  placeShifts,
+  listWorkplaces,
+  pickOverlaps,
   shiftTimes,
   shiftRange,
   loadDayPlans,
@@ -164,34 +165,27 @@ export function SchedulePage({
   const isWE = (d: string) => d === "六" || d === "日";
   const placeColor = (place: Place) => CAT.cat2Color("兼差", placeName(place));
 
-  const shiftTimesForDay = (day: string): string[] => {
-    const plan = dayPlans[day];
-    if (!plan) return [];
-    return plan.shifts.flatMap((s) => shiftTimes(plan.place, s, day));
-  };
+  const shiftTimesForDay = (day: string): string[] =>
+    (dayPlans[day]?.picks ?? []).flatMap((p) => shiftTimes(p.place, p.shift, day));
 
   const isCoveredByShift = (day: string, time: string): boolean =>
     shiftTimesForDay(day).includes(time);
 
-  const togglePlace = (day: string) => {
+  const pickActive = (day: string, place: Place, shift: string) =>
+    (dayPlans[day]?.picks ?? []).some((p) => p.place === place && p.shift === shift);
+  const pickDisabled = (day: string, place: Place, shift: string) =>
+    !pickActive(day, place, shift) && pickOverlaps(day, place, shift, dayPlans[day]?.picks ?? []);
+  const togglePick = (day: string, place: Place, shift: string) => {
     setDayPlans((prev) => {
-      const cur = prev[day];
-      const newPlace: Place = cur.place === "診" ? "彩" : "診";
-      const valid = placeShifts(newPlace);
-      return {
-        ...prev,
-        [day]: { place: newPlace, shifts: cur.shifts.filter((s) => valid.includes(s)) },
-      };
-    });
-  };
-
-  const toggleShift = (day: string, shift: string) => {
-    setDayPlans((prev) => {
-      const cur = prev[day];
-      const shifts = cur.shifts.includes(shift)
-        ? cur.shifts.filter((s) => s !== shift)
-        : [...cur.shifts, shift];
-      return { ...prev, [day]: { ...cur, shifts } };
+      const cur = prev[day] ?? { picks: [] };
+      const exists = cur.picks.some((p) => p.place === place && p.shift === shift);
+      if (exists)
+        return {
+          ...prev,
+          [day]: { picks: cur.picks.filter((p) => !(p.place === place && p.shift === shift)) },
+        };
+      if (pickOverlaps(day, place, shift, cur.picks)) return prev; // 重疊不加
+      return { ...prev, [day]: { picks: [...cur.picks, { place, shift }] } };
     });
   };
 
@@ -723,7 +717,7 @@ export function SchedulePage({
                 setClip({
                   from: dayMenu,
                   courses: (sched[dayMenu] || []).map((c) => ({ ...c })),
-                  plan: p ? { ...p, shifts: [...p.shifts] } : null,
+                  plan: p ? { picks: [...p.picks] } : null,
                   mode: "full",
                 });
                 setDayMenu(null);
@@ -752,7 +746,7 @@ export function SchedulePage({
                     const pl = clip.plan;
                     setDayPlans((prev) => ({
                       ...prev,
-                      [dayMenu]: { ...pl, shifts: [...pl.shifts] },
+                      [dayMenu]: { picks: [...pl.picks] },
                     }));
                   }
                   setDayMenu(null);
@@ -807,6 +801,9 @@ export function SchedulePage({
           </div>
         </Card>
       )}
+      <div style={{ fontSize: 10, color: TH.muted }}>
+        💡 一天可跨店排班；與已選班別時間重疊的會變灰、不能選
+      </div>
       <div
         className="flowlife-hscroll"
         style={{
@@ -873,39 +870,58 @@ export function SchedulePage({
               }}
             >
               <div style={timeBackdropStyle} />
-              {DAYS.map((d) => {
-                const plan = dayPlans[d];
-                const shiftsOfPlace = placeShifts(plan.place);
-                return (
-                  <div
-                    key={`plan-${d}`}
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 2,
-                      alignItems: "center",
-                    }}
-                  >
-                    <Chip
-                      label="診"
-                      active={plan.place === "診"}
-                      color={TH.cyan}
-                      onClick={() => togglePlace(d)}
-                      style={{ fontSize: 8, padding: "2px 6px", width: "100%", textAlign: "center" }}
-                    />
-                    {shiftsOfPlace.map((s) => (
-                      <Chip
-                        key={s}
-                        label={s}
-                        active={plan.shifts.includes(s)}
-                        color={placeColor(plan.place)}
-                        onClick={() => toggleShift(d, s)}
-                        style={{ fontSize: 8, padding: "2px 6px", width: "100%", textAlign: "center" }}
-                      />
-                    ))}
-                  </div>
-                );
-              })}
+              {DAYS.map((d) => (
+                <div
+                  key={`plan-${d}`}
+                  style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "center" }}
+                >
+                  {listWorkplaces().map((w) => (
+                    <div
+                      key={w.id}
+                      style={{
+                        width: "100%",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 1,
+                        alignItems: "center",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 7,
+                          color: placeColor(w.id),
+                          fontWeight: 700,
+                          textAlign: "center",
+                          lineHeight: 1.1,
+                        }}
+                      >
+                        {w.name}
+                      </div>
+                      {w.shifts.map((s) => {
+                        const disabled = pickDisabled(d, w.id, s.label);
+                        return (
+                          <Chip
+                            key={`${w.id}-${s.label}`}
+                            label={s.label}
+                            active={pickActive(d, w.id, s.label)}
+                            color={placeColor(w.id)}
+                            onClick={() => {
+                              if (!disabled) togglePick(d, w.id, s.label);
+                            }}
+                            style={{
+                              fontSize: 8,
+                              padding: "2px 6px",
+                              width: "100%",
+                              textAlign: "center",
+                              opacity: disabled ? 0.3 : 1,
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              ))}
             </div>
           </div>
 
@@ -952,9 +968,9 @@ export function SchedulePage({
             {DAYS.flatMap((day, dayColIndex) => {
               const plan = dayPlans[day];
               if (!plan) return [];
-              return plan.shifts
-                .map((shiftKey) => {
-                  const times = shiftTimes(plan.place, shiftKey, day);
+              return plan.picks
+                .map(({ place, shift }) => {
+                  const times = shiftTimes(place, shift, day);
                   const coveredIdx = HALF_SLOTS.map((t, i) =>
                     times.includes(t) ? i : -1,
                   ).filter((i) => i >= 0);
@@ -963,12 +979,12 @@ export function SchedulePage({
                   const count = coveredIdx.length;
                   const top = firstIdx * STEP;
                   const height = count * STEP - GAP;
-                  const [rangeStart, rangeEnd] = shiftRange(plan.place, shiftKey, day).split("~");
-                  const col = placeColor(plan.place);
+                  const [rangeStart, rangeEnd] = shiftRange(place, shift, day).split("~");
+                  const col = placeColor(place);
 
                   return (
                     <div
-                      key={`shift-${day}-${shiftKey}`}
+                      key={`shift-${day}-${place}-${shift}`}
                       style={{
                         position: "absolute",
                         top: `${top}px`,
@@ -996,7 +1012,7 @@ export function SchedulePage({
                           lineHeight: 1.2,
                         }}
                       >
-                        {`兼差:${placeName(plan.place)}`}
+                        {`兼差:${placeName(place)}`}
                       </span>
                       <span
                         style={{

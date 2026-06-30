@@ -2,7 +2,8 @@ import { LS_KEYS, loadJSON, saveJSON, removeKey } from "@/lib/storage";
 import { pushAppState, APP_STATE_KEYS } from "@/lib/appStateCloud";
 
 export type Place = string;
-export type DayPlan = { place: Place; shifts: string[] };
+export type DayPick = { place: Place; shift: string };
+export type DayPlan = { picks: DayPick[] };
 
 export type ShiftRangeDef = { days: string[] | null; start: string; end: string };
 export type ShiftDef = { id: string; label: string; ranges: ShiftRangeDef[] };
@@ -79,13 +80,13 @@ export function placeShifts(id: Place): string[] {
 }
 
 export const DEFAULT_PLANS: Record<string, DayPlan> = {
-  一: { place: "診", shifts: ["晚"] },
-  二: { place: "診", shifts: ["晚"] },
-  三: { place: "診", shifts: ["晚"] },
-  四: { place: "診", shifts: ["晚"] },
-  五: { place: "診", shifts: ["晚"] },
-  六: { place: "彩", shifts: ["晚"] },
-  日: { place: "彩", shifts: ["晚"] },
+  一: { picks: [{ place: "診", shift: "晚" }] },
+  二: { picks: [{ place: "診", shift: "晚" }] },
+  三: { picks: [{ place: "診", shift: "晚" }] },
+  四: { picks: [{ place: "診", shift: "晚" }] },
+  五: { picks: [{ place: "診", shift: "晚" }] },
+  六: { picks: [{ place: "彩", shift: "晚" }] },
+  日: { picks: [{ place: "彩", shift: "晚" }] },
 };
 
 const DAYS = ["一", "二", "三", "四", "五", "六", "日"] as const;
@@ -110,10 +111,27 @@ export function shiftTimes(place: Place, shift: string, day: string): string[] {
   return out;
 }
 
+/** 舊格式 {place, shifts[]} 無痛升級為 {picks}；idempotent、相容新舊 */
+function normalizeDayPlan(raw: unknown): DayPlan {
+  const r = raw as { picks?: unknown; place?: unknown; shifts?: unknown } | null;
+  if (r && Array.isArray(r.picks))
+    return {
+      picks: (r.picks as unknown[])
+        .filter((p): p is { place: unknown; shift: unknown } => {
+          const x = p as { place?: unknown; shift?: unknown } | null;
+          return !!x && x.place != null && x.shift != null;
+        })
+        .map((p) => ({ place: String(p.place), shift: String(p.shift) })),
+    };
+  if (r && r.place != null && Array.isArray(r.shifts)) // 舊格式 {place, shifts[]} → 升級
+    return { picks: (r.shifts as string[]).map((s) => ({ place: String(r.place), shift: s })) };
+  return { picks: [] };
+}
+
 export function loadDayPlans(): Record<string, DayPlan> {
-  const loaded = loadJSON<Record<string, DayPlan>>(LS_KEYS.dayPlans, {});
+  const loaded = loadJSON<Record<string, unknown>>(LS_KEYS.dayPlans, {});
   const merged: Record<string, DayPlan> = {};
-  for (const d of DAYS) merged[d] = loaded[d] ?? DEFAULT_PLANS[d] ?? { place: "彩", shifts: [] };
+  for (const d of DAYS) merged[d] = normalizeDayPlan(loaded[d] ?? DEFAULT_PLANS[d]);
   return merged;
 }
 
@@ -191,14 +209,28 @@ export function blockedRanges(dateStr: string, dayPlans?: Record<string, DayPlan
   const plan = plans[day];
   const ivs: Interval[] = [...routineRangesFor(dateStr)];
   if (plan) {
-    for (const s of plan.shifts) {
-      const r = shiftRange(plan.place, s, day);
+    for (const pk of plan.picks) {
+      const r = shiftRange(pk.place, pk.shift, day);
       if (!r) continue;
       const [a, b] = r.split("~");
       ivs.push([toMin(a), toMin(b)]);
     }
   }
   return mergeRanges(ivs);
+}
+
+function rangesOverlapStr(r1: string, r2: string): boolean {
+  if (!r1 || !r2) return false;
+  const [a1, b1] = r1.split("~");
+  const [a2, b2] = r2.split("~");
+  return toMin(a1) < toMin(b2) && toMin(a2) < toMin(b1); // 嚴格 <：碰邊 end==start 不算重疊
+}
+
+/** day 已選 picks 下，新增 (place,shift) 是否與任一既有重疊 */
+export function pickOverlaps(day: string, place: Place, shift: string, picks: DayPick[]): boolean {
+  const r = shiftRange(place, shift, day);
+  if (!r) return false;
+  return picks.some((p) => rangesOverlapStr(r, shiftRange(p.place, p.shift, day)));
 }
 
 /** 某日可用分鐘數＝1440 −（固定不可用 ∪ 當天課表班別）合併後的總長 */

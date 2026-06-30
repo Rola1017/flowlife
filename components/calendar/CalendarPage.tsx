@@ -492,7 +492,9 @@ export function CalendarPage({
               const totalPct = availMins > 0 ? Math.round(((within + off) / availMins) * 100) : 0;
               const dayPlan = dayPlans[weekdayOf(dateStr)];
               const shiftLabel =
-                dayPlan && dayPlan.shifts.length ? `${dayPlan.place}${dayPlan.shifts.join("")}` : "";
+                dayPlan && dayPlan.picks.length
+                  ? dayPlan.picks.map((p) => `${p.place}${p.shift}`).join("")
+                  : "";
               const dayPomos = countByDate[dateStr] ?? 0;
 
               // 第一圈：可用內讀書（依分類上色）→ 接「未利用」灰色，剛好一圈

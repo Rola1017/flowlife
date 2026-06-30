@@ -83,16 +83,16 @@ export function VerticalTimeline({
 
     const dayPlans = loadDayPlans();
     const plan = dayPlans[dayKey];
-    const shiftBlocks = (plan?.shifts ?? []).flatMap((s) => {
-      const r = plan ? shiftRange(plan.place, s, dayKey) : "";
+    const shiftBlocks = (plan?.picks ?? []).flatMap(({ place, shift }) => {
+      const r = shiftRange(place, shift, dayKey);
       if (!r) return [];
       const [start, end] = r.split("~");
       return [
         {
           start,
           end,
-          label: `兼差:${placeName(plan.place)}`,
-          color: CAT.cat2Color("兼差", placeName(plan.place)),
+          label: `兼差:${placeName(place)}`,
+          color: CAT.cat2Color("兼差", placeName(place)),
           kind: "shift" as const,
         },
       ];
