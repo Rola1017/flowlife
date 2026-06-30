@@ -155,6 +155,12 @@ export function SchedulePage({
     saveWorkplaces(next);
     pruneOrphanPicks(next);
   };
+  const orphanPrunedOnce = useRef(false);
+  useEffect(() => {
+    if (orphanPrunedOnce.current) return;
+    orphanPrunedOnce.current = true;
+    pruneOrphanPicks(workplaces);
+  }, [workplaces]);
   type EditTarget = { d: string; t: string };
   const [editTargets, setEditTargets] = useState<EditTarget[] | null>(null);
   const [draft, setDraft] = useState<Draft>({ name: "", cat1: "學習", cat2: "", cat3: "" });

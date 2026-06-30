@@ -60,7 +60,7 @@ const fmtHM = (m: number) =>
   `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 
 function findShift(place: Place, shift: string, list: WorkplaceConfig[] = loadWorkplaces()) {
-  return list.find((w) => w.id === place)?.shifts.find((s) => s.id === shift || s.label === shift);
+  return list.find((w) => w.id === place)?.shifts.find((s) => s.id === shift);
 }
 
 // 依星期挑當天生效範圍：優先 days 含該日者，否則 days===null 通用範圍
