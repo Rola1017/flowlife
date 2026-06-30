@@ -56,9 +56,11 @@ export function VerticalTimeline({
   useEffect(() => {
     const u1 = subscribeAppState(APP_STATE_KEYS.dayPlans, () => setPlanRev((n) => n + 1));
     const u2 = subscribeAppState(APP_STATE_KEYS.workplaces, () => setPlanRev((n) => n + 1));
+    const u3 = subscribeAppState(APP_STATE_KEYS.weekSchedule, () => setPlanRev((n) => n + 1));
     return () => {
       u1();
       u2();
+      u3();
     };
   }, []);
 

@@ -19,7 +19,7 @@ import {
   saveWorkplaces,
   FIXED_ROUTINE,
 } from "@/lib/schedule";
-import { subscribeAppState, APP_STATE_KEYS } from "@/lib/appStateCloud";
+import { subscribeAppState, pushAppState, APP_STATE_KEYS } from "@/lib/appStateCloud";
 import { WorkplaceManager } from "./WorkplaceManager";
 import { toM } from "@/lib/utils";
 import { Card, SL } from "@/components/ui/Card";
@@ -204,9 +204,29 @@ export function SchedulePage({
     setMounted(true);
   }, []);
 
+  const firstSchedSave = useRef(true);
+  const skipSchedPush = useRef(false);
   useEffect(() => {
-    saveJSON(LS_KEYS.weekSchedule, sched);
+    saveJSON(LS_KEYS.weekSchedule, sched); // 一律存本地
+    if (firstSchedSave.current) {
+      firstSchedSave.current = false;
+      return;
+    }
+    if (skipSchedPush.current) {
+      skipSchedPush.current = false;
+      return;
+    }
+    void pushAppState(APP_STATE_KEYS.weekSchedule, sched);
   }, [sched]);
+
+  useEffect(
+    () =>
+      subscribeAppState(APP_STATE_KEYS.weekSchedule, () => {
+        skipSchedPush.current = true;
+        setSched(normalizeSchedule(loadJSON(LS_KEYS.weekSchedule, {})));
+      }),
+    [],
+  );
 
   const firstDayPlanSave = useRef(true);
   const skipDayPlanPush = useRef(false);

@@ -50,12 +50,34 @@ export function WorkplaceManager({
     );
 
   const toggleDay = (wpId: string, shiftId: string, ri: number, dw: string) => {
-    const w = workplaces.find((x) => x.id === wpId);
-    const r = w?.shifts.find((s) => s.id === shiftId)?.ranges[ri];
-    if (!r) return;
-    const cur = r.days ?? [];
-    const nextDays = cur.includes(dw) ? cur.filter((d) => d !== dw) : [...cur, dw];
-    patchRange(wpId, shiftId, ri, { days: nextDays.length ? nextDays : null });
+    onChange(
+      workplaces.map((w) =>
+        w.id !== wpId
+          ? w
+          : {
+              ...w,
+              shifts: w.shifts.map((s) => {
+                if (s.id !== shiftId) return s;
+                const target = s.ranges[ri];
+                const has = (target?.days ?? []).includes(dw);
+                const ranges = s.ranges.map((r, i) => {
+                  if (i === ri) {
+                    const cur = r.days ?? [];
+                    const next = has ? cur.filter((d) => d !== dw) : [...cur, dw];
+                    return { ...r, days: next.length ? next : null };
+                  }
+                  // 新增該日時，從其它「有指定日子」的段移除該日（互斥）
+                  if (!has && r.days) {
+                    const cleaned = r.days.filter((d) => d !== dw);
+                    return { ...r, days: cleaned.length ? cleaned : null };
+                  }
+                  return r;
+                });
+                return { ...s, ranges };
+              }),
+            },
+      ),
+    );
   };
 
   const addRange = (wpId: string, shiftId: string) =>
