@@ -79,15 +79,7 @@ export function placeShifts(id: Place): string[] {
   return loadWorkplaces().find((w) => w.id === id)?.shifts.map((s) => s.label) ?? [];
 }
 
-export const DEFAULT_PLANS: Record<string, DayPlan> = {
-  一: { picks: [{ place: "診", shift: "晚" }] },
-  二: { picks: [{ place: "診", shift: "晚" }] },
-  三: { picks: [{ place: "診", shift: "晚" }] },
-  四: { picks: [{ place: "診", shift: "晚" }] },
-  五: { picks: [{ place: "診", shift: "晚" }] },
-  六: { picks: [{ place: "彩", shift: "晚" }] },
-  日: { picks: [{ place: "彩", shift: "晚" }] },
-};
+export const DEFAULT_PLANS: Record<string, DayPlan> = {};
 
 const DAYS = ["一", "二", "三", "四", "五", "六", "日"] as const;
 const WEEKDAY_FROM_DOW = ["日", "一", "二", "三", "四", "五", "六"] as const;

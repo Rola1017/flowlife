@@ -526,6 +526,25 @@ export function SchedulePage({
           onClick={() => setShowWpMgr((v) => !v)}
           style={{ fontSize: 11 }}
         />
+        <button
+          type="button"
+          onClick={() => {
+            if (window.confirm("清空所有天的班別選擇？（課表課程、番茄不受影響）")) {
+              setDayPlans(Object.fromEntries(DAYS.map((d) => [d, { picks: [] }])));
+            }
+          }}
+          style={{
+            fontSize: 11,
+            padding: "4px 10px",
+            borderRadius: 8,
+            border: `1px solid ${TH.border}`,
+            background: "transparent",
+            color: TH.muted,
+            cursor: "pointer",
+          }}
+        >
+          🧹 清空所有班別
+        </button>
         <Chip
           label={selectMode ? "✓ 多選中" : "▦ 多選"}
           active={selectMode}
