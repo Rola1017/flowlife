@@ -53,7 +53,14 @@ export function VerticalTimeline({
   const hours = buildTimelineHours();
 
   const [planRev, setPlanRev] = useState(0);
-  useEffect(() => subscribeAppState(APP_STATE_KEYS.dayPlans, () => setPlanRev((n) => n + 1)), []);
+  useEffect(() => {
+    const u1 = subscribeAppState(APP_STATE_KEYS.dayPlans, () => setPlanRev((n) => n + 1));
+    const u2 = subscribeAppState(APP_STATE_KEYS.workplaces, () => setPlanRev((n) => n + 1));
+    return () => {
+      u1();
+      u2();
+    };
+  }, []);
 
   const schedulePln = useMemo(() => {
     const dayKey = weekdayOf(date);

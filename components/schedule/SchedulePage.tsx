@@ -8,16 +8,19 @@ import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 import {
   type Place,
   type DayPlan,
+  type WorkplaceConfig,
   placeName,
-  listWorkplaces,
   pickOverlaps,
   shiftTimes,
   shiftRange,
   loadDayPlans,
   saveDayPlans,
+  loadWorkplaces,
+  saveWorkplaces,
   FIXED_ROUTINE,
 } from "@/lib/schedule";
 import { subscribeAppState, APP_STATE_KEYS } from "@/lib/appStateCloud";
+import { WorkplaceManager } from "./WorkplaceManager";
 import { toM } from "@/lib/utils";
 import { Card, SL } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
@@ -127,6 +130,12 @@ export function SchedulePage({
     ),
   );
   const [dayPlans, setDayPlans] = useState<Record<string, DayPlan>>(loadDayPlans);
+  const [workplaces, setWorkplaces] = useState<WorkplaceConfig[]>(loadWorkplaces);
+  const [showWpMgr, setShowWpMgr] = useState(false);
+  const handleWpChange = (next: WorkplaceConfig[]) => {
+    setWorkplaces(next);
+    saveWorkplaces(next);
+  };
   type EditTarget = { d: string; t: string };
   const [editTargets, setEditTargets] = useState<EditTarget[] | null>(null);
   const [draft, setDraft] = useState<Draft>({ name: "", cat1: "學習", cat2: "", cat3: "" });
@@ -219,6 +228,11 @@ export function SchedulePage({
         skipDayPlanPush.current = true;
         setDayPlans(loadDayPlans());
       }),
+    [],
+  );
+
+  useEffect(
+    () => subscribeAppState(APP_STATE_KEYS.workplaces, () => setWorkplaces(loadWorkplaces())),
     [],
   );
 
@@ -431,6 +445,13 @@ export function SchedulePage({
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <BackBtn onBack={onBack} label="課表" />
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <Chip
+          label="🏢 管理工作場所"
+          active={showWpMgr}
+          color={TH.accent}
+          onClick={() => setShowWpMgr((v) => !v)}
+          style={{ fontSize: 11 }}
+        />
         <Chip
           label={selectMode ? "✓ 多選中" : "▦ 多選"}
           active={selectMode}
@@ -822,8 +843,18 @@ export function SchedulePage({
           </div>
         </Card>
       )}
+      {showWpMgr && (
+        <WorkplaceManager
+          workplaces={workplaces}
+          onChange={handleWpChange}
+          onClose={() => setShowWpMgr(false)}
+        />
+      )}
       <div style={{ fontSize: 10, color: TH.muted }}>
         💡 一天可跨店排班；與已選班別時間重疊的會變灰、不能選
+      </div>
+      <div style={{ fontSize: 10, color: TH.muted }}>
+        💡 點「🏢 管理工作場所」可改各班別時間；同一班別可設「不同日子不同時間」
       </div>
       <div
         className="flowlife-hscroll"
@@ -896,7 +927,7 @@ export function SchedulePage({
                   key={`plan-${d}`}
                   style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "center" }}
                 >
-                  {listWorkplaces().map((w) => (
+                  {workplaces.map((w) => (
                     <div
                       key={w.id}
                       style={{
