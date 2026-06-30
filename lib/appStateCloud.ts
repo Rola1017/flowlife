@@ -15,6 +15,7 @@ export const APP_STATE_KEYS = {
   coinLog: "coin_income_log",
   categories: "categories",
   workplaces: "workplaces",
+  dayPlans: "day_plans",
 } as const;
 
 type AppStateKey = (typeof APP_STATE_KEYS)[keyof typeof APP_STATE_KEYS];
@@ -24,6 +25,7 @@ const LS_FOR_KEY: Record<AppStateKey, string> = {
   [APP_STATE_KEYS.coinLog]: LS_KEYS.coinIncomeLog,
   [APP_STATE_KEYS.categories]: LS_KEYS.categories,
   [APP_STATE_KEYS.workplaces]: LS_KEYS.workplaces,
+  [APP_STATE_KEYS.dayPlans]: LS_KEYS.dayPlans,
 };
 
 const DEFAULT_FOR_KEY: Record<AppStateKey, unknown> = {
@@ -31,6 +33,7 @@ const DEFAULT_FOR_KEY: Record<AppStateKey, unknown> = {
   [APP_STATE_KEYS.coinLog]: [],
   [APP_STATE_KEYS.categories]: [],
   [APP_STATE_KEYS.workplaces]: [], // 不 import DEFAULT_WORKPLACES 避循環；loadWorkplaces 已有 fail-safe 回退
+  [APP_STATE_KEYS.dayPlans]: {}, // 空物件；loadDayPlans 讀取時會正規化/補預設
 };
 
 // 本地 meta：每個 key 的最後修改時間 {key: iso}

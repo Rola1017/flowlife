@@ -6,6 +6,7 @@ import { CAT } from "@/lib/categories";
 import { pctPos, pctH, buildTimelineHours, DS, DE, toM } from "@/lib/utils";
 import { CFG } from "@/lib/config";
 import { placeName, shiftRange, loadDayPlans, weekdayOf, routineBlocksInWindow } from "@/lib/schedule";
+import { subscribeAppState, APP_STATE_KEYS } from "@/lib/appStateCloud";
 import { actSessionsFor, actIdleFor } from "@/lib/timelineActual";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 
@@ -50,6 +51,9 @@ export function VerticalTimeline({
   routineRev?: number;
 }) {
   const hours = buildTimelineHours();
+
+  const [planRev, setPlanRev] = useState(0);
+  useEffect(() => subscribeAppState(APP_STATE_KEYS.dayPlans, () => setPlanRev((n) => n + 1)), []);
 
   const schedulePln = useMemo(() => {
     const dayKey = weekdayOf(date);
@@ -99,7 +103,7 @@ export function VerticalTimeline({
     });
 
     return [...fixedBlocks, ...courseBlocks, ...shiftBlocks];
-  }, [date, routineRev]);
+  }, [date, routineRev, planRev]);
 
   const actSessions = useMemo(() => actSessionsFor(date), [date]);
 

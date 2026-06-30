@@ -135,6 +135,12 @@ export function loadDayPlans(): Record<string, DayPlan> {
   return merged;
 }
 
+/** 每週班表選擇單一寫入來源：存本地＋推雲（app_state day_plans） */
+export function saveDayPlans(plans: Record<string, DayPlan>): void {
+  saveJSON(LS_KEYS.dayPlans, plans);
+  void pushAppState(APP_STATE_KEYS.dayPlans, plans);
+}
+
 export type RoutineBlock = { start: string; end: string; label: string };
 
 /**

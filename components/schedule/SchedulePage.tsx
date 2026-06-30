@@ -14,8 +14,10 @@ import {
   shiftTimes,
   shiftRange,
   loadDayPlans,
+  saveDayPlans,
   FIXED_ROUTINE,
 } from "@/lib/schedule";
+import { subscribeAppState, APP_STATE_KEYS } from "@/lib/appStateCloud";
 import { toM } from "@/lib/utils";
 import { Card, SL } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
@@ -197,9 +199,28 @@ export function SchedulePage({
     saveJSON(LS_KEYS.weekSchedule, sched);
   }, [sched]);
 
+  const firstDayPlanSave = useRef(true);
+  const skipDayPlanPush = useRef(false);
   useEffect(() => {
-    saveJSON(LS_KEYS.dayPlans, dayPlans);
+    if (firstDayPlanSave.current) {
+      firstDayPlanSave.current = false;
+      return;
+    } // 初次載入不推雲
+    if (skipDayPlanPush.current) {
+      skipDayPlanPush.current = false;
+      return;
+    } // 遠端套用不回推
+    saveDayPlans(dayPlans);
   }, [dayPlans]);
+
+  useEffect(
+    () =>
+      subscribeAppState(APP_STATE_KEYS.dayPlans, () => {
+        skipDayPlanPush.current = true;
+        setDayPlans(loadDayPlans());
+      }),
+    [],
+  );
 
   const rowGridStyle: CSSProperties = {
     display: "grid",
