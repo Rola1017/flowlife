@@ -6,7 +6,7 @@ export type DayPick = { place: Place; shift: string };
 export type DayPlan = { picks: DayPick[] };
 
 export type ShiftRangeDef = { days: string[] | null; start: string; end: string };
-export type ShiftDef = { id: string; label: string; ranges: ShiftRangeDef[] };
+export type ShiftDef = { id: string; label: string; days: string[]; ranges: ShiftRangeDef[] };
 export type WorkplaceConfig = { id: Place; name: string; color?: string; shifts: ShiftDef[] };
 
 // 內容＝現行寫死值逐字對齊，不可改任何時間
@@ -15,31 +15,43 @@ export const DEFAULT_WORKPLACES: WorkplaceConfig[] = [
     id: "診",
     name: "診所",
     shifts: [
-      { id: "早", label: "早", ranges: [{ days: null, start: "08:30", end: "12:00" }] },
+      { id: "早", label: "早", days: [], ranges: [{ days: null, start: "08:30", end: "12:00" }] },
       {
         id: "午",
         label: "午",
+        days: [],
         ranges: [
           { days: ["一", "三", "五"], start: "14:00", end: "18:00" },
           { days: ["二", "四", "六", "日"], start: "14:30", end: "18:00" },
         ],
       },
-      { id: "晚", label: "晚", ranges: [{ days: null, start: "18:00", end: "22:00" }] },
+      { id: "晚", label: "晚", days: [], ranges: [{ days: null, start: "18:00", end: "22:00" }] },
     ],
   },
   {
     id: "彩",
     name: "彩券行",
     shifts: [
-      { id: "早", label: "早", ranges: [{ days: null, start: "07:30", end: "14:00" }] },
-      { id: "晚", label: "晚", ranges: [{ days: null, start: "14:00", end: "22:00" }] },
+      { id: "早", label: "早", days: [], ranges: [{ days: null, start: "07:30", end: "14:00" }] },
+      { id: "晚", label: "晚", days: [], ranges: [{ days: null, start: "14:00", end: "22:00" }] },
     ],
   },
 ];
 
+function normalizeWorkplaces(list: WorkplaceConfig[]): WorkplaceConfig[] {
+  return list.map((w) => ({
+    ...w,
+    shifts: w.shifts.map((s) => ({
+      ...s,
+      days: Array.isArray(s.days) ? s.days : [],
+    })),
+  }));
+}
+
 export function loadWorkplaces(): WorkplaceConfig[] {
   const v = loadJSON<WorkplaceConfig[]>(LS_KEYS.workplaces, DEFAULT_WORKPLACES);
-  return Array.isArray(v) && v.length > 0 ? v : DEFAULT_WORKPLACES; // 永不回空，fail-safe
+  const raw = Array.isArray(v) && v.length > 0 ? v : DEFAULT_WORKPLACES; // 永不回空，fail-safe
+  return normalizeWorkplaces(raw);
 }
 export function saveWorkplaces(list: WorkplaceConfig[]): void {
   saveJSON(LS_KEYS.workplaces, list);
@@ -91,12 +103,16 @@ export function weekdayOf(dateStr: string): string {
 export const isMonWedFri = (day: string) => day === "一" || day === "三" || day === "五";
 
 export function shiftRange(place: Place, shift: string, day: string): string {
-  const r = rangeForDay(findShift(place, shift), day);
+  const sh = findShift(place, shift);
+  if (!sh || !sh.days?.includes(day)) return "";
+  const r = rangeForDay(sh, day);
   return r ? `${r.start}~${r.end}` : "";
 }
 
 export function shiftTimes(place: Place, shift: string, day: string): string[] {
-  const r = rangeForDay(findShift(place, shift), day);
+  const sh = findShift(place, shift);
+  if (!sh || !sh.days?.includes(day)) return [];
+  const r = rangeForDay(sh, day);
   if (!r) return [];
   const out: string[] = [];
   for (let t = toMin(r.start); t + 30 <= toMin(r.end); t += 30) out.push(fmtHM(t));

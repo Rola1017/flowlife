@@ -159,6 +159,22 @@ export function WorkplaceManager({
           : { ...w, shifts: w.shifts.map((s) => (s.id !== shiftId ? s : { ...s, label })) },
       ),
     );
+  const setShiftDays = (wpId: string, shiftId: string, dw: string) =>
+    onChange(
+      workplaces.map((w) =>
+        w.id !== wpId
+          ? w
+          : {
+              ...w,
+              shifts: w.shifts.map((s) => {
+                if (s.id !== shiftId) return s;
+                const has = s.days?.includes(dw);
+                const days = has ? s.days.filter((d) => d !== dw) : [...(s.days ?? []), dw];
+                return { ...s, days };
+              }),
+            },
+      ),
+    );
   const addShift = (wpId: string) =>
     onChange(
       workplaces.map((w) =>
@@ -171,6 +187,7 @@ export function WorkplaceManager({
                 {
                   id: genId(),
                   label: "新班",
+                  days: [],
                   ranges: [{ days: null, start: "09:00", end: "18:00" }],
                 },
               ],
@@ -191,7 +208,7 @@ export function WorkplaceManager({
         name: "新場所",
         color: "#64748B",
         shifts: [
-          { id: genId(), label: "班", ranges: [{ days: null, start: "09:00", end: "18:00" }] },
+          { id: genId(), label: "班", days: [], ranges: [{ days: null, start: "09:00", end: "18:00" }] },
         ],
       },
     ]);
@@ -327,6 +344,22 @@ export function WorkplaceManager({
                 >
                   刪除班別
                 </button>
+              </div>
+
+              <div style={{ fontSize: 11, color: TH.cyan, fontWeight: 700, margin: "4px 0 2px" }}>
+                🟢 可上班日（沒亮的日子，課表無法排這個班）
+              </div>
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 6 }}>
+                {DAYW.map((dw) => (
+                  <Chip
+                    key={dw}
+                    label={dw}
+                    active={s.days?.includes(dw)}
+                    color={TH.cyan}
+                    onClick={() => setShiftDays(w.id, s.id, dw)}
+                    style={{ fontSize: 10, minWidth: 26, textAlign: "center" }}
+                  />
+                ))}
               </div>
 
               {s.ranges.map((r, ri) => (

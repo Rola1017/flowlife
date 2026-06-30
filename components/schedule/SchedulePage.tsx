@@ -1042,7 +1042,7 @@ export function SchedulePage({
                       >
                         {w.name}
                       </div>
-                      {w.shifts.map((s) => {
+                      {w.shifts.filter((s) => s.days?.includes(d)).map((s) => {
                         const disabled = pickDisabled(d, w.id, s.id);
                         return (
                           <Chip
