@@ -463,6 +463,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **修 Vercel build**：browser client 改 lazy singleton、`reviews.ts` 移除 import-time 實例化，避免 prerender 在缺 env 時崩潰（型別改用 `ReturnType<typeof makeBrowserClient>` 保具體推斷，消除 implicit-any 外溢）。
 - **S2-1 分類 ID 化＋全量備份**：`BigCat`/`MidCat` 加必填 `id`（`DEFAULT_CATEGORIES` 補固定 slug id、`small` 維持 `string[]`）；`migrateCategoryIds`（掛載跑一次、先 `snapshotForS2` 再補 id、冪等只在有變動時寫檔）；`loadCategories` 讀取端對缺 id 者 in-memory 補上（不寫檔防呆）；CategoryManager 新增大/中類帶 `crypto.randomUUID()`；`storage.snapshotForS2`/`hasS2Backup` 一次性備份 categories/sessions/coinIncomeLog/weekSchedule 原始字串。CAT 存取器形狀不變、畫面零變化。
 - **S2-1b 小分類 ID 化（整棵樹完成）**：`SmallCat` 由 `string` 改 `{ id, name }`，`DEFAULT_CATEGORIES` 所有 subs 補固定 `sml-*` id；`migrateCategoryIds` subs 迴圈正規化（`string→{id,name}`、缺 id 補 `genCatId`，冪等仍先 `snapshotForS2`）＋`loadCategories` `normalizeSub` 同時吃舊 string／物件雙格式做讀取防呆；`CAT.cat3List` 改回 `subs.map(s=>s.name)`、`cat3Color` 改 `findIndex(s=>s.name===cat3)`（消費端仍拿名字陣列、零改動）；CategoryManager subs 全改讀 `.name`（render key 改 `sub.id`、addSub push `{id,name}`、updateSubName 改 `.name`、刪除確認取 `.name`，cascadeRename cat3 仍用名字未動）；新增 `storage.restoreFromS2Backup`（一鍵還原四鍵、無備份回 false，本步未接 UI）。畫面零變化。
+- **課表 UX 第 1 批（完成鈕＋複製貼上）**：`WorkplaceManager` 右上角「✓ 完成」改實心強調色按鈕（`TH.accent`、白字）；`SchedulePage` 網格上方加 💡「點星期可複製整天課程／班別」提示；dayMenu 新增「一次貼多天」——多選星期 chips＋「📥 貼到選取的 N 天」（純課程只貼課程、課程＋班別連 picks 原樣搬 `{place, shift:id}`）；關閉選單清 `pasteTargets`。未動 `lib/schedule.ts`／排班模型。
 - **WorkplaceManager 單段時間精簡**：單一時間段的班別隱藏 per-range 日子標籤與日子鈕（`s.ranges.length > 1` 才顯示，分配哪些天用哪段時間）；單段時只顯示「🟢 可上班日」＋起迄時間。`rangeForDay` 單段一律回 `ranges[0]`（套用所有可上班日、不看 range.days）。頂部 💡 提示改為可上班日模型文案。
 - **班別加 days(可上班日)源頭閘門**：`ShiftDef` 新增 `days: string[]`（可上班日＝閘門，預設 `[]`）；`DEFAULT_WORKPLACES` 各班 `days: []`；`normalizeWorkplaces` 於 `loadWorkplaces` 正規化舊資料缺欄位→`days:[]`。`shiftRange`/`shiftTimes` 加閘門（`!sh.days?.includes(day)`→回空/[]，不在可上班日不可用）；`findShift` 維持只認 id。`WorkplaceManager` 每班別加「🟢 可上班日」chips（`setShiftDays`）；`SchedulePage` picker 只渲染 `s.days?.includes(d)` 的班（沒亮的日子不出按鈕、點不到）。需先在管理工作場所點亮可上班日，課表才能排該班。
 - **班表改為只顯示明確點選**：`DEFAULT_PLANS` 改空 `{}`（移除自動預設排班——舊版每天預設帶診/彩晚班）；`loadDayPlans` `loaded[d] ?? DEFAULT_PLANS[d]`→undefined→`normalizeDayPlan`→`{picks:[]}`，全新/清空後每天預設空，已存選擇仍以 `loaded[d]` 為準不受影響。`SchedulePage` 頂部控制列「🏢 管理工作場所」後加「🧹 清空所有班別」鈕（confirm→`setDayPlans(Object.fromEntries(DAYS.map(d=>[d,{picks:[]}])))`，只動 dayPlans、不碰 weekSchedule/sessions，觸發既有存檔/推雲防呆）。
@@ -540,5 +541,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/07/01（WorkplaceManager 單段時間隱藏多餘 per-range 日子鈕；rangeForDay 單段套用所有可上班日；提示文案更新）*
+*最後更新：2026/07/06（課表 UX 第 1 批：WorkplaceManager「✓ 完成」實心按鈕、SchedulePage 複製提示＋一次貼多天）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*

@@ -258,16 +258,17 @@ export function WorkplaceManager({
             type="button"
             onClick={onClose}
             style={{
-              fontSize: 11,
-              padding: "4px 10px",
+              fontSize: 12,
+              fontWeight: 800,
+              padding: "5px 14px",
               borderRadius: 8,
-              border: `1px solid ${TH.border}`,
-              background: "transparent",
-              color: TH.muted,
+              border: "none",
+              background: TH.accent,
+              color: "#fff",
               cursor: "pointer",
             }}
           >
-            完成
+            ✓ 完成
           </button>
         </div>
       </div>

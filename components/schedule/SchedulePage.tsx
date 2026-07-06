@@ -196,6 +196,7 @@ export function SchedulePage({
     mode: "courses" | "full";
   } | null>(null);
   const [dayMenu, setDayMenu] = useState<string | null>(null);
+  const [pasteTargets, setPasteTargets] = useState<Set<string>>(new Set());
 
   const lpTimer = useRef<number | null>(null);
   const lpStart = useRef<{ x: number; y: number } | null>(null);
@@ -900,6 +901,68 @@ export function SchedulePage({
                 📥 貼上（從週{clip.from}・{clip.mode === "full" ? "課程＋班別" : "只課程"}）
               </button>
             )}
+            {clip && (
+              <div style={{ borderTop: `1px solid ${TH.border}`, paddingTop: 6, marginTop: 2 }}>
+                <div style={{ fontSize: 10, color: TH.muted, marginBottom: 4 }}>
+                  或一次貼到多天（從週{clip.from}・{clip.mode === "full" ? "課程＋班別" : "只課程"}）
+                </div>
+                <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 6 }}>
+                  {DAYS.map((d) => (
+                    <Chip
+                      key={`pt-${d}`}
+                      label={d}
+                      active={pasteTargets.has(d)}
+                      color={TH.accent}
+                      onClick={() =>
+                        setPasteTargets((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(d)) next.delete(d);
+                          else next.add(d);
+                          return next;
+                        })
+                      }
+                      style={{ fontSize: 10, minWidth: 26, textAlign: "center" }}
+                    />
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  disabled={pasteTargets.size === 0}
+                  onClick={() => {
+                    const targets = [...pasteTargets];
+                    setSched((s) => {
+                      const next = { ...s };
+                      for (const d of targets) next[d] = clip.courses.map((c) => ({ ...c }));
+                      return next;
+                    });
+                    if (clip.mode === "full") {
+                      const pl = clip.plan;
+                      setDayPlans((prev) => {
+                        const next = { ...prev };
+                        for (const d of targets)
+                          next[d] = pl ? { picks: [...pl.picks] } : { picks: [] };
+                        return next;
+                      });
+                    }
+                    setPasteTargets(new Set());
+                    setDayMenu(null);
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: 8,
+                    borderRadius: 8,
+                    border: "none",
+                    background: pasteTargets.size ? TH.accent : "#333",
+                    color: "#fff",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: pasteTargets.size ? "pointer" : "default",
+                  }}
+                >
+                  📥 貼到選取的 {pasteTargets.size} 天
+                </button>
+              </div>
+            )}
             <button
               type="button"
               onClick={() => {
@@ -920,7 +983,10 @@ export function SchedulePage({
             </button>
             <button
               type="button"
-              onClick={() => setDayMenu(null)}
+              onClick={() => {
+                setDayMenu(null);
+                setPasteTargets(new Set());
+              }}
               style={{
                 padding: 8,
                 borderRadius: 8,
@@ -948,6 +1014,9 @@ export function SchedulePage({
       </div>
       <div style={{ fontSize: 10, color: TH.muted }}>
         💡 點「🏢 管理工作場所」可改各班別時間；同一班別可設「不同日子不同時間」
+      </div>
+      <div style={{ fontSize: 10, color: TH.muted }}>
+        💡 點最上面的星期（一、二…）可複製整天課程／班別，再貼到其他天
       </div>
       <div
         className="flowlife-hscroll"
