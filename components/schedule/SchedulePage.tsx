@@ -197,6 +197,11 @@ export function SchedulePage({
   } | null>(null);
   const [dayMenu, setDayMenu] = useState<string | null>(null);
   const [pasteTargets, setPasteTargets] = useState<Set<string>>(new Set());
+  const [pasteNotice, setPasteNotice] = useState<string | null>(null);
+
+  const shiftLabelOf = (place: Place, shiftId: string) =>
+    workplaces.find((w) => w.id === place)?.shifts.find((s) => s.id === shiftId)?.label ?? shiftId;
+  const describePick = (pk: DayPick) => `${placeName(pk.place)}·${shiftLabelOf(pk.place, pk.shift)}`;
 
   const lpTimer = useRef<number | null>(null);
   const lpStart = useRef<{ x: number; y: number } | null>(null);
@@ -608,6 +613,31 @@ export function SchedulePage({
           </>
         )}
       </div>
+      {pasteNotice && (
+        <div
+          style={{
+            border: "1px solid #F59E0B66",
+            background: "#F59E0B18",
+            borderRadius: 8,
+            padding: "8px 10px",
+            display: "flex",
+            gap: 8,
+            alignItems: "flex-start",
+          }}
+        >
+          <span style={{ fontSize: 14 }}>⚠️</span>
+          <div style={{ flex: 1, fontSize: 11, color: TH.text, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+            {pasteNotice}
+          </div>
+          <button
+            type="button"
+            onClick={() => setPasteNotice(null)}
+            style={{ background: "none", border: "none", color: TH.muted, fontSize: 14, cursor: "pointer" }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
       {editTargets && (
         <Card style={{ border: `1px solid ${TH.accent}44` }}>
           <SL>
@@ -832,6 +862,7 @@ export function SchedulePage({
                   plan: null,
                   mode: "courses",
                 });
+                setPasteNotice(null);
                 setDayMenu(null);
               }}
               style={{
@@ -856,6 +887,7 @@ export function SchedulePage({
                   plan: p ? { picks: [...p.picks] } : null,
                   mode: "full",
                 });
+                setPasteNotice(null);
                 setDayMenu(null);
               }}
               style={{
@@ -874,16 +906,19 @@ export function SchedulePage({
               <button
                 type="button"
                 onClick={() => {
-                  setSched((s) => ({
-                    ...s,
-                    [dayMenu]: clip.courses.map((c) => ({ ...c })),
-                  }));
+                  const day = dayMenu;
+                  if (!day) return;
+                  setSched((s) => ({ ...s, [day]: clip.courses.map((c) => ({ ...c })) }));
                   if (clip.mode === "full" && clip.plan) {
                     const pl = clip.plan;
-                    setDayPlans((prev) => ({
-                      ...prev,
-                      [dayMenu]: { picks: [...pl.picks] },
-                    }));
+                    const valid = pl.picks.filter((pk) => shiftRange(pk.place, pk.shift, day) !== "");
+                    const skipped = pl.picks.filter((pk) => shiftRange(pk.place, pk.shift, day) === "");
+                    setDayPlans((prev) => ({ ...prev, [day]: { picks: valid } }));
+                    setPasteNotice(
+                      skipped.length
+                        ? `以下班別在週${day}不是可上班日，已略過未貼：${skipped.map(describePick).join("、")}。\n若要固定在週${day}上這些班：點「🏢 管理工作場所」→ 找到該班 → 打開「可上班日」的「${day}」，再貼一次。`
+                        : null,
+                    );
                   }
                   setDayMenu(null);
                 }}
@@ -935,15 +970,27 @@ export function SchedulePage({
                       for (const d of targets) next[d] = clip.courses.map((c) => ({ ...c }));
                       return next;
                     });
+                    const skips: string[] = [];
                     if (clip.mode === "full") {
                       const pl = clip.plan;
                       setDayPlans((prev) => {
                         const next = { ...prev };
-                        for (const d of targets)
-                          next[d] = pl ? { picks: [...pl.picks] } : { picks: [] };
+                        for (const d of targets) {
+                          const valid = pl ? pl.picks.filter((pk) => shiftRange(pk.place, pk.shift, d) !== "") : [];
+                          next[d] = { picks: valid };
+                          if (pl)
+                            for (const pk of pl.picks)
+                              if (shiftRange(pk.place, pk.shift, d) === "")
+                                skips.push(`週${d}：${describePick(pk)}`);
+                        }
                         return next;
                       });
                     }
+                    setPasteNotice(
+                      skips.length
+                        ? `以下班別不是該天的可上班日，已略過未貼：\n${[...new Set(skips)].join("、")}。\n若要固定排這些班：到「🏢 管理工作場所」打開對應的「可上班日」，再貼一次。`
+                        : null,
+                    );
                     setPasteTargets(new Set());
                     setDayMenu(null);
                   }}
@@ -986,6 +1033,7 @@ export function SchedulePage({
               onClick={() => {
                 setDayMenu(null);
                 setPasteTargets(new Set());
+                setPasteNotice(null);
               }}
               style={{
                 padding: 8,

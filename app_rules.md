@@ -463,6 +463,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **修 Vercel build**：browser client 改 lazy singleton、`reviews.ts` 移除 import-time 實例化，避免 prerender 在缺 env 時崩潰（型別改用 `ReturnType<typeof makeBrowserClient>` 保具體推斷，消除 implicit-any 外溢）。
 - **S2-1 分類 ID 化＋全量備份**：`BigCat`/`MidCat` 加必填 `id`（`DEFAULT_CATEGORIES` 補固定 slug id、`small` 維持 `string[]`）；`migrateCategoryIds`（掛載跑一次、先 `snapshotForS2` 再補 id、冪等只在有變動時寫檔）；`loadCategories` 讀取端對缺 id 者 in-memory 補上（不寫檔防呆）；CategoryManager 新增大/中類帶 `crypto.randomUUID()`；`storage.snapshotForS2`/`hasS2Backup` 一次性備份 categories/sessions/coinIncomeLog/weekSchedule 原始字串。CAT 存取器形狀不變、畫面零變化。
 - **S2-1b 小分類 ID 化（整棵樹完成）**：`SmallCat` 由 `string` 改 `{ id, name }`，`DEFAULT_CATEGORIES` 所有 subs 補固定 `sml-*` id；`migrateCategoryIds` subs 迴圈正規化（`string→{id,name}`、缺 id 補 `genCatId`，冪等仍先 `snapshotForS2`）＋`loadCategories` `normalizeSub` 同時吃舊 string／物件雙格式做讀取防呆；`CAT.cat3List` 改回 `subs.map(s=>s.name)`、`cat3Color` 改 `findIndex(s=>s.name===cat3)`（消費端仍拿名字陣列、零改動）；CategoryManager subs 全改讀 `.name`（render key 改 `sub.id`、addSub push `{id,name}`、updateSubName 改 `.name`、刪除確認取 `.name`，cascadeRename cat3 仍用名字未動）；新增 `storage.restoreFromS2Backup`（一鍵還原四鍵、無備份回 false，本步未接 UI）。畫面零變化。
+- **課表複製貼上「自動清潔＋貼不上提醒」**：複製「課程＋班別」貼上時以 `shiftRange(place, shift, day)!==""` 過濾 picks（只貼該天真能排的班，消除隱形貼券）；被略過的班以頁面層 `pasteNotice` ⚠️橫幅明列（哪個班、哪天、去管理工作場所開可上班日）；單日貼上與「貼到選取的 N 天」皆適用；複製/關閉清提醒。未動 `lib/schedule.ts`／排班模型。
 - **指定日期例外排程 2a 地基（資料層＋雲端＋planForDate）**：`LS_KEYS.dayOverrides`＋`app_state` `key="day_overrides"`（比照 `day_plans` 完整鏡像：載入/訂閱/推送/LWW route A、不開新表）。`loadDayOverrides`/`saveDayOverrides`（唯一寫入）＋`planForDate(dateStr)` 單一裁決（有例外 key→整天取代、空 picks＝不排班；無例外→週模式；班別時間仍 `weekdayOf`+`shiftRange`）。`blockedRanges` 改吃 `planForDate`（`availableMinutesFor`/未利用/圓環自動跟）；`VerticalTimeline` schedulePln＋訂閱 `dayOverrides`；`CalendarPage` shiftLabel 改 `planForDate`。本批無 UI、尚無建立例外入口→使用者零可見變化。
 - **課表 UX 第 1 批（完成鈕＋複製貼上）**：`WorkplaceManager` 右上角「✓ 完成」改實心強調色按鈕（`TH.accent`、白字）；`SchedulePage` 網格上方加 💡「點星期可複製整天課程／班別」提示；dayMenu 新增「一次貼多天」——多選星期 chips＋「📥 貼到選取的 N 天」（純課程只貼課程、課程＋班別連 picks 原樣搬 `{place, shift:id}`）；關閉選單清 `pasteTargets`。未動 `lib/schedule.ts`／排班模型。
 - **WorkplaceManager 單段時間精簡**：單一時間段的班別隱藏 per-range 日子標籤與日子鈕（`s.ranges.length > 1` 才顯示，分配哪些天用哪段時間）；單段時只顯示「🟢 可上班日」＋起迄時間。`rangeForDay` 單段一律回 `ranges[0]`（套用所有可上班日、不看 range.days）。頂部 💡 提示改為可上班日模型文案。
@@ -519,7 +520,7 @@ TH.gold    = "#FBBF24"   // 金幣
 | ~~工作場所顏色綁分類名~~ ✅ 已解 | 3c-1b 顏色已解綁存入 `workplace.color`（`colorSeeded` 種子＋`placeColor`/`VerticalTimeline` 優先讀 color），改名不掉色。註：工作場所色與分類色現為兩套，logged 兼差時間色仍走 `CAT.cat2Color`。 |
 | 【指定日期例外排程】 | **2a 地基完成**（`day_overrides`＋`planForDate`＋`blockedRanges` 攔截；尚無 UI）。**2b 待做**：建立/編輯例外便利貼 UI。觸發：Rola 指定或 S4 後優先。 |
 | 例外排程：過去日期不自動清除 | **刻意保留**——過去日期的例外不自動清除，供時間軸/未利用回看歷史（非 bug）。 |
-| 例外能否跨「可上班日」閘門 | **留待 2b 與 Rola 確認**——例外 picks 是否仍受 `ShiftDef.days` 閘門約束，產品決策未定。 |
+| 例外能否跨「可上班日」閘門 | ✅ **已決策（分流）**——**複製貼上**：守 `shiftRange` 閘門＋略過提醒（本批）；**便利貼例外**（`planForDate`/`day_overrides`）：不受閘門，留待 2b UI 實作。 |
 | session/分類 name-based 改 uuid | **S2-2a＋S2-3 完成**——番茄並存 `cat1Id/cat2Id/cat3Id`（`stampSessionCatIds`）＋並存 `uuid` 跨裝置主鍵（`ensureSessionUuid`，只補不覆蓋、冪等），`App.updateSessions` 經 `stampSession` 單一接縫補（含啟動載入補舊番茄）；名字/number `id` 仍為現行權威、尚無處讀編號或 uuid（行為零變化）。**待**：番茄上雲使用 uuid 主鍵、S2-2b 改名/顯示改用編號退役 `cascadeRename`、週課表/coinLog 編號化。 |
 
 ---
@@ -544,5 +545,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/07/06（指定日期例外排程 2a 地基：day_overrides 雲端同步、planForDate 單一裁決、blockedRanges/時間軸/週曆改走 planForDate；無 UI）*
+*最後更新：2026/07/06（課表複製貼上自動清潔：shiftRange 過濾不可排班別＋pasteNotice 提醒；閘門決策：複製貼上守閘門、便利貼例外不受閘門）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*
