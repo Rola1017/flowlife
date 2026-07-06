@@ -5,7 +5,7 @@ import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
 import { buildCalendarStats, sessionMatches } from "@/lib/analytics";
 import { CAT } from "@/lib/categories";
-import { availableMinutesFor, loadDayPlans, weekdayOf } from "@/lib/schedule";
+import { availableMinutesFor, loadDayPlans, planForDate } from "@/lib/schedule";
 import { availableSegments, splitSessionsByAvailability } from "@/lib/idle";
 import type { Session } from "@/lib/types";
 import { fmt, getDaysInMonth, getFirstDow } from "@/lib/utils";
@@ -490,7 +490,7 @@ export function CalendarPage({
                 availSegs,
               );
               const totalPct = availMins > 0 ? Math.round(((within + off) / availMins) * 100) : 0;
-              const dayPlan = dayPlans[weekdayOf(dateStr)];
+              const dayPlan = planForDate(dateStr, dayPlans);
               const shiftLabel =
                 dayPlan && dayPlan.picks.length
                   ? dayPlan.picks.map((p) => `${p.place}${p.shift}`).join("")

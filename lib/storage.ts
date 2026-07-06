@@ -18,6 +18,7 @@ export const LS_KEYS = {
   weekSchedule: `${STORAGE_PREFIX}week_schedule`,
   colorPalette: `${STORAGE_PREFIX}color_palette`,
   dayPlans: `${STORAGE_PREFIX}day_plans`,
+  dayOverrides: `${STORAGE_PREFIX}day_overrides`,
   scheduleHistory: `${STORAGE_PREFIX}schedule_history`,
   timelineTodoView: `${STORAGE_PREFIX}timeline_todo_view`,
   reviews: `${STORAGE_PREFIX}reviews`,

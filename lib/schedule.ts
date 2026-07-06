@@ -150,6 +150,37 @@ export function saveDayPlans(plans: Record<string, DayPlan>): void {
   void pushAppState(APP_STATE_KEYS.dayPlans, plans);
 }
 
+/** 指定日期例外班表（date-keyed override）。key＝"YYYY-MM-DD"；key 存在＝該日以例外為準（picks 空＝當天不排班）。 */
+export function loadDayOverrides(): Record<string, DayPlan> {
+  const loaded = loadJSON<Record<string, unknown>>(LS_KEYS.dayOverrides, {});
+  const out: Record<string, DayPlan> = {};
+  for (const k of Object.keys(loaded)) out[k] = normalizeDayPlan(loaded[k]);
+  return out;
+}
+
+/** 例外班表唯一寫入來源：存本地＋推雲（app_state day_overrides） */
+export function saveDayOverrides(map: Record<string, DayPlan>): void {
+  saveJSON(LS_KEYS.dayOverrides, map);
+  void pushAppState(APP_STATE_KEYS.dayOverrides, map);
+}
+
+/**
+ * 某日期生效班表（單一裁決者）：
+ *  有例外(便利貼)→ 用例外，整天取代；例外 picks 空＝當天不排班。
+ *  無例外 → 用該星期的週模式。
+ * 班別時間仍以該日實際星期解析（shiftRange 依 weekdayOf）。
+ */
+export function planForDate(
+  dateStr: string,
+  dayPlans?: Record<string, DayPlan>,
+  overrides?: Record<string, DayPlan>,
+): DayPlan {
+  const ov = (overrides ?? loadDayOverrides())[dateStr];
+  if (ov) return ov;
+  const plans = dayPlans ?? loadDayPlans();
+  return plans[weekdayOf(dateStr)] ?? { picks: [] };
+}
+
 export type RoutineBlock = { start: string; end: string; label: string };
 
 /**
@@ -221,7 +252,7 @@ function mergeRanges(ivs: Interval[]): Interval[] {
 export function blockedRanges(dateStr: string, dayPlans?: Record<string, DayPlan>): Interval[] {
   const plans = dayPlans ?? loadDayPlans();
   const day = weekdayOf(dateStr);
-  const plan = plans[day];
+  const plan = planForDate(dateStr, plans); // 吃例外便利貼；無則回週模式
   const ivs: Interval[] = [...routineRangesFor(dateStr)];
   if (plan) {
     for (const pk of plan.picks) {

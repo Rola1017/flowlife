@@ -8,9 +8,9 @@ import { CFG } from "@/lib/config";
 import {
   placeName,
   shiftRange,
-  loadDayPlans,
   loadWorkplaces,
   weekdayOf,
+  planForDate,
   routineBlocksInWindow,
 } from "@/lib/schedule";
 import { subscribeAppState, APP_STATE_KEYS } from "@/lib/appStateCloud";
@@ -64,10 +64,12 @@ export function VerticalTimeline({
     const u1 = subscribeAppState(APP_STATE_KEYS.dayPlans, () => setPlanRev((n) => n + 1));
     const u2 = subscribeAppState(APP_STATE_KEYS.workplaces, () => setPlanRev((n) => n + 1));
     const u3 = subscribeAppState(APP_STATE_KEYS.weekSchedule, () => setPlanRev((n) => n + 1));
+    const u4 = subscribeAppState(APP_STATE_KEYS.dayOverrides, () => setPlanRev((n) => n + 1));
     return () => {
       u1();
       u2();
       u3();
+      u4();
     };
   }, []);
 
@@ -101,8 +103,7 @@ export function VerticalTimeline({
       return { start: cell.t, end, label, color, kind: "course" as const };
     });
 
-    const dayPlans = loadDayPlans();
-    const plan = dayPlans[dayKey];
+    const plan = planForDate(date);
     const shiftBlocks = (plan?.picks ?? []).flatMap(({ place, shift }) => {
       const r = shiftRange(place, shift, dayKey);
       if (!r) return [];
