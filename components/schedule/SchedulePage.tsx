@@ -13,13 +13,18 @@ import {
   pickOverlaps,
   shiftTimes,
   shiftRange,
+  weekdayOf,
   loadDayPlans,
   saveDayPlans,
+  loadDayOverrides,
+  saveDayOverrides,
+  shiftRangeOn,
   loadWorkplaces,
   saveWorkplaces,
   FIXED_ROUTINE,
 } from "@/lib/schedule";
 import { subscribeAppState, pushAppState, APP_STATE_KEYS } from "@/lib/appStateCloud";
+import { CFG } from "@/lib/config";
 import { WorkplaceManager } from "./WorkplaceManager";
 import { toM } from "@/lib/utils";
 import { Card, SL } from "@/components/ui/Card";
@@ -198,10 +203,90 @@ export function SchedulePage({
   const [dayMenu, setDayMenu] = useState<string | null>(null);
   const [pasteTargets, setPasteTargets] = useState<Set<string>>(new Set());
   const [pasteNotice, setPasteNotice] = useState<string | null>(null);
+  const [showDateOv, setShowDateOv] = useState(false);
+  const [dayOverrides, setDayOverrides] = useState<Record<string, DayPlan>>(loadDayOverrides);
+  const [ovDate, setOvDate] = useState<string>(CFG.TODAY_STR);
+  const [ovEnd, setOvEnd] = useState<string>("");
+  const [ovPicks, setOvPicks] = useState<DayPick[]>([]);
 
   const shiftLabelOf = (place: Place, shiftId: string) =>
     workplaces.find((w) => w.id === place)?.shifts.find((s) => s.id === shiftId)?.label ?? shiftId;
   const describePick = (pk: DayPick) => `${placeName(pk.place)}·${shiftLabelOf(pk.place, pk.shift)}`;
+
+  useEffect(
+    () => subscribeAppState(APP_STATE_KEYS.dayOverrides, () => setDayOverrides(loadDayOverrides())),
+    [],
+  );
+
+  const rangeOverlap = (r1: string, r2: string) => {
+    if (!r1 || !r2) return false;
+    const m = (t: string) => {
+      const [h, mm] = t.split(":").map(Number);
+      return h * 60 + mm;
+    };
+    const [a1, b1] = r1.split("~");
+    const [a2, b2] = r2.split("~");
+    return m(a1) < m(b2) && m(a2) < m(b1);
+  };
+  const effectivePicksFor = (date: string): DayPick[] => {
+    const ov = dayOverrides[date];
+    const base = ov ? ov.picks : (dayPlans[weekdayOf(date)]?.picks ?? []);
+    return base.map((p) => ({ ...p }));
+  };
+  const openDateOv = (date: string) => {
+    setOvDate(date);
+    setOvEnd("");
+    setOvPicks(effectivePicksFor(date));
+    setShowDateOv(true);
+  };
+  const ovPickActive = (place: Place, shift: string) =>
+    ovPicks.some((p) => p.place === place && p.shift === shift);
+  const ovPickDisabled = (place: Place, shift: string) => {
+    if (ovPickActive(place, shift)) return false;
+    const r = shiftRangeOn(place, shift, ovDate, true);
+    if (!r) return true;
+    return ovPicks.some((p) => rangeOverlap(r, shiftRangeOn(p.place, p.shift, ovDate, true)));
+  };
+  const toggleOvPick = (place: Place, shift: string) => {
+    setOvPicks((prev) => {
+      const exists = prev.some((p) => p.place === place && p.shift === shift);
+      if (exists) return prev.filter((p) => !(p.place === place && p.shift === shift));
+      const r = shiftRangeOn(place, shift, ovDate, true);
+      if (!r) return prev;
+      if (prev.some((p) => rangeOverlap(r, shiftRangeOn(p.place, p.shift, ovDate, true)))) return prev;
+      return [...prev, { place, shift }];
+    });
+  };
+  const datesInRange = (start: string, end: string): string[] => {
+    const out: string[] = [];
+    const s = new Date(start + "T12:00:00");
+    const e = new Date((end || start) + "T12:00:00");
+    if (e < s) return [start];
+    const cur = new Date(s);
+    let guard = 0;
+    while (cur <= e && guard < 90) {
+      out.push(
+        `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}-${String(cur.getDate()).padStart(2, "0")}`,
+      );
+      cur.setDate(cur.getDate() + 1);
+      guard++;
+    }
+    return out;
+  };
+  const commitOverride = (picks: DayPick[]) => {
+    const dates = datesInRange(ovDate, ovEnd);
+    const next = { ...dayOverrides };
+    for (const d of dates) next[d] = { picks: picks.map((p) => ({ ...p })) };
+    setDayOverrides(next);
+    saveDayOverrides(next);
+    setShowDateOv(false);
+  };
+  const removeOverrideDate = (date: string) => {
+    const next = { ...dayOverrides };
+    delete next[date];
+    setDayOverrides(next);
+    saveDayOverrides(next);
+  };
 
   const lpTimer = useRef<number | null>(null);
   const lpStart = useRef<{ x: number; y: number } | null>(null);
@@ -552,6 +637,13 @@ export function SchedulePage({
           🧹 清空所有班別
         </button>
         <Chip
+          label="📅 指定日期排班"
+          active={showDateOv}
+          color={TH.accent}
+          onClick={() => (showDateOv ? setShowDateOv(false) : openDateOv(ovDate))}
+          style={{ fontSize: 11 }}
+        />
+        <Chip
           label={selectMode ? "✓ 多選中" : "▦ 多選"}
           active={selectMode}
           color={TH.accent}
@@ -637,6 +729,217 @@ export function SchedulePage({
             ✕
           </button>
         </div>
+      )}
+      {showDateOv && (
+        <Card style={{ border: `1px solid ${TH.accent}44` }}>
+          <SL>📅 指定日期排班（便利貼）</SL>
+          <div style={{ fontSize: 10, color: TH.muted, margin: "4px 0 8px" }}>
+            💡 便利貼只改「這一天」，不動每週固定班表；可挑任何班（含平常這天沒有的班）。撕掉便利貼就恢復每週固定。
+          </div>
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              alignItems: "center",
+              flexWrap: "wrap",
+              marginBottom: 8,
+            }}
+          >
+            <span style={{ fontSize: 11, color: TH.muted }}>日期</span>
+            <input
+              type="date"
+              value={ovDate}
+              onChange={(e) => {
+                setOvDate(e.target.value);
+                setOvPicks(effectivePicksFor(e.target.value));
+              }}
+              style={{
+                background: "#15151B",
+                border: `1px solid ${TH.border}`,
+                borderRadius: 6,
+                color: TH.text,
+                fontSize: 12,
+                padding: "4px 6px",
+                colorScheme: "dark",
+              }}
+            />
+            <span style={{ fontSize: 11, color: TH.muted }}>到（選填，套用整段）</span>
+            <input
+              type="date"
+              value={ovEnd}
+              min={ovDate}
+              onChange={(e) => setOvEnd(e.target.value)}
+              style={{
+                background: "#15151B",
+                border: `1px solid ${TH.border}`,
+                borderRadius: 6,
+                color: TH.text,
+                fontSize: 12,
+                padding: "4px 6px",
+                colorScheme: "dark",
+              }}
+            />
+          </div>
+          <div style={{ fontSize: 11, color: TH.text, fontWeight: 700, marginBottom: 4 }}>
+            週{weekdayOf(ovDate)}　挑這天要上的班
+          </div>
+          {workplaces.map((w) => (
+            <div key={w.id} style={{ marginBottom: 6 }}>
+              <div style={{ fontSize: 10, color: placeColor(w.id), fontWeight: 700 }}>{w.name}</div>
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 2 }}>
+                {w.shifts.map((s) => {
+                  const r = shiftRangeOn(w.id, s.id, ovDate, true);
+                  const disabled = ovPickDisabled(w.id, s.id);
+                  return (
+                    <Chip
+                      key={`${w.id}-${s.id}`}
+                      label={`${s.label}${r ? " " + r : ""}`}
+                      active={ovPickActive(w.id, s.id)}
+                      color={placeColor(w.id)}
+                      onClick={() => {
+                        if (!disabled) toggleOvPick(w.id, s.id);
+                      }}
+                      style={{ fontSize: 9, padding: "3px 8px", opacity: disabled ? 0.3 : 1 }}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={() => commitOverride(ovPicks)}
+              style={{
+                flex: 1,
+                minWidth: 110,
+                padding: "7px",
+                borderRadius: 8,
+                background: TH.green,
+                border: "none",
+                color: "#fff",
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              存成便利貼
+              {ovEnd && ovEnd !== ovDate ? `（${datesInRange(ovDate, ovEnd).length}天）` : ""}
+            </button>
+            <button
+              type="button"
+              onClick={() => commitOverride([])}
+              style={{
+                padding: "7px 10px",
+                borderRadius: 8,
+                background: "#F59E0B22",
+                border: "1px solid #F59E0B55",
+                color: "#F59E0B",
+                fontSize: 11,
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              🌙 設為休假
+            </button>
+            {dayOverrides[ovDate] && (
+              <button
+                type="button"
+                onClick={() => {
+                  removeOverrideDate(ovDate);
+                  setShowDateOv(false);
+                }}
+                style={{
+                  padding: "7px 10px",
+                  borderRadius: 8,
+                  background: "#EF444422",
+                  border: "1px solid #EF444444",
+                  color: TH.red,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                🗑 撕掉便利貼
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowDateOv(false)}
+              style={{
+                padding: "7px 10px",
+                borderRadius: 8,
+                background: "transparent",
+                border: `1px solid ${TH.border}`,
+                color: TH.muted,
+                fontSize: 11,
+                cursor: "pointer",
+              }}
+            >
+              關閉
+            </button>
+          </div>
+
+          {Object.keys(dayOverrides).length > 0 && (
+            <div style={{ marginTop: 12, borderTop: `1px solid ${TH.border}`, paddingTop: 8 }}>
+              <div style={{ fontSize: 11, color: TH.muted, marginBottom: 6 }}>已貼的便利貼</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {Object.keys(dayOverrides)
+                  .sort()
+                  .map((d) => {
+                    const picks = dayOverrides[d].picks;
+                    const summary = picks.length ? picks.map(describePick).join("、") : "🌙 休假";
+                    return (
+                      <div
+                        key={d}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          background: "#0D0D0F",
+                          border: `1px solid ${TH.border}`,
+                          borderRadius: 6,
+                          padding: "5px 8px",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => openDateOv(d)}
+                          style={{
+                            flex: 1,
+                            textAlign: "left",
+                            background: "none",
+                            border: "none",
+                            color: TH.text,
+                            fontSize: 11,
+                            cursor: "pointer",
+                          }}
+                        >
+                          <b>{d}</b> 週{weekdayOf(d)}{" "}
+                          <span style={{ color: TH.muted }}>{summary}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeOverrideDate(d)}
+                          style={{
+                            fontSize: 10,
+                            padding: "3px 8px",
+                            borderRadius: 6,
+                            border: "1px solid #EF444444",
+                            background: "#EF444422",
+                            color: TH.red,
+                            cursor: "pointer",
+                          }}
+                        >
+                          撕掉
+                        </button>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
+        </Card>
       )}
       {editTargets && (
         <Card style={{ border: `1px solid ${TH.accent}44` }}>

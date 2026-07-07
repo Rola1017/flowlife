@@ -7,10 +7,11 @@ import { pctPos, pctH, buildTimelineHours, DS, DE, toM } from "@/lib/utils";
 import { CFG } from "@/lib/config";
 import {
   placeName,
-  shiftRange,
   loadWorkplaces,
   weekdayOf,
   planForDate,
+  loadDayOverrides,
+  shiftRangeOn,
   routineBlocksInWindow,
 } from "@/lib/schedule";
 import { subscribeAppState, APP_STATE_KEYS } from "@/lib/appStateCloud";
@@ -103,9 +104,11 @@ export function VerticalTimeline({
       return { start: cell.t, end, label, color, kind: "course" as const };
     });
 
-    const plan = planForDate(date);
+    const overrides = loadDayOverrides();
+    const isOv = !!overrides[date];
+    const plan = planForDate(date, undefined, overrides);
     const shiftBlocks = (plan?.picks ?? []).flatMap(({ place, shift }) => {
-      const r = shiftRange(place, shift, dayKey);
+      const r = shiftRangeOn(place, shift, date, isOv);
       if (!r) return [];
       const [start, end] = r.split("~");
       const wp = loadWorkplaces().find((x) => x.id === place);

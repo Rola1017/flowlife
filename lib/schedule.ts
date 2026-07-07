@@ -120,6 +120,16 @@ export function shiftTimes(place: Place, shift: string, day: string): string[] {
   return out;
 }
 
+/** 指定日期解析某班別時間：便利貼(isOverride=true)不看可上班日閘門；週模式仍守閘門。 */
+export function shiftRangeOn(place: Place, shift: string, dateStr: string, isOverride: boolean): string {
+  const sh = findShift(place, shift);
+  if (!sh) return "";
+  const day = weekdayOf(dateStr);
+  if (!isOverride && !sh.days?.includes(day)) return "";
+  const r = rangeForDay(sh, day);
+  return r ? `${r.start}~${r.end}` : "";
+}
+
 /** 舊格式 {place, shifts[]} 無痛升級為 {picks}；idempotent、相容新舊 */
 function normalizeDayPlan(raw: unknown): DayPlan {
   const r = raw as { picks?: unknown; place?: unknown; shifts?: unknown } | null;
@@ -251,12 +261,13 @@ function mergeRanges(ivs: Interval[]): Interval[] {
 /** 某日不可用區間＝固定作息 ∪ 當日班別（全天分鐘制、已合併）— 單一來源 */
 export function blockedRanges(dateStr: string, dayPlans?: Record<string, DayPlan>): Interval[] {
   const plans = dayPlans ?? loadDayPlans();
-  const day = weekdayOf(dateStr);
-  const plan = planForDate(dateStr, plans); // 吃例外便利貼；無則回週模式
+  const overrides = loadDayOverrides();
+  const isOv = !!overrides[dateStr];
+  const plan = planForDate(dateStr, plans, overrides);
   const ivs: Interval[] = [...routineRangesFor(dateStr)];
   if (plan) {
     for (const pk of plan.picks) {
-      const r = shiftRange(pk.place, pk.shift, day);
+      const r = shiftRangeOn(pk.place, pk.shift, dateStr, isOv);
       if (!r) continue;
       const [a, b] = r.split("~");
       ivs.push([toMin(a), toMin(b)]);
