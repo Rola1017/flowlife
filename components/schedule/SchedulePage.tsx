@@ -8,6 +8,7 @@ import {
   type Place,
   type DayPlan,
   type DayPick,
+  type DayOverride,
   type WorkplaceConfig,
   placeName,
   pickOverlaps,
@@ -19,6 +20,9 @@ import {
   loadDayOverrides,
   saveDayOverrides,
   shiftRangeOn,
+  shiftTimesOn,
+  coursesForDate,
+  loadScheduleCourses,
   loadWorkplaces,
   saveWorkplaces,
   FIXED_ROUTINE,
@@ -204,10 +208,13 @@ export function SchedulePage({
   const [pasteTargets, setPasteTargets] = useState<Set<string>>(new Set());
   const [pasteNotice, setPasteNotice] = useState<string | null>(null);
   const [showDateOv, setShowDateOv] = useState(false);
-  const [dayOverrides, setDayOverrides] = useState<Record<string, DayPlan>>(loadDayOverrides);
+  const [dayOverrides, setDayOverrides] = useState<Record<string, DayOverride>>(loadDayOverrides);
   const [ovDate, setOvDate] = useState<string>(CFG.TODAY_STR);
   const [ovEnd, setOvEnd] = useState<string>("");
   const [ovPicks, setOvPicks] = useState<DayPick[]>([]);
+  const [ovCourses, setOvCourses] = useState<SchedRow[] | null>(null);
+  const [ovAddT, setOvAddT] = useState<string>("");
+  const [ovAddIdx, setOvAddIdx] = useState<string>("");
 
   const shiftLabelOf = (place: Place, shiftId: string) =>
     workplaces.find((w) => w.id === place)?.shifts.find((s) => s.id === shiftId)?.label ?? shiftId;
@@ -237,8 +244,15 @@ export function SchedulePage({
     setOvDate(date);
     setOvEnd("");
     setOvPicks(effectivePicksFor(date));
+    setOvCourses(dayOverrides[date]?.courses ?? null);
     setShowDateOv(true);
   };
+  const ovShiftSlots = () => ovPicks.flatMap((p) => shiftTimesOn(p.place, p.shift, ovDate, true));
+  const ovAddableSlots = () => {
+    const used = new Set([...(ovCourses ?? []).map((c) => c.t), ...ovShiftSlots()]);
+    return HALF_SLOTS.filter((t) => !used.has(t));
+  };
+  const courseLabelOf = (c: SchedRow) => c.n || c.cat3 || c.cat2 || c.cat1;
   const ovPickActive = (place: Place, shift: string) =>
     ovPicks.some((p) => p.place === place && p.shift === shift);
   const ovPickDisabled = (place: Place, shift: string) => {
@@ -273,10 +287,14 @@ export function SchedulePage({
     }
     return out;
   };
-  const commitOverride = (picks: DayPick[]) => {
+  const commitOverride = (picks: DayPick[], courses: SchedRow[] | null) => {
     const dates = datesInRange(ovDate, ovEnd);
     const next = { ...dayOverrides };
-    for (const d of dates) next[d] = { picks: picks.map((p) => ({ ...p })) };
+    for (const d of dates)
+      next[d] =
+        courses !== null
+          ? { picks: picks.map((p) => ({ ...p })), courses: courses.map((c) => ({ ...c })) }
+          : { picks: picks.map((p) => ({ ...p })) };
     setDayOverrides(next);
     saveDayOverrides(next);
     setShowDateOv(false);
@@ -752,6 +770,7 @@ export function SchedulePage({
               onChange={(e) => {
                 setOvDate(e.target.value);
                 setOvPicks(effectivePicksFor(e.target.value));
+                setOvCourses(dayOverrides[e.target.value]?.courses ?? null);
               }}
               style={{
                 background: "#15151B",
@@ -806,10 +825,168 @@ export function SchedulePage({
               </div>
             </div>
           ))}
+          <div style={{ borderTop: `1px solid ${TH.border}`, marginTop: 8, paddingTop: 8 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 6,
+              }}
+            >
+              <div style={{ fontSize: 11, color: TH.text, fontWeight: 700 }}>📚 這天的課程</div>
+              <button
+                type="button"
+                onClick={() =>
+                  setOvCourses((prev) =>
+                    prev === null ? (sched[weekdayOf(ovDate)] ?? []).map((c) => ({ ...c })) : null,
+                  )
+                }
+                style={{
+                  fontSize: 10,
+                  padding: "3px 10px",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  border: `1px solid ${ovCourses === null ? TH.border : TH.accent}`,
+                  background: ovCourses === null ? "transparent" : TH.accent,
+                  color: ovCourses === null ? TH.muted : "#fff",
+                  fontWeight: 700,
+                }}
+              >
+                {ovCourses === null ? "沿用每週固定（點我自訂）" : "✓ 自訂這天課程"}
+              </button>
+            </div>
+            {ovCourses !== null && (
+              <div>
+                {ovCourses.length === 0 && (
+                  <div style={{ fontSize: 10, color: TH.muted, marginBottom: 6 }}>
+                    （這天不排課／自習）
+                  </div>
+                )}
+                <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 6 }}>
+                  {[...ovCourses]
+                    .sort((a, b) => a.t.localeCompare(b.t))
+                    .map((c) => (
+                      <div
+                        key={c.t}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          fontSize: 11,
+                          color: TH.text,
+                        }}
+                      >
+                        <span style={{ color: TH.muted, minWidth: 40 }}>{c.t}</span>
+                        <span style={{ flex: 1 }}>{courseLabelOf(c)}</span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setOvCourses((prev) => (prev ?? []).filter((x) => x.t !== c.t))
+                          }
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: TH.red,
+                            fontSize: 12,
+                            cursor: "pointer",
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                </div>
+                <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
+                  <select
+                    value={ovAddT}
+                    onChange={(e) => setOvAddT(e.target.value)}
+                    style={{
+                      background: "#0A0A0C",
+                      border: `1px solid ${TH.border}`,
+                      borderRadius: 6,
+                      color: TH.text,
+                      fontSize: 11,
+                      padding: "4px 6px",
+                    }}
+                  >
+                    <option value="">時段</option>
+                    {ovAddableSlots().map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={ovAddIdx}
+                    onChange={(e) => setOvAddIdx(e.target.value)}
+                    style={{
+                      background: "#0A0A0C",
+                      border: `1px solid ${TH.border}`,
+                      borderRadius: 6,
+                      color: TH.text,
+                      fontSize: 11,
+                      padding: "4px 6px",
+                      maxWidth: 140,
+                    }}
+                  >
+                    <option value="">科目</option>
+                    {loadScheduleCourses().map((c, i) => (
+                      <option key={i} value={String(i)}>
+                        {courseLabelOf(c)}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    disabled={!ovAddT || ovAddIdx === ""}
+                    onClick={() => {
+                      const lib = loadScheduleCourses();
+                      const c = lib[Number(ovAddIdx)];
+                      if (!c || !ovAddT) return;
+                      setOvCourses((prev) => [
+                        ...(prev ?? []).filter((x) => x.t !== ovAddT),
+                        { t: ovAddT, n: c.n, cat1: c.cat1, cat2: c.cat2, cat3: c.cat3 },
+                      ]);
+                      setOvAddT("");
+                      setOvAddIdx("");
+                    }}
+                    style={{
+                      fontSize: 11,
+                      padding: "4px 10px",
+                      borderRadius: 8,
+                      border: "none",
+                      background: ovAddT && ovAddIdx !== "" ? TH.green : "#333",
+                      color: "#fff",
+                      fontWeight: 700,
+                      cursor: ovAddT && ovAddIdx !== "" ? "pointer" : "default",
+                    }}
+                  >
+                    ＋加
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOvCourses([])}
+                    style={{
+                      fontSize: 10,
+                      padding: "4px 8px",
+                      borderRadius: 8,
+                      border: `1px solid ${TH.border}`,
+                      background: "transparent",
+                      color: TH.muted,
+                      cursor: "pointer",
+                    }}
+                  >
+                    🧹 清空(自習)
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
           <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
             <button
               type="button"
-              onClick={() => commitOverride(ovPicks)}
+              onClick={() => commitOverride(ovPicks, ovCourses)}
               style={{
                 flex: 1,
                 minWidth: 110,
@@ -828,7 +1005,7 @@ export function SchedulePage({
             </button>
             <button
               type="button"
-              onClick={() => commitOverride([])}
+              onClick={() => commitOverride([], ovCourses)}
               style={{
                 padding: "7px 10px",
                 borderRadius: 8,
@@ -917,6 +1094,9 @@ export function SchedulePage({
                         >
                           <b>{d}</b> 週{weekdayOf(d)}{" "}
                           <span style={{ color: TH.muted }}>{summary}</span>
+                          {dayOverrides[d].courses !== undefined && (
+                            <span style={{ color: TH.cyan, fontSize: 10 }}>・自訂課程</span>
+                          )}
                         </button>
                         <button
                           type="button"

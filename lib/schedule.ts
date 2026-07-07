@@ -4,6 +4,8 @@ import { pushAppState, APP_STATE_KEYS } from "@/lib/appStateCloud";
 export type Place = string;
 export type DayPick = { place: Place; shift: string };
 export type DayPlan = { picks: DayPick[] };
+export type CourseInfo = { t: string; n: string; cat1: string; cat2: string; cat3: string };
+export type DayOverride = { picks: DayPick[]; courses?: CourseInfo[] };
 
 export type ShiftRangeDef = { days: string[] | null; start: string; end: string };
 export type ShiftDef = { id: string; label: string; days: string[]; ranges: ShiftRangeDef[] };
@@ -130,6 +132,18 @@ export function shiftRangeOn(place: Place, shift: string, dateStr: string, isOve
   return r ? `${r.start}~${r.end}` : "";
 }
 
+export function shiftTimesOn(place: Place, shift: string, dateStr: string, isOverride: boolean): string[] {
+  const sh = findShift(place, shift);
+  if (!sh) return [];
+  const day = weekdayOf(dateStr);
+  if (!isOverride && !sh.days?.includes(day)) return [];
+  const r = rangeForDay(sh, day);
+  if (!r) return [];
+  const out: string[] = [];
+  for (let t = toMin(r.start); t + 30 <= toMin(r.end); t += 30) out.push(fmtHM(t));
+  return out;
+}
+
 /** 舊格式 {place, shifts[]} 無痛升級為 {picks}；idempotent、相容新舊 */
 function normalizeDayPlan(raw: unknown): DayPlan {
   const r = raw as { picks?: unknown; place?: unknown; shifts?: unknown } | null;
@@ -147,6 +161,25 @@ function normalizeDayPlan(raw: unknown): DayPlan {
   return { picks: [] };
 }
 
+function normalizeDayOverride(raw: unknown): DayOverride {
+  const base = normalizeDayPlan(raw);
+  const r = raw as { courses?: unknown } | null;
+  if (r && Array.isArray(r.courses)) {
+    const courses = (r.courses as unknown[]).map((c) => {
+      const x = (c ?? {}) as Partial<CourseInfo>;
+      return {
+        t: String(x.t ?? ""),
+        n: String(x.n ?? ""),
+        cat1: String(x.cat1 ?? ""),
+        cat2: String(x.cat2 ?? ""),
+        cat3: String(x.cat3 ?? ""),
+      };
+    });
+    return { picks: base.picks, courses };
+  }
+  return { picks: base.picks };
+}
+
 export function loadDayPlans(): Record<string, DayPlan> {
   const loaded = loadJSON<Record<string, unknown>>(LS_KEYS.dayPlans, {});
   const merged: Record<string, DayPlan> = {};
@@ -161,15 +194,15 @@ export function saveDayPlans(plans: Record<string, DayPlan>): void {
 }
 
 /** 指定日期例外班表（date-keyed override）。key＝"YYYY-MM-DD"；key 存在＝該日以例外為準（picks 空＝當天不排班）。 */
-export function loadDayOverrides(): Record<string, DayPlan> {
+export function loadDayOverrides(): Record<string, DayOverride> {
   const loaded = loadJSON<Record<string, unknown>>(LS_KEYS.dayOverrides, {});
-  const out: Record<string, DayPlan> = {};
-  for (const k of Object.keys(loaded)) out[k] = normalizeDayPlan(loaded[k]);
+  const out: Record<string, DayOverride> = {};
+  for (const k of Object.keys(loaded)) out[k] = normalizeDayOverride(loaded[k]);
   return out;
 }
 
 /** 例外班表唯一寫入來源：存本地＋推雲（app_state day_overrides） */
-export function saveDayOverrides(map: Record<string, DayPlan>): void {
+export function saveDayOverrides(map: Record<string, DayOverride>): void {
   saveJSON(LS_KEYS.dayOverrides, map);
   void pushAppState(APP_STATE_KEYS.dayOverrides, map);
 }
@@ -296,7 +329,6 @@ export function availableMinutesFor(dateStr: string, dayPlans?: Record<string, D
   return Math.max(0, 1440 - blocked);
 }
 
-export type CourseInfo = { t: string; n: string; cat1: string; cat2: string; cat3: string };
 export type CourseNow = { status: "current" | "next"; course: CourseInfo; endTime: string };
 
 /** 週課表所有不重複課程清單（單一讀取來源；給「從課表帶入」等重用） */
@@ -314,6 +346,18 @@ export function loadScheduleCourses(): CourseInfo[] {
     }
   }
   return out.sort((a, b) => (a.cat1 + a.n).localeCompare(b.cat1 + b.n));
+}
+
+/** 某日生效課程：便利貼有定義 courses 用它（整天取代，空陣列＝不排課）；否則沿用該星期每週固定。 */
+export function coursesForDate(
+  dateStr: string,
+  week?: Record<string, CourseInfo[]>,
+  overrides?: Record<string, DayOverride>,
+): CourseInfo[] {
+  const ov = (overrides ?? loadDayOverrides())[dateStr];
+  if (ov && ov.courses !== undefined) return ov.courses;
+  const w = week ?? loadJSON<Record<string, CourseInfo[]>>(LS_KEYS.weekSchedule, {});
+  return w[weekdayOf(dateStr)] ?? [];
 }
 
 /** 依「現在時間」找當前課（落在某格 30 分鐘內）或今天接下來的下一堂課 */

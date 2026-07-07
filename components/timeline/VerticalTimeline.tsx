@@ -8,10 +8,10 @@ import { CFG } from "@/lib/config";
 import {
   placeName,
   loadWorkplaces,
-  weekdayOf,
   planForDate,
   loadDayOverrides,
   shiftRangeOn,
+  coursesForDate,
   routineBlocksInWindow,
 } from "@/lib/schedule";
 import { subscribeAppState, APP_STATE_KEYS } from "@/lib/appStateCloud";
@@ -75,11 +75,8 @@ export function VerticalTimeline({
   }, []);
 
   const schedulePln = useMemo(() => {
-    const dayKey = weekdayOf(date);
-
     type Cell = { t: string; n: string; cat1: string; cat2: string; cat3: string };
-    const week = loadJSON<Record<string, Cell[]>>(LS_KEYS.weekSchedule, {});
-    const cells = week[dayKey] ?? [];
+    const cells = coursesForDate(date) as Cell[];
 
     const fixedBlocks = routineBlocksInWindow(DS, DE, date).map((b) => ({
       start: b.start,
