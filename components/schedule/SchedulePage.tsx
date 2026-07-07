@@ -215,6 +215,7 @@ export function SchedulePage({
   const [ovCourses, setOvCourses] = useState<SchedRow[] | null>(null);
   const [ovSlotEdit, setOvSlotEdit] = useState<string | null>(null);
   const [ovCourseWarn, setOvCourseWarn] = useState<string | null>(null);
+  const [ovConflictSlots, setOvConflictSlots] = useState<Set<string>>(new Set());
 
   const shiftLabelOf = (place: Place, shiftId: string) =>
     workplaces.find((w) => w.id === place)?.shifts.find((s) => s.id === shiftId)?.label ?? shiftId;
@@ -247,6 +248,7 @@ export function SchedulePage({
     setOvCourses(dayOverrides[date]?.courses ?? null);
     setOvSlotEdit(null);
     setOvCourseWarn(null);
+    setOvConflictSlots(new Set());
     setShowDateOv(true);
   };
   const ovWeeklyCourses = (): SchedRow[] => (sched[weekdayOf(ovDate)] ?? []).map((c) => ({ ...c }));
@@ -282,14 +284,14 @@ export function SchedulePage({
     const slots = shiftTimesOn(place, shift, ovDate, true);
     const clash = ovEffectiveCourses().filter((c) => slots.includes(c.t));
     if (clash.length) {
+      setOvConflictSlots(new Set(clash.map((c) => c.t)));
       setOvCourseWarn(
-        `此班與課程衝突：${clash.map((c) => `${c.t} ${courseLabelOf(c)}`).join("、")}。` +
-          (ovCourses === null
-            ? "請先點「自訂這天課程」移除這些課，再排此班。"
-            : "請先移除這些課，再排此班。"),
+        `紅色的課與「${placeName(place)}·${shiftLabelOf(place, shift)}」衝突，移除才能新增此班。` +
+          (ovCourses === null ? "（請先點「自訂這天課程」）" : ""),
       );
       return;
     }
+    setOvConflictSlots(new Set());
     setOvCourseWarn(null);
     setOvPicks((prev) => [...prev, { place, shift }]);
   };
@@ -795,6 +797,7 @@ export function SchedulePage({
                 setOvCourses(dayOverrides[e.target.value]?.courses ?? null);
                 setOvSlotEdit(null);
                 setOvCourseWarn(null);
+                setOvConflictSlots(new Set());
               }}
               style={{
                 background: "#15151B",
@@ -901,7 +904,10 @@ export function SchedulePage({
                 </div>
                 <button
                   type="button"
-                  onClick={() => setOvCourseWarn(null)}
+                  onClick={() => {
+                    setOvCourseWarn(null);
+                    setOvConflictSlots(new Set());
+                  }}
                   style={{
                     background: "none",
                     border: "none",
@@ -936,6 +942,7 @@ export function SchedulePage({
                 }
                 const t = row.time;
                 const covered = ovShiftSlotSet().has(t);
+                const conflict = ovConflictSlots.has(t);
                 const c = ovCourseAt(t);
                 const col = c
                   ? CAT.deepColorFull(c.cat1, c.cat2 || undefined, c.cat3 || undefined)
@@ -956,33 +963,69 @@ export function SchedulePage({
                     {covered ? (
                       <div style={wePlaceholderStyle} />
                     ) : (
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => {
-                          if (editable) setOvSlotEdit(t);
-                        }}
-                        style={{
-                          height: ROW_H,
-                          background: col ? col + "33" : "#1C1C24",
-                          borderRadius: 5,
-                          padding: "3px 6px",
-                          border:
-                            ovSlotEdit === t
-                              ? `2px solid ${TH.accent}`
-                              : `1px solid ${col ? col + "44" : TH.border}`,
-                          cursor: editable ? "pointer" : "default",
-                          display: "flex",
-                          alignItems: "center",
-                          fontSize: 9,
-                          fontWeight: 700,
-                          color: col ? labelOnDark(col) : TH.muted,
-                          overflow: "hidden",
-                          whiteSpace: "nowrap",
-                          boxSizing: "border-box",
-                        }}
-                      >
-                        {c ? courseLabelOf(c) : editable ? "＋" : ""}
+                      <div style={{ position: "relative", height: ROW_H }}>
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => {
+                            if (editable) setOvSlotEdit(t);
+                          }}
+                          style={{
+                            height: ROW_H,
+                            background: conflict ? "#EF444433" : col ? col + "33" : "#1C1C24",
+                            borderRadius: 5,
+                            padding: "3px 6px",
+                            paddingRight: c && editable ? 22 : 6,
+                            border: conflict
+                              ? `1.5px solid ${TH.red}`
+                              : ovSlotEdit === t
+                                ? `2px solid ${TH.accent}`
+                                : `1px solid ${col ? col + "44" : TH.border}`,
+                            cursor: editable ? "pointer" : "default",
+                            display: "flex",
+                            alignItems: "center",
+                            fontSize: 9,
+                            fontWeight: 700,
+                            color: conflict ? TH.red : col ? labelOnDark(col) : TH.muted,
+                            overflow: "hidden",
+                            whiteSpace: "nowrap",
+                            boxSizing: "border-box",
+                          }}
+                        >
+                          {c ? courseLabelOf(c) : editable ? "＋" : ""}
+                        </div>
+                        {c && editable && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeOvCourse(t);
+                              const remaining = [...ovConflictSlots].filter((x) => x !== t);
+                              setOvConflictSlots(new Set(remaining));
+                              if (remaining.length === 0) setOvCourseWarn(null);
+                              if (ovSlotEdit === t) setOvSlotEdit(null);
+                            }}
+                            style={{
+                              position: "absolute",
+                              right: 3,
+                              top: "50%",
+                              transform: "translateY(-50%)",
+                              width: 16,
+                              height: 16,
+                              borderRadius: 4,
+                              border: "none",
+                              background: conflict ? TH.red : "#00000055",
+                              color: "#fff",
+                              fontSize: 11,
+                              lineHeight: "14px",
+                              textAlign: "center",
+                              cursor: "pointer",
+                              padding: 0,
+                            }}
+                          >
+                            ×
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1070,26 +1113,6 @@ export function SchedulePage({
                       </option>
                     ))}
                   </select>
-                  {ovCourseAt(ovSlotEdit) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (ovSlotEdit) removeOvCourse(ovSlotEdit);
-                        setOvSlotEdit(null);
-                      }}
-                      style={{
-                        fontSize: 11,
-                        padding: "4px 10px",
-                        borderRadius: 8,
-                        border: "1px solid #EF444444",
-                        background: "#EF444422",
-                        color: TH.red,
-                        cursor: "pointer",
-                      }}
-                    >
-                      移除這格
-                    </button>
-                  )}
                   <button
                     type="button"
                     onClick={() => setOvSlotEdit(null)}

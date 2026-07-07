@@ -464,6 +464,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **S2-1 分類 ID 化＋全量備份**：`BigCat`/`MidCat` 加必填 `id`（`DEFAULT_CATEGORIES` 補固定 slug id、`small` 維持 `string[]`）；`migrateCategoryIds`（掛載跑一次、先 `snapshotForS2` 再補 id、冪等只在有變動時寫檔）；`loadCategories` 讀取端對缺 id 者 in-memory 補上（不寫檔防呆）；CategoryManager 新增大/中類帶 `crypto.randomUUID()`；`storage.snapshotForS2`/`hasS2Backup` 一次性備份 categories/sessions/coinIncomeLog/weekSchedule 原始字串。CAT 存取器形狀不變、畫面零變化。
 - **S2-1b 小分類 ID 化（整棵樹完成）**：`SmallCat` 由 `string` 改 `{ id, name }`，`DEFAULT_CATEGORIES` 所有 subs 補固定 `sml-*` id；`migrateCategoryIds` subs 迴圈正規化（`string→{id,name}`、缺 id 補 `genCatId`，冪等仍先 `snapshotForS2`）＋`loadCategories` `normalizeSub` 同時吃舊 string／物件雙格式做讀取防呆；`CAT.cat3List` 改回 `subs.map(s=>s.name)`、`cat3Color` 改 `findIndex(s=>s.name===cat3)`（消費端仍拿名字陣列、零改動）；CategoryManager subs 全改讀 `.name`（render key 改 `sub.id`、addSub push `{id,name}`、updateSubName 改 `.name`、刪除確認取 `.name`，cascadeRename cat3 仍用名字未動）；新增 `storage.restoreFromS2Backup`（一鍵還原四鍵、無備份回 false，本步未接 UI）。畫面零變化。
 - **課表複製貼上「自動清潔＋貼不上提醒」**：複製「課程＋班別」貼上時以 `shiftRange(place, shift, day)!==""` 過濾 picks（只貼該天真能排的班，消除隱形貼券）；被略過的班以頁面層 `pasteNotice` ⚠️橫幅明列（哪個班、哪天、去管理工作場所開可上班日）；單日貼上與「貼到選取的 N 天」皆適用；複製/關閉清提醒。未動 `lib/schedule.ts`／排班模型。
+- **便利貼微調（衝突紅格＋格內✕）**：班課衝突時衝突課格紅框紅底點亮（`ovConflictSlots`）、提醒精簡為一句含班別名；自訂狀態課格內建 ✕ 一鍵刪（刪完衝突自動消提醒）；沿用每週固定時紅格仍顯示但無 ✕；底部編輯器移除「移除這格」只留選/換科目。
 - **便利貼 UX 改版（班＋課同框格子）**：便利貼課程編輯由扁平清單改為單日時間格子（仿課表頁）：課程是格子、班別是覆蓋色塊，重疊一眼可見；被班蓋住的時段＝placeholder 不可加課（結構防呆）；`toggleOvPick` 加班前檢查與 `ovEffectiveCourses` 衝突→擋下＋`ovCourseWarn` 提醒（不自動刪課）。自訂模式點空格/課格編輯；沿用每週固定時唯讀仍可見班壓課。技術債：未來抽共用 `<DayColumn>`（課表 7 欄與便利貼單欄）。
 - **便利貼升級：班＋課一起客製**：`DayOverride` 加可選 `courses?: CourseInfo[]`（`normalizeDayOverride` 向後相容舊便利貼）；`coursesForDate` 課程單一裁決者（有 courses 整天取代、空陣列＝不排課、未定義＝沿用週固定）；`shiftTimesOn` 給便利貼編輯器算班占時段。`VerticalTimeline` 課程改 `coursesForDate`；`SchedulePage` 便利貼面板加「沿用每週固定⇄自訂這天課程」、科目庫加課/清空、存時一併寫 courses；清單顯示「・自訂課程」。課程為整天快照無孤兒；週模式課表格子不動。
 - **指定日期例外排程 2b 便利貼 UI**：`SchedulePage` 加「📅 指定日期排班」面板——選日期/區間、挑任何班（不受可上班日閘門）、ungated 重疊擋、存成便利貼/設為休假/撕掉；已貼便利貼列表可點進改。`shiftRangeOn(place, shift, dateStr, isOverride)` 新增：便利貼日不看閘門、週模式仍守；`blockedRanges`/`VerticalTimeline` 改走 `shiftRangeOn`+`isOv`。週模式課表/複製貼上仍守 `shiftRange` 閘門不動。跨裝置 `day_overrides` 同步+訂閱。
@@ -551,5 +552,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/07/07（便利貼 UX 改版：單日班＋課同框格子、班課衝突防呆＋提醒）*
+*最後更新：2026/07/08（便利貼微調：衝突課程紅格點亮、提醒精簡、課格內建✕一鍵刪）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*
