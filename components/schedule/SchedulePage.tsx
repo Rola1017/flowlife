@@ -213,8 +213,8 @@ export function SchedulePage({
   const [ovEnd, setOvEnd] = useState<string>("");
   const [ovPicks, setOvPicks] = useState<DayPick[]>([]);
   const [ovCourses, setOvCourses] = useState<SchedRow[] | null>(null);
-  const [ovAddT, setOvAddT] = useState<string>("");
-  const [ovAddIdx, setOvAddIdx] = useState<string>("");
+  const [ovSlotEdit, setOvSlotEdit] = useState<string | null>(null);
+  const [ovCourseWarn, setOvCourseWarn] = useState<string | null>(null);
 
   const shiftLabelOf = (place: Place, shiftId: string) =>
     workplaces.find((w) => w.id === place)?.shifts.find((s) => s.id === shiftId)?.label ?? shiftId;
@@ -245,14 +245,23 @@ export function SchedulePage({
     setOvEnd("");
     setOvPicks(effectivePicksFor(date));
     setOvCourses(dayOverrides[date]?.courses ?? null);
+    setOvSlotEdit(null);
+    setOvCourseWarn(null);
     setShowDateOv(true);
   };
-  const ovShiftSlots = () => ovPicks.flatMap((p) => shiftTimesOn(p.place, p.shift, ovDate, true));
-  const ovAddableSlots = () => {
-    const used = new Set([...(ovCourses ?? []).map((c) => c.t), ...ovShiftSlots()]);
-    return HALF_SLOTS.filter((t) => !used.has(t));
-  };
+  const ovWeeklyCourses = (): SchedRow[] => (sched[weekdayOf(ovDate)] ?? []).map((c) => ({ ...c }));
+  const ovEffectiveCourses = (): SchedRow[] => (ovCourses ?? ovWeeklyCourses());
+  const ovShiftSlotSet = (): Set<string> =>
+    new Set(ovPicks.flatMap((p) => shiftTimesOn(p.place, p.shift, ovDate, true)));
+  const ovCourseAt = (t: string) => ovEffectiveCourses().find((c) => c.t === t);
   const courseLabelOf = (c: SchedRow) => c.n || c.cat3 || c.cat2 || c.cat1;
+  const addOvCourse = (t: string, c: { n: string; cat1: string; cat2: string; cat3: string }) =>
+    setOvCourses((prev) => [
+      ...(prev ?? ovWeeklyCourses()).filter((x) => x.t !== t),
+      { t, n: c.n, cat1: c.cat1, cat2: c.cat2, cat3: c.cat3 },
+    ]);
+  const removeOvCourse = (t: string) =>
+    setOvCourses((prev) => (prev ?? ovWeeklyCourses()).filter((x) => x.t !== t));
   const ovPickActive = (place: Place, shift: string) =>
     ovPicks.some((p) => p.place === place && p.shift === shift);
   const ovPickDisabled = (place: Place, shift: string) => {
@@ -262,14 +271,27 @@ export function SchedulePage({
     return ovPicks.some((p) => rangeOverlap(r, shiftRangeOn(p.place, p.shift, ovDate, true)));
   };
   const toggleOvPick = (place: Place, shift: string) => {
-    setOvPicks((prev) => {
-      const exists = prev.some((p) => p.place === place && p.shift === shift);
-      if (exists) return prev.filter((p) => !(p.place === place && p.shift === shift));
-      const r = shiftRangeOn(place, shift, ovDate, true);
-      if (!r) return prev;
-      if (prev.some((p) => rangeOverlap(r, shiftRangeOn(p.place, p.shift, ovDate, true)))) return prev;
-      return [...prev, { place, shift }];
-    });
+    const exists = ovPicks.some((p) => p.place === place && p.shift === shift);
+    if (exists) {
+      setOvPicks((prev) => prev.filter((p) => !(p.place === place && p.shift === shift)));
+      return;
+    }
+    const r = shiftRangeOn(place, shift, ovDate, true);
+    if (!r) return;
+    if (ovPicks.some((p) => rangeOverlap(r, shiftRangeOn(p.place, p.shift, ovDate, true)))) return;
+    const slots = shiftTimesOn(place, shift, ovDate, true);
+    const clash = ovEffectiveCourses().filter((c) => slots.includes(c.t));
+    if (clash.length) {
+      setOvCourseWarn(
+        `此班與課程衝突：${clash.map((c) => `${c.t} ${courseLabelOf(c)}`).join("、")}。` +
+          (ovCourses === null
+            ? "請先點「自訂這天課程」移除這些課，再排此班。"
+            : "請先移除這些課，再排此班。"),
+      );
+      return;
+    }
+    setOvCourseWarn(null);
+    setOvPicks((prev) => [...prev, { place, shift }]);
   };
   const datesInRange = (start: string, end: string): string[] => {
     const out: string[] = [];
@@ -771,6 +793,8 @@ export function SchedulePage({
                 setOvDate(e.target.value);
                 setOvPicks(effectivePicksFor(e.target.value));
                 setOvCourses(dayOverrides[e.target.value]?.courses ?? null);
+                setOvSlotEdit(null);
+                setOvCourseWarn(null);
               }}
               style={{
                 background: "#15151B",
@@ -829,19 +853,18 @@ export function SchedulePage({
             <div
               style={{
                 display: "flex",
-                alignItems: "center",
                 justifyContent: "space-between",
-                marginBottom: 6,
+                alignItems: "center",
+                marginBottom: 4,
               }}
             >
-              <div style={{ fontSize: 11, color: TH.text, fontWeight: 700 }}>📚 這天的課程</div>
+              <div style={{ fontSize: 11, color: TH.text, fontWeight: 700 }}>📚 這天的班表＋課程</div>
               <button
                 type="button"
-                onClick={() =>
-                  setOvCourses((prev) =>
-                    prev === null ? (sched[weekdayOf(ovDate)] ?? []).map((c) => ({ ...c })) : null,
-                  )
-                }
+                onClick={() => {
+                  setOvCourses((prev) => (prev === null ? ovWeeklyCourses() : null));
+                  setOvSlotEdit(null);
+                }}
                 style={{
                   fontSize: 10,
                   padding: "3px 10px",
@@ -853,54 +876,183 @@ export function SchedulePage({
                   fontWeight: 700,
                 }}
               >
-                {ovCourses === null ? "沿用每週固定（點我自訂）" : "✓ 自訂這天課程"}
+                {ovCourses === null ? "沿用每週固定（點我自訂課程）" : "✓ 自訂這天課程"}
               </button>
             </div>
-            {ovCourses !== null && (
-              <div>
-                {ovCourses.length === 0 && (
-                  <div style={{ fontSize: 10, color: TH.muted, marginBottom: 6 }}>
-                    （這天不排課／自習）
-                  </div>
-                )}
-                <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 6 }}>
-                  {[...ovCourses]
-                    .sort((a, b) => a.t.localeCompare(b.t))
-                    .map((c) => (
+            <div style={{ fontSize: 10, color: TH.muted, marginBottom: 6 }}>
+              💡 班別色塊會蓋住課程格；被蓋住的時段不能排課。自訂後點空格加課、點課格換/移除。
+            </div>
+            {ovCourseWarn && (
+              <div
+                style={{
+                  border: "1px solid #F59E0B66",
+                  background: "#F59E0B18",
+                  borderRadius: 8,
+                  padding: "6px 8px",
+                  display: "flex",
+                  gap: 6,
+                  alignItems: "flex-start",
+                  marginBottom: 6,
+                }}
+              >
+                <span style={{ fontSize: 13 }}>⚠️</span>
+                <div style={{ flex: 1, fontSize: 10.5, color: TH.text, lineHeight: 1.5 }}>
+                  {ovCourseWarn}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOvCourseWarn(null)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: TH.muted,
+                    fontSize: 13,
+                    cursor: "pointer",
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+            <div style={{ position: "relative" }}>
+              {ROWS.map((row) => {
+                if (row.kind === "fixed") {
+                  const fixedH = row.times.length * ROW_H + (row.times.length - 1) * GAP;
+                  return (
+                    <div
+                      key={row.times.join("-")}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: `44px 1fr`,
+                        gap: GAP,
+                        height: fixedH,
+                        marginBottom: GAP,
+                      }}
+                    >
+                      <div style={{ ...timeColStyle }}>{row.times[0]}</div>
+                      <div style={{ ...fixedCellStyle, height: "100%" }}>{row.label}</div>
+                    </div>
+                  );
+                }
+                const t = row.time;
+                const covered = ovShiftSlotSet().has(t);
+                const c = ovCourseAt(t);
+                const col = c
+                  ? CAT.deepColorFull(c.cat1, c.cat2 || undefined, c.cat3 || undefined)
+                  : null;
+                const editable = ovCourses !== null && !covered;
+                return (
+                  <div
+                    key={t}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: `44px 1fr`,
+                      gap: GAP,
+                      height: ROW_H,
+                      marginBottom: GAP,
+                    }}
+                  >
+                    <div style={{ ...timeColStyle }}>{t}</div>
+                    {covered ? (
+                      <div style={wePlaceholderStyle} />
+                    ) : (
                       <div
-                        key={c.t}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => {
+                          if (editable) setOvSlotEdit(t);
+                        }}
                         style={{
+                          height: ROW_H,
+                          background: col ? col + "33" : "#1C1C24",
+                          borderRadius: 5,
+                          padding: "3px 6px",
+                          border:
+                            ovSlotEdit === t
+                              ? `2px solid ${TH.accent}`
+                              : `1px solid ${col ? col + "44" : TH.border}`,
+                          cursor: editable ? "pointer" : "default",
                           display: "flex",
                           alignItems: "center",
-                          gap: 6,
-                          fontSize: 11,
-                          color: TH.text,
+                          fontSize: 9,
+                          fontWeight: 700,
+                          color: col ? labelOnDark(col) : TH.muted,
+                          overflow: "hidden",
+                          whiteSpace: "nowrap",
+                          boxSizing: "border-box",
                         }}
                       >
-                        <span style={{ color: TH.muted, minWidth: 40 }}>{c.t}</span>
-                        <span style={{ flex: 1 }}>{courseLabelOf(c)}</span>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setOvCourses((prev) => (prev ?? []).filter((x) => x.t !== c.t))
-                          }
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: TH.red,
-                            fontSize: 12,
-                            cursor: "pointer",
-                          }}
-                        >
-                          ✕
-                        </button>
+                        {c ? courseLabelOf(c) : editable ? "＋" : ""}
                       </div>
-                    ))}
+                    )}
+                  </div>
+                );
+              })}
+              {ovPicks.map(({ place, shift }) => {
+                const times = shiftTimesOn(place, shift, ovDate, true);
+                const coveredIdx = HALF_SLOTS.map((slot, i) => (times.includes(slot) ? i : -1)).filter(
+                  (i) => i >= 0,
+                );
+                if (coveredIdx.length === 0) return null;
+                const top = coveredIdx[0] * STEP;
+                const height = coveredIdx.length * STEP - GAP;
+                const r = shiftRangeOn(place, shift, ovDate, true);
+                const [rs, re] = r.split("~");
+                const col = placeColor(place);
+                return (
+                  <div
+                    key={`ovshift-${place}-${shift}`}
+                    style={{
+                      position: "absolute",
+                      top: `${top}px`,
+                      height: `${height}px`,
+                      left: `${44 + GAP}px`,
+                      width: `calc(100% - ${44 + GAP}px)`,
+                      background: col + "40",
+                      border: `1px solid ${col}66`,
+                      borderRadius: 5,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 6,
+                      zIndex: 5,
+                      pointerEvents: "none",
+                      boxSizing: "border-box",
+                    }}
+                  >
+                    <span style={{ color: labelOnDark(col), fontSize: 9, fontWeight: 700 }}>
+                      {`兼差:${placeName(place)}`}
+                    </span>
+                    <span style={{ color: labelOnDark(col), fontSize: 8 }}>
+                      {rs}～{re}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            {ovCourses !== null && ovSlotEdit && (
+              <div
+                style={{
+                  marginTop: 8,
+                  border: `1px solid ${TH.accent}55`,
+                  borderRadius: 8,
+                  padding: 8,
+                }}
+              >
+                <div style={{ fontSize: 11, color: TH.text, fontWeight: 700, marginBottom: 6 }}>
+                  {ovSlotEdit} 這格
                 </div>
                 <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
                   <select
-                    value={ovAddT}
-                    onChange={(e) => setOvAddT(e.target.value)}
+                    value=""
+                    onChange={(e) => {
+                      const lib = loadScheduleCourses();
+                      const c = lib[Number(e.target.value)];
+                      if (c && ovSlotEdit) {
+                        addOvCourse(ovSlotEdit, c);
+                        setOvSlotEdit(null);
+                      }
+                    }}
                     style={{
                       background: "#0A0A0C",
                       border: `1px solid ${TH.border}`,
@@ -908,68 +1060,42 @@ export function SchedulePage({
                       color: TH.text,
                       fontSize: 11,
                       padding: "4px 6px",
+                      maxWidth: 160,
                     }}
                   >
-                    <option value="">時段</option>
-                    {ovAddableSlots().map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    value={ovAddIdx}
-                    onChange={(e) => setOvAddIdx(e.target.value)}
-                    style={{
-                      background: "#0A0A0C",
-                      border: `1px solid ${TH.border}`,
-                      borderRadius: 6,
-                      color: TH.text,
-                      fontSize: 11,
-                      padding: "4px 6px",
-                      maxWidth: 140,
-                    }}
-                  >
-                    <option value="">科目</option>
+                    <option value="">選科目…</option>
                     {loadScheduleCourses().map((c, i) => (
                       <option key={i} value={String(i)}>
                         {courseLabelOf(c)}
                       </option>
                     ))}
                   </select>
+                  {ovCourseAt(ovSlotEdit) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (ovSlotEdit) removeOvCourse(ovSlotEdit);
+                        setOvSlotEdit(null);
+                      }}
+                      style={{
+                        fontSize: 11,
+                        padding: "4px 10px",
+                        borderRadius: 8,
+                        border: "1px solid #EF444444",
+                        background: "#EF444422",
+                        color: TH.red,
+                        cursor: "pointer",
+                      }}
+                    >
+                      移除這格
+                    </button>
+                  )}
                   <button
                     type="button"
-                    disabled={!ovAddT || ovAddIdx === ""}
-                    onClick={() => {
-                      const lib = loadScheduleCourses();
-                      const c = lib[Number(ovAddIdx)];
-                      if (!c || !ovAddT) return;
-                      setOvCourses((prev) => [
-                        ...(prev ?? []).filter((x) => x.t !== ovAddT),
-                        { t: ovAddT, n: c.n, cat1: c.cat1, cat2: c.cat2, cat3: c.cat3 },
-                      ]);
-                      setOvAddT("");
-                      setOvAddIdx("");
-                    }}
+                    onClick={() => setOvSlotEdit(null)}
                     style={{
                       fontSize: 11,
                       padding: "4px 10px",
-                      borderRadius: 8,
-                      border: "none",
-                      background: ovAddT && ovAddIdx !== "" ? TH.green : "#333",
-                      color: "#fff",
-                      fontWeight: 700,
-                      cursor: ovAddT && ovAddIdx !== "" ? "pointer" : "default",
-                    }}
-                  >
-                    ＋加
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setOvCourses([])}
-                    style={{
-                      fontSize: 10,
-                      padding: "4px 8px",
                       borderRadius: 8,
                       border: `1px solid ${TH.border}`,
                       background: "transparent",
@@ -977,7 +1103,7 @@ export function SchedulePage({
                       cursor: "pointer",
                     }}
                   >
-                    🧹 清空(自習)
+                    關閉
                   </button>
                 </div>
               </div>
