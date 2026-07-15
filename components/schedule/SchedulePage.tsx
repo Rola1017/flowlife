@@ -216,6 +216,7 @@ export function SchedulePage({
   const [ovSlotEdit, setOvSlotEdit] = useState<string | null>(null);
   const [ovCourseWarn, setOvCourseWarn] = useState<string | null>(null);
   const [ovConflictSlots, setOvConflictSlots] = useState<Set<string>>(new Set());
+  const [ovPendingPick, setOvPendingPick] = useState<DayPick | null>(null);
 
   const shiftLabelOf = (place: Place, shiftId: string) =>
     workplaces.find((w) => w.id === place)?.shifts.find((s) => s.id === shiftId)?.label ?? shiftId;
@@ -249,6 +250,7 @@ export function SchedulePage({
     setOvSlotEdit(null);
     setOvCourseWarn(null);
     setOvConflictSlots(new Set());
+    setOvPendingPick(null);
     setShowDateOv(true);
   };
   const ovWeeklyCourses = (): SchedRow[] => (sched[weekdayOf(ovDate)] ?? []).map((c) => ({ ...c }));
@@ -285,13 +287,14 @@ export function SchedulePage({
     const clash = ovEffectiveCourses().filter((c) => slots.includes(c.t));
     if (clash.length) {
       setOvConflictSlots(new Set(clash.map((c) => c.t)));
+      setOvPendingPick({ place, shift });
       setOvCourseWarn(
-        `紅色的課與「${placeName(place)}·${shiftLabelOf(place, shift)}」衝突，移除才能新增此班。` +
-          (ovCourses === null ? "（請先點「自訂這天課程」）" : ""),
+        `紅色的課與「${placeName(place)}·${shiftLabelOf(place, shift)}」衝突，移除才能新增此班。`,
       );
       return;
     }
     setOvConflictSlots(new Set());
+    setOvPendingPick(null);
     setOvCourseWarn(null);
     setOvPicks((prev) => [...prev, { place, shift }]);
   };
@@ -647,6 +650,7 @@ export function SchedulePage({
 
   const leftForDay = (dayColIndex: number) =>
     `calc(44px + ${GAP}px + (${COL_W} + ${GAP}px) * ${dayColIndex})`;
+  const ovNeedCustom = !!ovCourseWarn && ovCourses === null;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -798,6 +802,7 @@ export function SchedulePage({
                 setOvSlotEdit(null);
                 setOvCourseWarn(null);
                 setOvConflictSlots(new Set());
+                setOvPendingPick(null);
               }}
               style={{
                 background: "#15151B",
@@ -873,13 +878,25 @@ export function SchedulePage({
                   padding: "3px 10px",
                   borderRadius: 8,
                   cursor: "pointer",
-                  border: `1px solid ${ovCourses === null ? TH.border : TH.accent}`,
-                  background: ovCourses === null ? "transparent" : TH.accent,
-                  color: ovCourses === null ? TH.muted : "#fff",
+                  border: `1px solid ${
+                    ovCourses === null ? (ovNeedCustom ? TH.yellow : TH.border) : TH.accent
+                  }`,
+                  background:
+                    ovCourses === null
+                      ? ovNeedCustom
+                        ? TH.yellow + "22"
+                        : "transparent"
+                      : TH.accent,
+                  color: ovCourses === null ? (ovNeedCustom ? TH.yellow : TH.muted) : "#fff",
                   fontWeight: 700,
+                  boxShadow: ovNeedCustom ? `0 0 0 3px ${TH.yellow}33` : "none",
                 }}
               >
-                {ovCourses === null ? "沿用每週固定（點我自訂課程）" : "✓ 自訂這天課程"}
+                {ovCourses === null
+                  ? ovNeedCustom
+                    ? "👉 點我自訂這天課程"
+                    : "沿用每週固定（點我自訂課程）"
+                  : "✓ 自訂這天課程"}
               </button>
             </div>
             <div style={{ fontSize: 10, color: TH.muted, marginBottom: 6 }}>
@@ -899,14 +916,64 @@ export function SchedulePage({
                 }}
               >
                 <span style={{ fontSize: 13 }}>⚠️</span>
-                <div style={{ flex: 1, fontSize: 10.5, color: TH.text, lineHeight: 1.5 }}>
-                  {ovCourseWarn}
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 10.5, color: TH.text, lineHeight: 1.5 }}>
+                    {ovCourseWarn}
+                  </div>
+                  <div style={{ fontSize: 9.5, color: TH.muted, marginTop: 2 }}>
+                    💡 也可以直接點紅色課格右邊的 ×，或用下面的一鍵移除
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const slots = new Set(ovConflictSlots);
+                      if (slots.size === 0) return;
+                      const pk = ovPendingPick;
+                      const who = pk
+                        ? `「${placeName(pk.place)}·${shiftLabelOf(pk.place, pk.shift)}」`
+                        : "此班";
+                      if (
+                        !window.confirm(
+                          `確定移除這 ${slots.size} 堂與${who}衝突的課程？\n（只影響 ${ovDate} 這一天，不動每週固定課表）`,
+                        )
+                      )
+                        return;
+                      setOvCourses((prev) =>
+                        (prev ?? ovWeeklyCourses()).filter((c) => !slots.has(c.t)),
+                      );
+                      if (pk)
+                        setOvPicks((prev) =>
+                          prev.some((p) => p.place === pk.place && p.shift === pk.shift)
+                            ? prev
+                            : [...prev, pk],
+                        );
+                      setOvConflictSlots(new Set());
+                      setOvPendingPick(null);
+                      setOvCourseWarn(null);
+                      setOvSlotEdit(null);
+                    }}
+                    style={{
+                      marginTop: 6,
+                      fontSize: 10.5,
+                      fontWeight: 700,
+                      padding: "5px 10px",
+                      borderRadius: 8,
+                      border: "1px solid #EF444455",
+                      background: "#EF444422",
+                      color: TH.red,
+                      cursor: "pointer",
+                    }}
+                  >
+                    🗑 移除這 {ovConflictSlots.size} 堂衝突課
+                    {ovPendingPick ? "，並排入此班" : ""}
+                  </button>
                 </div>
                 <button
                   type="button"
                   onClick={() => {
                     setOvCourseWarn(null);
                     setOvConflictSlots(new Set());
+                    setOvPendingPick(null);
                   }}
                   style={{
                     background: "none",
@@ -1003,6 +1070,7 @@ export function SchedulePage({
                               const remaining = [...ovConflictSlots].filter((x) => x !== t);
                               setOvConflictSlots(new Set(remaining));
                               if (remaining.length === 0) setOvCourseWarn(null);
+                              if (remaining.length === 0) setOvPendingPick(null);
                               if (ovSlotEdit === t) setOvSlotEdit(null);
                             }}
                             style={{
