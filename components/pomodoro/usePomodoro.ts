@@ -5,6 +5,7 @@ import { CFG } from "@/lib/config";
 import { buildLineSeries } from "@/lib/analytics";
 import { coinsForSecs, playRestEnd, toLocalDateStr } from "@/lib/utils";
 import { patchReflection } from "@/lib/sessions";
+import { CAT } from "@/lib/categories";
 import type { Session } from "@/lib/types";
 
 export type PomodoroSessionRow = Session;
@@ -109,7 +110,7 @@ export function usePomodoro({
 
   useEffect(() => {
     const tot = sessions
-      .filter((x) => x.counted !== false && x.mins > 1)
+      .filter((x) => x.counted !== false && x.mins > 1 && !CAT.isNoCoin(x.cat1))
       .reduce((s, x) => s + x.mins, 0);
     CFG.MILESTONES.forEach((m) => {
       if (tot >= m.mins) hitRef.current.add(m.mins);
@@ -306,7 +307,8 @@ export function usePomodoro({
     const el = elRef.current;
     const mins = Math.max(1, Math.round(el / 60));
     const counted = mins > 1;
-    const earned = coinsForSecs(el);
+    const isNoCoin = CAT.isNoCoin(confirmed!.cat1);
+    const earned = isNoCoin ? 0 : coinsForSecs(el);
     const now = localDateParts();
     const sessionId = Date.now();
     const sUuid = crypto.randomUUID();
@@ -331,7 +333,9 @@ export function usePomodoro({
     setSessions(ns);
     setLastSessionId(sessionId);
 
-    const tot = ns.filter((p) => p.counted).reduce((s, p) => s + p.mins, 0);
+    const tot = ns
+      .filter((p) => p.counted && !CAT.isNoCoin(p.cat1))
+      .reduce((s, p) => s + p.mins, 0);
     let milestoneBonus = 0;
     CFG.MILESTONES.forEach((m) => {
       if (tot >= m.mins && !hitRef.current.has(m.mins)) {
@@ -342,7 +346,7 @@ export function usePomodoro({
 
     // 大於1小時：30% 機率雙倍金幣
     let isTreasure = false;
-    if (dur >= 60 && Math.random() < 0.3) {
+    if (!isNoCoin && dur >= 60 && Math.random() < 0.3) {
       isTreasure = true;
     }
     const finalEarned = isTreasure ? earned * 2 : earned;

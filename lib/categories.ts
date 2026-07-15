@@ -3,7 +3,7 @@ import { APP_STATE_KEYS, pushAppState } from "@/lib/appStateCloud";
 
 export type SmallCat = { id: string; name: string };
 export type MidCat = { id: string; name: string; color: string; subs: SmallCat[] };
-export type BigCat = { id: string; name: string; color: string; mids: MidCat[] };
+export type BigCat = { id: string; name: string; color: string; noCoin?: boolean; mids: MidCat[] };
 export type CategoryData = BigCat[];
 
 export const DEFAULT_CATEGORIES: BigCat[] = [
@@ -290,6 +290,7 @@ export function migrateCategoryIds(): void {
 export const CAT = {
   cat1List: () => loadCategories().map((c) => c.name),
   cat1Color: (name: string) => loadCategories().find((c) => c.name === name)?.color ?? "#6B7280",
+  isNoCoin: (cat1: string) => loadCategories().find((c) => c.name === cat1)?.noCoin === true,
   cat2List: (cat1: string) => loadCategories().find((c) => c.name === cat1)?.mids.map((m) => m.name) ?? [],
   cat2Color: (cat1: string, cat2: string) => {
     const big = loadCategories().find((c) => c.name === cat1);

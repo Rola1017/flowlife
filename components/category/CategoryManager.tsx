@@ -266,6 +266,12 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
     persist(next);
   };
 
+  const updateBigNoCoin = (bi: number, val: boolean) => {
+    const next = cloneData(categories);
+    next[bi].noCoin = val;
+    persist(next);
+  };
+
   const updateMidColor = (bi: number, mi: number, color: string) => {
     const next = cloneData(categories);
     next[bi].mids[mi].color = color;
@@ -469,6 +475,24 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
 
               {isOpen && (
                 <div style={{ padding: "8px 10px 10px", background: TH.bg }}>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      fontSize: 11,
+                      color: TH.text,
+                      marginBottom: 8,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={big.noCoin === true}
+                      onChange={(e) => updateBigNoCoin(bi, e.target.checked)}
+                    />
+                    💰 只計時、不發金幣（娛樂／獎勵用；仍會記錄，也不算未利用時間）
+                  </label>
                   {big.mids.map((mid, mi) => {
                     const midOpen = expandedMid[midKey(mi)] ?? false;
                     const midCol = mid.color;

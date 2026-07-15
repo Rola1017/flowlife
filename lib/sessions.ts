@@ -1,6 +1,6 @@
 import type { Session } from "@/lib/types";
 import { coinsForSecs, toM } from "@/lib/utils";
-import { resolveCatIds } from "@/lib/categories";
+import { resolveCatIds, CAT } from "@/lib/categories";
 
 /** 依名字補上分類穩定編號（只補不覆蓋；找不到名字絕不清掉舊編號） */
 export function stampSessionCatIds(s: Session): Session {
@@ -38,7 +38,7 @@ export function setSessionMins(sessions: Session[], id: number, newMins: number)
   const next = sessions.map((s) => {
     if (s.id !== id) return s;
     const safe = Math.max(1, Math.round(newMins));
-    const newBase = coinsForSecs(safe * 60);
+    const newBase = CAT.isNoCoin(s.cat1) ? 0 : coinsForSecs(safe * 60);
     const oldBase = s.earnedCoins ?? 0;
     coinDelta = newBase - oldBase;
     return { ...s, mins: safe, earnedCoins: newBase, counted: safe > 1, updatedAt: new Date().toISOString() };
@@ -65,7 +65,7 @@ export function buildManualSession(input: {
   rating?: string;
 }): { session: Session; coinGain: number } {
   const mins = Math.max(1, toM(input.endTime) - toM(input.startTime));
-  const earned = coinsForSecs(mins * 60);
+  const earned = CAT.isNoCoin(input.cat1) ? 0 : coinsForSecs(mins * 60);
   const session: Session = {
     id: Date.now(),
     date: input.date,
