@@ -35,7 +35,7 @@ export function reminderLabel(id: unknown): string {
 export const CFG = {
   TODAY_STR: toLocalDateStr(),
   TODAY: new Date(),
-  DAY_START: "06:30",
+  DAY_START: "06:00",
   DAY_END: "23:00",
   /** 點「結束」後到變 done 的確認等待（ms） */
   END_CONFIRM: 1000,

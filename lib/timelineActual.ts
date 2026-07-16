@@ -1,6 +1,6 @@
 import { CFG } from "@/lib/config";
 import { CAT } from "@/lib/categories";
-import { pctPos, DS, DE, toM } from "@/lib/utils";
+import { DS, DE, toM } from "@/lib/utils";
 import { availableSegments, idleGapsWithin } from "@/lib/idle";
 import { LS_KEYS, loadJSON } from "@/lib/storage";
 
@@ -34,10 +34,6 @@ export function actSessionsFor(date: string): ActSegment[] {
         label: s.name || s.cat3 || s.cat2 || cat1 || "番茄",
         color,
       };
-    })
-    .filter((b) => {
-      const p = pctPos(b.start);
-      return p >= 0 && p <= 100;
     });
 }
 
@@ -51,13 +47,19 @@ export function overridesFor(date: string): ActSegment[] {
   }));
 }
 
-export function actIdleFor(date: string, nowPct: number, fills: [number, number][]): IdleSegment[] {
+export function actIdleFor(
+  date: string,
+  nowPct: number,
+  fills: [number, number][],
+  winStart: number = DS,
+  winEnd: number = DE,
+): IdleSegment[] {
   let cutoff: number;
-  if (date === CFG.TODAY_STR) cutoff = Math.round(DS + Math.min(1, Math.max(0, nowPct / 100)) * (DE - DS));
-  else if (date < CFG.TODAY_STR) cutoff = DE;
+  if (date === CFG.TODAY_STR) cutoff = Math.round(winStart + Math.min(1, Math.max(0, nowPct / 100)) * (winEnd - winStart));
+  else if (date < CFG.TODAY_STR) cutoff = winEnd;
   else return [];
-  if (cutoff <= DS) return [];
-  const avail = availableSegments(date, DS, cutoff);
+  if (cutoff <= winStart) return [];
+  const avail = availableSegments(date, winStart, cutoff);
   return idleGapsWithin(avail, fills, 5);
 }
 

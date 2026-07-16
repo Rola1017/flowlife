@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { TH, readableTextOn, labelOnDark } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
-import { pctPos, pctH, buildTimelineHours, DS, DE, toM } from "@/lib/utils";
+import { DS, DE, toM, nowHM } from "@/lib/utils";
 import { CFG } from "@/lib/config";
 import {
   placeName,
@@ -58,7 +58,23 @@ export function VerticalTimeline({
   onEditRoutine?: (date: string) => void;
   routineRev?: number;
 }) {
-  const hours = buildTimelineHours();
+  const [expandEarly, setExpandEarly] = useState(false);
+  const [expandLate, setExpandLate] = useState(false);
+  const wStart = expandEarly ? 0 : DS;
+  const wEnd = expandLate ? 24 * 60 : DE;
+  const wLen = wEnd - wStart || 1;
+  const lPos = (t: string) => ((toM(t) - wStart) / wLen) * 100;
+  const lH = (s: string, e: string) => ((toM(e) - toM(s)) / wLen) * 100;
+  const curNowPct = ((toM(nowHM()) - wStart) / wLen) * 100;
+  const localHours = (() => {
+    const out: { label: string; pos: number }[] = [];
+    for (let h = Math.floor(wStart / 60); h <= Math.ceil(wEnd / 60); h++) {
+      const mm = h * 60;
+      if (mm < wStart || mm > wEnd) continue;
+      out.push({ label: `${h}:00`, pos: ((mm - wStart) / wLen) * 100 });
+    }
+    return out;
+  })();
 
   const [planRev, setPlanRev] = useState(0);
   useEffect(() => {
@@ -78,7 +94,7 @@ export function VerticalTimeline({
     type Cell = { t: string; n: string; cat1: string; cat2: string; cat3: string };
     const cells = coursesForDate(date) as Cell[];
 
-    const fixedBlocks = routineBlocksInWindow(DS, DE, date).map((b) => ({
+    const fixedBlocks = routineBlocksInWindow(wStart, wEnd, date).map((b) => ({
       start: b.start,
       end: b.end,
       label: b.label,
@@ -121,7 +137,7 @@ export function VerticalTimeline({
     });
 
     return [...fixedBlocks, ...courseBlocks, ...shiftBlocks];
-  }, [date, routineRev, planRev]);
+  }, [date, routineRev, planRev, wStart, wEnd]);
 
   const actSessions = useMemo(() => actSessionsFor(date), [date]);
 
@@ -159,18 +175,18 @@ export function VerticalTimeline({
       const e = td.endAt ? td.endAt.slice(0, 5) : "";
       if (s && e && toM(e) > toM(s)) fills.push([toM(s), toM(e)]);
     }
-    return actIdleFor(date, nowPct, fills);
-  }, [actSessions, dailyOverride, doneTodos, date, nowPct, routineRev]);
+    return actIdleFor(date, curNowPct, fills, wStart, wEnd);
+  }, [actSessions, dailyOverride, doneTodos, date, curNowPct, wStart, wEnd, routineRev]);
 
   const isVisibleTodo = (todo: TodoOverlay) => {
     const mins = toM(todo.startTime);
-    const pos = pctPos(todo.startTime);
-    return mins >= DS && mins <= DE && pos >= 0 && pos <= 100;
+    const pos = lPos(todo.startTime);
+    return mins >= wStart && mins <= wEnd && pos >= 0 && pos <= 100;
   };
   const getVisibleDoneTime = (todo: TodoOverlay) => {
     const endTime = todo.endAt?.slice(0, 5);
     if (!endTime) return null;
-    const top = pctPos(endTime);
+    const top = lPos(endTime);
     return top >= 0 && top <= 100 ? { endTime, top } : null;
   };
   const doneTodoGroups = (doneTodos ?? []).reduce<{ top: number; items: DoneTodoMarker[] }[]>((groups, todo) => {
@@ -197,14 +213,14 @@ export function VerticalTimeline({
   const handleTimelineClick = (e: MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const pctY = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
-    const mins = Math.round(DS + pctY * (DE - DS));
+    const mins = Math.round(wStart + pctY * wLen);
     const t = formatMinutes(mins);
     const isActSide = (e.clientX - rect.left) / rect.width >= 0.5;
     if (isActSide) {
-      const endMins = Math.min(DE, mins + 30);
+      const endMins = Math.min(wEnd, mins + 30);
       setOverrideDraft({
         start: `man_${t}`,
-        top: pctPos(t),
+        top: lPos(t),
         label: "",
         cat1: "未分類",
         startTime: t,
@@ -229,9 +245,42 @@ export function VerticalTimeline({
   };
 
   return (
+    <div>
+      <div style={{ marginBottom: 6, display: "flex", gap: 6 }}>
+        <button
+          type="button"
+          onClick={() => setExpandEarly((v) => !v)}
+          style={{
+            fontSize: 9,
+            padding: "3px 8px",
+            borderRadius: 8,
+            border: `1px solid ${TH.border}`,
+            background: expandEarly ? TH.accent + "22" : "transparent",
+            color: expandEarly ? TH.accent : TH.muted,
+            cursor: "pointer",
+          }}
+        >
+          {expandEarly ? "▲ 收合凌晨" : "▼ 展開凌晨 00:00–06:00"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setExpandLate((v) => !v)}
+          style={{
+            fontSize: 9,
+            padding: "3px 8px",
+            borderRadius: 8,
+            border: `1px solid ${TH.border}`,
+            background: expandLate ? TH.accent + "22" : "transparent",
+            color: expandLate ? TH.accent : TH.muted,
+            cursor: "pointer",
+          }}
+        >
+          {expandLate ? "▲ 收合深夜" : "▼ 展開深夜 23:00–24:00"}
+        </button>
+      </div>
     <div style={{ display: "flex" }}>
       <div style={{ width: 34, flexShrink: 0, position: "relative", height: 840 }}>
-        {hours.map((h) => (
+        {localHours.map((h) => (
           <div
             key={h.label}
             style={{
@@ -260,8 +309,9 @@ export function VerticalTimeline({
         onClick={handleTimelineClick}
       >
         {schedulePln.map((item, i) => {
-          const top = pctPos(item.start);
-          const h = pctH(item.start, item.end);
+          if (toM(item.end) <= wStart || toM(item.start) >= wEnd) return null;
+          const top = lPos(item.start);
+          const h = lH(item.start, item.end);
           const col = item.color;
           const isFixed = item.kind === "fixed";
           return (
@@ -467,9 +517,10 @@ export function VerticalTimeline({
         )}
 
         {showPending && pendingTodos?.filter(isVisibleTodo).map((todo) => {
-          const top = pctPos(todo.startTime);
+          if (toM(todo.endTime || todo.startTime) <= wStart || toM(todo.startTime) >= wEnd) return null;
+          const top = lPos(todo.startTime);
           const hasRange = todo.endTime && todo.endTime !== todo.startTime;
-          const spanH = hasRange ? Math.max(pctH(todo.startTime, todo.endTime), 2) : 0;
+          const spanH = hasRange ? Math.max(lH(todo.startTime, todo.endTime), 2) : 0;
           return (
             <div
               key={`td-${todo.id}`}
@@ -535,8 +586,8 @@ export function VerticalTimeline({
         })}
 
         {idleBlocks.map((g, i) => {
-          const top = pctPos(g.start),
-            h = pctH(g.start, g.end);
+          const top = lPos(g.start),
+            h = lH(g.start, g.end);
           return (
             <div
               key={`act-idle-${i}`}
@@ -563,8 +614,9 @@ export function VerticalTimeline({
         })}
 
         {actSessions.map((b, i) => {
-          const top = pctPos(b.start),
-            h = pctH(b.start, b.end);
+          if (toM(b.end) <= wStart || toM(b.start) >= wEnd) return null;
+          const top = lPos(b.start),
+            h = lH(b.start, b.end);
           return (
             <div
               key={`act-ses-${i}`}
@@ -599,8 +651,9 @@ export function VerticalTimeline({
         })}
 
         {Object.entries(dailyOverride).map(([key, ov]) => {
-          const top = pctPos(ov.startTime),
-            h = pctH(ov.startTime, ov.endTime);
+          if (toM(ov.endTime) <= wStart || toM(ov.startTime) >= wEnd) return null;
+          const top = lPos(ov.startTime),
+            h = lH(ov.startTime, ov.endTime);
           if (!(top >= 0 && top <= 100)) return null;
           const col = CAT.cat1Color(ov.cat1) || "#374151";
           return (
@@ -706,11 +759,11 @@ export function VerticalTimeline({
           }}
         />
 
-        {showNowLine && nowPct >= 0 && nowPct <= 100 && (
+        {showNowLine && curNowPct >= 0 && curNowPct <= 100 && (
           <div
             style={{
               position: "absolute",
-              top: `${nowPct}%`,
+              top: `${curNowPct}%`,
               left: 0,
               right: 0,
               height: 2,
@@ -733,6 +786,7 @@ export function VerticalTimeline({
           </div>
         )}
       </div>
+    </div>
     </div>
   );
 }
