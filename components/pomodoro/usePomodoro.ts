@@ -369,7 +369,9 @@ export function usePomodoro({
         ...log,
       ]);
     }
-    setRewardFx({ id: Date.now(), amount: totalGain, big: dur > 25, treasure: isTreasure });
+    if (!isNoCoin) {
+      setRewardFx({ id: Date.now(), amount: totalGain, big: dur > 25, treasure: isTreasure });
+    }
   };
 
   const updateReflection = (id: number, text: string) => {

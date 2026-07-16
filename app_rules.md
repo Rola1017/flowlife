@@ -463,7 +463,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **修 Vercel build**：browser client 改 lazy singleton、`reviews.ts` 移除 import-time 實例化，避免 prerender 在缺 env 時崩潰（型別改用 `ReturnType<typeof makeBrowserClient>` 保具體推斷，消除 implicit-any 外溢）。
 - **S2-1 分類 ID 化＋全量備份**：`BigCat`/`MidCat` 加必填 `id`（`DEFAULT_CATEGORIES` 補固定 slug id、`small` 維持 `string[]`）；`migrateCategoryIds`（掛載跑一次、先 `snapshotForS2` 再補 id、冪等只在有變動時寫檔）；`loadCategories` 讀取端對缺 id 者 in-memory 補上（不寫檔防呆）；CategoryManager 新增大/中類帶 `crypto.randomUUID()`；`storage.snapshotForS2`/`hasS2Backup` 一次性備份 categories/sessions/coinIncomeLog/weekSchedule 原始字串。CAT 存取器形狀不變、畫面零變化。
 - **S2-1b 小分類 ID 化（整棵樹完成）**：`SmallCat` 由 `string` 改 `{ id, name }`，`DEFAULT_CATEGORIES` 所有 subs 補固定 `sml-*` id；`migrateCategoryIds` subs 迴圈正規化（`string→{id,name}`、缺 id 補 `genCatId`，冪等仍先 `snapshotForS2`）＋`loadCategories` `normalizeSub` 同時吃舊 string／物件雙格式做讀取防呆；`CAT.cat3List` 改回 `subs.map(s=>s.name)`、`cat3Color` 改 `findIndex(s=>s.name===cat3)`（消費端仍拿名字陣列、零改動）；CategoryManager subs 全改讀 `.name`（render key 改 `sub.id`、addSub push `{id,name}`、updateSubName 改 `.name`、刪除確認取 `.name`，cascadeRename cat3 仍用名字未動）；新增 `storage.restoreFromS2Backup`（一鍵還原四鍵、無備份回 false，本步未接 UI）。畫面零變化。
-- **分類「只計時、不發金幣」**：`BigCat.noCoin?`＋`CAT.isNoCoin(cat1)`（名稱查詢、娛樂分類不寫死）；分類管理的大分類展開區可切換並持久化。三條發幣路徑全面守門：`usePomodoro.confirmRating`（基礎幣 0、里程碑分鐘排除、寶箱停用、無金幣紀錄）、`buildManualSession`（`earnedCoins/coinGain=0`）、`setSessionMins`（新基礎幣 0）。noCoin 番茄仍正常存 session（`counted` 依分鐘），因此照常進時間軸／行事曆統計並填掉未利用時間。
+- **分類「只計時、不發金幣」**：`BigCat.noCoin?`＋`CAT.isNoCoin(cat1)`（名稱查詢、娛樂分類不寫死）；分類管理的大分類展開區可切換並持久化。三條發幣路徑全面守門：`usePomodoro.confirmRating`（基礎幣 0、里程碑分鐘排除、寶箱停用、無金幣紀錄）、`buildManualSession`（`earnedCoins/coinGain=0`）、`setSessionMins`（新基礎幣 0）。noCoin 番茄仍正常存 session（`counted` 依分鐘），因此照常進時間軸／行事曆統計並填掉未利用時間。小修：開關文案改「⌛ 只計時（不發金幣 ❌）」；noCoin 結束評分不跳金幣動畫（`setRewardFx` 加 `!isNoCoin` 守門）。
 - **便利貼衝突處理強化（自訂鈕高亮＋一鍵移除）**：班課衝突時記住 `ovPendingPick`；尚未自訂課程時「👉 點我自訂這天課程」改黃色高亮。提醒橫幅新增含確認的「🗑 移除這 N 堂衝突課，並排入此班」：透過 `setOvCourses` 將週課 materialize 成當日自訂快照、刪除衝突課並避免重複地排入待排班別；取消確認不變更。開啟／切日期／關提醒／逐堂刪完皆同步清衝突與 pending state。
 - **課表複製貼上「自動清潔＋貼不上提醒」**：複製「課程＋班別」貼上時以 `shiftRange(place, shift, day)!==""` 過濾 picks（只貼該天真能排的班，消除隱形貼券）；被略過的班以頁面層 `pasteNotice` ⚠️橫幅明列（哪個班、哪天、去管理工作場所開可上班日）；單日貼上與「貼到選取的 N 天」皆適用；複製/關閉清提醒。未動 `lib/schedule.ts`／排班模型。
 - **便利貼微調（衝突紅格＋格內✕）**：班課衝突時衝突課格紅框紅底點亮（`ovConflictSlots`）、提醒精簡為一句含班別名；自訂狀態課格內建 ✕ 一鍵刪（刪完衝突自動消提醒）；沿用每週固定時紅格仍顯示但無 ✕；底部編輯器移除「移除這格」只留選/換科目。
@@ -555,5 +555,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/07/15（分類 noCoin：只計時不發幣；三條發幣路徑守門，session／時間軸／統計／未利用行為不變）*
+*最後更新：2026/07/16（noCoin 小修：開關文案改 ⌛ 只計時；noCoin 結束評分不跳金幣動畫）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*

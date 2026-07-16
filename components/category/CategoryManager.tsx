@@ -475,24 +475,28 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
 
               {isOpen && (
                 <div style={{ padding: "8px 10px 10px", background: TH.bg }}>
-                  <label
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      fontSize: 11,
-                      color: TH.text,
-                      marginBottom: 8,
-                      cursor: "pointer",
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={big.noCoin === true}
-                      onChange={(e) => updateBigNoCoin(bi, e.target.checked)}
-                    />
-                    💰 只計時、不發金幣（娛樂／獎勵用；仍會記錄，也不算未利用時間）
-                  </label>
+                  <div style={{ marginBottom: 8 }}>
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        fontSize: 11,
+                        color: TH.text,
+                        cursor: "pointer",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={big.noCoin === true}
+                        onChange={(e) => updateBigNoCoin(bi, e.target.checked)}
+                      />
+                      ⌛ 只計時（不發金幣 ❌）
+                    </label>
+                    <div style={{ fontSize: 9, color: TH.muted, marginTop: 2, marginLeft: 22 }}>
+                      💡 娛樂／獎勵用；仍會記錄、顯示在時間軸，也不算未利用時間
+                    </div>
+                  </div>
                   {big.mids.map((mid, mi) => {
                     const midOpen = expandedMid[midKey(mi)] ?? false;
                     const midCol = mid.color;
