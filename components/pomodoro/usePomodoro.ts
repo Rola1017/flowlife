@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { CFG } from "@/lib/config";
 import { buildLineSeries } from "@/lib/analytics";
-import { coinsForSecs, playRestEnd, toLocalDateStr } from "@/lib/utils";
+import { coinsForSecs, playRestEnd, toLocalDateStr, toM } from "@/lib/utils";
 import { patchReflection } from "@/lib/sessions";
 import { CAT } from "@/lib/categories";
 import type { Session } from "@/lib/types";
@@ -305,31 +305,71 @@ export function usePomodoro({
     setRated(true);
 
     const el = elRef.current;
-    const mins = Math.max(1, Math.round(el / 60));
-    const counted = mins > 1;
     const isNoCoin = CAT.isNoCoin(confirmed!.cat1);
     const earned = isNoCoin ? 0 : coinsForSecs(el);
     const now = localDateParts();
+    const startClock = focusStartClockRef.current ?? undefined;
+    const crossed = !!startClock && toM(now.time) < toM(startClock);
     const sessionId = Date.now();
     const sUuid = crypto.randomUUID();
-    const row: Session = {
-      id: sessionId,
-      uuid: sUuid,
-      date: now.date,
+    const common = {
       name: confirmed!.name,
       cat1: confirmed!.cat1,
       cat2: confirmed!.cat2,
       cat3: confirmed!.cat3,
-      mins,
       rating: r,
-      earnedCoins: earned,
-      counted,
-      startTime: focusStartClockRef.current ?? undefined,
-      endTime: now.time,
       intention: confirmed!.intention?.trim() || undefined,
       updatedAt: new Date().toISOString(),
     };
-    const ns = [...sessions, row];
+    let newRows: Session[];
+    if (crossed && startClock) {
+      // 跨午夜：切兩顆（前段記昨天到 24:00、後段記今天從 00:00），金幣一次算在前段
+      const sd = new Date();
+      sd.setDate(sd.getDate() - 1);
+      const startDateStr = toLocalDateStr(sd);
+      const minsBefore = Math.max(1, 24 * 60 - toM(startClock));
+      const minsAfter = Math.max(1, toM(now.time));
+      newRows = [
+        {
+          id: sessionId,
+          uuid: sUuid,
+          date: startDateStr,
+          mins: minsBefore,
+          earnedCoins: earned,
+          counted: minsBefore > 1,
+          startTime: startClock,
+          endTime: "24:00",
+          ...common,
+        },
+        {
+          id: sessionId + 1,
+          uuid: crypto.randomUUID(),
+          date: now.date,
+          mins: minsAfter,
+          earnedCoins: 0,
+          counted: minsAfter > 1,
+          startTime: "00:00",
+          endTime: now.time,
+          ...common,
+        },
+      ];
+    } else {
+      const mins = Math.max(1, Math.round(el / 60));
+      newRows = [
+        {
+          id: sessionId,
+          uuid: sUuid,
+          date: now.date,
+          mins,
+          earnedCoins: earned,
+          counted: mins > 1,
+          startTime: startClock,
+          endTime: now.time,
+          ...common,
+        },
+      ];
+    }
+    const ns = [...sessions, ...newRows];
     setSessions(ns);
     setLastSessionId(sessionId);
 

@@ -465,6 +465,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **S2-1b 小分類 ID 化（整棵樹完成）**：`SmallCat` 由 `string` 改 `{ id, name }`，`DEFAULT_CATEGORIES` 所有 subs 補固定 `sml-*` id；`migrateCategoryIds` subs 迴圈正規化（`string→{id,name}`、缺 id 補 `genCatId`，冪等仍先 `snapshotForS2`）＋`loadCategories` `normalizeSub` 同時吃舊 string／物件雙格式做讀取防呆；`CAT.cat3List` 改回 `subs.map(s=>s.name)`、`cat3Color` 改 `findIndex(s=>s.name===cat3)`（消費端仍拿名字陣列、零改動）；CategoryManager subs 全改讀 `.name`（render key 改 `sub.id`、addSub push `{id,name}`、updateSubName 改 `.name`、刪除確認取 `.name`，cascadeRename cat3 仍用名字未動）；新增 `storage.restoreFromS2Backup`（一鍵還原四鍵、無備份回 false，本步未接 UI）。畫面零變化。
 - **分類「只計時、不發金幣」**：`BigCat.noCoin?`＋`CAT.isNoCoin(cat1)`（名稱查詢、娛樂分類不寫死）；分類管理的大分類展開區可切換並持久化。三條發幣路徑全面守門：`usePomodoro.confirmRating`（基礎幣 0、里程碑分鐘排除、寶箱停用、無金幣紀錄）、`buildManualSession`（`earnedCoins/coinGain=0`）、`setSessionMins`（新基礎幣 0）。noCoin 番茄仍正常存 session（`counted` 依分鐘），因此照常進時間軸／行事曆統計並填掉未利用時間。小修：開關文案改「⌛ 只計時（不發金幣 ❌）」；noCoin 結束評分不跳金幣動畫（`setRewardFx` 加 `!isNoCoin` 守門）。
 - **#3a 直式行程表視窗可折疊**：預設 `DAY_START=06:00`～`DAY_END=23:00`；`VerticalTimeline` 加「展開凌晨 00:00–06:00」「展開深夜 23:00–24:00」兩鈕，展開後以區域 `wStart/wEnd`＋`lPos/lH/curNowPct/localHours` 重算定位／時刻標／紅線／點擊換算；`actIdleFor` 接受 `winStart/winEnd`（cutoff 跟視窗）；`actSessionsFor` 不再以全日 pct 裁切（可見性改由時間軸視窗守衛）。`DS/DE` 僅作時間軸預設精簡視窗，行事曆／統計呼叫端未改。小修：「展開深夜」鈕移到時間軸底部（貼近 23:00）、「展開凌晨」留頂部（貼近 06:00），就地展開。
+- **#3b 跨午夜番茄自動切兩顆**：`usePomodoro.confirmRating` 判定 `crossed = toM(now.time) < toM(startClock)`（結束時刻早於開始＝跨午夜）。跨午夜時拆兩顆 `Session`：前段記昨天（`startClock`→`24:00`，`mins=1440-toM(startClock)`、金幣全發在前段 `earned`）、後段記今天（`00:00`→`now.time`，`mins=toM(now.time)`、`earnedCoins:0`），共用 `common` 欄位與同一評分；金幣紀錄 `sessionUuid` 連前段 `sUuid`；里程碑 tot／rewardFx 沿用合併後 `ns`。一般番茄行為完全不變（回歸）。`endTime "24:00"` 僅內部定位用（`toM=1440`），analytics 以 `mins` 加總不受影響。前段落深夜區、後段落凌晨區，配合 #3a 視窗守衛正確定位。
 - **便利貼衝突處理強化（自訂鈕高亮＋一鍵移除）**：班課衝突時記住 `ovPendingPick`；尚未自訂課程時「👉 點我自訂這天課程」改黃色高亮。提醒橫幅新增含確認的「🗑 移除這 N 堂衝突課，並排入此班」：透過 `setOvCourses` 將週課 materialize 成當日自訂快照、刪除衝突課並避免重複地排入待排班別；取消確認不變更。開啟／切日期／關提醒／逐堂刪完皆同步清衝突與 pending state。
 - **課表複製貼上「自動清潔＋貼不上提醒」**：複製「課程＋班別」貼上時以 `shiftRange(place, shift, day)!==""` 過濾 picks（只貼該天真能排的班，消除隱形貼券）；被略過的班以頁面層 `pasteNotice` ⚠️橫幅明列（哪個班、哪天、去管理工作場所開可上班日）；單日貼上與「貼到選取的 N 天」皆適用；複製/關閉清提醒。未動 `lib/schedule.ts`／排班模型。
 - **便利貼微調（衝突紅格＋格內✕）**：班課衝突時衝突課格紅框紅底點亮（`ovConflictSlots`）、提醒精簡為一句含班別名；自訂狀態課格內建 ✕ 一鍵刪（刪完衝突自動消提醒）；沿用每週固定時紅格仍顯示但無 ✕；底部編輯器移除「移除這格」只留選/換科目。
@@ -521,6 +522,7 @@ TH.gold    = "#FBBF24"   // 金幣
 | idleTotalSecs 跨日歸零 | 待議；觸發＝確認跨日行為後。 |
 | 待辦進行中即時碳掉未利用 | 目前完成（有 `endAt`）後才碳；觸發＝要「進行中」即時碳掉時。 |
 | 「明細」分頁改名 | 建議改「番茄反思」以與期間總結區隔；觸發＝命名定案時。 |
+| 手動補番茄跨午夜 | `buildManualSession` 的時間輸入上限 23:59、無法跨午夜（#3b 只處理即時番茄 `confirmRating` 的自動切兩顆）；極少見故暫緩；觸發＝要手動補跨午夜番茄時，比照 confirmRating 拆兩顆邏輯。 |
 | 娛樂時間／番茄倒數結束前 2 分／1 分本機推播 | **暫緩至 Capacitor 原生打包批次**——Web 環境在 App 切走／手機鎖屏時無法可靠發提醒，目前僅 App 開著時提示；計時採結束時間戳記帳，關閉 App 再回來仍能正確結算與退幣。真推播需 Capacitor 原生殼；**進行 Capacitor 原生打包批次時必須一併實作本機推播提醒（結束前 2 分／1 分），並回頭移除本條。** |
 | ~~reset 未清雲端~~ ✅ 已解決 | `handleResetAllData` 已清雲端全部：番茄(`updateSessions([])`)、金幣(`resetCoins`/`resetCoinLog`→push 0/[])、分類(`saveCategories(DEFAULT_CATEGORIES)`→推雲)、覆盤(`clearReviewsCloud()`)；重置後雲端＝番茄空/金幣0/記錄空/分類預設/覆盤空，不再被拉回。 |
 | ~~分類尚未上雲~~ ✅ 已完成 | 分類沿用 app_state 單例 `key="categories"`，`saveCategories` 推雲＋`App` 訂閱刷新（番茄/金幣/分類全上雲）。 |
@@ -556,5 +558,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/07/17（#3a 微調：展開深夜鈕移到時間軸底部貼近 23:00）*
+*最後更新：2026/07/17（#3b 跨午夜番茄自動切兩顆：前段昨天到 24:00、後段今天從 00:00，金幣只發前段）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*
