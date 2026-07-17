@@ -262,21 +262,6 @@ export function VerticalTimeline({
         >
           {expandEarly ? "▲ 收合凌晨" : "▼ 展開凌晨 00:00–06:00"}
         </button>
-        <button
-          type="button"
-          onClick={() => setExpandLate((v) => !v)}
-          style={{
-            fontSize: 9,
-            padding: "3px 8px",
-            borderRadius: 8,
-            border: `1px solid ${TH.border}`,
-            background: expandLate ? TH.accent + "22" : "transparent",
-            color: expandLate ? TH.accent : TH.muted,
-            cursor: "pointer",
-          }}
-        >
-          {expandLate ? "▲ 收合深夜" : "▼ 展開深夜 23:00–24:00"}
-        </button>
       </div>
     <div style={{ display: "flex" }}>
       <div style={{ width: 34, flexShrink: 0, position: "relative", height: 840 }}>
@@ -787,6 +772,23 @@ export function VerticalTimeline({
         )}
       </div>
     </div>
+      <div style={{ marginTop: 6, display: "flex", justifyContent: "flex-end" }}>
+        <button
+          type="button"
+          onClick={() => setExpandLate((v) => !v)}
+          style={{
+            fontSize: 9,
+            padding: "3px 8px",
+            borderRadius: 8,
+            border: `1px solid ${TH.border}`,
+            background: expandLate ? TH.accent + "22" : "transparent",
+            color: expandLate ? TH.accent : TH.muted,
+            cursor: "pointer",
+          }}
+        >
+          {expandLate ? "▲ 收合深夜" : "▼ 展開深夜 23:00–24:00"}
+        </button>
+      </div>
     </div>
   );
 }
