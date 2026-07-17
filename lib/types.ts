@@ -29,4 +29,6 @@ export type Session = {
   uuid?: string;
   /** 最後修改時間（ISO；雲端同步 last-write-wins 用） */
   updatedAt?: string;
+  /** 搬入垃圾桶時間（ISO；active sessions 不帶此欄） */
+  deletedAt?: string;
 };

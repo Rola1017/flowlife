@@ -171,7 +171,7 @@ function SessionRow({
 
       {confirmDelete && editable && (
         <div style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: "flex-end" }}>
-          <span style={{ fontSize: 10, color: TH.red, fontWeight: 700 }}>確認刪除這顆？</span>
+          <span style={{ fontSize: 10, color: TH.red, fontWeight: 700 }}>移進垃圾桶？</span>
           <button
             type="button"
             onClick={() => {
@@ -189,7 +189,7 @@ function SessionRow({
               cursor: "pointer",
             }}
           >
-            確認刪除
+            移進垃圾桶
           </button>
           <button
             type="button"
@@ -468,17 +468,24 @@ function ManualForm({ onAddManual }: { onAddManual: (input: ManualInput) => void
 
 export function SessionHistoryPage({
   sessions,
+  trashedSessions,
   onBack,
   onEditMins,
   onDelete,
   onAddManual,
+  onRestore,
+  onPurge,
 }: {
   sessions: Session[];
+  trashedSessions?: Session[];
   onBack: () => void;
   onEditMins: (id: number, newMins: number) => void;
   onDelete: (id: number) => void;
   onAddManual: (input: ManualInput) => void;
+  onRestore?: (uuid: string) => void;
+  onPurge?: (uuid: string) => void;
 }) {
+  const [trashOpen, setTrashOpen] = useState(false);
   const grouped = useMemo(() => {
     const map: Record<string, Session[]> = {};
     for (const session of sessions) {
@@ -498,6 +505,139 @@ export function SessionHistoryPage({
       <BackBtn onBack={onBack} label="番茄鐘歷史" />
 
       <ManualForm onAddManual={onAddManual} />
+
+      <div
+        style={{
+          border: `1px solid ${TH.border}`,
+          borderRadius: 10,
+          overflow: "hidden",
+          background: "#0A0A0C",
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setTrashOpen((v) => !v)}
+          style={{
+            width: "100%",
+            border: "none",
+            background: "transparent",
+            color: TH.text,
+            padding: "8px 10px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            fontSize: 11,
+            fontWeight: 800,
+            cursor: "pointer",
+          }}
+        >
+          <span>🗑 垃圾桶 ({trashedSessions?.length ?? 0})</span>
+          <span style={{ color: TH.muted }}>{trashOpen ? "▲" : "▼"}</span>
+        </button>
+        {trashOpen && (
+          <div
+            style={{
+              borderTop: `1px solid ${TH.border}`,
+              padding: 8,
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+            }}
+          >
+            <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4 }}>
+              💡 刪除的番茄會先進垃圾桶，30 天後自動清空；復原可救回
+            </div>
+            {(trashedSessions?.length ?? 0) === 0 ? (
+              <div style={{ fontSize: 10, color: TH.muted, textAlign: "center", padding: 8 }}>
+                垃圾桶是空的
+              </div>
+            ) : (
+              trashedSessions?.map((s, i) => {
+                const category = [s.cat1, s.cat2, s.cat3].filter(Boolean).join(" · ");
+                const time =
+                  s.startTime && s.endTime ? `${s.startTime}～${s.endTime}` : "";
+                return (
+                  <div
+                    key={s.uuid ?? `${s.date}-${s.id ?? i}`}
+                    style={{
+                      border: `1px solid ${TH.border}`,
+                      borderRadius: 8,
+                      padding: "7px 8px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontSize: 10,
+                          color: TH.text,
+                          fontWeight: 800,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {s.name || "番茄"}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 8,
+                          color: TH.muted,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {[formatDateLabel(s.date), category, time].filter(Boolean).join(" · ")}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onRestore?.(s.uuid!)}
+                      style={{
+                        border: `1px solid ${TH.border}`,
+                        borderRadius: 6,
+                        padding: "4px 7px",
+                        background: "transparent",
+                        color: TH.accent,
+                        fontSize: 9,
+                        fontWeight: 800,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      ↩ 復原
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm("永久刪除後無法復原，確定刪除？")) {
+                          onPurge?.(s.uuid!);
+                        }
+                      }}
+                      style={{
+                        border: `1px solid ${TH.red}66`,
+                        borderRadius: 6,
+                        padding: "4px 7px",
+                        background: "transparent",
+                        color: TH.red,
+                        fontSize: 9,
+                        fontWeight: 800,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      永久刪除
+                    </button>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+      </div>
 
       {sortedDates.length === 0 ? (
         <div style={{ fontSize: 10, color: TH.muted, textAlign: "center", padding: 16 }}>

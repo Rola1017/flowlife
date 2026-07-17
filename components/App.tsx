@@ -18,12 +18,12 @@ import { LS_KEYS, loadJSON, loadNumber, saveJSON, saveNumber } from "@/lib/stora
 import { migrateCategoryIds, saveCategories, DEFAULT_CATEGORIES } from "@/lib/categories";
 import { clearReviewsCloud } from "@/lib/reviews";
 import type { Session } from "@/lib/types";
-import { patchReflection, setSessionMins, removeSession, buildManualSession, stampSession, ensureSessionUuid } from "@/lib/sessions";
+import { patchReflection, setSessionMins, buildManualSession, stampSession, ensureSessionUuid } from "@/lib/sessions";
 import { useReviewCloudSync } from "@/components/hooks/useReviewCloudSync";
 import { useSessionCloudSync } from "@/components/hooks/useSessionCloudSync";
 import { useAppStateCloudSync } from "@/components/hooks/useAppStateCloudSync";
 import { subscribeSessions, syncSessionDiffToCloud } from "@/lib/sessionsCloud";
-import { APP_STATE_KEYS, subscribeAppState } from "@/lib/appStateCloud";
+import { APP_STATE_KEYS, pushAppState, subscribeAppState } from "@/lib/appStateCloud";
 import { ensureWorkplacesSeeded } from "@/lib/schedule";
 import { Card } from "@/components/ui/Card";
 import { Header } from "@/components/Header";
@@ -129,6 +129,7 @@ function AppContent() {
   const { todos, handleStart, handleEnd, handleToggleDone, addTodo, updateTodo, resetTodos } = useTodos([]);
 
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [trashedSessions, setTrashedSessions] = useState<Session[]>([]);
 
   const updateSessions = useCallback((updater: SetStateAction<Session[]>) => {
     setSessions((prev) => {
@@ -140,10 +141,32 @@ function AppContent() {
     });
   }, []);
 
+  const updateTrashed = useCallback((updater: SetStateAction<Session[]>) => {
+    setTrashedSessions((prev) => {
+      const next =
+        typeof updater === "function"
+          ? (updater as (p: Session[]) => Session[])(prev)
+          : updater;
+      saveJSON(LS_KEYS.trashedSessions, next);
+      void pushAppState(APP_STATE_KEYS.trashedSessions, next);
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     migrateCategoryIds();
     ensureWorkplacesSeeded();
     updateSessions(loadJSON<Session[]>(LS_KEYS.sessions, []));
+    const loadedTrash = loadJSON<Session[]>(LS_KEYS.trashedSessions, []);
+    const cutoff = Date.now() - 30 * 86400000;
+    const keptTrash = loadedTrash.filter(
+      (s) => !s.deletedAt || new Date(s.deletedAt).getTime() >= cutoff,
+    );
+    setTrashedSessions(keptTrash);
+    if (keptTrash.length !== loadedTrash.length) {
+      saveJSON(LS_KEYS.trashedSessions, keptTrash);
+      void pushAppState(APP_STATE_KEYS.trashedSessions, keptTrash);
+    }
     const r = loadJSON<Partial<typeof DEFAULT_RATINGS>>(LS_KEYS.ratingCounts, {});
     setFocused(typeof r.focused === "number" ? r.focused : DEFAULT_RATINGS.focused);
     setNeutral(typeof r.neutral === "number" ? r.neutral : DEFAULT_RATINGS.neutral);
@@ -162,6 +185,14 @@ function AppContent() {
   // 雲端同步回來時，把本地最新讀進畫面（用原始 setSessions，避免再次觸發推送）
   useEffect(
     () => subscribeSessions(() => setSessions(loadJSON<Session[]>(LS_KEYS.sessions, []))),
+    [],
+  );
+
+  useEffect(
+    () =>
+      subscribeAppState(APP_STATE_KEYS.trashedSessions, () =>
+        setTrashedSessions(loadJSON<Session[]>(LS_KEYS.trashedSessions, [])),
+      ),
     [],
   );
 
@@ -266,6 +297,7 @@ function AppContent() {
     setRestEndAt(null);
     resetTodos([]);
     updateSessions([]);
+    updateTrashed([]);
     setResetVersion((v) => v + 1);
     setTab("home");
     setSubPage(null);
@@ -290,6 +322,7 @@ function AppContent() {
     setIdleTotalSecs(DEFAULT_IDLE_TOTAL_SECS);
     setRestEndAt(null);
     updateSessions([]);
+    updateTrashed([]);
     setResetVersion((v) => v + 1);
   };
 
@@ -307,10 +340,32 @@ function AppContent() {
   };
   const handleDeleteSession = (id: number) => {
     const target = sessions.find((s) => s.id === id);
-    const { sessions: next, coinDelta } = removeSession(sessions, id);
-    updateSessions(next);
-    if (coinDelta !== 0) setCoins((c) => Math.max(0, c + coinDelta));
-    if (target?.uuid) removeCoinRowsBySession(target.uuid);
+    if (!target) return;
+    updateSessions(sessions.filter((s) => s.id !== id));
+    updateTrashed((prev) => [
+      { ...target, deletedAt: new Date().toISOString() },
+      ...prev.filter((s) => s.uuid !== target.uuid),
+    ]);
+  };
+  const handleRestoreSession = (uuid: string) => {
+    const target = trashedSessions.find((s) => s.uuid === uuid);
+    if (!target) return;
+    const clean = { ...target };
+    delete clean.deletedAt;
+    updateSessions((prev) => [
+      ...prev,
+      { ...clean, updatedAt: new Date().toISOString() },
+    ]);
+    updateTrashed((prev) => prev.filter((s) => s.uuid !== uuid));
+  };
+  const handlePurgeSession = (uuid: string) => {
+    const target = trashedSessions.find((s) => s.uuid === uuid);
+    updateTrashed((prev) => prev.filter((s) => s.uuid !== uuid));
+    if (target) {
+      const refund = -(target.earnedCoins ?? 0);
+      if (refund !== 0) setCoins((c) => Math.max(0, c + refund));
+      if (target.uuid) removeCoinRowsBySession(target.uuid);
+    }
   };
   const handleAddManualSession = (input: {
     startAt: string;
@@ -393,6 +448,9 @@ function AppContent() {
         onEditMins={handleEditSessionMins}
         onDelete={handleDeleteSession}
         onAddManual={handleAddManualSession}
+        trashedSessions={trashedSessions}
+        onRestore={handleRestoreSession}
+        onPurge={handlePurgeSession}
       />
     ),
     dayView: (props = {}) => (

@@ -25,6 +25,7 @@ export const LS_KEYS = {
   s2Backup: `${STORAGE_PREFIX}s2_backup`,
   appStateMeta: `${STORAGE_PREFIX}_appstate_meta`,
   workplaces: `${STORAGE_PREFIX}workplaces`,
+  trashedSessions: `${STORAGE_PREFIX}trashed_sessions`,
 } as const;
 
 function assertVersionedKey(key: string): void {

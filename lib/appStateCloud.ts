@@ -18,6 +18,7 @@ export const APP_STATE_KEYS = {
   dayPlans: "day_plans",
   dayOverrides: "day_overrides",
   weekSchedule: "week_schedule",
+  trashedSessions: "trashed_sessions",
 } as const;
 
 type AppStateKey = (typeof APP_STATE_KEYS)[keyof typeof APP_STATE_KEYS];
@@ -30,6 +31,7 @@ const LS_FOR_KEY: Record<AppStateKey, string> = {
   [APP_STATE_KEYS.dayPlans]: LS_KEYS.dayPlans,
   [APP_STATE_KEYS.dayOverrides]: LS_KEYS.dayOverrides,
   [APP_STATE_KEYS.weekSchedule]: LS_KEYS.weekSchedule,
+  [APP_STATE_KEYS.trashedSessions]: LS_KEYS.trashedSessions,
 };
 
 const DEFAULT_FOR_KEY: Record<AppStateKey, unknown> = {
@@ -40,6 +42,7 @@ const DEFAULT_FOR_KEY: Record<AppStateKey, unknown> = {
   [APP_STATE_KEYS.dayPlans]: {}, // 空物件；loadDayPlans 讀取時會正規化/補預設
   [APP_STATE_KEYS.dayOverrides]: {}, // 空物件；loadDayOverrides 讀取時正規化
   [APP_STATE_KEYS.weekSchedule]: {}, // 空物件；normalizeSchedule 讀取時處理
+  [APP_STATE_KEYS.trashedSessions]: [],
 };
 
 // 本地 meta：每個 key 的最後修改時間 {key: iso}
