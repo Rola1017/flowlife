@@ -1,5 +1,5 @@
 import type { Session } from "@/lib/types";
-import { coinsForSecs, toM } from "@/lib/utils";
+import { coinsForSecs, toLocalDateStr } from "@/lib/utils";
 import { resolveCatIds, CAT } from "@/lib/categories";
 
 /** 依名字補上分類穩定編號（只補不覆蓋；找不到名字絕不清掉舊編號） */
@@ -53,34 +53,60 @@ export function removeSession(sessions: Session[], id: number) {
   return { sessions: sessions.filter((s) => s.id !== id), coinDelta };
 }
 
-/** 手動補一顆番茄（單一寫入來源）；必填起訖、依時長發基礎幣、標 manual */
+/** 手動補番茄（單一寫入來源）；開始/結束各含日期、可跨天自動切段、依時長發基礎幣（一次算在第一段）、標 manual */
 export function buildManualSession(input: {
-  date: string;
+  startAt: string; // "YYYY-MM-DDTHH:MM"
+  endAt: string;   // "YYYY-MM-DDTHH:MM"
   name: string;
   cat1: string;
   cat2?: string;
   cat3?: string;
-  startTime: string;
-  endTime: string;
   rating?: string;
-}): { session: Session; coinGain: number } {
-  const mins = Math.max(1, toM(input.endTime) - toM(input.startTime));
-  const earned = CAT.isNoCoin(input.cat1) ? 0 : coinsForSecs(mins * 60);
-  const session: Session = {
-    id: Date.now(),
-    date: input.date,
-    name: input.name.trim() || input.cat3 || input.cat2 || input.cat1 || "手動番茄",
+}): { sessions: Session[]; coinGain: number } {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const hm = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const start = new Date(input.startAt);
+  const end = new Date(input.endAt);
+  const totalSecs = Math.max(60, Math.round((end.getTime() - start.getTime()) / 1000));
+  const isNoCoin = CAT.isNoCoin(input.cat1);
+  const earned = isNoCoin ? 0 : coinsForSecs(totalSecs);
+  const name = input.name.trim() || input.cat3 || input.cat2 || input.cat1 || "手動番茄";
+  const baseId = Date.now();
+
+  const segs: { date: string; startTime: string; endTime: string; mins: number }[] = [];
+  const cur = new Date(start);
+  let guard = 0;
+  while (cur < end && guard < 40) {
+    guard++;
+    const dayEnd = new Date(cur);
+    dayEnd.setHours(24, 0, 0, 0); // 次日 00:00 = 本日 24:00
+    const segEnd = dayEnd < end ? dayEnd : end;
+    const endsAtMidnight = segEnd.getTime() === dayEnd.getTime();
+    segs.push({
+      date: toLocalDateStr(cur),
+      startTime: hm(cur),
+      endTime: endsAtMidnight ? "24:00" : hm(segEnd),
+      mins: Math.max(1, Math.round((segEnd.getTime() - cur.getTime()) / 60000)),
+    });
+    cur.setTime(dayEnd.getTime());
+  }
+
+  const sessions: Session[] = segs.map((seg, i) => ({
+    id: baseId + i,
+    uuid: crypto.randomUUID(),
+    date: seg.date,
+    name,
     cat1: input.cat1,
     cat2: input.cat2 ?? "",
     cat3: input.cat3 ?? "",
-    mins,
+    mins: seg.mins,
     rating: input.rating || "",
-    earnedCoins: earned,
-    counted: mins > 1,
-    startTime: input.startTime,
-    endTime: input.endTime,
+    earnedCoins: i === 0 ? earned : 0, // 金幣一次算在第一段
+    counted: seg.mins > 1,
+    startTime: seg.startTime,
+    endTime: seg.endTime,
     manual: true,
     updatedAt: new Date().toISOString(),
-  };
-  return { session, coinGain: earned };
+  }));
+  return { sessions, coinGain: earned };
 }

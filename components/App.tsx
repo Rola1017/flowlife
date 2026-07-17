@@ -313,34 +313,34 @@ function AppContent() {
     if (target?.uuid) removeCoinRowsBySession(target.uuid);
   };
   const handleAddManualSession = (input: {
-    date: string;
+    startAt: string;
+    endAt: string;
     name: string;
     cat1: string;
     cat2: string;
     cat3: string;
-    startTime: string;
-    endTime: string;
     rating?: string;
   }) => {
-    const { session, coinGain } = buildManualSession(input);
-    const withUuid = ensureSessionUuid(session);
-    updateSessions((prev) => [...prev, withUuid]);
+    const { sessions: newRows, coinGain } = buildManualSession(input);
+    const stamped = newRows.map(ensureSessionUuid);
+    updateSessions((prev) => [...prev, ...stamped]);
     if (coinGain > 0) {
       setCoins((c) => c + coinGain);
-      const t = withUuid.startTime ?? "";
+      const first = stamped[0];
+      const t = first.startTime ?? "";
       appendCoinRow({
         id: Date.now(),
-        date: withUuid.date,
+        date: first.date,
         time: t,
-        at: `${withUuid.date} ${t}`.trim(),
-        taskName: withUuid.name,
+        at: `${first.date} ${t}`.trim(),
+        taskName: first.name,
         amount: coinGain,
-        cat1: withUuid.cat1,
-        cat2: withUuid.cat2 || undefined,
-        cat3: withUuid.cat3 || undefined,
-        startTime: withUuid.startTime,
-        endTime: withUuid.endTime,
-        sessionUuid: withUuid.uuid,
+        cat1: first.cat1,
+        cat2: first.cat2 || undefined,
+        cat3: first.cat3 || undefined,
+        startTime: first.startTime,
+        endTime: first.endTime,
+        sessionUuid: first.uuid,
       });
     }
   };

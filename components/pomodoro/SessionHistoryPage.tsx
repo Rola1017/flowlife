@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { TH } from "@/lib/theme";
-import { fmt, toM } from "@/lib/utils";
+import { fmt } from "@/lib/utils";
 import { CFG } from "@/lib/config";
 import { CAT } from "@/lib/categories";
 import { loadScheduleCourses } from "@/lib/schedule";
@@ -11,13 +11,12 @@ import { CategorySelector } from "@/components/pomodoro/CategorySelector";
 import type { Session } from "@/lib/types";
 
 type ManualInput = {
-  date: string;
+  startAt: string;
+  endAt: string;
   name: string;
   cat1: string;
   cat2: string;
   cat3: string;
-  startTime: string;
-  endTime: string;
   rating?: string;
 };
 
@@ -233,37 +232,35 @@ function ManualForm({ onAddManual }: { onAddManual: (input: ManualInput) => void
   const courses = useMemo(() => loadScheduleCourses(), []);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [draft, setDraft] = useState<ManualInput>({
-    date: CFG.TODAY_STR,
+    startAt: `${CFG.TODAY_STR}T09:00`,
+    endAt: `${CFG.TODAY_STR}T10:00`,
     name: "",
     cat1: (cat1List[0] as string) ?? "",
     cat2: "",
     cat3: "",
-    startTime: "",
-    endTime: "",
     rating: "",
   });
   const [error, setError] = useState("");
 
   const reset = () => {
     setDraft({
-      date: CFG.TODAY_STR,
+      startAt: `${CFG.TODAY_STR}T09:00`,
+      endAt: `${CFG.TODAY_STR}T10:00`,
       name: "",
       cat1: (cat1List[0] as string) ?? "",
       cat2: "",
       cat3: "",
-      startTime: "",
-      endTime: "",
       rating: "",
     });
     setError("");
   };
 
   const submit = () => {
-    if (!draft.startTime || !draft.endTime) {
-      setError("請填起訖時間");
+    if (!draft.startAt || !draft.endAt) {
+      setError("請填開始與結束");
       return;
     }
-    if (toM(draft.endTime) <= toM(draft.startTime)) {
+    if (new Date(draft.endAt).getTime() <= new Date(draft.startAt).getTime()) {
       setError("結束需晚於開始");
       return;
     }
@@ -366,25 +363,29 @@ function ManualForm({ onAddManual }: { onAddManual: (input: ManualInput) => void
             placeholder="名稱（可留空）"
             style={manualInputStyle}
           />
-          <input
-            type="date"
-            value={draft.date}
-            onChange={(e) => setDraft((v) => ({ ...v, date: e.target.value }))}
-            style={manualInputStyle}
-          />
-          <div style={{ display: "flex", gap: 8 }}>
-            <input
-              type="time"
-              value={draft.startTime}
-              onChange={(e) => setDraft((v) => ({ ...v, startTime: e.target.value }))}
-              style={manualInputStyle}
-            />
-            <input
-              type="time"
-              value={draft.endTime}
-              onChange={(e) => setDraft((v) => ({ ...v, endTime: e.target.value }))}
-              style={manualInputStyle}
-            />
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div>
+              <div style={{ fontSize: 9, color: TH.muted, marginBottom: 2 }}>開始</div>
+              <input
+                type="datetime-local"
+                value={draft.startAt}
+                onChange={(e) => setDraft((v) => ({ ...v, startAt: e.target.value }))}
+                style={manualInputStyle}
+              />
+            </div>
+            <div>
+              <div style={{ fontSize: 9, color: TH.muted, marginBottom: 2 }}>結束</div>
+              <input
+                type="datetime-local"
+                value={draft.endAt}
+                min={draft.startAt}
+                onChange={(e) => setDraft((v) => ({ ...v, endAt: e.target.value }))}
+                style={manualInputStyle}
+              />
+            </div>
+            <div style={{ fontSize: 9, color: TH.muted }}>
+              💡 開始／結束可跨到不同日期；跨過午夜會自動分段記到各天
+            </div>
           </div>
           <CategorySelector
             cat1={draft.cat1}
