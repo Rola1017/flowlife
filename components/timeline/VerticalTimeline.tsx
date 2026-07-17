@@ -772,7 +772,7 @@ export function VerticalTimeline({
         )}
       </div>
     </div>
-      <div style={{ marginTop: 6, display: "flex", justifyContent: "flex-end" }}>
+      <div style={{ marginTop: 6, display: "flex", gap: 6 }}>
         <button
           type="button"
           onClick={() => setExpandLate((v) => !v)}
