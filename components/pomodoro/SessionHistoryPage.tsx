@@ -241,6 +241,11 @@ function ManualForm({ onAddManual }: { onAddManual: (input: ManualInput) => void
     rating: "",
   });
   const [error, setError] = useState("");
+  const nowLocal = (() => {
+    const d = new Date();
+    const p = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  })();
 
   const reset = () => {
     setDraft({
@@ -262,6 +267,10 @@ function ManualForm({ onAddManual }: { onAddManual: (input: ManualInput) => void
     }
     if (new Date(draft.endAt).getTime() <= new Date(draft.startAt).getTime()) {
       setError("結束需晚於開始");
+      return;
+    }
+    if (new Date(draft.endAt).getTime() > Date.now()) {
+      setError("不能補未來的番茄（手動補登是記錄已完成的事）");
       return;
     }
     onAddManual({ ...draft, name: draft.name.trim() });
@@ -369,6 +378,7 @@ function ManualForm({ onAddManual }: { onAddManual: (input: ManualInput) => void
               <input
                 type="datetime-local"
                 value={draft.startAt}
+                max={nowLocal}
                 onChange={(e) => setDraft((v) => ({ ...v, startAt: e.target.value }))}
                 style={manualInputStyle}
               />
@@ -379,12 +389,13 @@ function ManualForm({ onAddManual }: { onAddManual: (input: ManualInput) => void
                 type="datetime-local"
                 value={draft.endAt}
                 min={draft.startAt}
+                max={nowLocal}
                 onChange={(e) => setDraft((v) => ({ ...v, endAt: e.target.value }))}
                 style={manualInputStyle}
               />
             </div>
             <div style={{ fontSize: 9, color: TH.muted }}>
-              💡 開始／結束可跨到不同日期；跨過午夜會自動分段記到各天
+              💡 開始／結束可跨到不同日期；只能補到「現在」為止（補登＝記錄已做過的事）
             </div>
           </div>
           <CategorySelector

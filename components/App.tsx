@@ -346,26 +346,39 @@ function AppContent() {
       { ...target, deletedAt: new Date().toISOString() },
       ...prev.filter((s) => s.uuid !== target.uuid),
     ]);
+    const refund = -(target.earnedCoins ?? 0);
+    if (refund !== 0) setCoins((c) => Math.max(0, c + refund));
+    if (target.uuid) removeCoinRowsBySession(target.uuid);
   };
   const handleRestoreSession = (uuid: string) => {
     const target = trashedSessions.find((s) => s.uuid === uuid);
     if (!target) return;
     const clean = { ...target };
     delete clean.deletedAt;
-    updateSessions((prev) => [
-      ...prev,
-      { ...clean, updatedAt: new Date().toISOString() },
-    ]);
+    updateSessions((prev) => [...prev, { ...clean, updatedAt: new Date().toISOString() }]);
     updateTrashed((prev) => prev.filter((s) => s.uuid !== uuid));
+    const gain = target.earnedCoins ?? 0;
+    if (gain > 0) {
+      setCoins((c) => c + gain);
+      const t = target.startTime ?? "";
+      appendCoinRow({
+        id: Date.now(),
+        date: target.date,
+        time: t,
+        at: `${target.date} ${t}`.trim(),
+        taskName: target.name,
+        amount: gain,
+        cat1: target.cat1,
+        cat2: target.cat2 || undefined,
+        cat3: target.cat3 || undefined,
+        startTime: target.startTime,
+        endTime: target.endTime,
+        sessionUuid: target.uuid,
+      });
+    }
   };
   const handlePurgeSession = (uuid: string) => {
-    const target = trashedSessions.find((s) => s.uuid === uuid);
     updateTrashed((prev) => prev.filter((s) => s.uuid !== uuid));
-    if (target) {
-      const refund = -(target.earnedCoins ?? 0);
-      if (refund !== 0) setCoins((c) => Math.max(0, c + refund));
-      if (target.uuid) removeCoinRowsBySession(target.uuid);
-    }
   };
   const handleAddManualSession = (input: {
     startAt: string;
