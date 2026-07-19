@@ -55,6 +55,7 @@ export function CoinHistoryPage({
   const [view, setView] = useState<ViewMode>("time");
   const [signTab, setSignTab] = useState<SignTab>("summary");
   const [drillCat1, setDrillCat1] = useState<string | null>(null);
+  const [drillCat2, setDrillCat2] = useState<string | null>(null);
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [keyword, setKeyword] = useState("");
@@ -72,6 +73,7 @@ export function CoinHistoryPage({
     setView(next);
     setSignTab("summary");
     setDrillCat1(null);
+    setDrillCat2(null);
   };
 
   const filteredLog = useMemo(() => {
@@ -152,6 +154,27 @@ export function CoinHistoryPage({
       }))
       .sort((a, b) => b.subtotal - a.subtotal);
   }, [filteredLog, drillCat1]);
+
+  const smallGroups = useMemo(() => {
+    if (drillCat1 == null || drillCat2 == null) return [];
+    const rows = filteredLog.filter(
+      (r) =>
+        (r.cat1 ?? "") === drillCat1 &&
+        (r.cat2?.trim() || "（未分中分類）") === drillCat2,
+    );
+    const grouped = rows.reduce<Record<string, CoinIncomeLogRow[]>>((acc, r) => {
+      const k = r.cat3?.trim() || "（未分小分類）";
+      acc[k] = [...(acc[k] ?? []), r];
+      return acc;
+    }, {});
+    return Object.entries(grouped)
+      .map(([label, rs]) => ({
+        label,
+        rows: [...rs].sort((a, b) => b.at.localeCompare(a.at)),
+        subtotal: rs.reduce((s, r) => s + r.amount, 0),
+      }))
+      .sort((a, b) => b.subtotal - a.subtotal);
+  }, [filteredLog, drillCat1, drillCat2]);
 
   const signGroups = useMemo(() => {
     const income = filteredLog
@@ -548,6 +571,9 @@ export function CoinHistoryPage({
       <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.5 }}>
         💡 先框出時間範圍，再切換「依分類」看金幣來自哪類番茄，或「收支」分別看收入與支出
       </div>
+      <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.5 }}>
+        💡 依分類可一路往下點：大分類 → 中分類 → 小分類
+      </div>
 
       <div style={{ fontSize: 10, color: TH.muted }}>
         共 {summary.count} 筆 · 合計 {summary.total > 0 ? "+" : ""}
@@ -616,19 +642,48 @@ export function CoinHistoryPage({
             )
           ) : (
             <>
-              <button type="button" onClick={() => setDrillCat1(null)} style={backBtnStyle}>
-                ← 返回所有大分類
-              </button>
-              <div style={{ fontSize: 10, color: TH.text, fontWeight: 800 }}>
-                {drillCat1} · 依中分類
+              <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDrillCat1(null);
+                    setDrillCat2(null);
+                  }}
+                  style={backBtnStyle}
+                >
+                  ← 所有大分類
+                </button>
+                {drillCat2 != null && (
+                  <button type="button" onClick={() => setDrillCat2(null)} style={backBtnStyle}>
+                    ← 返回 {drillCat1}
+                  </button>
+                )}
               </div>
-              {midGroups.length === 0 ? (
+              <div style={{ fontSize: 10, color: TH.text, fontWeight: 800 }}>
+                {drillCat2 == null
+                  ? `${drillCat1} · 依中分類`
+                  : `${drillCat1} › ${drillCat2} · 依小分類`}
+              </div>
+              {drillCat2 == null ? (
+                midGroups.length === 0 ? (
+                  <div style={{ fontSize: 10, color: TH.muted, textAlign: "center", padding: 12 }}>
+                    此大分類沒有中分類明細
+                  </div>
+                ) : (
+                  midGroups.map((g) =>
+                    renderGroupCard(`mid-${g.label}`, g.label, g.rows, g.subtotal, {
+                      onTitleClick: () => setDrillCat2(g.label),
+                      showChevron: true,
+                    }),
+                  )
+                )
+              ) : smallGroups.length === 0 ? (
                 <div style={{ fontSize: 10, color: TH.muted, textAlign: "center", padding: 12 }}>
-                  此大分類沒有中分類明細
+                  此中分類沒有小分類明細
                 </div>
               ) : (
-                midGroups.map((g) =>
-                  renderGroupCard(`mid-${g.label}`, g.label, g.rows, g.subtotal),
+                smallGroups.map((g) =>
+                  renderGroupCard(`small-${g.label}`, g.label, g.rows, g.subtotal),
                 )
               )}
             </>
