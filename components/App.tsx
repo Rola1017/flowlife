@@ -38,7 +38,6 @@ import { CategoryManager } from "@/components/category/CategoryManager";
 import { ShopPage } from "@/components/shop/ShopPage";
 import { CoinHistoryPage } from "@/components/pomodoro/CoinHistoryPage";
 import { SessionHistoryPage } from "@/components/pomodoro/SessionHistoryPage";
-import { useCoins } from "@/components/useCoins";
 import { useCoinLog } from "@/components/useCoinLog";
 import { useTodos } from "@/components/todo/useTodos";
 import { TodoEditSheet } from "@/components/todo/TodoEditSheet";
@@ -101,17 +100,18 @@ function AppContent() {
   const [calIntent, setCalIntent] = useState<{ review: "day" } | null>(null);
   const [subPage, setSubPage] = useState<{ type: string; props?: Record<string, unknown> } | null>(null);
   const [quote, setQuote] = useState("每一顆番茄鐘，都是打下江山的一刀。");
-  const { coins, setCoins, resetCoins, spendCoins } = useCoins();
   const {
     coinIncomeLog,
     setCoinIncomeLog,
     coinLogHydrated,
+    coins,
+    spendCoins,
     resetCoinLog,
     appendCoinRow,
     removeCoinRowsForSession,
+    upsertCoinRowForSession,
     findOrphanCoinRows,
     removeCoinRowsByIds,
-    bumpCoinAmountBySession,
     linkRowsToSessions,
   } = useCoinLog();
   const didLinkCoinRef = useRef(false);
@@ -294,9 +294,11 @@ function AppContent() {
 
   const handleResetAllData = () => {
     clearFlowLifeStorage();
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("flowlife_coin_ledger_migrated");
+    }
     saveCategories(DEFAULT_CATEGORIES); // 分類重置為預設並推上雲，蓋掉雲端舊分類
     void clearReviewsCloud(); // 清掉雲端覆盤，避免下次同步被拉回
-    resetCoins();
     resetCoinLog();
     setFocused(DEFAULT_RATINGS.focused);
     setNeutral(DEFAULT_RATINGS.neutral);
@@ -318,11 +320,12 @@ function AppContent() {
       [
         LS_KEYS.sessions,
         LS_KEYS.coinIncomeLog,
+        LS_KEYS.coins,
         LS_KEYS.ratingCounts,
         LS_KEYS.idleTotalSecs,
       ].forEach((k) => localStorage.removeItem(k));
+      localStorage.removeItem("flowlife_coin_ledger_migrated");
     }
-    resetCoins();
     resetCoinLog();
     setFocused(DEFAULT_RATINGS.focused);
     setNeutral(DEFAULT_RATINGS.neutral);
@@ -341,18 +344,16 @@ function AppContent() {
   };
 
   const handleEditSessionMins = (id: number, newMins: number) => {
-    const { sessions: next, coinDelta } = setSessionMins(sessions, id, newMins);
+    const { sessions: next } = setSessionMins(sessions, id, newMins);
     updateSessions(next);
-    if (coinDelta !== 0) setCoins((c) => Math.max(0, c + coinDelta));
-    const target = sessions.find((s) => s.id === id);
-    if (target?.uuid && coinDelta !== 0) bumpCoinAmountBySession(target.uuid, coinDelta);
+    const updated = next.find((s) => s.id === id);
+    if (updated) upsertCoinRowForSession(updated, updated.earnedCoins ?? 0);
   };
   const handleEditSessionTimes = (id: number, startTime: string, endTime: string) => {
-    const { sessions: next, coinDelta } = setSessionTimes(sessions, id, startTime, endTime);
+    const { sessions: next } = setSessionTimes(sessions, id, startTime, endTime);
     updateSessions(next);
-    if (coinDelta !== 0) setCoins((c) => Math.max(0, c + coinDelta));
-    const target = sessions.find((s) => s.id === id);
-    if (target?.uuid && coinDelta !== 0) bumpCoinAmountBySession(target.uuid, coinDelta);
+    const updated = next.find((s) => s.id === id);
+    if (updated) upsertCoinRowForSession(updated, updated.earnedCoins ?? 0);
   };
   const handleReconcileCoins = () => {
     const orphans = findOrphanCoinRows(sessions);
@@ -368,7 +369,6 @@ function AppContent() {
     )
       return;
     const removed = removeCoinRowsByIds(orphans.map((r) => r.id));
-    if (removed > 0) setCoins((c) => Math.max(0, c - removed));
     setCoinToast(`已清理 ${orphans.length} 筆，扣回 ${removed} 金幣`);
   };
   const handleDeleteSession = (id: number) => {
@@ -381,7 +381,6 @@ function AppContent() {
       { ...target, deletedAt: new Date().toISOString(), refundedCoins: refund },
       ...prev.filter((s) => s.uuid !== target.uuid),
     ]);
-    if (refund > 0) setCoins((c) => Math.max(0, c - refund));
     setCoinToast(
       refund > 0 ? `已移入垃圾桶，扣回 ${refund} 金幣` : "已移入垃圾桶（這顆沒有入帳金幣）",
     );
@@ -396,7 +395,6 @@ function AppContent() {
     updateTrashed((prev) => prev.filter((s) => s.uuid !== uuid));
     const gain = target.refundedCoins ?? (target.earnedCoins ?? 0);
     if (gain > 0) {
-      setCoins((c) => c + gain);
       const t = target.startTime ?? "";
       appendCoinRow({
         id: Date.now(),
@@ -411,6 +409,7 @@ function AppContent() {
         startTime: target.startTime,
         endTime: target.endTime,
         sessionUuid: target.uuid,
+        kind: "session",
       });
     }
     setCoinToast(gain > 0 ? `已復原，加回 ${gain} 金幣` : "已復原（這顆沒有金幣）");
@@ -451,10 +450,9 @@ function AppContent() {
         startTime: row.startTime,
         endTime: row.endTime,
         sessionUuid: row.uuid,
+        kind: "session",
       });
     });
-    const totalGain = stamped.reduce((s, x) => s + (x.earnedCoins ?? 0), 0);
-    if (totalGain > 0) setCoins((c) => c + totalGain);
   };
 
   const todoProps = {
@@ -490,7 +488,13 @@ function AppContent() {
         }}
       />
     ),
-    shop: () => <ShopPage coins={coins} onSpend={spendCoins} onBack={pop} />,
+    shop: () => (
+      <ShopPage
+        coins={coins}
+        onSpend={(amount: number, label?: string) => spendCoins(amount, label ?? "商店消費")}
+        onBack={pop}
+      />
+    ),
     coinHistory: () => (
       <CoinHistoryPage
         coinIncomeLog={coinIncomeLog}
@@ -570,7 +574,6 @@ function AppContent() {
       sessions={sessions}
       setSessions={updateSessions}
       coins={coins}
-      setCoins={setCoins}
       onShowShop={() => push("shop")}
       onShowCategoryManager={() => push("categoryManager")}
       onShowCoinHistory={() => push("coinHistory")}

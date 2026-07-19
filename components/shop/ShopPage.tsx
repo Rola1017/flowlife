@@ -31,7 +31,7 @@ export function ShopPage({
   onBack,
 }: {
   coins: number;
-  onSpend: (n: number) => boolean;
+  onSpend: (amount: number, label?: string) => boolean;
   onBack: () => void;
 }) {
   const [items, setItems] = useState(MOCK.shopItems);
@@ -210,7 +210,7 @@ export function ShopPage({
               className="flowlife-pressable"
               type="button"
               onClick={() => {
-                if (!onSpend(item.price)) {
+                if (!onSpend(item.price, item.name)) {
                   showNotice("金幣不足");
                   return;
                 }

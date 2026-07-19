@@ -204,7 +204,15 @@ export function CoinHistoryPage({
               {durLabel(row.startTime, row.endTime)}
             </div>
           </div>
-          <div style={{ fontSize: 11, color: TH.gold, fontWeight: 900 }}>+{row.amount} 🪙</div>
+          <div
+            style={{
+              fontSize: 11,
+              color: row.amount < 0 ? TH.red : TH.gold,
+              fontWeight: 900,
+            }}
+          >
+            {row.amount < 0 ? `${row.amount} 🪙` : `+${row.amount} 🪙`}
+          </div>
         </button>
         {isEditing && (
           <div
@@ -346,6 +354,9 @@ export function CoinHistoryPage({
         </button>
         <div style={{ fontSize: 9, color: TH.muted, marginTop: 6, lineHeight: 1.5 }}>
           💡 早期刪番茄時可能留下沒清乾淨的金幣紀錄；按這裡會找出來、一併扣回對應金幣
+        </div>
+        <div style={{ fontSize: 9, color: TH.muted, marginTop: 4, lineHeight: 1.5 }}>
+          💡 金幣餘額＝這張明細的總和；刪番茄會連同該筆收入一起移除，餘額自動更新
         </div>
       </div>
 

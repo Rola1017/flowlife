@@ -31,8 +31,7 @@ app/
 components/
 ├── App.tsx               ← 根元件，管理全域狀態 + 頁面路由（subPage state）
 ├── Header.tsx            ← 固定頂部，動態顯示今天日期，右上角設定按鈕（無 😤🙂😴）
-├── useCoins.ts           ← 金幣全域 Hook
-├── useCoinLog.ts         ← 金幣記錄單一來源 Hook（coinIncomeLog 讀/寫/append/依番茄刪改/reset）
+├── useCoinLog.ts         ← 金幣單一真相（明細帳＋餘額＝加總；append/remove/upsert/spend）
 │
 ├── ui/
 │   ├── Card.tsx          ← 也 re-export SL（import { SL } from "@/components/ui/Card"）
@@ -370,9 +369,9 @@ TH.gold    = "#FBBF24"   // 金幣
 6. **next.config.ts** → `ignoreBuildErrors: true, ignoreDuringBuilds: true`
 7. **改動前確認範圍** → 先說「會影響哪些檔案」，確認後再動
 8. **💡 小提示** → 每個新功能都要在 UI 就近加一行 `💡` 操作提示（`fontSize: 9`、`TH.muted`），讓使用者不用猜怎麼用
-9. **金幣記錄＝`useCoinLog` 單一來源** → `coinIncomeLog` 只在 `App.tsx` 經 `useCoinLog()` 持有並讀/寫 `LS_KEYS.coinIncomeLog`，往下傳 prop；`usePomodoro`／`PomodoroPage`／`CoinHistoryPage` 一律用傳入的 `coinIncomeLog`/`setCoinIncomeLog`，禁止任何元件再自開一份 state 或各自 load/save（避免雙份互蓋）
+9. **金幣記錄＝`useCoinLog` 單一真相** → 餘額＝明細 `amount` 加總；`coinIncomeLog` 只在 `App.tsx` 經 `useCoinLog()` 持有；變動只走 `appendCoinRow`／`removeCoinRows*`／`upsertCoinRowForSession`／`spendCoins` 四入口；禁止獨立餘額 state 或元件各自 load/save 金幣
 10. **番茄雲端同步＝`lib/sessionsCloud`** → 番茄上雲（push/delete/拉合併）一律走 `sessionsCloud`（uuid 主鍵、last-write-wins by `updatedAt`、localStorage 為本機快取/備援）；寫入路徑由 `App.updateSessions` 末端 `syncSessionDiffToCloud(prev,next)` 自動增量推送，禁止元件各自直連 supabase 寫 sessions
-11. **app_state 雲端同步＝`lib/appStateCloud`** → 金幣餘額（`coins`）與金幣記錄（`coin_income_log`）整包單例上雲，以 `(user_id,key)` 為主鍵、last-write-wins（本地 `LS_KEYS.appStateMeta` 時戳 vs 雲端 `updated_at`）；`useCoins`/`useCoinLog` 本地變動才 `pushAppState`、訂閱 `subscribeAppState` 套回，禁止元件各自直連 supabase 寫 app_state
+11. **app_state 雲端同步＝`lib/appStateCloud`** → 金幣明細（`coin_income_log`）整包上雲；餘額由明細加總、不再讀寫獨立 `coins` key（舊 `coins` 僅遷移用）；`useCoinLog` 本地變動才 `pushAppState`、訂閱套回；禁止元件各自直連 supabase 寫 app_state
 
 ---
 
@@ -475,6 +474,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **番茄改以時間區段為主**：`lib/sessions.setSessionTimes`（分鐘＝結束−開始，`24:00`→1440；金幣重算與 `setSessionMins` 同套，`noCoin` 仍 0）；歷史頁編輯鈕改「✏️時間」，改開始～結束即時顯示換算分鐘，儲存後時間軸定位同步更新。
 - **垃圾桶一鍵清空**：`handlePurgeAll`→`updateTrashed([])`；垃圾桶展開區「🗑 全部永久刪除（N）」有 confirm；金幣已於進垃圾桶時結清，全清不動金幣。
 - **#6 跨日番茄各段各自計算金幣**：修「跨午夜切兩顆卻金幣全算第一段、第二段 earnedCoins=0」——與「一顆番茄一筆帳」對帳前提矛盾。即時番茄（`confirmRating`）與手動補（`buildManualSession`）皆改各段依自身分鐘＋同一套 `coinsForSecs` 計幣；跨午夜帳列各段一筆；刪任一段只退該段金額。
+- **金幣架構治本（帳本單一真相）**：餘額＝`coinIncomeLog` 所有 `amount` 加總，不再獨立存 `useCoins`／`LS_KEYS.coins`（檔案已刪；`LS_KEYS.coins` 僅遷移讀取）。`CoinIncomeLogRow.kind?`（`session|bonus|spend|opening`）；一次性期初結餘遷移（`flowlife_coin_ledger_migrated`，diff＝舊餘額−明細總和）。四個唯一入口：`appendCoinRow`／`removeCoinRows*`／`upsertCoinRowForSession`／`spendCoins`。刪/改/商店皆只動明細 → 餘額自動變；`confirmRating`／`handleAddManual` 不再 `setCoins`。
 - **便利貼衝突處理強化（自訂鈕高亮＋一鍵移除）**：班課衝突時記住 `ovPendingPick`；尚未自訂課程時「👉 點我自訂這天課程」改黃色高亮。提醒橫幅新增含確認的「🗑 移除這 N 堂衝突課，並排入此班」：透過 `setOvCourses` 將週課 materialize 成當日自訂快照、刪除衝突課並避免重複地排入待排班別；取消確認不變更。開啟／切日期／關提醒／逐堂刪完皆同步清衝突與 pending state。
 - **課表複製貼上「自動清潔＋貼不上提醒」**：複製「課程＋班別」貼上時以 `shiftRange(place, shift, day)!==""` 過濾 picks（只貼該天真能排的班，消除隱形貼券）；被略過的班以頁面層 `pasteNotice` ⚠️橫幅明列（哪個班、哪天、去管理工作場所開可上班日）；單日貼上與「貼到選取的 N 天」皆適用；複製/關閉清提醒。未動 `lib/schedule.ts`／排班模型。
 - **便利貼微調（衝突紅格＋格內✕）**：班課衝突時衝突課格紅框紅底點亮（`ovConflictSlots`）、提醒精簡為一句含班別名；自訂狀態課格內建 ✕ 一鍵刪（刪完衝突自動消提醒）；沿用每週固定時紅格仍顯示但無 ✕；底部編輯器移除「移除這格」只留選/換科目。
@@ -568,5 +568,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/07/19（#6 跨日番茄各段各自計算金幣）*
+*最後更新：2026/07/19（金幣架構治本：餘額＝明細帳加總，四個唯一入口＋期初結餘遷移）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*

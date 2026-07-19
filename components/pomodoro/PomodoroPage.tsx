@@ -35,7 +35,6 @@ export function PomodoroPage({
   sessions,
   setSessions,
   coins,
-  setCoins,
   onShowShop,
   onShowCategoryManager,
   onShowCoinHistory,
@@ -59,7 +58,6 @@ export function PomodoroPage({
   sessions: Session[];
   setSessions: Dispatch<SetStateAction<Session[]>>;
   coins: number;
-  setCoins: Dispatch<SetStateAction<number>>;
   onShowShop: () => void;
   onShowCategoryManager: () => void;
   onShowCoinHistory: () => void;
@@ -134,7 +132,6 @@ export function PomodoroPage({
   } = usePomodoro({
     sessions,
     setSessions,
-    setCoins,
     setFocused,
     setNeutral,
     setDistracted,

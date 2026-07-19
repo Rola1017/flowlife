@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { CFG } from "@/lib/config";
+import { LS_KEYS, loadJSON, loadNumber, saveJSON } from "@/lib/storage";
 import { APP_STATE_KEYS, pushAppState, subscribeAppState } from "@/lib/appStateCloud";
 import type { CoinIncomeLogRow } from "@/components/pomodoro/usePomodoro";
 import type { Session } from "@/lib/types";
 
-/** 金幣記錄單一來源（比照 useCoins 風格）：掛載讀檔、變動寫檔 */
+const LEDGER_MIGRATED_KEY = "flowlife_coin_ledger_migrated";
+
+/** 金幣明細帳＝單一真相；餘額＝明細 amount 加總 */
 export function useCoinLog() {
   const [coinIncomeLog, setCoinIncomeLog] = useState<CoinIncomeLogRow[]>([]);
   const [hydrated, setHydrated] = useState(false);
@@ -14,9 +17,34 @@ export function useCoinLog() {
 
   useEffect(() => {
     const saved = loadJSON<unknown>(LS_KEYS.coinIncomeLog, []);
-    if (Array.isArray(saved)) {
-      lastPushedRef.current = saved as CoinIncomeLogRow[];
-      setCoinIncomeLog(saved as CoinIncomeLogRow[]);
+    const rows = Array.isArray(saved) ? (saved as CoinIncomeLogRow[]) : [];
+    lastPushedRef.current = rows;
+
+    const migrated = localStorage.getItem(LEDGER_MIGRATED_KEY) === "1";
+    if (!migrated) {
+      const stored = loadNumber(LS_KEYS.coins, 0);
+      const sum = rows.reduce((s, r) => s + (r.amount ?? 0), 0);
+      const diff = stored - sum;
+      const next =
+        diff !== 0
+          ? [
+              {
+                id: Date.now(),
+                date: CFG.TODAY_STR,
+                time: "00:00",
+                at: `${CFG.TODAY_STR} 00:00`,
+                taskName: "期初結餘（金幣制度升級）",
+                amount: diff,
+                kind: "opening" as const,
+              },
+              ...rows,
+            ]
+          : rows;
+      localStorage.setItem(LEDGER_MIGRATED_KEY, "1");
+      lastPushedRef.current = next;
+      setCoinIncomeLog(next);
+    } else {
+      setCoinIncomeLog(rows);
     }
     setHydrated(true);
   }, []);
@@ -45,6 +73,11 @@ export function useCoinLog() {
     [],
   );
 
+  const coins = useMemo(
+    () => coinIncomeLog.reduce((s, r) => s + (r.amount ?? 0), 0),
+    [coinIncomeLog],
+  );
+
   const appendCoinRow = (row: CoinIncomeLogRow) => setCoinIncomeLog((l) => [row, ...l]);
   const removeCoinRowsBySession = (uuid: string) =>
     setCoinIncomeLog((l) => l.filter((r) => r.sessionUuid !== uuid));
@@ -54,12 +87,77 @@ export function useCoinLog() {
     );
   const resetCoinLog = () => setCoinIncomeLog([]);
 
+  const spendCoins = (amount: number, label: string) => {
+    if (amount <= 0) return false;
+    if (coins < amount) return false;
+    const now = new Date();
+    const p = (n: number) => String(n).padStart(2, "0");
+    const d = `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
+    const t = `${p(now.getHours())}:${p(now.getMinutes())}`;
+    appendCoinRow({
+      id: Date.now(),
+      date: d,
+      time: t,
+      at: `${d} ${t}`,
+      taskName: label,
+      amount: -amount,
+      kind: "spend",
+    });
+    return true;
+  };
+
+  /** 番茄金額變動的唯一入口：有帳列就改、沒有就開一筆（改時長/改時間用） */
+  const upsertCoinRowForSession = (
+    s: {
+      uuid?: string;
+      date: string;
+      name: string;
+      cat1?: string;
+      cat2?: string;
+      cat3?: string;
+      startTime?: string;
+      endTime?: string;
+    },
+    amount: number,
+  ) => {
+    setCoinIncomeLog((l) => {
+      const idx = l.findIndex((r) => s.uuid && r.sessionUuid === s.uuid && r.kind !== "bonus");
+      if (idx >= 0) {
+        if (amount <= 0) return l.filter((_, i) => i !== idx);
+        const next = [...l];
+        next[idx] = { ...next[idx], amount, startTime: s.startTime, endTime: s.endTime };
+        return next;
+      }
+      if (amount <= 0) return l;
+      const t = s.startTime ?? "";
+      return [
+        {
+          id: Date.now(),
+          date: s.date,
+          time: t,
+          at: `${s.date} ${t}`.trim(),
+          taskName: s.name,
+          amount,
+          cat1: s.cat1,
+          cat2: s.cat2,
+          cat3: s.cat3,
+          startTime: s.startTime,
+          endTime: s.endTime,
+          sessionUuid: s.uuid,
+          kind: "session" as const,
+        },
+        ...l,
+      ];
+    });
+  };
+
   /** 一次性回填：把無 sessionUuid 的舊金幣列依 date/起訖 對到舊番茄的 uuid */
   const linkRowsToSessions = (sessions: Session[]) =>
     setCoinIncomeLog((log) => {
       let changed = false;
       const next = log.map((r) => {
         if (r.sessionUuid) return r;
+        if ((r.kind ?? "session") !== "session") return r;
         const m = sessions.find(
           (s) => s.uuid && s.date === r.date && s.startTime === r.startTime && s.endTime === r.endTime,
         );
@@ -83,6 +181,7 @@ export function useCoinLog() {
       (r) =>
         (s.uuid && r.sessionUuid === s.uuid) ||
         (!r.sessionUuid &&
+          (r.kind ?? "session") === "session" &&
           r.date === s.date &&
           (r.startTime ?? "") === (s.startTime ?? "") &&
           (r.endTime ?? "") === (s.endTime ?? "")),
@@ -104,9 +203,11 @@ export function useCoinLog() {
     return total;
   };
 
-  /** 孤兒＝帳列對應的番茄已不存在（uuid 對不到，且無 uuid 者以 日期＋起訖 也對不到） */
+  /** 孤兒＝帳列對應的番茄已不存在（略過 opening/spend；uuid 對不到，且無 uuid 者以 日期＋起訖 也對不到） */
   const findOrphanCoinRows = (sessions: Session[]) =>
     coinIncomeLog.filter((r) => {
+      const kind = r.kind ?? "session";
+      if (kind === "opening" || kind === "spend") return false;
       if (r.sessionUuid) return !sessions.some((s) => s.uuid === r.sessionUuid);
       return !sessions.some(
         (s) =>
@@ -130,6 +231,9 @@ export function useCoinLog() {
     coinIncomeLog,
     setCoinIncomeLog,
     coinLogHydrated: hydrated,
+    coins,
+    spendCoins,
+    upsertCoinRowForSession,
     appendCoinRow,
     removeCoinRowsBySession,
     removeCoinRowsForSession,

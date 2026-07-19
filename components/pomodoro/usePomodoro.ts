@@ -27,6 +27,8 @@ export type CoinIncomeLogRow = {
   endTime?: string;
   /** 連動的番茄 uuid（為「依番茄連動刪/改」鋪路；舊記錄無此欄） */
   sessionUuid?: string;
+  /** 帳列種類；舊資料無此欄一律視為 session */
+  kind?: "session" | "bonus" | "spend" | "opening";
 };
 
 // 日期與 toLocalDateStr / CFG.TODAY_STR 一致（本地 YYYY-MM-DD，非 UTC）
@@ -40,7 +42,6 @@ function localDateParts(date = new Date()) {
 export function usePomodoro({
   sessions,
   setSessions,
-  setCoins,
   setFocused,
   setNeutral,
   setDistracted,
@@ -56,7 +57,6 @@ export function usePomodoro({
 }: {
   sessions: Session[];
   setSessions: Dispatch<SetStateAction<Session[]>>;
-  setCoins: Dispatch<SetStateAction<number>>;
   setFocused: Dispatch<SetStateAction<number>>;
   setNeutral: Dispatch<SetStateAction<number>>;
   setDistracted: Dispatch<SetStateAction<number>>;
@@ -393,7 +393,6 @@ export function usePomodoro({
     const finalEarned = isTreasure ? baseSum * 2 : baseSum;
     const totalGain = finalEarned + milestoneBonus;
     if (totalGain > 0) {
-      setCoins((c) => c + totalGain);
       if (crossed) {
         const rows: CoinIncomeLogRow[] = newRows
           .filter((x) => (x.earnedCoins ?? 0) > 0)
@@ -410,6 +409,7 @@ export function usePomodoro({
             startTime: x.startTime,
             endTime: x.endTime,
             sessionUuid: x.uuid,
+            kind: "session" as const,
           }));
         const bonus = totalGain - baseSum;
         if (bonus > 0) {
@@ -426,6 +426,7 @@ export function usePomodoro({
             startTime: focusStartClockRef.current ?? undefined,
             endTime: now.time,
             sessionUuid: sUuid,
+            kind: "bonus" as const,
           });
         }
         setCoinIncomeLog((log) => [...rows, ...log]);
@@ -442,6 +443,7 @@ export function usePomodoro({
             startTime: focusStartClockRef.current ?? undefined,
             endTime: now.time,
             sessionUuid: sUuid,
+            kind: "session" as const,
           },
           ...log,
         ]);
@@ -546,7 +548,9 @@ export function usePomodoro({
   const todayCoinIncomeLog = coinIncomeLog
     .filter((row) => row.date === todayDate)
     .sort((a, b) => b.at.localeCompare(a.at));
-  const todayCoinIncomeTotal = todayCoinIncomeLog.reduce((sum, row) => sum + row.amount, 0);
+  const todayCoinIncomeTotal = todayCoinIncomeLog
+    .filter((row) => row.amount > 0)
+    .reduce((sum, row) => sum + row.amount, 0);
   const recentCoinIncomeLog = todayCoinIncomeLog.slice(0, 5);
 
   useEffect(() => {
