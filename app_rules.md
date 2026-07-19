@@ -465,8 +465,8 @@ TH.gold    = "#FBBF24"   // 金幣
 - **S2-1b 小分類 ID 化（整棵樹完成）**：`SmallCat` 由 `string` 改 `{ id, name }`，`DEFAULT_CATEGORIES` 所有 subs 補固定 `sml-*` id；`migrateCategoryIds` subs 迴圈正規化（`string→{id,name}`、缺 id 補 `genCatId`，冪等仍先 `snapshotForS2`）＋`loadCategories` `normalizeSub` 同時吃舊 string／物件雙格式做讀取防呆；`CAT.cat3List` 改回 `subs.map(s=>s.name)`、`cat3Color` 改 `findIndex(s=>s.name===cat3)`（消費端仍拿名字陣列、零改動）；CategoryManager subs 全改讀 `.name`（render key 改 `sub.id`、addSub push `{id,name}`、updateSubName 改 `.name`、刪除確認取 `.name`，cascadeRename cat3 仍用名字未動）；新增 `storage.restoreFromS2Backup`（一鍵還原四鍵、無備份回 false，本步未接 UI）。畫面零變化。
 - **分類「只計時、不發金幣」**：`BigCat.noCoin?`＋`CAT.isNoCoin(cat1)`（名稱查詢、娛樂分類不寫死）；分類管理的大分類展開區可切換並持久化。三條發幣路徑全面守門：`usePomodoro.confirmRating`（基礎幣 0、里程碑分鐘排除、寶箱停用、無金幣紀錄）、`buildManualSession`（`earnedCoins/coinGain=0`）、`setSessionMins`（新基礎幣 0）。noCoin 番茄仍正常存 session（`counted` 依分鐘），因此照常進時間軸／行事曆統計並填掉未利用時間。小修：開關文案改「⌛ 只計時（不發金幣 ❌）」；noCoin 結束評分不跳金幣動畫（`setRewardFx` 加 `!isNoCoin` 守門）。
 - **#3a 直式行程表視窗可折疊**：預設 `DAY_START=06:00`～`DAY_END=23:00`；`VerticalTimeline` 加「展開凌晨 00:00–06:00」「展開深夜 23:00–24:00」兩鈕，展開後以區域 `wStart/wEnd`＋`lPos/lH/curNowPct/localHours` 重算定位／時刻標／紅線／點擊換算；`actIdleFor` 接受 `winStart/winEnd`（cutoff 跟視窗）；`actSessionsFor` 不再以全日 pct 裁切（可見性改由時間軸視窗守衛）。`DS/DE` 僅作時間軸預設精簡視窗，行事曆／統計呼叫端未改。小修：「展開深夜」鈕移到時間軸底部（貼近 23:00）、「展開凌晨」留頂部（貼近 06:00），就地展開。
-- **#3b 跨午夜番茄自動切兩顆**：`usePomodoro.confirmRating` 判定 `crossed = toM(now.time) < toM(startClock)`（結束時刻早於開始＝跨午夜）。跨午夜時拆兩顆 `Session`：前段記昨天（`startClock`→`24:00`，`mins=1440-toM(startClock)`、金幣全發在前段 `earned`）、後段記今天（`00:00`→`now.time`，`mins=toM(now.time)`、`earnedCoins:0`），共用 `common` 欄位與同一評分；金幣紀錄 `sessionUuid` 連前段 `sUuid`；里程碑 tot／rewardFx 沿用合併後 `ns`。一般番茄行為完全不變（回歸）。`endTime "24:00"` 僅內部定位用（`toM=1440`），analytics 以 `mins` 加總不受影響。前段落深夜區、後段落凌晨區，配合 #3a 視窗守衛正確定位。
-- **手動補番茄改雙 datetime 跨天切段**：`buildManualSession` 簽章改 `{ startAt, endAt }`（`"YYYY-MM-DDTHH:MM"`）＋回傳 `{ sessions: Session[], coinGain }`；`while` 迴圈按「本日 24:00」切段（`guard<40` 防無窮迴圈、`toLocalDateStr` 用本地日期），跨午夜前段到 `24:00`、後段從 `00:00`，金幣一次算在第一段（`i===0` earned、其餘 0），`isNoCoin` 仍發 0。`SessionHistoryPage` `ManualForm` 表單改「開始／結束」兩個 `datetime-local`（移除單獨日期欄），submit 用 `Date` 比較驗證。`App.handleAddManualSession` 改收多顆（`...stamped`）、金幣紀錄 `sessionUuid` 連第一段。
+- **#3b 跨午夜番茄自動切兩顆**：`usePomodoro.confirmRating` 判定 `crossed = toM(now.time) < toM(startClock)`（結束時刻早於開始＝跨午夜）。跨午夜時拆兩顆 `Session`：前段記昨天（`startClock`→`24:00`）、後段記今天（`00:00`→`now.time`），共用 `common` 欄位與同一評分。**#6 修正**：各段依自身分鐘各自計基礎幣（`coinsForSecs(segMins*60)`，`noCoin` 仍 0）；跨午夜金幣帳列各段一筆，里程碑/寶箱加成另筆掛第一段 `sUuid`；非跨日維持一筆合計。一般番茄行為回歸不變。`endTime "24:00"` 僅內部定位用（`toM=1440`）。
+- **手動補番茄改雙 datetime 跨天切段**：`buildManualSession` 簽章改 `{ startAt, endAt }`（`"YYYY-MM-DDTHH:MM"`）＋回傳 `{ sessions: Session[], coinGain }`；`while` 迴圈按「本日 24:00」切段（`guard<40`、`toLocalDateStr`）。**#6 修正**：各段 `earnedCoins` 各自依 `seg.mins` 計幣（不再全塞第一段）；`coinGain`＝各段合計；`App.handleAddManualSession` 逐段 `appendCoinRow`。`isNoCoin` 仍發 0。
 - **時間軸相鄰區塊細線分隔**：`VerticalTimeline` 課程/作息塊非 shift 者 `border` 由 `none` 改 `1px solid #0D0D0F`（底色）、番茄 session 塊加 `border: 1px solid #0D0D0F`；顏色相近的相鄰區塊間出現一條與背景同色的細縫，視覺分開（dailyOverride 已有邊框、idle 已有虛線，不動）。
 - **垃圾桶-1 番茄軟刪除（可復原）**：`Session.deletedAt?`＋`LS_KEYS.trashedSessions`；垃圾桶以 app_state `key="trashed_sessions"`（預設 `[]`）做本地＋雲端 LWW 備份。`App.handleDeleteSession` 用既有 `updateSessions` 把番茄移出 active，再寫入獨立 `trashedSessions`；**金幣在進垃圾桶當下結算**，退幣金額以金幣帳本為單一真相（`removeCoinRowsForSession`：先 uuid、找不到再用日期＋起訖補比對舊列；回傳實際入帳含里程碑/寶箱；帳本查無才退 `earnedCoins`）。垃圾桶記下 `refundedCoins`，復原時對稱加回同一數字＋`appendCoinRow`。永久刪除有 `window.confirm`，只移出垃圾桶（金幣已於進垃圾桶時處理，不重複扣）。hydrate 時清掉 `deletedAt` 超過 30 天者；重置全部／清除記錄同步清垃圾桶。`SessionHistoryPage` 在手動補番茄後加可折疊「🗑 垃圾桶 (N)」；進垃圾桶／復原有 `coinToast` 提示扣回／加回金額。
 - **手動補番茄禁止未來**：`ManualForm` 兩個 `datetime-local` 加 `max={nowLocal}`；submit 驗證 `endAt > Date.now()` 擋下並提示「不能補未來的番茄」；提示文案改為只能補到「現在」為止。
@@ -474,6 +474,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **金幣孤兒對帳**：`useCoinLog.findOrphanCoinRows`／`removeCoinRowsByIds`——找出「番茄已不存在」（uuid 對不到，舊列再用日期＋起訖也對不到）的金幣帳列；金幣收支頁「🧾 對帳」先 confirm 筆數與金額，再清帳列並同步扣回金幣（修早期刪番茄遺留孤兒）。
 - **番茄改以時間區段為主**：`lib/sessions.setSessionTimes`（分鐘＝結束−開始，`24:00`→1440；金幣重算與 `setSessionMins` 同套，`noCoin` 仍 0）；歷史頁編輯鈕改「✏️時間」，改開始～結束即時顯示換算分鐘，儲存後時間軸定位同步更新。
 - **垃圾桶一鍵清空**：`handlePurgeAll`→`updateTrashed([])`；垃圾桶展開區「🗑 全部永久刪除（N）」有 confirm；金幣已於進垃圾桶時結清，全清不動金幣。
+- **#6 跨日番茄各段各自計算金幣**：修「跨午夜切兩顆卻金幣全算第一段、第二段 earnedCoins=0」——與「一顆番茄一筆帳」對帳前提矛盾。即時番茄（`confirmRating`）與手動補（`buildManualSession`）皆改各段依自身分鐘＋同一套 `coinsForSecs` 計幣；跨午夜帳列各段一筆；刪任一段只退該段金額。
 - **便利貼衝突處理強化（自訂鈕高亮＋一鍵移除）**：班課衝突時記住 `ovPendingPick`；尚未自訂課程時「👉 點我自訂這天課程」改黃色高亮。提醒橫幅新增含確認的「🗑 移除這 N 堂衝突課，並排入此班」：透過 `setOvCourses` 將週課 materialize 成當日自訂快照、刪除衝突課並避免重複地排入待排班別；取消確認不變更。開啟／切日期／關提醒／逐堂刪完皆同步清衝突與 pending state。
 - **課表複製貼上「自動清潔＋貼不上提醒」**：複製「課程＋班別」貼上時以 `shiftRange(place, shift, day)!==""` 過濾 picks（只貼該天真能排的班，消除隱形貼券）；被略過的班以頁面層 `pasteNotice` ⚠️橫幅明列（哪個班、哪天、去管理工作場所開可上班日）；單日貼上與「貼到選取的 N 天」皆適用；複製/關閉清提醒。未動 `lib/schedule.ts`／排班模型。
 - **便利貼微調（衝突紅格＋格內✕）**：班課衝突時衝突課格紅框紅底點亮（`ovConflictSlots`）、提醒精簡為一句含班別名；自訂狀態課格內建 ✕ 一鍵刪（刪完衝突自動消提醒）；沿用每週固定時紅格仍顯示但無 ✕；底部編輯器移除「移除這格」只留選/換科目。
@@ -567,5 +568,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/07/19（金幣孤兒對帳＋番茄以時間區段為主＋垃圾桶一鍵清空）*
+*最後更新：2026/07/19（#6 跨日番茄各段各自計算金幣）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*

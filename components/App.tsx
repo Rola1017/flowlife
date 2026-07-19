@@ -431,28 +431,30 @@ function AppContent() {
     cat3: string;
     rating?: string;
   }) => {
-    const { sessions: newRows, coinGain } = buildManualSession(input);
+    const { sessions: newRows } = buildManualSession(input);
     const stamped = newRows.map(ensureSessionUuid);
     updateSessions((prev) => [...prev, ...stamped]);
-    if (coinGain > 0) {
-      setCoins((c) => c + coinGain);
-      const first = stamped[0];
-      const t = first.startTime ?? "";
+    stamped.forEach((row) => {
+      const amt = row.earnedCoins ?? 0;
+      if (amt <= 0) return;
+      const t = row.startTime ?? "";
       appendCoinRow({
-        id: Date.now(),
-        date: first.date,
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        date: row.date,
         time: t,
-        at: `${first.date} ${t}`.trim(),
-        taskName: first.name,
-        amount: coinGain,
-        cat1: first.cat1,
-        cat2: first.cat2 || undefined,
-        cat3: first.cat3 || undefined,
-        startTime: first.startTime,
-        endTime: first.endTime,
-        sessionUuid: first.uuid,
+        at: `${row.date} ${t}`.trim(),
+        taskName: row.name,
+        amount: amt,
+        cat1: row.cat1,
+        cat2: row.cat2 || undefined,
+        cat3: row.cat3 || undefined,
+        startTime: row.startTime,
+        endTime: row.endTime,
+        sessionUuid: row.uuid,
       });
-    }
+    });
+    const totalGain = stamped.reduce((s, x) => s + (x.earnedCoins ?? 0), 0);
+    if (totalGain > 0) setCoins((c) => c + totalGain);
   };
 
   const todoProps = {

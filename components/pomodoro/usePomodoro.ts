@@ -323,7 +323,7 @@ export function usePomodoro({
     };
     let newRows: Session[];
     if (crossed && startClock) {
-      // 跨午夜：切兩顆（前段記昨天到 24:00、後段記今天從 00:00），金幣一次算在前段
+      // 跨午夜：切兩顆（前段記昨天到 24:00、後段記今天從 00:00），各段依自身分鐘各自計幣
       const sd = new Date();
       sd.setDate(sd.getDate() - 1);
       const startDateStr = toLocalDateStr(sd);
@@ -335,7 +335,7 @@ export function usePomodoro({
           uuid: sUuid,
           date: startDateStr,
           mins: minsBefore,
-          earnedCoins: earned,
+          earnedCoins: isNoCoin ? 0 : coinsForSecs(minsBefore * 60),
           counted: minsBefore > 1,
           startTime: startClock,
           endTime: "24:00",
@@ -346,7 +346,7 @@ export function usePomodoro({
           uuid: crypto.randomUUID(),
           date: now.date,
           mins: minsAfter,
-          earnedCoins: 0,
+          earnedCoins: isNoCoin ? 0 : coinsForSecs(minsAfter * 60),
           counted: minsAfter > 1,
           startTime: "00:00",
           endTime: now.time,
@@ -389,25 +389,63 @@ export function usePomodoro({
     if (!isNoCoin && dur >= 60 && Math.random() < 0.3) {
       isTreasure = true;
     }
-    const finalEarned = isTreasure ? earned * 2 : earned;
+    const baseSum = newRows.reduce((s, x) => s + (x.earnedCoins ?? 0), 0);
+    const finalEarned = isTreasure ? baseSum * 2 : baseSum;
     const totalGain = finalEarned + milestoneBonus;
     if (totalGain > 0) {
       setCoins((c) => c + totalGain);
-      setCoinIncomeLog((log) => [
-        {
-          id: Date.now(),
-          ...now,
-          taskName: confirmed?.name || "番茄鐘",
-          amount: totalGain,
-          cat1: confirmed?.cat1,
-          cat2: confirmed?.cat2,
-          cat3: confirmed?.cat3,
-          startTime: focusStartClockRef.current ?? undefined,
-          endTime: now.time,
-          sessionUuid: sUuid,
-        },
-        ...log,
-      ]);
+      if (crossed) {
+        const rows: CoinIncomeLogRow[] = newRows
+          .filter((x) => (x.earnedCoins ?? 0) > 0)
+          .map((x) => ({
+            id: Date.now() + Math.floor(Math.random() * 1000),
+            date: x.date,
+            time: x.endTime ?? now.time,
+            at: `${x.date} ${x.endTime ?? now.time}`,
+            taskName: confirmed?.name || "番茄鐘",
+            amount: x.earnedCoins ?? 0,
+            cat1: confirmed?.cat1,
+            cat2: confirmed?.cat2,
+            cat3: confirmed?.cat3,
+            startTime: x.startTime,
+            endTime: x.endTime,
+            sessionUuid: x.uuid,
+          }));
+        const bonus = totalGain - baseSum;
+        if (bonus > 0) {
+          rows.push({
+            id: Date.now() + 999,
+            date: now.date,
+            time: now.time,
+            at: now.at,
+            taskName: "里程碑/寶箱獎勵",
+            amount: bonus,
+            cat1: confirmed?.cat1,
+            cat2: confirmed?.cat2,
+            cat3: confirmed?.cat3,
+            startTime: focusStartClockRef.current ?? undefined,
+            endTime: now.time,
+            sessionUuid: sUuid,
+          });
+        }
+        setCoinIncomeLog((log) => [...rows, ...log]);
+      } else {
+        setCoinIncomeLog((log) => [
+          {
+            id: Date.now(),
+            ...now,
+            taskName: confirmed?.name || "番茄鐘",
+            amount: totalGain,
+            cat1: confirmed?.cat1,
+            cat2: confirmed?.cat2,
+            cat3: confirmed?.cat3,
+            startTime: focusStartClockRef.current ?? undefined,
+            endTime: now.time,
+            sessionUuid: sUuid,
+          },
+          ...log,
+        ]);
+      }
     }
     if (!isNoCoin) {
       setRewardFx({ id: Date.now(), amount: totalGain, big: dur > 25, treasure: isTreasure });
