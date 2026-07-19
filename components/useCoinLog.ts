@@ -104,6 +104,28 @@ export function useCoinLog() {
     return total;
   };
 
+  /** 孤兒＝帳列對應的番茄已不存在（uuid 對不到，且無 uuid 者以 日期＋起訖 也對不到） */
+  const findOrphanCoinRows = (sessions: Session[]) =>
+    coinIncomeLog.filter((r) => {
+      if (r.sessionUuid) return !sessions.some((s) => s.uuid === r.sessionUuid);
+      return !sessions.some(
+        (s) =>
+          s.date === r.date &&
+          (s.startTime ?? "") === (r.startTime ?? "") &&
+          (s.endTime ?? "") === (r.endTime ?? ""),
+      );
+    });
+
+  /** 清掉指定 id 的帳列，回傳被清總金額 */
+  const removeCoinRowsByIds = (ids: number[]) => {
+    const set = new Set(ids);
+    const total = coinIncomeLog
+      .filter((r) => set.has(r.id))
+      .reduce((s, r) => s + (r.amount ?? 0), 0);
+    setCoinIncomeLog((l) => l.filter((r) => !set.has(r.id)));
+    return total;
+  };
+
   return {
     coinIncomeLog,
     setCoinIncomeLog,
@@ -111,6 +133,8 @@ export function useCoinLog() {
     appendCoinRow,
     removeCoinRowsBySession,
     removeCoinRowsForSession,
+    findOrphanCoinRows,
+    removeCoinRowsByIds,
     bumpCoinAmountBySession,
     resetCoinLog,
     linkRowsToSessions,

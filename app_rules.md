@@ -471,6 +471,9 @@ TH.gold    = "#FBBF24"   // 金幣
 - **垃圾桶-1 番茄軟刪除（可復原）**：`Session.deletedAt?`＋`LS_KEYS.trashedSessions`；垃圾桶以 app_state `key="trashed_sessions"`（預設 `[]`）做本地＋雲端 LWW 備份。`App.handleDeleteSession` 用既有 `updateSessions` 把番茄移出 active，再寫入獨立 `trashedSessions`；**金幣在進垃圾桶當下結算**，退幣金額以金幣帳本為單一真相（`removeCoinRowsForSession`：先 uuid、找不到再用日期＋起訖補比對舊列；回傳實際入帳含里程碑/寶箱；帳本查無才退 `earnedCoins`）。垃圾桶記下 `refundedCoins`，復原時對稱加回同一數字＋`appendCoinRow`。永久刪除有 `window.confirm`，只移出垃圾桶（金幣已於進垃圾桶時處理，不重複扣）。hydrate 時清掉 `deletedAt` 超過 30 天者；重置全部／清除記錄同步清垃圾桶。`SessionHistoryPage` 在手動補番茄後加可折疊「🗑 垃圾桶 (N)」；進垃圾桶／復原有 `coinToast` 提示扣回／加回金額。
 - **手動補番茄禁止未來**：`ManualForm` 兩個 `datetime-local` 加 `max={nowLocal}`；submit 驗證 `endAt > Date.now()` 擋下並提示「不能補未來的番茄」；提示文案改為只能補到「現在」為止。
 - **垃圾桶退幣改帳本單一真相**：修「發幣＝基礎＋里程碑＋寶箱、退幣卻只看 `earnedCoins`」與「舊金幣列無 `sessionUuid` 斷鏈刪不掉」——`useCoinLog.removeCoinRowsForSession` 雙管道比對＋回傳實際入帳總額；`Session.refundedCoins?` 記實退金額供復原對稱；無入帳時 toast「沒有入帳金幣」、不動餘額。
+- **金幣孤兒對帳**：`useCoinLog.findOrphanCoinRows`／`removeCoinRowsByIds`——找出「番茄已不存在」（uuid 對不到，舊列再用日期＋起訖也對不到）的金幣帳列；金幣收支頁「🧾 對帳」先 confirm 筆數與金額，再清帳列並同步扣回金幣（修早期刪番茄遺留孤兒）。
+- **番茄改以時間區段為主**：`lib/sessions.setSessionTimes`（分鐘＝結束−開始，`24:00`→1440；金幣重算與 `setSessionMins` 同套，`noCoin` 仍 0）；歷史頁編輯鈕改「✏️時間」，改開始～結束即時顯示換算分鐘，儲存後時間軸定位同步更新。
+- **垃圾桶一鍵清空**：`handlePurgeAll`→`updateTrashed([])`；垃圾桶展開區「🗑 全部永久刪除（N）」有 confirm；金幣已於進垃圾桶時結清，全清不動金幣。
 - **便利貼衝突處理強化（自訂鈕高亮＋一鍵移除）**：班課衝突時記住 `ovPendingPick`；尚未自訂課程時「👉 點我自訂這天課程」改黃色高亮。提醒橫幅新增含確認的「🗑 移除這 N 堂衝突課，並排入此班」：透過 `setOvCourses` 將週課 materialize 成當日自訂快照、刪除衝突課並避免重複地排入待排班別；取消確認不變更。開啟／切日期／關提醒／逐堂刪完皆同步清衝突與 pending state。
 - **課表複製貼上「自動清潔＋貼不上提醒」**：複製「課程＋班別」貼上時以 `shiftRange(place, shift, day)!==""` 過濾 picks（只貼該天真能排的班，消除隱形貼券）；被略過的班以頁面層 `pasteNotice` ⚠️橫幅明列（哪個班、哪天、去管理工作場所開可上班日）；單日貼上與「貼到選取的 N 天」皆適用；複製/關閉清提醒。未動 `lib/schedule.ts`／排班模型。
 - **便利貼微調（衝突紅格＋格內✕）**：班課衝突時衝突課格紅框紅底點亮（`ovConflictSlots`）、提醒精簡為一句含班別名；自訂狀態課格內建 ✕ 一鍵刪（刪完衝突自動消提醒）；沿用每週固定時紅格仍顯示但無 ✕；底部編輯器移除「移除這格」只留選/換科目。
@@ -564,5 +567,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/07/18（垃圾桶退幣改金幣帳本單一真相＋舊列雙管道比對＋refundedCoins 對稱）*
+*最後更新：2026/07/19（金幣孤兒對帳＋番茄以時間區段為主＋垃圾桶一鍵清空）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*

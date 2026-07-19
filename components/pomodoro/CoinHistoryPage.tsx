@@ -41,10 +41,12 @@ export function CoinHistoryPage({
   coinIncomeLog,
   setCoinIncomeLog,
   onBack,
+  onReconcile,
 }: {
   coinIncomeLog: CoinIncomeLogRow[];
   setCoinIncomeLog: Dispatch<SetStateAction<CoinIncomeLogRow[]>>;
   onBack: () => void;
+  onReconcile?: () => void;
 }) {
   const [period, setPeriod] = useState<PeriodFilter>("all");
   const [customStart, setCustomStart] = useState("");
@@ -323,6 +325,29 @@ export function CoinHistoryPage({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <BackBtn onBack={onBack} label="金幣收支" />
+
+      <div style={{ border: `1px solid ${TH.border}`, borderRadius: 10, padding: 10, background: "#0A0A0C" }}>
+        <button
+          type="button"
+          onClick={() => onReconcile?.()}
+          style={{
+            width: "100%",
+            padding: "8px",
+            borderRadius: 8,
+            border: `1px solid ${TH.yellow}66`,
+            background: TH.yellow + "18",
+            color: TH.yellow,
+            fontSize: 12,
+            fontWeight: 800,
+            cursor: "pointer",
+          }}
+        >
+          🧾 對帳：清理「番茄已不存在」的金幣紀錄
+        </button>
+        <div style={{ fontSize: 9, color: TH.muted, marginTop: 6, lineHeight: 1.5 }}>
+          💡 早期刪番茄時可能留下沒清乾淨的金幣紀錄；按這裡會找出來、一併扣回對應金幣
+        </div>
+      </div>
 
       <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>

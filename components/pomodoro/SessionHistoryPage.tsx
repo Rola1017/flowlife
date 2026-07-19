@@ -43,20 +43,27 @@ function dayStats(daySessions: Session[]) {
 
 function SessionRow({
   s,
-  onEditMins,
+  onEditTimes,
   onDelete,
 }: {
   s: Session;
-  onEditMins: (id: number, newMins: number) => void;
+  onEditTimes: (id: number, startTime: string, endTime: string) => void;
   onDelete: (id: number) => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const [draftMins, setDraftMins] = useState(s.mins);
+  const [draftStart, setDraftStart] = useState(s.startTime ?? "09:00");
+  const [draftEnd, setDraftEnd] = useState(s.endTime ?? "10:00");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const editable = s.id != null;
   const timeLabel = s.startTime && s.endTime ? `${s.startTime}~${s.endTime}` : "";
   const catParts = [s.cat3, s.cat2, s.cat1].filter(Boolean);
   const catColor = CAT.deepColorFull(s.cat1, s.cat2, s.cat3);
+  const draftMinsPreview = Math.max(
+    1,
+    Number(draftEnd.split(":")[0]) * 60 +
+      Number(draftEnd.split(":")[1]) -
+      (Number(draftStart.split(":")[0]) * 60 + Number(draftStart.split(":")[1])),
+  );
 
   return (
     <div
@@ -94,7 +101,8 @@ function SessionRow({
           type="button"
           disabled={!editable}
           onClick={() => {
-            setDraftMins(s.mins);
+            setDraftStart(s.startTime ?? "09:00");
+            setDraftEnd(s.endTime ?? "10:00");
             setEditing((v) => !v);
           }}
           style={{
@@ -108,7 +116,7 @@ function SessionRow({
             cursor: editable ? "pointer" : "not-allowed",
           }}
         >
-          ✏️分鐘
+          ✏️時間
         </button>
         <button
           type="button"
@@ -129,28 +137,44 @@ function SessionRow({
       </div>
 
       {editing && editable && (
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
           <input
-            type="number"
-            min={1}
-            value={draftMins}
-            onChange={(e) => setDraftMins(Number(e.target.value))}
+            type="time"
+            value={draftStart}
+            onChange={(e) => setDraftStart(e.target.value)}
             style={{
-              width: 70,
               background: "#15151B",
               border: `1px solid ${TH.border}`,
               borderRadius: 6,
               padding: "4px 6px",
               color: TH.text,
               fontSize: 11,
-              outline: "none",
+              colorScheme: "dark",
             }}
           />
-          <span style={{ fontSize: 9, color: TH.muted }}>分鐘</span>
+          <span style={{ fontSize: 10, color: TH.muted }}>～</span>
+          <input
+            type="time"
+            value={draftEnd}
+            onChange={(e) => setDraftEnd(e.target.value)}
+            style={{
+              background: "#15151B",
+              border: `1px solid ${TH.border}`,
+              borderRadius: 6,
+              padding: "4px 6px",
+              color: TH.text,
+              fontSize: 11,
+              colorScheme: "dark",
+            }}
+          />
+          <span style={{ fontSize: 9, color: TH.muted }}>= {draftMinsPreview} 分</span>
           <button
             type="button"
             onClick={() => {
-              onEditMins(s.id as number, draftMins);
+              const st = Number(draftStart.split(":")[0]) * 60 + Number(draftStart.split(":")[1]);
+              const en = Number(draftEnd.split(":")[0]) * 60 + Number(draftEnd.split(":")[1]);
+              if (en <= st) return;
+              onEditTimes(s.id as number, draftStart, draftEnd);
               setEditing(false);
             }}
             style={{
@@ -481,20 +505,24 @@ export function SessionHistoryPage({
   sessions,
   trashedSessions,
   onBack,
-  onEditMins,
+  onEditMins: _onEditMins,
+  onEditTimes,
   onDelete,
   onAddManual,
   onRestore,
   onPurge,
+  onPurgeAll,
 }: {
   sessions: Session[];
   trashedSessions?: Session[];
   onBack: () => void;
   onEditMins: (id: number, newMins: number) => void;
+  onEditTimes: (id: number, startTime: string, endTime: string) => void;
   onDelete: (id: number) => void;
   onAddManual: (input: ManualInput) => void;
   onRestore?: (uuid: string) => void;
   onPurge?: (uuid: string) => void;
+  onPurgeAll?: () => void;
 }) {
   const [trashOpen, setTrashOpen] = useState(false);
   const grouped = useMemo(() => {
@@ -558,6 +586,32 @@ export function SessionHistoryPage({
             <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4 }}>
               💡 刪除的番茄會先進垃圾桶，30 天後自動清空；復原可救回
             </div>
+            {(trashedSessions?.length ?? 0) > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      `確定永久刪除垃圾桶內全部 ${trashedSessions?.length} 顆番茄？此動作無法復原。`,
+                    )
+                  )
+                    onPurgeAll?.();
+                }}
+                style={{
+                  alignSelf: "flex-end",
+                  border: `1px solid ${TH.red}66`,
+                  borderRadius: 8,
+                  padding: "4px 10px",
+                  background: "#EF444422",
+                  color: TH.red,
+                  fontSize: 10,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+              >
+                🗑 全部永久刪除（{trashedSessions?.length}）
+              </button>
+            )}
             {(trashedSessions?.length ?? 0) === 0 ? (
               <div style={{ fontSize: 10, color: TH.muted, textAlign: "center", padding: 8 }}>
                 垃圾桶是空的
@@ -714,7 +768,7 @@ export function SessionHistoryPage({
                   </span>
                 </div>
                 <div style={{ fontSize: 9, color: TH.muted, margin: "6px 0 4px", lineHeight: 1.4 }}>
-                  💡 改時長會同步重算基礎金幣；里程碑/寶箱獎勵不回溯
+                  💡 直接改「開始～結束」，分鐘數由系統算；改時長會同步重算基礎金幣，里程碑/寶箱不回溯
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                   {[...grouped[date]]
@@ -723,7 +777,7 @@ export function SessionHistoryPage({
                       <SessionRow
                         key={s.id ?? `${date}-${i}`}
                         s={s}
-                        onEditMins={onEditMins}
+                        onEditTimes={onEditTimes}
                         onDelete={onDelete}
                       />
                     ))}

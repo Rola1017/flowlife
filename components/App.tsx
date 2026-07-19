@@ -18,7 +18,7 @@ import { LS_KEYS, loadJSON, loadNumber, saveJSON, saveNumber } from "@/lib/stora
 import { migrateCategoryIds, saveCategories, DEFAULT_CATEGORIES } from "@/lib/categories";
 import { clearReviewsCloud } from "@/lib/reviews";
 import type { Session } from "@/lib/types";
-import { patchReflection, setSessionMins, buildManualSession, stampSession, ensureSessionUuid } from "@/lib/sessions";
+import { patchReflection, setSessionMins, setSessionTimes, buildManualSession, stampSession, ensureSessionUuid } from "@/lib/sessions";
 import { useReviewCloudSync } from "@/components/hooks/useReviewCloudSync";
 import { useSessionCloudSync } from "@/components/hooks/useSessionCloudSync";
 import { useAppStateCloudSync } from "@/components/hooks/useAppStateCloudSync";
@@ -109,6 +109,8 @@ function AppContent() {
     resetCoinLog,
     appendCoinRow,
     removeCoinRowsForSession,
+    findOrphanCoinRows,
+    removeCoinRowsByIds,
     bumpCoinAmountBySession,
     linkRowsToSessions,
   } = useCoinLog();
@@ -345,6 +347,30 @@ function AppContent() {
     const target = sessions.find((s) => s.id === id);
     if (target?.uuid && coinDelta !== 0) bumpCoinAmountBySession(target.uuid, coinDelta);
   };
+  const handleEditSessionTimes = (id: number, startTime: string, endTime: string) => {
+    const { sessions: next, coinDelta } = setSessionTimes(sessions, id, startTime, endTime);
+    updateSessions(next);
+    if (coinDelta !== 0) setCoins((c) => Math.max(0, c + coinDelta));
+    const target = sessions.find((s) => s.id === id);
+    if (target?.uuid && coinDelta !== 0) bumpCoinAmountBySession(target.uuid, coinDelta);
+  };
+  const handleReconcileCoins = () => {
+    const orphans = findOrphanCoinRows(sessions);
+    if (orphans.length === 0) {
+      setCoinToast("金幣紀錄與番茄一致，沒有需要清理的");
+      return;
+    }
+    const total = orphans.reduce((s, r) => s + (r.amount ?? 0), 0);
+    if (
+      !window.confirm(
+        `找到 ${orphans.length} 筆「番茄已不存在」的金幣紀錄，共 ${total} 金幣。\n清理後這些紀錄會刪除，金幣同步扣回 ${total}。\n確定清理？`,
+      )
+    )
+      return;
+    const removed = removeCoinRowsByIds(orphans.map((r) => r.id));
+    if (removed > 0) setCoins((c) => Math.max(0, c - removed));
+    setCoinToast(`已清理 ${orphans.length} 筆，扣回 ${removed} 金幣`);
+  };
   const handleDeleteSession = (id: number) => {
     const target = sessions.find((s) => s.id === id);
     if (!target) return;
@@ -391,6 +417,10 @@ function AppContent() {
   };
   const handlePurgeSession = (uuid: string) => {
     updateTrashed((prev) => prev.filter((s) => s.uuid !== uuid));
+  };
+  const handlePurgeAll = () => {
+    updateTrashed([]);
+    setCoinToast("垃圾桶已清空");
   };
   const handleAddManualSession = (input: {
     startAt: string;
@@ -464,6 +494,7 @@ function AppContent() {
         coinIncomeLog={coinIncomeLog}
         setCoinIncomeLog={setCoinIncomeLog}
         onBack={pop}
+        onReconcile={handleReconcileCoins}
       />
     ),
     sessionHistory: () => (
@@ -471,11 +502,13 @@ function AppContent() {
         sessions={sessions}
         onBack={pop}
         onEditMins={handleEditSessionMins}
+        onEditTimes={handleEditSessionTimes}
         onDelete={handleDeleteSession}
         onAddManual={handleAddManualSession}
         trashedSessions={trashedSessions}
         onRestore={handleRestoreSession}
         onPurge={handlePurgeSession}
+        onPurgeAll={handlePurgeAll}
       />
     ),
     dayView: (props = {}) => (

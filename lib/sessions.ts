@@ -1,5 +1,5 @@
 import type { Session } from "@/lib/types";
-import { coinsForSecs, toLocalDateStr } from "@/lib/utils";
+import { coinsForSecs, toLocalDateStr, toM } from "@/lib/utils";
 import { resolveCatIds, CAT } from "@/lib/categories";
 
 /** 依名字補上分類穩定編號（只補不覆蓋；找不到名字絕不清掉舊編號） */
@@ -43,6 +43,37 @@ export function setSessionMins(sessions: Session[], id: number, newMins: number)
     coinDelta = newBase - oldBase;
     return { ...s, mins: safe, earnedCoins: newBase, counted: safe > 1, updatedAt: new Date().toISOString() };
   });
+  return { sessions: next, coinDelta };
+}
+
+/** 改某顆起訖時間（分鐘由系統算）；金幣重算規則與 setSessionMins 同套 */
+export function setSessionTimes(
+  sessions: Session[],
+  id: number,
+  startTime: string,
+  endTime: string,
+): { sessions: Session[]; coinDelta: number } {
+  const s = sessions.find((x) => x.id === id);
+  if (!s) return { sessions, coinDelta: 0 };
+  const st = toM(startTime);
+  const en = endTime === "24:00" ? 1440 : toM(endTime);
+  const mins = Math.max(1, en - st);
+  const oldBase = CAT.isNoCoin(s.cat1) ? 0 : coinsForSecs((s.mins ?? 0) * 60);
+  const newBase = CAT.isNoCoin(s.cat1) ? 0 : coinsForSecs(mins * 60);
+  const coinDelta = newBase - oldBase;
+  const next = sessions.map((x) =>
+    x.id === id
+      ? {
+          ...x,
+          startTime,
+          endTime,
+          mins,
+          earnedCoins: newBase,
+          counted: mins > 1,
+          updatedAt: new Date().toISOString(),
+        }
+      : x,
+  );
   return { sessions: next, coinDelta };
 }
 
