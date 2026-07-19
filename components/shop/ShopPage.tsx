@@ -6,6 +6,7 @@ import { MOCK } from "@/lib/mock";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 import { Card } from "@/components/ui/Card";
 import { BackBtn } from "@/components/ui/BackBtn";
+import type { CoinIncomeLogRow } from "@/components/pomodoro/usePomodoro";
 
 type PurchaseLogRow = {
   id: number;
@@ -28,10 +29,14 @@ function localDateParts(date = new Date()) {
 export function ShopPage({
   coins,
   onSpend,
+  spendRows,
+  onRefundSpend,
   onBack,
 }: {
   coins: number;
   onSpend: (amount: number, label?: string) => boolean;
+  spendRows?: CoinIncomeLogRow[];
+  onRefundSpend?: (rowId: number) => void;
   onBack: () => void;
 }) {
   const [items, setItems] = useState(MOCK.shopItems);
@@ -234,6 +239,79 @@ export function ShopPage({
           </div>
         </Card>
       ))}
+      <Card>
+        <div style={{ fontSize: 12, fontWeight: 900, color: TH.text }}>最近購買</div>
+        <div style={{ fontSize: 9, color: TH.muted, margin: "4px 0 8px", lineHeight: 1.4 }}>
+          💡 買錯了可以在這裡取消，金幣會退回
+        </div>
+        {(spendRows?.length ?? 0) === 0 ? (
+          <div style={{ fontSize: 11, color: TH.muted, textAlign: "center", padding: 10 }}>
+            尚無可取消的購買
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {spendRows?.slice(0, 10).map((row) => (
+              <div
+                key={row.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  background: "#0A0A0C",
+                  borderRadius: 8,
+                  padding: "7px 8px",
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: TH.text,
+                      fontWeight: 800,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {row.taskName}
+                  </div>
+                  <div style={{ fontSize: 9, color: TH.muted }}>
+                    {row.date} {row.time}
+                  </div>
+                </div>
+                <div style={{ fontSize: 10, color: TH.red, fontWeight: 900 }}>
+                  {row.amount} 🪙
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        `取消購買「${row.taskName}」並退回 ${Math.abs(row.amount)} 金幣？`,
+                      )
+                    ) {
+                      onRefundSpend?.(row.id);
+                    }
+                  }}
+                  style={{
+                    border: `1px solid ${TH.accent}66`,
+                    borderRadius: 7,
+                    padding: "4px 7px",
+                    background: "transparent",
+                    color: TH.accent,
+                    fontSize: 9,
+                    fontWeight: 800,
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  ↩ 取消購買
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
       <Card>
         <div style={{ fontSize: 12, fontWeight: 900, color: TH.text, marginBottom: 10 }}>購買記錄</div>
         {purchaseGroups.length === 0 ? (

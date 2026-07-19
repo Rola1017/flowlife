@@ -109,9 +109,12 @@ function AppContent() {
     resetCoinLog,
     appendCoinRow,
     removeCoinRowsForSession,
+    previewRefundForSession,
     upsertCoinRowForSession,
     findOrphanCoinRows,
     removeCoinRowsByIds,
+    refundSpend,
+    spendRows,
     linkRowsToSessions,
   } = useCoinLog();
   const didLinkCoinRef = useRef(false);
@@ -374,6 +377,13 @@ function AppContent() {
   const handleDeleteSession = (id: number) => {
     const target = sessions.find((s) => s.id === id);
     if (!target) return;
+    const willRefund = previewRefundForSession(target);
+    if (willRefund > 0 && coins - willRefund < 0) {
+      setCoinToast(
+        `無法刪除：這顆番茄的 ${willRefund} 金幣已經花掉了（目前只剩 ${coins}）。先賺回金幣或取消商店購買後再刪。`,
+      );
+      return;
+    }
     updateSessions(sessions.filter((s) => s.id !== id));
     const logged = removeCoinRowsForSession(target); // 帳本實際入帳（含里程碑/寶箱）
     const refund = logged > 0 ? logged : (target.earnedCoins ?? 0); // 帳本查無 → 退基礎幣
@@ -492,6 +502,11 @@ function AppContent() {
       <ShopPage
         coins={coins}
         onSpend={(amount: number, label?: string) => spendCoins(amount, label ?? "商店消費")}
+        spendRows={spendRows}
+        onRefundSpend={(rowId: number) => {
+          refundSpend(rowId);
+          setCoinToast("已取消購買，金幣已退回");
+        }}
         onBack={pop}
       />
     ),

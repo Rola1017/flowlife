@@ -586,6 +586,9 @@ export function SessionHistoryPage({
             <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4 }}>
               💡 刪除的番茄會先進垃圾桶，30 天後自動清空；復原可救回
             </div>
+            <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4 }}>
+              💡 若該番茄的金幣已花掉（餘額不足扣回），會擋下刪除
+            </div>
             {(trashedSessions?.length ?? 0) > 0 && (
               <button
                 type="button"

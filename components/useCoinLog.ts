@@ -187,6 +187,14 @@ export function useCoinLog() {
           (r.endTime ?? "") === (s.endTime ?? "")),
     );
 
+  /** 預覽刪除某番茄要扣回多少（不實際刪） */
+  const previewRefundForSession = (s: {
+    uuid?: string;
+    date: string;
+    startTime?: string;
+    endTime?: string;
+  }) => findCoinRowsForSession(s).reduce((sum, r) => sum + (r.amount ?? 0), 0);
+
   /** 移除某顆番茄的所有帳列，回傳被移除的總金額（＝當初實際入帳，含里程碑/寶箱） */
   const removeCoinRowsForSession = (s: {
     uuid?: string;
@@ -227,6 +235,17 @@ export function useCoinLog() {
     return total;
   };
 
+  /** 撤銷一筆消費：移除該 spend 帳列，餘額自動回升 */
+  const refundSpend = (rowId: number) =>
+    setCoinIncomeLog((l) =>
+      l.filter((r) => !(r.id === rowId && (r.kind ?? "") === "spend")),
+    );
+
+  /** 取出消費紀錄（新到舊） */
+  const spendRows = coinIncomeLog
+    .filter((r) => (r.kind ?? "") === "spend")
+    .sort((a, b) => b.at.localeCompare(a.at));
+
   return {
     coinIncomeLog,
     setCoinIncomeLog,
@@ -237,8 +256,11 @@ export function useCoinLog() {
     appendCoinRow,
     removeCoinRowsBySession,
     removeCoinRowsForSession,
+    previewRefundForSession,
     findOrphanCoinRows,
     removeCoinRowsByIds,
+    refundSpend,
+    spendRows,
     bumpCoinAmountBySession,
     resetCoinLog,
     linkRowsToSessions,

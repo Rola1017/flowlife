@@ -475,6 +475,9 @@ TH.gold    = "#FBBF24"   // 金幣
 - **垃圾桶一鍵清空**：`handlePurgeAll`→`updateTrashed([])`；垃圾桶展開區「🗑 全部永久刪除（N）」有 confirm；金幣已於進垃圾桶時結清，全清不動金幣。
 - **#6 跨日番茄各段各自計算金幣**：修「跨午夜切兩顆卻金幣全算第一段、第二段 earnedCoins=0」——與「一顆番茄一筆帳」對帳前提矛盾。即時番茄（`confirmRating`）與手動補（`buildManualSession`）皆改各段依自身分鐘＋同一套 `coinsForSecs` 計幣；跨午夜帳列各段一筆；刪任一段只退該段金額。
 - **金幣架構治本（帳本單一真相）**：餘額＝`coinIncomeLog` 所有 `amount` 加總，不再獨立存 `useCoins`／`LS_KEYS.coins`（檔案已刪；`LS_KEYS.coins` 僅遷移讀取）。`CoinIncomeLogRow.kind?`（`session|bonus|spend|opening`）；一次性期初結餘遷移（`flowlife_coin_ledger_migrated`，diff＝舊餘額−明細總和）。四個唯一入口：`appendCoinRow`／`removeCoinRows*`／`upsertCoinRowForSession`／`spendCoins`。刪/改/商店皆只動明細 → 餘額自動變；`confirmRating`／`handleAddManual` 不再 `setCoins`。
+- **刪番茄餘額防護**：`useCoinLog.previewRefundForSession` 預覽該番茄帳列總額；`handleDeleteSession` 在餘額不足扣回時擋下，toast 提示金幣已花掉、需先賺回或取消購買，避免帳本透支。
+- **商店取消購買**：`useCoinLog.spendRows`（新到舊）＋`refundSpend`（只移除 `kind="spend"`）；商店新增「最近購買」前 10 筆與「↩ 取消購買」confirm，移除負數帳列後餘額自動回升。
+- **金幣收支三檢視**：`CoinHistoryPage` 可切「🕒 依時間／🏷 依分類／➕➖ 收入支出」；分類依 cat1 或商店消費／期初結餘／其他分組並依小計排序；收入支出顯示收入總計、支出總計、餘額；負數統一紅字帶負號。純顯示，不改帳本資料。
 - **便利貼衝突處理強化（自訂鈕高亮＋一鍵移除）**：班課衝突時記住 `ovPendingPick`；尚未自訂課程時「👉 點我自訂這天課程」改黃色高亮。提醒橫幅新增含確認的「🗑 移除這 N 堂衝突課，並排入此班」：透過 `setOvCourses` 將週課 materialize 成當日自訂快照、刪除衝突課並避免重複地排入待排班別；取消確認不變更。開啟／切日期／關提醒／逐堂刪完皆同步清衝突與 pending state。
 - **課表複製貼上「自動清潔＋貼不上提醒」**：複製「課程＋班別」貼上時以 `shiftRange(place, shift, day)!==""` 過濾 picks（只貼該天真能排的班，消除隱形貼券）；被略過的班以頁面層 `pasteNotice` ⚠️橫幅明列（哪個班、哪天、去管理工作場所開可上班日）；單日貼上與「貼到選取的 N 天」皆適用；複製/關閉清提醒。未動 `lib/schedule.ts`／排班模型。
 - **便利貼微調（衝突紅格＋格內✕）**：班課衝突時衝突課格紅框紅底點亮（`ovConflictSlots`）、提醒精簡為一句含班別名；自訂狀態課格內建 ✕ 一鍵刪（刪完衝突自動消提醒）；沿用每週固定時紅格仍顯示但無 ✕；底部編輯器移除「移除這格」只留選/換科目。
@@ -568,5 +571,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/07/19（金幣架構治本：餘額＝明細帳加總，四個唯一入口＋期初結餘遷移）*
+*最後更新：2026/07/19（刪番茄餘額防護＋商店取消購買＋金幣收支三檢視）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*

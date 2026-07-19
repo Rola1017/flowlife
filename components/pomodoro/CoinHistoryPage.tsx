@@ -5,6 +5,7 @@ import { CFG } from "@/lib/config";
 import { CAT } from "@/lib/categories";
 import { TH } from "@/lib/theme";
 import { BackBtn } from "@/components/ui/BackBtn";
+import { Chip } from "@/components/ui/Chip";
 import type { CoinIncomeLogRow } from "@/components/pomodoro/usePomodoro";
 
 type PeriodFilter = "all" | "today" | "week" | "month" | "custom";
@@ -49,6 +50,7 @@ export function CoinHistoryPage({
   onReconcile?: () => void;
 }) {
   const [period, setPeriod] = useState<PeriodFilter>("all");
+  const [view, setView] = useState<"time" | "type" | "sign">("time");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [keyword, setKeyword] = useState("");
@@ -102,6 +104,43 @@ export function CoinHistoryPage({
   );
 
   const sortedDates = useMemo(() => Object.keys(groupedLog).sort((a, b) => b.localeCompare(a)), [groupedLog]);
+
+  const typeGroups = useMemo(() => {
+    const grouped = filteredLog.reduce<Record<string, CoinIncomeLogRow[]>>((acc, row) => {
+      const label =
+        row.cat1 ||
+        (row.kind === "spend"
+          ? "商店消費"
+          : row.kind === "opening"
+            ? "期初結餘"
+            : "其他");
+      acc[label] = [...(acc[label] ?? []), row];
+      return acc;
+    }, {});
+    return Object.entries(grouped)
+      .map(([label, rows]) => ({
+        label,
+        rows: [...rows].sort((a, b) => b.at.localeCompare(a.at)),
+        subtotal: rows.reduce((sum, row) => sum + row.amount, 0),
+      }))
+      .sort((a, b) => b.subtotal - a.subtotal);
+  }, [filteredLog]);
+
+  const signGroups = useMemo(() => {
+    const income = filteredLog
+      .filter((row) => row.amount > 0)
+      .sort((a, b) => b.at.localeCompare(a.at));
+    const spend = filteredLog
+      .filter((row) => row.amount < 0)
+      .sort((a, b) => b.at.localeCompare(a.at));
+    return {
+      income,
+      spend,
+      incomeTotal: income.reduce((sum, row) => sum + row.amount, 0),
+      spendTotal: spend.reduce((sum, row) => sum + Math.abs(row.amount), 0),
+      balance: filteredLog.reduce((sum, row) => sum + row.amount, 0),
+    };
+  }, [filteredLog]);
 
   const fieldStyle: CSSProperties = {
     width: "100%",
@@ -200,7 +239,7 @@ export function CoinHistoryPage({
               </div>
             )}
             <div style={{ fontSize: 9, color: TH.muted }}>
-              {timeLabel}
+              {view === "time" ? timeLabel : `${formatDateLabel(row.date)} · ${timeLabel}`}
               {durLabel(row.startTime, row.endTime)}
             </div>
           </div>
@@ -330,6 +369,50 @@ export function CoinHistoryPage({
     );
   };
 
+  const renderGroupCard = (
+    key: string,
+    title: string,
+    rows: CoinIncomeLogRow[],
+    subtotal: number,
+  ) => (
+    <div
+      key={key}
+      style={{
+        background: TH.card,
+        border: `1px solid ${TH.border}`,
+        borderRadius: 12,
+        padding: 10,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 8,
+          gap: 8,
+        }}
+      >
+        <span style={{ fontSize: 10, color: TH.text, fontWeight: 800 }}>
+          {title} · {rows.length} 筆
+        </span>
+        <span
+          style={{
+            fontSize: 9,
+            color: subtotal < 0 ? TH.red : TH.gold,
+            whiteSpace: "nowrap",
+          }}
+        >
+          小計 {subtotal > 0 ? "+" : ""}
+          {subtotal} 🪙
+        </span>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {rows.map(renderRow)}
+      </div>
+    </div>
+  );
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <BackBtn onBack={onBack} label="金幣收支" />
@@ -358,6 +441,19 @@ export function CoinHistoryPage({
         <div style={{ fontSize: 9, color: TH.muted, marginTop: 4, lineHeight: 1.5 }}>
           💡 金幣餘額＝這張明細的總和；刪番茄會連同該筆收入一起移除，餘額自動更新
         </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 6, overflowX: "auto" }}>
+        <Chip label="🕒 依時間" active={view === "time"} onClick={() => setView("time")} />
+        <Chip label="🏷 依分類" active={view === "type"} onClick={() => setView("type")} />
+        <Chip
+          label="➕➖ 收入/支出"
+          active={view === "sign"}
+          onClick={() => setView("sign")}
+        />
+      </div>
+      <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.5 }}>
+        💡 切換檢視可以看出金幣主要來自哪一類番茄、花在哪裡
       </div>
 
       <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
@@ -402,43 +498,68 @@ export function CoinHistoryPage({
       </div>
 
       <div style={{ fontSize: 10, color: TH.muted }}>
-        共 {summary.count} 筆 · 合計 +{summary.total} 🪙
+        共 {summary.count} 筆 · 合計 {summary.total > 0 ? "+" : ""}
+        {summary.total} 🪙
       </div>
 
-      {sortedDates.length === 0 ? (
+      {view === "sign" && (
+        <div style={{ display: "flex", gap: 6 }}>
+          {[
+            ["收入總計", signGroups.incomeTotal, TH.gold],
+            ["支出總計", -signGroups.spendTotal, TH.red],
+            ["餘額", signGroups.balance, signGroups.balance < 0 ? TH.red : TH.accent],
+          ].map(([label, amount, color]) => (
+            <div
+              key={String(label)}
+              style={{
+                flex: 1,
+                minWidth: 0,
+                background: TH.card,
+                border: `1px solid ${TH.border}`,
+                borderRadius: 9,
+                padding: "8px 5px",
+                textAlign: "center",
+              }}
+            >
+              <div style={{ fontSize: 8, color: TH.muted }}>{label}</div>
+              <div style={{ fontSize: 12, color: String(color), fontWeight: 900 }}>
+                {Number(amount) > 0 ? "+" : ""}
+                {String(amount)}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {filteredLog.length === 0 ? (
         <div style={{ fontSize: 10, color: TH.muted, textAlign: "center", padding: 16 }}>
           此範圍內沒有金幣記錄
         </div>
-      ) : (
+      ) : view === "time" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {sortedDates.map((date) => {
             const rows = [...groupedLog[date]].sort((a, b) => b.at.localeCompare(a.at));
             const dayTotal = rows.reduce((sum, row) => sum + row.amount, 0);
-            return (
-              <div
-                key={date}
-                style={{
-                  background: TH.card,
-                  border: `1px solid ${TH.border}`,
-                  borderRadius: 12,
-                  padding: 10,
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: 8,
-                  }}
-                >
-                  <span style={{ fontSize: 9, color: TH.muted }}>{formatDateLabel(date)}</span>
-                  <span style={{ fontSize: 9, color: TH.gold }}>+{dayTotal} 🪙</span>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>{rows.map(renderRow)}</div>
-              </div>
-            );
+            return renderGroupCard(date, formatDateLabel(date), rows, dayTotal);
           })}
+        </div>
+      ) : view === "type" ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {typeGroups.map((group) =>
+            renderGroupCard(group.label, group.label, group.rows, group.subtotal),
+          )}
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {signGroups.income.length > 0 &&
+            renderGroupCard("income", "收入", signGroups.income, signGroups.incomeTotal)}
+          {signGroups.spend.length > 0 &&
+            renderGroupCard(
+              "spend",
+              "支出",
+              signGroups.spend,
+              -signGroups.spendTotal,
+            )}
         </div>
       )}
     </div>
