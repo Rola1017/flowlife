@@ -9,6 +9,8 @@ import { Chip } from "@/components/ui/Chip";
 import type { CoinIncomeLogRow } from "@/components/pomodoro/usePomodoro";
 
 type PeriodFilter = "all" | "today" | "week" | "month" | "custom";
+type ViewMode = "time" | "type" | "sign";
+type SignTab = "summary" | "income" | "spend";
 
 function toDateStr(d: Date) {
   const y = d.getFullYear();
@@ -50,7 +52,9 @@ export function CoinHistoryPage({
   onReconcile?: () => void;
 }) {
   const [period, setPeriod] = useState<PeriodFilter>("all");
-  const [view, setView] = useState<"time" | "type" | "sign">("time");
+  const [view, setView] = useState<ViewMode>("time");
+  const [signTab, setSignTab] = useState<SignTab>("summary");
+  const [drillCat1, setDrillCat1] = useState<string | null>(null);
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [keyword, setKeyword] = useState("");
@@ -63,6 +67,12 @@ export function CoinHistoryPage({
   const today = CFG.TODAY_STR;
   const weekStart = useMemo(() => getWeekStartMonday(today), [today]);
   const monthStart = `${today.slice(0, 7)}-01`;
+
+  const switchView = (next: ViewMode) => {
+    setView(next);
+    setSignTab("summary");
+    setDrillCat1(null);
+  };
 
   const filteredLog = useMemo(() => {
     let rows = coinIncomeLog;
@@ -125,6 +135,23 @@ export function CoinHistoryPage({
       }))
       .sort((a, b) => b.subtotal - a.subtotal);
   }, [filteredLog]);
+
+  const midGroups = useMemo(() => {
+    if (!drillCat1) return [];
+    const rows = filteredLog.filter((r) => (r.cat1 ?? "") === drillCat1);
+    const grouped = rows.reduce<Record<string, CoinIncomeLogRow[]>>((acc, r) => {
+      const k = r.cat2?.trim() || "（未分中分類）";
+      acc[k] = [...(acc[k] ?? []), r];
+      return acc;
+    }, {});
+    return Object.entries(grouped)
+      .map(([label, rs]) => ({
+        label,
+        rows: [...rs].sort((a, b) => b.at.localeCompare(a.at)),
+        subtotal: rs.reduce((s, r) => s + r.amount, 0),
+      }))
+      .sort((a, b) => b.subtotal - a.subtotal);
+  }, [filteredLog, drillCat1]);
 
   const signGroups = useMemo(() => {
     const income = filteredLog
@@ -374,6 +401,7 @@ export function CoinHistoryPage({
     title: string,
     rows: CoinIncomeLogRow[],
     subtotal: number,
+    opts?: { onTitleClick?: () => void; showChevron?: boolean },
   ) => (
     <div
       key={key}
@@ -385,16 +413,27 @@ export function CoinHistoryPage({
       }}
     >
       <div
+        role={opts?.onTitleClick ? "button" : undefined}
+        tabIndex={opts?.onTitleClick ? 0 : undefined}
+        onClick={opts?.onTitleClick}
+        onKeyDown={(e) => {
+          if (opts?.onTitleClick && (e.key === "Enter" || e.key === " ")) {
+            e.preventDefault();
+            opts.onTitleClick();
+          }
+        }}
         style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
           marginBottom: 8,
           gap: 8,
+          cursor: opts?.onTitleClick ? "pointer" : undefined,
         }}
       >
         <span style={{ fontSize: 10, color: TH.text, fontWeight: 800 }}>
           {title} · {rows.length} 筆
+          {opts?.showChevron ? " ▸" : ""}
         </span>
         <span
           style={{
@@ -412,6 +451,17 @@ export function CoinHistoryPage({
       </div>
     </div>
   );
+
+  const backBtnStyle: CSSProperties = {
+    alignSelf: "flex-start",
+    fontSize: 10,
+    padding: "4px 10px",
+    borderRadius: 8,
+    border: `1px solid ${TH.border}`,
+    background: "transparent",
+    color: TH.muted,
+    cursor: "pointer",
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -443,19 +493,7 @@ export function CoinHistoryPage({
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 6, overflowX: "auto" }}>
-        <Chip label="🕒 依時間" active={view === "time"} onClick={() => setView("time")} />
-        <Chip label="🏷 依分類" active={view === "type"} onClick={() => setView("type")} />
-        <Chip
-          label="➕➖ 收入/支出"
-          active={view === "sign"}
-          onClick={() => setView("sign")}
-        />
-      </div>
-      <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.5 }}>
-        💡 切換檢視可以看出金幣主要來自哪一類番茄、花在哪裡
-      </div>
-
+      <div style={{ fontSize: 10, color: TH.text, fontWeight: 800 }}>① 先選時間區間</div>
       <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
           <select
@@ -497,38 +535,62 @@ export function CoinHistoryPage({
         </div>
       </div>
 
+      <div style={{ fontSize: 10, color: TH.text, fontWeight: 800 }}>② 再選要怎麼看</div>
+      <div style={{ display: "flex", gap: 6, overflowX: "auto" }}>
+        <Chip label="🕒 依時間" active={view === "time"} onClick={() => switchView("time")} />
+        <Chip label="🏷 依分類" active={view === "type"} onClick={() => switchView("type")} />
+        <Chip
+          label="➕➖ 收入/支出"
+          active={view === "sign"}
+          onClick={() => switchView("sign")}
+        />
+      </div>
+      <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.5 }}>
+        💡 先框出時間範圍，再切換「依分類」看金幣來自哪類番茄，或「收支」分別看收入與支出
+      </div>
+
       <div style={{ fontSize: 10, color: TH.muted }}>
         共 {summary.count} 筆 · 合計 {summary.total > 0 ? "+" : ""}
         {summary.total} 🪙
       </div>
 
       {view === "sign" && (
-        <div style={{ display: "flex", gap: 6 }}>
-          {[
-            ["收入總計", signGroups.incomeTotal, TH.gold],
-            ["支出總計", -signGroups.spendTotal, TH.red],
-            ["餘額", signGroups.balance, signGroups.balance < 0 ? TH.red : TH.accent],
-          ].map(([label, amount, color]) => (
-            <div
-              key={String(label)}
-              style={{
-                flex: 1,
-                minWidth: 0,
-                background: TH.card,
-                border: `1px solid ${TH.border}`,
-                borderRadius: 9,
-                padding: "8px 5px",
-                textAlign: "center",
-              }}
-            >
-              <div style={{ fontSize: 8, color: TH.muted }}>{label}</div>
-              <div style={{ fontSize: 12, color: String(color), fontWeight: 900 }}>
-                {Number(amount) > 0 ? "+" : ""}
-                {String(amount)}
-              </div>
-            </div>
-          ))}
-        </div>
+        <>
+          <div style={{ display: "flex", gap: 6 }}>
+            {(
+              [
+                ["income", "收入總計", signGroups.incomeTotal, TH.gold],
+                ["spend", "支出總計", -signGroups.spendTotal, TH.red],
+                ["summary", "餘額", signGroups.balance, signGroups.balance < 0 ? TH.red : TH.accent],
+              ] as const
+            ).map(([tab, label, amount, color]) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setSignTab(tab)}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  background: TH.card,
+                  border: `1px solid ${signTab === tab ? TH.accent : TH.border}`,
+                  borderRadius: 9,
+                  padding: "8px 5px",
+                  textAlign: "center",
+                  cursor: "pointer",
+                }}
+              >
+                <div style={{ fontSize: 8, color: TH.muted }}>{label}</div>
+                <div style={{ fontSize: 12, color: String(color), fontWeight: 900 }}>
+                  {Number(amount) > 0 ? "+" : ""}
+                  {String(amount)}
+                </div>
+              </button>
+            ))}
+          </div>
+          <div style={{ fontSize: 9, color: TH.muted }}>
+            💡 點「收入總計」或「支出總計」可看該類的完整列表
+          </div>
+        </>
       )}
 
       {filteredLog.length === 0 ? (
@@ -545,21 +607,67 @@ export function CoinHistoryPage({
         </div>
       ) : view === "type" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {typeGroups.map((group) =>
-            renderGroupCard(group.label, group.label, group.rows, group.subtotal),
+          {drillCat1 == null ? (
+            typeGroups.map((group) =>
+              renderGroupCard(group.label, group.label, group.rows, group.subtotal, {
+                onTitleClick: () => setDrillCat1(group.label),
+                showChevron: true,
+              }),
+            )
+          ) : (
+            <>
+              <button type="button" onClick={() => setDrillCat1(null)} style={backBtnStyle}>
+                ← 返回所有大分類
+              </button>
+              <div style={{ fontSize: 10, color: TH.text, fontWeight: 800 }}>
+                {drillCat1} · 依中分類
+              </div>
+              {midGroups.length === 0 ? (
+                <div style={{ fontSize: 10, color: TH.muted, textAlign: "center", padding: 12 }}>
+                  此大分類沒有中分類明細
+                </div>
+              ) : (
+                midGroups.map((g) =>
+                  renderGroupCard(`mid-${g.label}`, g.label, g.rows, g.subtotal),
+                )
+              )}
+            </>
           )}
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {signGroups.income.length > 0 &&
-            renderGroupCard("income", "收入", signGroups.income, signGroups.incomeTotal)}
-          {signGroups.spend.length > 0 &&
-            renderGroupCard(
-              "spend",
-              "支出",
-              signGroups.spend,
-              -signGroups.spendTotal,
-            )}
+          {signTab === "summary" ? (
+            <>
+              {signGroups.income.length > 0 &&
+                renderGroupCard("income", "收入", signGroups.income, signGroups.incomeTotal)}
+              {signGroups.spend.length > 0 &&
+                renderGroupCard(
+                  "spend",
+                  "支出",
+                  signGroups.spend,
+                  -signGroups.spendTotal,
+                )}
+            </>
+          ) : (
+            <>
+              <button type="button" onClick={() => setSignTab("summary")} style={backBtnStyle}>
+                ← 返回收支總覽
+              </button>
+              {signTab === "income"
+                ? renderGroupCard(
+                    "income-detail",
+                    "收入明細（近→遠）",
+                    signGroups.income,
+                    signGroups.incomeTotal,
+                  )
+                : renderGroupCard(
+                    "spend-detail",
+                    "支出明細（近→遠）",
+                    signGroups.spend,
+                    -signGroups.spendTotal,
+                  )}
+            </>
+          )}
         </div>
       )}
     </div>

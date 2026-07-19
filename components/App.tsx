@@ -190,7 +190,7 @@ function AppContent() {
 
   useEffect(() => {
     if (!coinToast) return;
-    const t = setTimeout(() => setCoinToast(null), 2600);
+    const t = setTimeout(() => setCoinToast(null), 4600);
     return () => clearTimeout(t);
   }, [coinToast]);
 
