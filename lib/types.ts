@@ -31,4 +31,6 @@ export type Session = {
   updatedAt?: string;
   /** 搬入垃圾桶時間（ISO；active sessions 不帶此欄） */
   deletedAt?: string;
+  /** 進垃圾桶時實際退回的金幣（帳本金額；復原時對稱加回） */
+  refundedCoins?: number;
 };

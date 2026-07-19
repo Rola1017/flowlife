@@ -72,12 +72,45 @@ export function useCoinLog() {
       return changed ? next : log;
     });
 
+  /** 找出某顆番茄實際入帳的金幣列（先用 uuid，找不到再用 日期＋起訖 補比對，修舊資料斷鏈） */
+  const findCoinRowsForSession = (s: {
+    uuid?: string;
+    date: string;
+    startTime?: string;
+    endTime?: string;
+  }) =>
+    coinIncomeLog.filter(
+      (r) =>
+        (s.uuid && r.sessionUuid === s.uuid) ||
+        (!r.sessionUuid &&
+          r.date === s.date &&
+          (r.startTime ?? "") === (s.startTime ?? "") &&
+          (r.endTime ?? "") === (s.endTime ?? "")),
+    );
+
+  /** 移除某顆番茄的所有帳列，回傳被移除的總金額（＝當初實際入帳，含里程碑/寶箱） */
+  const removeCoinRowsForSession = (s: {
+    uuid?: string;
+    date: string;
+    startTime?: string;
+    endTime?: string;
+  }) => {
+    const rows = findCoinRowsForSession(s);
+    const total = rows.reduce((sum, r) => sum + (r.amount ?? 0), 0);
+    if (rows.length) {
+      const ids = new Set(rows.map((r) => r.id));
+      setCoinIncomeLog((l) => l.filter((r) => !ids.has(r.id)));
+    }
+    return total;
+  };
+
   return {
     coinIncomeLog,
     setCoinIncomeLog,
     coinLogHydrated: hydrated,
     appendCoinRow,
     removeCoinRowsBySession,
+    removeCoinRowsForSession,
     bumpCoinAmountBySession,
     resetCoinLog,
     linkRowsToSessions,

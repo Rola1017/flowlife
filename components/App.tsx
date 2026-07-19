@@ -108,11 +108,12 @@ function AppContent() {
     coinLogHydrated,
     resetCoinLog,
     appendCoinRow,
-    removeCoinRowsBySession,
+    removeCoinRowsForSession,
     bumpCoinAmountBySession,
     linkRowsToSessions,
   } = useCoinLog();
   const didLinkCoinRef = useRef(false);
+  const [coinToast, setCoinToast] = useState<string | null>(null);
   const [focused, setFocused] = useState(DEFAULT_RATINGS.focused);
   const [neutral, setNeutral] = useState(DEFAULT_RATINGS.neutral);
   const [distracted, setDistracted] = useState(DEFAULT_RATINGS.distracted);
@@ -181,6 +182,12 @@ function AppContent() {
       linkRowsToSessions(sessions);
     }
   }, [hydrated, coinLogHydrated, sessions, linkRowsToSessions]);
+
+  useEffect(() => {
+    if (!coinToast) return;
+    const t = setTimeout(() => setCoinToast(null), 2600);
+    return () => clearTimeout(t);
+  }, [coinToast]);
 
   // 雲端同步回來時，把本地最新讀進畫面（用原始 setSessions，避免再次觸發推送）
   useEffect(
@@ -342,22 +349,26 @@ function AppContent() {
     const target = sessions.find((s) => s.id === id);
     if (!target) return;
     updateSessions(sessions.filter((s) => s.id !== id));
+    const logged = removeCoinRowsForSession(target); // 帳本實際入帳（含里程碑/寶箱）
+    const refund = logged > 0 ? logged : (target.earnedCoins ?? 0); // 帳本查無 → 退基礎幣
     updateTrashed((prev) => [
-      { ...target, deletedAt: new Date().toISOString() },
+      { ...target, deletedAt: new Date().toISOString(), refundedCoins: refund },
       ...prev.filter((s) => s.uuid !== target.uuid),
     ]);
-    const refund = -(target.earnedCoins ?? 0);
-    if (refund !== 0) setCoins((c) => Math.max(0, c + refund));
-    if (target.uuid) removeCoinRowsBySession(target.uuid);
+    if (refund > 0) setCoins((c) => Math.max(0, c - refund));
+    setCoinToast(
+      refund > 0 ? `已移入垃圾桶，扣回 ${refund} 金幣` : "已移入垃圾桶（這顆沒有入帳金幣）",
+    );
   };
   const handleRestoreSession = (uuid: string) => {
     const target = trashedSessions.find((s) => s.uuid === uuid);
     if (!target) return;
     const clean = { ...target };
     delete clean.deletedAt;
+    delete clean.refundedCoins;
     updateSessions((prev) => [...prev, { ...clean, updatedAt: new Date().toISOString() }]);
     updateTrashed((prev) => prev.filter((s) => s.uuid !== uuid));
-    const gain = target.earnedCoins ?? 0;
+    const gain = target.refundedCoins ?? (target.earnedCoins ?? 0);
     if (gain > 0) {
       setCoins((c) => c + gain);
       const t = target.startTime ?? "";
@@ -376,6 +387,7 @@ function AppContent() {
         sessionUuid: target.uuid,
       });
     }
+    setCoinToast(gain > 0 ? `已復原，加回 ${gain} 金幣` : "已復原（這顆沒有金幣）");
   };
   const handlePurgeSession = (uuid: string) => {
     updateTrashed((prev) => prev.filter((s) => s.uuid !== uuid));
@@ -610,6 +622,29 @@ function AppContent() {
           </button>
         ))}
       </nav>
+      {coinToast && (
+        <div
+          style={{
+            position: "fixed",
+            left: "50%",
+            transform: "translateX(-50%)",
+            bottom: 84,
+            background: TH.card,
+            border: `1px solid ${TH.accent}66`,
+            color: TH.text,
+            fontSize: 12,
+            fontWeight: 700,
+            padding: "8px 14px",
+            borderRadius: 999,
+            zIndex: 200,
+            boxShadow: "0 4px 16px #000A",
+            maxWidth: 340,
+            textAlign: "center",
+          }}
+        >
+          {coinToast}
+        </div>
+      )}
       {editingTodo && (
         <TodoEditSheet
           key={editTodoId}
