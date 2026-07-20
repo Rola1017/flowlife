@@ -6,6 +6,7 @@ import { CAT } from "@/lib/categories";
 import { TH } from "@/lib/theme";
 import { BackBtn } from "@/components/ui/BackBtn";
 import { Chip } from "@/components/ui/Chip";
+import { CategorySelector } from "@/components/pomodoro/CategorySelector";
 import type { CoinIncomeLogRow } from "@/components/pomodoro/usePomodoro";
 
 type PeriodFilter = "all" | "today" | "week" | "month" | "custom";
@@ -54,8 +55,7 @@ export function CoinHistoryPage({
   const [period, setPeriod] = useState<PeriodFilter>("all");
   const [view, setView] = useState<ViewMode>("time");
   const [signTab, setSignTab] = useState<SignTab>("summary");
-  const [drillCat1, setDrillCat1] = useState<string | null>(null);
-  const [drillCat2, setDrillCat2] = useState<string | null>(null);
+  const [catFilter, setCatFilter] = useState({ cat1: "", cat2: "", cat3: "" });
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [keyword, setKeyword] = useState("");
@@ -72,8 +72,7 @@ export function CoinHistoryPage({
   const switchView = (next: ViewMode) => {
     setView(next);
     setSignTab("summary");
-    setDrillCat1(null);
-    setDrillCat2(null);
+    setCatFilter({ cat1: "", cat2: "", cat3: "" });
   };
 
   const filteredLog = useMemo(() => {
@@ -138,43 +137,20 @@ export function CoinHistoryPage({
       .sort((a, b) => b.subtotal - a.subtotal);
   }, [filteredLog]);
 
-  const midGroups = useMemo(() => {
-    if (!drillCat1) return [];
-    const rows = filteredLog.filter((r) => (r.cat1 ?? "") === drillCat1);
-    const grouped = rows.reduce<Record<string, CoinIncomeLogRow[]>>((acc, r) => {
-      const k = r.cat2?.trim() || "（未分中分類）";
-      acc[k] = [...(acc[k] ?? []), r];
-      return acc;
-    }, {});
-    return Object.entries(grouped)
-      .map(([label, rs]) => ({
-        label,
-        rows: [...rs].sort((a, b) => b.at.localeCompare(a.at)),
-        subtotal: rs.reduce((s, r) => s + r.amount, 0),
-      }))
-      .sort((a, b) => b.subtotal - a.subtotal);
-  }, [filteredLog, drillCat1]);
+  const catFiltered = useMemo(() => {
+    const { cat1, cat2, cat3 } = catFilter;
+    if (!cat1) return [];
+    return filteredLog
+      .filter((r) => (r.cat1 ?? "") === cat1)
+      .filter((r) => (cat2 ? (r.cat2?.trim() ?? "") === cat2 : true))
+      .filter((r) => (cat3 ? (r.cat3?.trim() ?? "") === cat3 : true))
+      .sort((a, b) => b.at.localeCompare(a.at));
+  }, [filteredLog, catFilter]);
 
-  const smallGroups = useMemo(() => {
-    if (drillCat1 == null || drillCat2 == null) return [];
-    const rows = filteredLog.filter(
-      (r) =>
-        (r.cat1 ?? "") === drillCat1 &&
-        (r.cat2?.trim() || "（未分中分類）") === drillCat2,
-    );
-    const grouped = rows.reduce<Record<string, CoinIncomeLogRow[]>>((acc, r) => {
-      const k = r.cat3?.trim() || "（未分小分類）";
-      acc[k] = [...(acc[k] ?? []), r];
-      return acc;
-    }, {});
-    return Object.entries(grouped)
-      .map(([label, rs]) => ({
-        label,
-        rows: [...rs].sort((a, b) => b.at.localeCompare(a.at)),
-        subtotal: rs.reduce((s, r) => s + r.amount, 0),
-      }))
-      .sort((a, b) => b.subtotal - a.subtotal);
-  }, [filteredLog, drillCat1, drillCat2]);
+  const catFilteredTotal = useMemo(
+    () => catFiltered.reduce((s, r) => s + (r.amount ?? 0), 0),
+    [catFiltered],
+  );
 
   const signGroups = useMemo(() => {
     const income = filteredLog
@@ -571,9 +547,6 @@ export function CoinHistoryPage({
       <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.5 }}>
         💡 先框出時間範圍，再切換「依分類」看金幣來自哪類番茄，或「收支」分別看收入與支出
       </div>
-      <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.5 }}>
-        💡 依分類可一路往下點：大分類 → 中分類 → 小分類
-      </div>
 
       <div style={{ fontSize: 10, color: TH.muted }}>
         共 {summary.count} 筆 · 合計 {summary.total > 0 ? "+" : ""}
@@ -633,60 +606,67 @@ export function CoinHistoryPage({
         </div>
       ) : view === "type" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {drillCat1 == null ? (
-            typeGroups.map((group) =>
-              renderGroupCard(group.label, group.label, group.rows, group.subtotal, {
-                onTitleClick: () => setDrillCat1(group.label),
-                showChevron: true,
-              }),
-            )
-          ) : (
-            <>
-              <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+          <div
+            style={{
+              background: TH.card,
+              border: `1px solid ${TH.border}`,
+              borderRadius: 12,
+              padding: 10,
+            }}
+          >
+            <CategorySelector
+              cat1={catFilter.cat1}
+              cat2={catFilter.cat2}
+              cat3={catFilter.cat3}
+              onChange={(next) => setCatFilter(next)}
+            />
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                marginTop: 8,
+                flexWrap: "wrap",
+              }}
+            >
+              <span style={{ fontSize: 10, color: TH.muted }}>
+                已選：
+                <span style={{ color: TH.text, fontWeight: 700 }}>
+                  {catFilter.cat1
+                    ? [catFilter.cat1, catFilter.cat2, catFilter.cat3].filter(Boolean).join(" › ")
+                    : "（未選＝看所有大分類總覽）"}
+                </span>
+              </span>
+              {catFilter.cat1 && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setDrillCat1(null);
-                    setDrillCat2(null);
-                  }}
+                  onClick={() => setCatFilter({ cat1: "", cat2: "", cat3: "" })}
                   style={backBtnStyle}
                 >
-                  ← 所有大分類
+                  ✕ 清除分類
                 </button>
-                {drillCat2 != null && (
-                  <button type="button" onClick={() => setDrillCat2(null)} style={backBtnStyle}>
-                    ← 返回 {drillCat1}
-                  </button>
-                )}
-              </div>
-              <div style={{ fontSize: 10, color: TH.text, fontWeight: 800 }}>
-                {drillCat2 == null
-                  ? `${drillCat1} · 依中分類`
-                  : `${drillCat1} › ${drillCat2} · 依小分類`}
-              </div>
-              {drillCat2 == null ? (
-                midGroups.length === 0 ? (
-                  <div style={{ fontSize: 10, color: TH.muted, textAlign: "center", padding: 12 }}>
-                    此大分類沒有中分類明細
-                  </div>
-                ) : (
-                  midGroups.map((g) =>
-                    renderGroupCard(`mid-${g.label}`, g.label, g.rows, g.subtotal, {
-                      onTitleClick: () => setDrillCat2(g.label),
-                      showChevron: true,
-                    }),
-                  )
-                )
-              ) : smallGroups.length === 0 ? (
-                <div style={{ fontSize: 10, color: TH.muted, textAlign: "center", padding: 12 }}>
-                  此中分類沒有小分類明細
-                </div>
-              ) : (
-                smallGroups.map((g) =>
-                  renderGroupCard(`small-${g.label}`, g.label, g.rows, g.subtotal),
-                )
               )}
-            </>
+            </div>
+            <div style={{ fontSize: 9, color: TH.muted, marginTop: 6 }}>
+              💡 大／中／小分類可各自選；只選大分類＝看該大分類全部，往下選就越精準
+            </div>
+          </div>
+
+          {catFilter.cat1 === "" ? (
+            typeGroups.map((group) =>
+              renderGroupCard(group.label, group.label, group.rows, group.subtotal),
+            )
+          ) : catFiltered.length === 0 ? (
+            <div style={{ fontSize: 10, color: TH.muted, textAlign: "center", padding: 16 }}>
+              此範圍內沒有符合的金幣記錄
+            </div>
+          ) : (
+            renderGroupCard(
+              "cat-filtered",
+              [catFilter.cat1, catFilter.cat2, catFilter.cat3].filter(Boolean).join(" › "),
+              catFiltered,
+              catFilteredTotal,
+            )
           )}
         </div>
       ) : (
