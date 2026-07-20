@@ -287,6 +287,21 @@ export function migrateCategoryIds(): void {
   if (changed) saveCategories(data);
 }
 
+export const CAT_PATH_SEP = "\u001F";
+
+export const catPath = (c1?: string, c2?: string, c3?: string) =>
+  [c1, c2, c3].filter((x) => x && x.trim()).join(CAT_PATH_SEP);
+
+/** 選取集合中若有任一路徑是該筆資料路徑的前綴，即視為命中；集合為空＝全部命中 */
+export function matchesCatSelection(sel: Set<string>, c1?: string, c2?: string, c3?: string) {
+  if (sel.size === 0) return true;
+  const p = catPath(c1, c2, c3);
+  for (const s of sel) {
+    if (p === s || p.startsWith(s + CAT_PATH_SEP)) return true;
+  }
+  return false;
+}
+
 export const CAT = {
   cat1List: () => loadCategories().map((c) => c.name),
   cat1Color: (name: string) => loadCategories().find((c) => c.name === name)?.color ?? "#6B7280",
