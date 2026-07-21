@@ -27,6 +27,7 @@ export const LS_KEYS = {
   trashedSessions: `${STORAGE_PREFIX}trashed_sessions`,
   shopItems: `${STORAGE_PREFIX}shop_items`,
   activeEnt: `${STORAGE_PREFIX}active_entertainment`,
+  routine: `${STORAGE_PREFIX}routine`,
 } as const;
 
 function assertVersionedKey(key: string): void {

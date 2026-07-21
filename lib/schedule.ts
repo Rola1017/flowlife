@@ -1,5 +1,5 @@
 import { LS_KEYS, loadJSON, saveJSON, removeKey } from "@/lib/storage";
-import { pushAppState, APP_STATE_KEYS } from "@/lib/appStateCloud";
+import { pushAppState, APP_STATE_KEYS, notifyAppState } from "@/lib/appStateCloud";
 
 export type Place = string;
 export type DayPick = { place: Place; shift: string };
@@ -224,22 +224,65 @@ export function planForDate(
   return plans[weekdayOf(dateStr)] ?? { picks: [] };
 }
 
-export type RoutineBlock = { start: string; end: string; label: string };
+export type RoutineItem = { name: string; detail?: string };
+export type RoutineBlock = {
+  start: string;
+  end: string;
+  label: string;
+  emoji?: string;
+  items?: RoutineItem[];
+};
 
 /**
- * 固定作息（不可用時間）— 全 App 單一來源。全天 24h。
- * 可用時間／直式行程表／課表／未利用時間皆由此衍生，禁止再各自寫死。
- * 未來 Supabase 階段抽成使用者可編輯設定（與班別 WorkplaceConfig 同批）。
+ * 固定作息預設（不可用時間）— 全天 24h。
+ * 可用時間／直式行程表／課表／未利用時間皆由 routineFor→loadRoutine 衍生。
  */
-export const FIXED_ROUTINE: RoutineBlock[] = [
-  { start: "00:00", end: "06:30", label: "😴 睡眠" },
-  { start: "06:30", end: "07:00", label: "😴 起床" },
-  { start: "07:00", end: "08:00", label: "🍴 早餐" },
-  { start: "12:00", end: "13:00", label: "🍴 午餐" },
-  { start: "13:00", end: "13:30", label: "😴 午覺" },
-  { start: "17:00", end: "18:00", label: "🍴 晚餐" },
-  { start: "23:00", end: "24:00", label: "😴 睡覺" },
+export const DEFAULT_ROUTINE: RoutineBlock[] = [
+  { start: "00:00", end: "06:30", emoji: "😴", items: [{ name: "睡眠" }], label: "😴 睡眠" },
+  { start: "06:30", end: "07:00", emoji: "😴", items: [{ name: "起床" }], label: "😴 起床" },
+  { start: "07:00", end: "08:00", emoji: "🍴", items: [{ name: "早餐" }], label: "🍴 早餐" },
+  { start: "12:00", end: "13:00", emoji: "🍴", items: [{ name: "午餐" }], label: "🍴 午餐" },
+  { start: "13:00", end: "13:30", emoji: "😴", items: [{ name: "午覺" }], label: "😴 午覺" },
+  { start: "17:00", end: "18:00", emoji: "🍴", items: [{ name: "晚餐" }], label: "🍴 晚餐" },
+  { start: "23:00", end: "24:00", emoji: "😴", items: [{ name: "睡覺" }], label: "😴 睡覺" },
 ];
+/** @deprecated 相容既有 import；請改用 loadRoutine()／routineFor() */
+export const FIXED_ROUTINE = DEFAULT_ROUTINE;
+
+export function routineLabel(emoji: string | undefined, items: RoutineItem[]): string {
+  const names = items.map((i) => i.name).filter((n) => n && n.trim()).join("、");
+  return (emoji ? emoji + " " : "") + (names || "作息");
+}
+
+export function loadRoutine(): RoutineBlock[] {
+  const v = loadJSON<RoutineBlock[] | null>(LS_KEYS.routine, null);
+  const raw = Array.isArray(v) && v.length > 0 ? v : DEFAULT_ROUTINE;
+  return raw.map((b) => {
+    const items =
+      Array.isArray(b.items) && b.items.length
+        ? b.items.map((it) => ({ name: String(it.name ?? ""), detail: it.detail }))
+        : [{ name: (b.label ?? "作息").replace(/^\S+\s/, "") || "作息" }];
+    return {
+      start: b.start,
+      end: b.end,
+      emoji: b.emoji,
+      items,
+      label: b.label ?? routineLabel(b.emoji, items),
+    };
+  });
+}
+
+export function saveRoutine(list: RoutineBlock[]): void {
+  saveJSON(LS_KEYS.routine, list);
+  void pushAppState(APP_STATE_KEYS.routine, list);
+  notifyAppState(APP_STATE_KEYS.routine);
+}
+
+export function ensureRoutineSeeded(): void {
+  if (loadJSON<RoutineBlock[] | null>(LS_KEYS.routine, null) == null) {
+    saveJSON(LS_KEYS.routine, DEFAULT_ROUTINE);
+  }
+}
 
 export function loadRoutineOverride(dateStr: string): RoutineBlock[] | null {
   const v = loadJSON<RoutineBlock[] | null>(`${LS_KEYS.routineOverride}${dateStr}`, null);
@@ -254,13 +297,13 @@ export function clearRoutineOverride(dateStr: string): void {
   removeKey(`${LS_KEYS.routineOverride}${dateStr}`);
 }
 
-/** 某日生效作息：有覆寫用覆寫，否則 FIXED_ROUTINE — 單一來源 */
+/** 某日生效作息：有覆寫用覆寫，否則 loadRoutine — 單一來源 */
 export function routineFor(dateStr?: string): RoutineBlock[] {
   if (dateStr) {
     const ov = loadRoutineOverride(dateStr);
     if (ov) return ov;
   }
-  return FIXED_ROUTINE;
+  return loadRoutine();
 }
 
 function routineRangesFor(dateStr: string): [number, number][] {

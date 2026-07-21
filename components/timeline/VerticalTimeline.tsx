@@ -82,11 +82,13 @@ export function VerticalTimeline({
     const u2 = subscribeAppState(APP_STATE_KEYS.workplaces, () => setPlanRev((n) => n + 1));
     const u3 = subscribeAppState(APP_STATE_KEYS.weekSchedule, () => setPlanRev((n) => n + 1));
     const u4 = subscribeAppState(APP_STATE_KEYS.dayOverrides, () => setPlanRev((n) => n + 1));
+    const u5 = subscribeAppState(APP_STATE_KEYS.routine, () => setPlanRev((n) => n + 1));
     return () => {
       u1();
       u2();
       u3();
       u4();
+      u5();
     };
   }, []);
 

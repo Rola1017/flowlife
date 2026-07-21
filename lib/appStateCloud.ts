@@ -20,6 +20,7 @@ export const APP_STATE_KEYS = {
   weekSchedule: "week_schedule",
   trashedSessions: "trashed_sessions",
   shopItems: "shop_items",
+  routine: "routine",
 } as const;
 
 type AppStateKey = (typeof APP_STATE_KEYS)[keyof typeof APP_STATE_KEYS];
@@ -34,6 +35,7 @@ const LS_FOR_KEY: Record<AppStateKey, string> = {
   [APP_STATE_KEYS.weekSchedule]: LS_KEYS.weekSchedule,
   [APP_STATE_KEYS.trashedSessions]: LS_KEYS.trashedSessions,
   [APP_STATE_KEYS.shopItems]: LS_KEYS.shopItems,
+  [APP_STATE_KEYS.routine]: LS_KEYS.routine,
 };
 
 const DEFAULT_FOR_KEY: Record<AppStateKey, unknown> = {
@@ -46,6 +48,7 @@ const DEFAULT_FOR_KEY: Record<AppStateKey, unknown> = {
   [APP_STATE_KEYS.weekSchedule]: {}, // 空物件；normalizeSchedule 讀取時處理
   [APP_STATE_KEYS.trashedSessions]: [],
   [APP_STATE_KEYS.shopItems]: [],
+  [APP_STATE_KEYS.routine]: [], // 空陣列；loadRoutine 讀取時 fallback DEFAULT_ROUTINE
 };
 
 // 本地 meta：每個 key 的最後修改時間 {key: iso}
@@ -73,6 +76,11 @@ export function subscribeAppState(key: string, cb: () => void) {
 }
 function emit(key: string) {
   listeners.get(key)?.forEach((l) => l());
+}
+
+/** 本地寫入後通知訂閱者重讀（不經雲端） */
+export function notifyAppState(key: string) {
+  emit(key);
 }
 
 /** 推單包到雲端（(user_id,key) 為主鍵 upsert） */

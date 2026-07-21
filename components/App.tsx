@@ -24,7 +24,7 @@ import { useSessionCloudSync } from "@/components/hooks/useSessionCloudSync";
 import { useAppStateCloudSync } from "@/components/hooks/useAppStateCloudSync";
 import { subscribeSessions, syncSessionDiffToCloud } from "@/lib/sessionsCloud";
 import { APP_STATE_KEYS, pushAppState, subscribeAppState } from "@/lib/appStateCloud";
-import { ensureWorkplacesSeeded } from "@/lib/schedule";
+import { ensureWorkplacesSeeded, ensureRoutineSeeded } from "@/lib/schedule";
 import { Card } from "@/components/ui/Card";
 import { Header } from "@/components/Header";
 import { HomePage } from "@/components/home/HomePage";
@@ -168,6 +168,7 @@ function AppContent() {
   useEffect(() => {
     migrateCategoryIds();
     ensureWorkplacesSeeded();
+    ensureRoutineSeeded();
     updateSessions(loadJSON<Session[]>(LS_KEYS.sessions, []));
     const loadedTrash = loadJSON<Session[]>(LS_KEYS.trashedSessions, []);
     const cutoff = Date.now() - 30 * 86400000;
@@ -335,6 +336,13 @@ function AppContent() {
   const [, bumpWp] = useState(0);
   useEffect(
     () => subscribeAppState(APP_STATE_KEYS.workplaces, () => bumpWp((n) => n + 1)),
+    [],
+  );
+
+  // 固定作息雲端同步回來 → 觸發重畫，讓讀 loadRoutine() 的時間軸／課表取新值
+  const [, bumpRoutine] = useState(0);
+  useEffect(
+    () => subscribeAppState(APP_STATE_KEYS.routine, () => bumpRoutine((n) => n + 1)),
     [],
   );
 

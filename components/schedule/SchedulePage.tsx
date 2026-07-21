@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { TH, labelOnDark } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
@@ -25,11 +25,12 @@ import {
   loadScheduleCourses,
   loadWorkplaces,
   saveWorkplaces,
-  FIXED_ROUTINE,
+  loadRoutine,
 } from "@/lib/schedule";
 import { subscribeAppState, pushAppState, APP_STATE_KEYS } from "@/lib/appStateCloud";
 import { CFG } from "@/lib/config";
 import { WorkplaceManager } from "./WorkplaceManager";
+import { RoutineManager } from "./RoutineManager";
 import { toM } from "@/lib/utils";
 import { Card, SL } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
@@ -56,12 +57,12 @@ const GRID_END_MIN = toM("23:00"); // 最後一格 22:30–23:00
 const fmtHM2 = (m: number) =>
   `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 
-// 課表固定列由 FIXED_ROUTINE 衍生（單一來源）；其餘 30 分格為可排課格
-function buildRows(): RowDef[] {
+// 課表固定列由 loadRoutine() 衍生（單一來源）；其餘 30 分格為可排課格
+function buildRows(routine = loadRoutine()): RowDef[] {
   const rows: RowDef[] = [];
   let t = GRID_START_MIN;
   while (t < GRID_END_MIN) {
-    const blk = FIXED_ROUTINE.find((b) => toM(b.start) <= t && t < toM(b.end));
+    const blk = routine.find((b) => toM(b.start) <= t && t < toM(b.end));
     if (blk) {
       const blkEnd = Math.min(toM(blk.end), GRID_END_MIN);
       const times: string[] = [];
@@ -78,12 +79,13 @@ function buildRows(): RowDef[] {
   return rows;
 }
 
-const ROWS: RowDef[] = buildRows();
-
-const HALF_SLOTS: string[] = [];
-for (const row of ROWS) {
-  if (row.kind === "class") HALF_SLOTS.push(row.time);
-  else HALF_SLOTS.push(...row.times);
+function halfSlotsOf(rows: RowDef[]): string[] {
+  const slots: string[] = [];
+  for (const row of rows) {
+    if (row.kind === "class") slots.push(row.time);
+    else slots.push(...row.times);
+  }
+  return slots;
 }
 
 const ROW_H = 26;
@@ -93,8 +95,8 @@ const STEP = ROW_H + GAP;
 const DAYS = ["一", "二", "三", "四", "五", "六", "日"] as const;
 const COL_W = `calc((100% - 44px - ${7 * GAP}px) / 7)`;
 
-const inFixedSlot = (t: string) =>
-  FIXED_ROUTINE.some((b) => toM(b.start) <= toM(t) && toM(t) < toM(b.end));
+const inFixedSlot = (t: string, routine = loadRoutine()) =>
+  routine.some((b) => toM(b.start) <= toM(t) && toM(t) < toM(b.end));
 
 function normalizeSchedule(raw: Record<string, RawSchedRow[]>): Record<string, SchedRow[]> {
   const out: Record<string, SchedRow[]> = {};
@@ -146,6 +148,14 @@ export function SchedulePage({
   const [dayPlans, setDayPlans] = useState<Record<string, DayPlan>>(loadDayPlans);
   const [workplaces, setWorkplaces] = useState<WorkplaceConfig[]>(loadWorkplaces);
   const [showWpMgr, setShowWpMgr] = useState(false);
+  const [showRoutineMgr, setShowRoutineMgr] = useState(false);
+  const [routineRev, setRoutineRev] = useState(0);
+  useEffect(
+    () => subscribeAppState(APP_STATE_KEYS.routine, () => setRoutineRev((n) => n + 1)),
+    [],
+  );
+  const ROWS = useMemo(() => buildRows(loadRoutine()), [routineRev]);
+  const HALF_SLOTS = useMemo(() => halfSlotsOf(ROWS), [ROWS]);
   const reconcileDayPlans = (wps: WorkplaceConfig[]) => {
     setDayPlans((prev) => {
       let changed = false;
@@ -661,6 +671,13 @@ export function SchedulePage({
           active={showWpMgr}
           color={TH.accent}
           onClick={() => setShowWpMgr((v) => !v)}
+          style={{ fontSize: 11 }}
+        />
+        <Chip
+          label="🛏 管理固定作息"
+          active={showRoutineMgr}
+          color={TH.accent}
+          onClick={() => setShowRoutineMgr((v) => !v)}
           style={{ fontSize: 11 }}
         />
         <button
@@ -1757,6 +1774,7 @@ export function SchedulePage({
           onClose={() => setShowWpMgr(false)}
         />
       )}
+      {showRoutineMgr && <RoutineManager onClose={() => setShowRoutineMgr(false)} />}
       <div style={{ fontSize: 10, color: TH.muted }}>
         💡 一天可跨店排班；與已選班別時間重疊的會變灰、不能選
       </div>
