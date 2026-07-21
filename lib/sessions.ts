@@ -84,6 +84,35 @@ export function removeSession(sessions: Session[], id: number) {
   return { sessions: sessions.filter((s) => s.id !== id), coinDelta };
 }
 
+/** 時間戳跨日切段（娛樂結束記 session 等共用；與 buildManualSession 同語意） */
+export function splitSpanByDay(
+  startMs: number,
+  endMs: number,
+): { date: string; startTime: string; endTime: string; mins: number }[] {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const hm = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const start = new Date(startMs);
+  const end = new Date(endMs);
+  const out: { date: string; startTime: string; endTime: string; mins: number }[] = [];
+  const cur = new Date(start);
+  let guard = 0;
+  while (cur < end && guard < 40) {
+    guard++;
+    const dayEnd = new Date(cur);
+    dayEnd.setHours(24, 0, 0, 0);
+    const segEnd = dayEnd < end ? dayEnd : end;
+    const endsAtMidnight = segEnd.getTime() === dayEnd.getTime();
+    out.push({
+      date: toLocalDateStr(cur),
+      startTime: hm(cur),
+      endTime: endsAtMidnight ? "24:00" : hm(segEnd),
+      mins: Math.max(1, Math.round((segEnd.getTime() - cur.getTime()) / 60000)),
+    });
+    cur.setTime(dayEnd.getTime());
+  }
+  return out;
+}
+
 /** 手動補番茄（單一寫入來源）；開始/結束各含日期、可跨天自動切段、各段依自身分鐘各自計基礎幣、標 manual */
 export function buildManualSession(input: {
   startAt: string; // "YYYY-MM-DDTHH:MM"

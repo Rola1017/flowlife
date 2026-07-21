@@ -18,7 +18,7 @@ import { LS_KEYS, loadJSON, loadNumber, saveJSON, saveNumber } from "@/lib/stora
 import { migrateCategoryIds, saveCategories, DEFAULT_CATEGORIES } from "@/lib/categories";
 import { clearReviewsCloud } from "@/lib/reviews";
 import type { Session, ActiveEntertainment, ShopItem } from "@/lib/types";
-import { patchReflection, setSessionMins, setSessionTimes, buildManualSession, stampSession, ensureSessionUuid } from "@/lib/sessions";
+import { patchReflection, setSessionMins, setSessionTimes, buildManualSession, stampSession, ensureSessionUuid, splitSpanByDay } from "@/lib/sessions";
 import { useReviewCloudSync } from "@/components/hooks/useReviewCloudSync";
 import { useSessionCloudSync } from "@/components/hooks/useSessionCloudSync";
 import { useAppStateCloudSync } from "@/components/hooks/useAppStateCloudSync";
@@ -217,10 +217,30 @@ function AppContent() {
       setCoinRowAmount(current.spendRowId, -(usedMins * current.coinsPerMin));
       const refund = (current.boughtMinutes - usedMins) * current.coinsPerMin;
       const name = current.name;
+      if (usedMins >= 1) {
+        const segs = splitSpanByDay(current.startAt, current.startAt + usedMins * 60000);
+        const rows: Session[] = segs.map((s, i) => ({
+          id: Date.now() + i,
+          uuid: crypto.randomUUID(),
+          date: s.date,
+          name: current.name,
+          cat1: current.cat1 ?? "",
+          cat2: current.cat2 ?? "",
+          cat3: current.cat3 ?? "",
+          mins: s.mins,
+          rating: "",
+          earnedCoins: 0,
+          counted: s.mins > 1,
+          startTime: s.startTime,
+          endTime: s.endTime,
+          updatedAt: new Date().toISOString(),
+        }));
+        updateSessions((prev) => [...prev, ...rows]);
+      }
       setCoinToast(`「${name}」結束：用了 ${usedMins} 分，退回 ${refund} 金幣`);
       return null;
     });
-  }, [setCoinRowAmount]);
+  }, [setCoinRowAmount, updateSessions]);
 
   const handleBuyEntertainment = useCallback(
     (item: ShopItem, minutes: number): boolean => {
