@@ -54,6 +54,7 @@ export function usePomodoro({
   resetVersion,
   coinIncomeLog,
   setCoinIncomeLog,
+  onFocusStart,
 }: {
   sessions: Session[];
   setSessions: Dispatch<SetStateAction<Session[]>>;
@@ -69,6 +70,7 @@ export function usePomodoro({
   resetVersion: number;
   coinIncomeLog: CoinIncomeLogRow[];
   setCoinIncomeLog: Dispatch<SetStateAction<CoinIncomeLogRow[]>>;
+  onFocusStart?: () => void;
 }) {
   const REWARD_FX_MS = 3700;
 
@@ -241,6 +243,7 @@ export function usePomodoro({
   }, [mode, restSecs, idleTrackStart, setIdleTrackStart]);
 
   const beginFocus = (sel: { name: string; cat1: string; cat2: string; cat3: string; intention?: string }) => {
+    onFocusStart?.();
     focusStartRef.current = Date.now();
     focusStartClockRef.current = localDateParts().time;
     setConfirmed({ ...sel, intention: sel.intention ?? "" });

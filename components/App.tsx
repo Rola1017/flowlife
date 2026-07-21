@@ -123,6 +123,7 @@ function AppContent() {
   const [coinToast, setCoinToast] = useState<string | null>(null);
   const [ent, setEnt] = useState<ActiveEntertainment | null>(null);
   const [entRemain, setEntRemain] = useState(0);
+  const entWarnRef = useRef<{ w2: boolean; w1: boolean }>({ w2: false, w1: false });
   const [focused, setFocused] = useState(DEFAULT_RATINGS.focused);
   const [neutral, setNeutral] = useState(DEFAULT_RATINGS.neutral);
   const [distracted, setDistracted] = useState(DEFAULT_RATINGS.distracted);
@@ -254,17 +255,27 @@ function AppContent() {
   useEffect(() => {
     if (!ent) {
       setEntRemain(0);
+      entWarnRef.current = { w2: false, w1: false };
       return;
     }
     const tick = () => {
       const remain = ent.boughtMinutes * 60 - Math.floor((Date.now() - ent.startAt) / 1000);
       setEntRemain(remain);
+      if (remain <= 120 && remain > 60 && !entWarnRef.current.w2) {
+        entWarnRef.current.w2 = true;
+        setCoinToast(`⏱「${ent.name}」還剩 2 分鐘`);
+      }
+      if (remain <= 60 && remain > 0 && !entWarnRef.current.w1) {
+        entWarnRef.current.w1 = true;
+        setCoinToast(`⏱「${ent.name}」還剩 1 分鐘`);
+      }
       if (remain <= 0) endEntertainment();
     };
     tick();
     const t = setInterval(tick, 1000);
     return () => clearInterval(t);
-  }, [ent, endEntertainment]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ent]);
 
   // 雲端同步回來時，把本地最新讀進畫面（用原始 setSessions，避免再次觸發推送）
   useEffect(
@@ -683,6 +694,7 @@ function AppContent() {
       restEndAt={restEndAt}
       setRestEndAt={setRestEndAt}
       resetVersion={resetVersion}
+      onFocusStart={endEntertainment}
     />
   );
 
