@@ -24,9 +24,7 @@ export function MultiCategoryFilter({
   };
 
   const cat1s = CAT.cat1List();
-  const activeCat1 = cat1s.filter((c1) =>
-    selected.size === 0 ? true : [...selected].some((s) => s === c1 || s.startsWith(c1 + CAT_PATH_SEP)),
-  );
+  const activeCat1 = cat1s;
   const rowStyle = { display: "flex", gap: 4, flexWrap: "wrap" as const };
   const labelStyle = { fontSize: 9, color: TH.muted, marginBottom: 4 };
 
