@@ -26,6 +26,7 @@ import {
   loadWorkplaces,
   saveWorkplaces,
   loadRoutine,
+  type RoutineBlock,
 } from "@/lib/schedule";
 import { subscribeAppState, pushAppState, APP_STATE_KEYS } from "@/lib/appStateCloud";
 import { CFG } from "@/lib/config";
@@ -52,19 +53,21 @@ type RowDef =
   | { kind: "fixed"; times: string[]; label: string; span: "all" | "weekday" }
   | { kind: "class"; time: string };
 
-const GRID_START_MIN = toM("06:30");
-const GRID_END_MIN = toM("23:00"); // 最後一格 22:30–23:00
+const CORE_START_MIN = toM("06:00");
+const CORE_END_MIN = toM("23:00");
+const FULL_START_MIN = 0;
+const FULL_END_MIN = 24 * 60;
 const fmtHM2 = (m: number) =>
   `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 
-// 課表固定列由 loadRoutine() 衍生（單一來源）；其餘 30 分格為可排課格
-function buildRows(routine = loadRoutine()): RowDef[] {
+// 課表固定列由 loadRoutine() 衍生（單一來源）；視窗起訖決定顯示範圍
+function buildRows(routine: RoutineBlock[], winStart: number, winEnd: number): RowDef[] {
   const rows: RowDef[] = [];
-  let t = GRID_START_MIN;
-  while (t < GRID_END_MIN) {
+  let t = winStart;
+  while (t < winEnd) {
     const blk = routine.find((b) => toM(b.start) <= t && t < toM(b.end));
     if (blk) {
-      const blkEnd = Math.min(toM(blk.end), GRID_END_MIN);
+      const blkEnd = Math.min(toM(blk.end), winEnd);
       const times: string[] = [];
       while (t < blkEnd) {
         times.push(fmtHM2(t));
@@ -150,11 +153,18 @@ export function SchedulePage({
   const [showWpMgr, setShowWpMgr] = useState(false);
   const [showRoutineMgr, setShowRoutineMgr] = useState(false);
   const [routineRev, setRoutineRev] = useState(0);
+  const [expandEarly, setExpandEarly] = useState(false);
+  const [expandLate, setExpandLate] = useState(false);
   useEffect(
     () => subscribeAppState(APP_STATE_KEYS.routine, () => setRoutineRev((n) => n + 1)),
     [],
   );
-  const ROWS = useMemo(() => buildRows(loadRoutine()), [routineRev]);
+  const winStart = expandEarly ? FULL_START_MIN : CORE_START_MIN;
+  const winEnd = expandLate ? FULL_END_MIN : CORE_END_MIN;
+  const ROWS = useMemo(
+    () => buildRows(loadRoutine(), winStart, winEnd),
+    [routineRev, winStart, winEnd],
+  );
   const HALF_SLOTS = useMemo(() => halfSlotsOf(ROWS), [ROWS]);
   const reconcileDayPlans = (wps: WorkplaceConfig[]) => {
     setDayPlans((prev) => {
@@ -1784,6 +1794,23 @@ export function SchedulePage({
       <div style={{ fontSize: 10, color: TH.muted }}>
         💡 點最上面的星期（一、二…）可複製整天課程／班別，再貼到其他天
       </div>
+      <div style={{ display: "flex", gap: 6, marginBottom: 4 }}>
+        <button
+          type="button"
+          onClick={() => setExpandEarly((v) => !v)}
+          style={{
+            fontSize: 9,
+            padding: "3px 8px",
+            borderRadius: 8,
+            border: `1px solid ${TH.border}`,
+            background: expandEarly ? TH.accent + "22" : "transparent",
+            color: expandEarly ? TH.accent : TH.muted,
+            cursor: "pointer",
+          }}
+        >
+          {expandEarly ? "▲ 收合凌晨" : "▼ 展開凌晨 00:00–06:00"}
+        </button>
+      </div>
       <div
         className="flowlife-hscroll"
         style={{
@@ -2022,6 +2049,23 @@ export function SchedulePage({
             })}
           </div>
         </div>
+      </div>
+      <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+        <button
+          type="button"
+          onClick={() => setExpandLate((v) => !v)}
+          style={{
+            fontSize: 9,
+            padding: "3px 8px",
+            borderRadius: 8,
+            border: `1px solid ${TH.border}`,
+            background: expandLate ? TH.accent + "22" : "transparent",
+            color: expandLate ? TH.accent : TH.muted,
+            cursor: "pointer",
+          }}
+        >
+          {expandLate ? "▲ 收合深夜" : "▼ 展開深夜 23:00–24:00"}
+        </button>
       </div>
     </div>
   );

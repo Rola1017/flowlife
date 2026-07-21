@@ -494,6 +494,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **娛樂取消購買連動移除 session**：商店 `onRefundSpend` 退幣後，以 `name+date+earnedCoins=0` 移除對應娛樂 session；結束提示補「可按開始專注 🍅」。
 - **D3b 消費帶商品分類＋支出依 productCat 分組**：`CoinIncomeLogRow.productCat`；`spendCoins`／`spendReturningId` 帶入；金幣頁收支「支出」依 productCat 分組可展開；無 cat1 時顯示 productCat；0 元消費列 hydrate 清除＋退全額 `refundSpend` 刪列。
 - **R1 固定作息資料化＋小項/細節＋編輯器**：`RoutineBlock` 擴充 `emoji`/`items`；`DEFAULT_ROUTINE`＋`loadRoutine`/`saveRoutine`/`ensureRoutineSeeded`（LS＋`app_state key="routine"`）；`routineFor` 改讀 `loadRoutine`；`routineLabel` 存檔時組字；課表頁 `RoutineManager`（加行/小項/細節/重設）；顯示端沿用 `label`，`blockedRanges` 僅用 start/end。
+- **R3 課表頭尾折疊＋作息拖曳排序**：課表核心視窗 `06:00–23:00`，可展開凌晨/深夜；`buildRows(winStart,winEnd)` 單一視窗；班別覆蓋層跟 `HALF_SLOTS` 自動偏移。`RoutineManager` 原生 HTML5 拖曳排序，`persist` 不再強制依時間排序。
 - **便利貼衝突處理強化（自訂鈕高亮＋一鍵移除）**：班課衝突時記住 `ovPendingPick`；尚未自訂課程時「👉 點我自訂這天課程」改黃色高亮。提醒橫幅新增含確認的「🗑 移除這 N 堂衝突課，並排入此班」：透過 `setOvCourses` 將週課 materialize 成當日自訂快照、刪除衝突課並避免重複地排入待排班別；取消確認不變更。開啟／切日期／關提醒／逐堂刪完皆同步清衝突與 pending state。
 - **課表複製貼上「自動清潔＋貼不上提醒」**：複製「課程＋班別」貼上時以 `shiftRange(place, shift, day)!==""` 過濾 picks（只貼該天真能排的班，消除隱形貼券）；被略過的班以頁面層 `pasteNotice` ⚠️橫幅明列（哪個班、哪天、去管理工作場所開可上班日）；單日貼上與「貼到選取的 N 天」皆適用；複製/關閉清提醒。未動 `lib/schedule.ts`／排班模型。
 - **便利貼微調（衝突紅格＋格內✕）**：班課衝突時衝突課格紅框紅底點亮（`ovConflictSlots`）、提醒精簡為一句含班別名；自訂狀態課格內建 ✕ 一鍵刪（刪完衝突自動消提醒）；沿用每週固定時紅格仍顯示但無 ✕；底部編輯器移除「移除這格」只留選/換科目。
@@ -594,10 +595,10 @@ TH.gold    = "#FBBF24"   // 金幣
 - ✅ **R1 固定作息資料化＋編輯器**：`loadRoutine`/`saveRoutine`/`RoutineManager`；小項＋細節存檔；label 單一組字。
 - ⬜ **R1b 點小項看細節**：時間軸／課表點作息小項展開 detail。
 - ⬜ **R2 某天不一樣（per-date 上雲＋UI）**：當日作息覆寫上雲與編輯 UI 強化。
-- ⬜ **R3 課表頭尾折疊**：課表頭尾作息區可折疊。
+- ✅ **R3 課表頭尾折疊**：核心 06:00–23:00，可展開凌晨/深夜；作息編輯器可拖曳排序。
 - ⬜ **娛樂 session 加 `source:"entertainment"` 標記**：讓「取消購買↔移除 session」以 id 精準對應（目前以 name+date+零幣比對）。
 
 ---
 
-*最後更新：2026/07/22（R1：固定作息資料化＋小項/細節＋編輯器）*
+*最後更新：2026/07/22（R3：課表頭尾折疊＋作息拖曳排序）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*

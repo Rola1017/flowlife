@@ -12,10 +12,9 @@ import {
 
 export function RoutineManager({ onClose }: { onClose: () => void }) {
   const [rows, setRows] = useState<RoutineBlock[]>(() => loadRoutine());
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
   const persist = (next: RoutineBlock[]) => {
-    const out = [...next]
-      .sort((a, b) => a.start.localeCompare(b.start))
-      .map((r) => ({ ...r, label: routineLabel(r.emoji, r.items ?? []) }));
+    const out = next.map((r) => ({ ...r, label: routineLabel(r.emoji, r.items ?? []) }));
     setRows(out);
     saveRoutine(out);
   };
@@ -95,7 +94,26 @@ export function RoutineManager({ onClose }: { onClose: () => void }) {
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {rows.map((r, ri) => (
-          <div key={ri} style={{ border: `1px solid ${TH.border}`, borderRadius: 10, padding: 8 }}>
+          <div
+            key={ri}
+            draggable
+            onDragStart={() => setDragIdx(ri)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={() => {
+              if (dragIdx === null || dragIdx === ri) return;
+              const next = [...rows];
+              const [moved] = next.splice(dragIdx, 1);
+              next.splice(ri, 0, moved);
+              setDragIdx(null);
+              persist(next);
+            }}
+            style={{
+              border: `1px solid ${TH.border}`,
+              borderRadius: 10,
+              padding: 8,
+              opacity: dragIdx === ri ? 0.6 : 1,
+            }}
+          >
             <div
               style={{
                 display: "flex",
@@ -105,6 +123,7 @@ export function RoutineManager({ onClose }: { onClose: () => void }) {
                 marginBottom: 6,
               }}
             >
+              <span style={{ cursor: "grab", color: TH.muted, marginRight: 4 }}>⋮⋮</span>
               <input
                 value={r.emoji ?? ""}
                 onChange={(e) => updRow(ri, { emoji: e.target.value })}
