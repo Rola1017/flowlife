@@ -486,6 +486,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **D2a 計時商品購買→倒數→結束退幣**：`ActiveEntertainment`＋`LS_KEYS.activeEnt`（本地、不同步雲）；`useCoinLog.spendReturningId`／`setCoinRowAmount`（退幣＝調整原 spend 帳列金額，非另加一筆）；`App` 層 `ent`／`entRemain` 倒數 tick（歸零自動結束）；不滿一分鐘不計＝`Math.floor(秒/60)`；同時僅一個進行中娛樂；ShopPage time 商品分鐘輸入＋「購買並開始」；全域浮動倒數條＋手動結束。
 - **D2b 開始專注自動結束娛樂＋2/1 分提醒**：`usePomodoro.beginFocus` 唯一入口觸發 `onFocusStart`（涵蓋開始鈕與課表快速開始）；`App` 綁 `onFocusStart={endEntertainment}`；倒數 tick 加 `entWarnRef` 門檻（剩 2 分／1 分各 toast 一次）；App 開啟時畫面提示，真推播仍待 Capacitor。
 - **D3a 娛樂結束→記成娛樂番茄**：`endEntertainment` 在 `usedMins≥1` 時以 `splitSpanByDay` 切段寫入 `Session`（`earnedCoins:0`、商品設定的番茄分類）；走 `updateSessions` 自動進時間軸／排除未利用／月曆 mins 加總；跨午夜切兩段。
+- **娛樂取消購買連動移除 session**：商店 `onRefundSpend` 退幣後，以 `name+date+earnedCoins=0` 移除對應娛樂 session；結束提示補「可按開始專注 🍅」。
 - **便利貼衝突處理強化（自訂鈕高亮＋一鍵移除）**：班課衝突時記住 `ovPendingPick`；尚未自訂課程時「👉 點我自訂這天課程」改黃色高亮。提醒橫幅新增含確認的「🗑 移除這 N 堂衝突課，並排入此班」：透過 `setOvCourses` 將週課 materialize 成當日自訂快照、刪除衝突課並避免重複地排入待排班別；取消確認不變更。開啟／切日期／關提醒／逐堂刪完皆同步清衝突與 pending state。
 - **課表複製貼上「自動清潔＋貼不上提醒」**：複製「課程＋班別」貼上時以 `shiftRange(place, shift, day)!==""` 過濾 picks（只貼該天真能排的班，消除隱形貼券）；被略過的班以頁面層 `pasteNotice` ⚠️橫幅明列（哪個班、哪天、去管理工作場所開可上班日）；單日貼上與「貼到選取的 N 天」皆適用；複製/關閉清提醒。未動 `lib/schedule.ts`／排班模型。
 - **便利貼微調（衝突紅格＋格內✕）**：班課衝突時衝突課格紅框紅底點亮（`ovConflictSlots`）、提醒精簡為一句含班別名；自訂狀態課格內建 ✕ 一鍵刪（刪完衝突自動消提醒）；沿用每週固定時紅格仍顯示但無 ✕；底部編輯器移除「移除這格」只留選/換科目。
@@ -583,8 +584,9 @@ TH.gold    = "#FBBF24"   // 金幣
 - ✅ **D2b 開始專注自動結束娛樂＋2/1 分提醒**：`beginFocus`→`onFocusStart`→`endEntertainment`；剩 2 分／1 分 toast（App 開啟時）；真推播待 Capacitor。
 - ✅ **D3a 娛樂結束記 session**：`splitSpanByDay`＋`earnedCoins:0`；進時間軸／月曆統計。
 - ⬜ **D3b 金幣頁商品支出分類（productCat）**：金幣頁「商品分類區」。
+- ⬜ **娛樂 session 加 `source:"entertainment"` 標記**：讓「取消購買↔移除 session」以 id 精準對應（目前以 name+date+零幣比對）。
 
 ---
 
-*最後更新：2026/07/21（D3a：娛樂結束記成娛樂番茄）*
+*最後更新：2026/07/21（娛樂取消購買連動移除 session＋結束提示補專注）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*

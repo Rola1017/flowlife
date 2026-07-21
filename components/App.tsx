@@ -237,7 +237,7 @@ function AppContent() {
         }));
         updateSessions((prev) => [...prev, ...rows]);
       }
-      setCoinToast(`「${name}」結束：用了 ${usedMins} 分，退回 ${refund} 金幣`);
+      setCoinToast(`「${name}」結束：用了 ${usedMins} 分，退回 ${refund} 金幣。想避免累積未利用時間，可直接按「開始專注 🍅」`);
       return null;
     });
   }, [setCoinRowAmount, updateSessions]);
@@ -608,8 +608,16 @@ function AppContent() {
         spendRows={spendRows}
         allSpendRows={spendRows}
         onRefundSpend={(rowId: number) => {
+          const row = spendRows.find((r) => r.id === rowId);
           refundSpend(rowId);
-          setCoinToast("已取消購買，金幣已退回");
+          if (row) {
+            updateSessions((prev) =>
+              prev.filter(
+                (s) => !(s.name === row.taskName && s.date === row.date && (s.earnedCoins ?? 0) === 0),
+              ),
+            );
+          }
+          setCoinToast("已取消購買，金幣與時間已一併移除");
         }}
         onBuyEntertainment={handleBuyEntertainment}
         entActive={!!ent}
