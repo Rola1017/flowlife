@@ -122,6 +122,7 @@ function AppContent() {
   const didLinkCoinRef = useRef(false);
   const [coinToast, setCoinToast] = useState<string | null>(null);
   const [ent, setEnt] = useState<ActiveEntertainment | null>(null);
+  const entRef = useRef<ActiveEntertainment | null>(null);
   const [entRemain, setEntRemain] = useState(0);
   const entWarnRef = useRef<{ w2: boolean; w1: boolean }>({ w2: false, w1: false });
   const [focused, setFocused] = useState(DEFAULT_RATINGS.focused);
@@ -201,7 +202,7 @@ function AppContent() {
 
   useEffect(() => {
     const s = loadJSON<ActiveEntertainment | null>(LS_KEYS.activeEnt, null);
-    if (s) setEnt(s);
+    if (s) { setEnt(s); entRef.current = s; }
   }, []);
 
   useEffect(() => {
@@ -210,41 +211,39 @@ function AppContent() {
   }, [ent]);
 
   const endEntertainment = useCallback(() => {
-    setEnt((current) => {
-      if (!current) return null;
-      const elapsedSec = Math.floor((Date.now() - current.startAt) / 1000);
-      const usedMins = Math.min(current.boughtMinutes, Math.floor(elapsedSec / 60));
-      const remain = current.spendRowId;
-      if (usedMins <= 0) {
-        refundSpend(remain);
-      } else {
-        setCoinRowAmount(remain, -(usedMins * current.coinsPerMin));
-      }
-      const refund = (current.boughtMinutes - usedMins) * current.coinsPerMin;
-      const name = current.name;
-      if (usedMins >= 1) {
-        const segs = splitSpanByDay(current.startAt, current.startAt + usedMins * 60000);
-        const rows: Session[] = segs.map((s, i) => ({
-          id: Date.now() + i,
-          uuid: crypto.randomUUID(),
-          date: s.date,
-          name: current.name,
-          cat1: current.cat1 ?? "",
-          cat2: current.cat2 ?? "",
-          cat3: current.cat3 ?? "",
-          mins: s.mins,
-          rating: "",
-          earnedCoins: 0,
-          counted: s.mins > 1,
-          startTime: s.startTime,
-          endTime: s.endTime,
-          updatedAt: new Date().toISOString(),
-        }));
-        updateSessions((prev) => [...prev, ...rows]);
-      }
-      setCoinToast(`「${name}」結束：用了 ${usedMins} 分，退回 ${refund} 金幣。已開始累積未利用時間，想避免可直接按「開始專注 🍅」`);
-      return null;
-    });
+    const current = entRef.current;
+    if (!current) return;
+    entRef.current = null; // 防重入
+    setEnt(null);
+    const elapsedSec = Math.floor((Date.now() - current.startAt) / 1000);
+    const usedMins = Math.min(current.boughtMinutes, Math.floor(elapsedSec / 60));
+    if (usedMins <= 0) {
+      refundSpend(current.spendRowId);
+    } else {
+      setCoinRowAmount(current.spendRowId, -(usedMins * current.coinsPerMin));
+    }
+    const refund = (current.boughtMinutes - usedMins) * current.coinsPerMin;
+    if (usedMins >= 1) {
+      const segs = splitSpanByDay(current.startAt, current.startAt + usedMins * 60000);
+      const rows: Session[] = segs.map((s, i) => ({
+        id: Date.now() + i,
+        uuid: crypto.randomUUID(),
+        date: s.date,
+        name: current.name,
+        cat1: current.cat1 ?? "",
+        cat2: current.cat2 ?? "",
+        cat3: current.cat3 ?? "",
+        mins: s.mins,
+        rating: "",
+        earnedCoins: 0,
+        counted: s.mins > 1,
+        startTime: s.startTime,
+        endTime: s.endTime,
+        updatedAt: new Date().toISOString(),
+      }));
+      updateSessions((prev) => [...prev, ...rows]);
+    }
+    setCoinToast(`「${current.name}」結束：用了 ${usedMins} 分，退回 ${refund} 金幣`);
   }, [refundSpend, setCoinRowAmount, updateSessions]);
 
   const handleBuyEntertainment = useCallback(
@@ -261,7 +260,7 @@ function AppContent() {
         setCoinToast("金幣不足");
         return false;
       }
-      setEnt({
+      const newEnt: ActiveEntertainment = {
         name: item.name,
         cat1: item.cat1,
         cat2: item.cat2,
@@ -270,11 +269,20 @@ function AppContent() {
         boughtMinutes: minutes,
         startAt: Date.now(),
         spendRowId: rowId,
+      };
+      entRef.current = newEnt;
+      setEnt(newEnt);
+      setIdleTrackStart((prev) => {
+        if (prev) {
+          const el = Math.floor((Date.now() - prev) / 1000);
+          if (el > 0) setIdleTotalSecs((v) => v + el);
+        }
+        return null;
       });
       setCoinToast(`開始「${item.name}」${minutes} 分鐘（花 ${cost} 金幣）`);
       return true;
     },
-    [ent, spendReturningId],
+    [ent, spendReturningId, setIdleTrackStart, setIdleTotalSecs],
   );
 
   useEffect(() => {
@@ -805,36 +813,40 @@ function AppContent() {
             transform: "translateX(-50%)",
             bottom: 130,
             zIndex: 200,
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
             background: TH.card,
             border: `1px solid ${TH.gold}66`,
-            borderRadius: 999,
+            borderRadius: 14,
             padding: "8px 14px",
             boxShadow: "0 4px 16px #000A",
           }}
         >
-          <span style={{ fontSize: 12, fontWeight: 800, color: TH.gold }}>
-            ⏱ {ent.name} 剩 {String(Math.floor(Math.max(0, entRemain) / 60)).padStart(2, "0")}:
-            {String(Math.max(0, entRemain) % 60).padStart(2, "0")}
-          </span>
-          <button
-            type="button"
-            onClick={endEntertainment}
-            style={{
-              border: `1px solid ${TH.red}66`,
-              borderRadius: 999,
-              padding: "3px 12px",
-              background: "#EF444422",
-              color: TH.red,
-              fontSize: 11,
-              fontWeight: 800,
-              cursor: "pointer",
-            }}
-          >
-            結束
-          </button>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 12, fontWeight: 800, color: TH.gold }}>
+                ⏱ {ent.name} 剩 {String(Math.floor(Math.max(0, entRemain) / 60)).padStart(2, "0")}:
+                {String(Math.max(0, entRemain) % 60).padStart(2, "0")}
+              </span>
+              <button
+                type="button"
+                onClick={endEntertainment}
+                style={{
+                  border: `1px solid ${TH.red}66`,
+                  borderRadius: 999,
+                  padding: "3px 12px",
+                  background: "#EF444422",
+                  color: TH.red,
+                  fontSize: 11,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+              >
+                結束
+              </button>
+            </div>
+            <div style={{ fontSize: 9, color: TH.muted, textAlign: "center" }}>
+              💡 結束後會開始累積未利用；想避免可直接按「開始專注 🍅」
+            </div>
+          </div>
         </div>
       )}
       {coinToast && (

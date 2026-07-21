@@ -21,6 +21,7 @@
 ### 紀律備忘
 
 - **【資料關聯地圖優先】**：動功能前先列出該資料被誰讀/寫/衍生，同一批改齊所有連動面，完成定義＝無任何一面漂移（日後併入對話與交接紀律 §8）。
+- **【副作用禁止置於 setState updater 內】**：`setState(updater)` 在 React 嚴格模式會雙執行，造成重複記錄等 bug；`setCoinIncomeLog`/`updateSessions`/`toast` 等副作用一律移出 updater 外（用 ref 讀目前值＋防重入）。
 
 ---
 
@@ -489,7 +490,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **D1 收尾：購買記錄單一真相**：移除本地 `purchaseLog`；商店「購買記錄」改由金幣帳本 `kind="spend"`（`allSpendRows`）依日期分組衍生；取消購買只動帳本，兩卡同步消失。
 - **D2a 計時商品購買→倒數→結束退幣**：`ActiveEntertainment`＋`LS_KEYS.activeEnt`（本地、不同步雲）；`useCoinLog.spendReturningId`／`setCoinRowAmount`（退幣＝調整原 spend 帳列金額，非另加一筆）；`App` 層 `ent`／`entRemain` 倒數 tick（歸零自動結束）；不滿一分鐘不計＝`Math.floor(秒/60)`；同時僅一個進行中娛樂；ShopPage time 商品分鐘輸入＋「購買並開始」；全域浮動倒數條＋手動結束。
 - **D2b 開始專注自動結束娛樂＋2/1 分提醒**：`usePomodoro.beginFocus` 唯一入口觸發 `onFocusStart`（涵蓋開始鈕與課表快速開始）；`App` 綁 `onFocusStart={endEntertainment}`；倒數 tick 加 `entWarnRef` 門檻（剩 2 分／1 分各 toast 一次）；App 開啟時畫面提示，真推播仍待 Capacitor。
-- **D3a 娛樂結束→記成娛樂番茄**：`endEntertainment` 在 `usedMins≥1` 時以 `splitSpanByDay` 切段寫入 `Session`（`earnedCoins:0`、商品設定的番茄分類）；走 `updateSessions` 自動進時間軸／排除未利用／月曆 mins 加總；跨午夜切兩段。
+- **D3a 娛樂結束→記成娛樂番茄**：`endEntertainment` 在 `usedMins≥1` 時以 `splitSpanByDay` 切段寫入 `Session`（`earnedCoins:0`、商品設定的番茄分類）；走 `updateSessions` 自動進時間軸／排除未利用／月曆 mins 加總；跨午夜切兩段。修正：副作用移出 `setState updater`（`entRef` 防重入），杜絕嚴格模式雙跑重複記錄。買娛樂即停未利用累積；倒數 banner 加常駐提示。
 - **娛樂取消購買連動移除 session**：商店 `onRefundSpend` 退幣後，以 `name+date+earnedCoins=0` 移除對應娛樂 session；結束提示補「可按開始專注 🍅」。
 - **D3b 消費帶商品分類＋支出依 productCat 分組**：`CoinIncomeLogRow.productCat`；`spendCoins`／`spendReturningId` 帶入；金幣頁收支「支出」依 productCat 分組可展開；無 cat1 時顯示 productCat；0 元消費列 hydrate 清除＋退全額 `refundSpend` 刪列。
 - **便利貼衝突處理強化（自訂鈕高亮＋一鍵移除）**：班課衝突時記住 `ovPendingPick`；尚未自訂課程時「👉 點我自訂這天課程」改黃色高亮。提醒橫幅新增含確認的「🗑 移除這 N 堂衝突課，並排入此班」：透過 `setOvCourses` 將週課 materialize 成當日自訂快照、刪除衝突課並避免重複地排入待排班別；取消確認不變更。開啟／切日期／關提醒／逐堂刪完皆同步清衝突與 pending state。
@@ -593,5 +594,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/07/21（D3b：消費帶商品分類＋0元列清除＋支出分組）*
+*最後更新：2026/07/21（修娛樂重複記錄、買娛樂停未利用、倒數常駐提示）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*
