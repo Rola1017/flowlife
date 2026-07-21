@@ -214,7 +214,12 @@ function AppContent() {
       if (!current) return null;
       const elapsedSec = Math.floor((Date.now() - current.startAt) / 1000);
       const usedMins = Math.min(current.boughtMinutes, Math.floor(elapsedSec / 60));
-      setCoinRowAmount(current.spendRowId, -(usedMins * current.coinsPerMin));
+      const remain = current.spendRowId;
+      if (usedMins <= 0) {
+        refundSpend(remain);
+      } else {
+        setCoinRowAmount(remain, -(usedMins * current.coinsPerMin));
+      }
       const refund = (current.boughtMinutes - usedMins) * current.coinsPerMin;
       const name = current.name;
       if (usedMins >= 1) {
@@ -237,10 +242,10 @@ function AppContent() {
         }));
         updateSessions((prev) => [...prev, ...rows]);
       }
-      setCoinToast(`「${name}」結束：用了 ${usedMins} 分，退回 ${refund} 金幣。想避免累積未利用時間，可直接按「開始專注 🍅」`);
+      setCoinToast(`「${name}」結束：用了 ${usedMins} 分，退回 ${refund} 金幣。已開始累積未利用時間，想避免可直接按「開始專注 🍅」`);
       return null;
     });
-  }, [setCoinRowAmount, updateSessions]);
+  }, [refundSpend, setCoinRowAmount, updateSessions]);
 
   const handleBuyEntertainment = useCallback(
     (item: ShopItem, minutes: number): boolean => {
@@ -251,7 +256,7 @@ function AppContent() {
       const cpm = item.coinsPerMin ?? 0;
       const cost = Math.round(minutes * cpm);
       if (minutes <= 0 || cost <= 0) return false;
-      const rowId = spendReturningId(cost, item.name);
+      const rowId = spendReturningId(cost, item.name, item.productCat);
       if (rowId == null) {
         setCoinToast("金幣不足");
         return false;
@@ -604,7 +609,9 @@ function AppContent() {
     shop: () => (
       <ShopPage
         coins={coins}
-        onSpend={(amount: number, label?: string) => spendCoins(amount, label ?? "商店消費")}
+        onSpend={(amount: number, label?: string, productCat?: string) =>
+          spendCoins(amount, label ?? "商店消費", productCat)
+        }
         spendRows={spendRows}
         allSpendRows={spendRows}
         onRefundSpend={(rowId: number) => {

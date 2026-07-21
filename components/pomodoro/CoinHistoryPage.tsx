@@ -64,6 +64,7 @@ export function CoinHistoryPage({
   const [editCat1, setEditCat1] = useState("");
   const [editCat2, setEditCat2] = useState("");
   const [editCat3, setEditCat3] = useState("");
+  const [expandedProductCat, setExpandedProductCat] = useState<string | null>(null);
 
   const today = CFG.TODAY_STR;
   const weekStart = useMemo(() => getWeekStartMonday(today), [today]);
@@ -73,6 +74,7 @@ export function CoinHistoryPage({
     setView(next);
     setSignTab("summary");
     setCatSel(new Set());
+    setExpandedProductCat(null);
   };
 
   const filteredLog = useMemo(() => {
@@ -106,7 +108,7 @@ export function CoinHistoryPage({
       const label =
         row.cat1 ||
         (row.kind === "spend"
-          ? "商店消費"
+          ? row.productCat || "商店消費"
           : row.kind === "opening"
             ? "期初結餘"
             : "其他");
@@ -120,6 +122,22 @@ export function CoinHistoryPage({
         subtotal: rows.reduce((sum, row) => sum + row.amount, 0),
       }))
       .sort((a, b) => b.subtotal - a.subtotal);
+  }, [filteredLog]);
+
+  const spendProductGroups = useMemo(() => {
+    const spendRows = filteredLog.filter((r) => (r.kind ?? "") === "spend" || (r.amount < 0 && !r.cat1));
+    const grouped = spendRows.reduce<Record<string, CoinIncomeLogRow[]>>((acc, row) => {
+      const key = row.productCat || "其他";
+      acc[key] = [...(acc[key] ?? []), row];
+      return acc;
+    }, {});
+    return Object.entries(grouped)
+      .map(([label, rows]) => ({
+        label,
+        rows: [...rows].sort((a, b) => b.at.localeCompare(a.at)),
+        subtotal: rows.reduce((sum, row) => sum + row.amount, 0),
+      }))
+      .sort((a, b) => a.subtotal - b.subtotal);
   }, [filteredLog]);
 
   const catFiltered = useMemo(
@@ -207,7 +225,10 @@ export function CoinHistoryPage({
     const cat2Options = editCat1 ? CAT.cat2List(editCat1) : [];
     const cat3Options =
       editCat1 && editCat2 ? CAT.cat3List(editCat1, editCat2) : [];
-    const displayName = row.taskName?.trim() || row.cat1 || "未命名";
+    const displayName = row.taskName?.trim() || row.cat1 || row.productCat || "未命名";
+    const catLabel = row.cat1
+      ? [row.cat1, row.cat2, row.cat3].filter(Boolean).join(" › ")
+      : row.productCat;
     const timeLabel =
       row.startTime && row.endTime ? `${row.startTime}～${row.endTime}` : row.time;
     return (
@@ -230,21 +251,23 @@ export function CoinHistoryPage({
         >
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 700, fontSize: 11, color: TH.text }}>{displayName}</div>
-            {row.cat1 && (
+            {catLabel && (
               <div style={{ fontSize: 9, color: TH.muted, marginTop: 2, display: "flex", alignItems: "center" }}>
-                <span
-                  style={{
-                    display: "inline-block",
-                    width: 6,
-                    height: 6,
-                    borderRadius: "50%",
-                    background: CAT.deepColorFull(row.cat1 ?? "", row.cat2 || undefined, row.cat3 || undefined),
-                    marginRight: 4,
-                    verticalAlign: "middle",
-                    flexShrink: 0,
-                  }}
-                />
-                {[row.cat1, row.cat2, row.cat3].filter(Boolean).join(" › ")}
+                {row.cat1 && (
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      background: CAT.deepColorFull(row.cat1 ?? "", row.cat2 || undefined, row.cat3 || undefined),
+                      marginRight: 4,
+                      verticalAlign: "middle",
+                      flexShrink: 0,
+                    }}
+                  />
+                )}
+                {catLabel}
               </div>
             )}
             <div style={{ fontSize: 9, color: TH.muted }}>
@@ -548,7 +571,10 @@ export function CoinHistoryPage({
               <button
                 key={tab}
                 type="button"
-                onClick={() => setSignTab(tab)}
+                onClick={() => {
+                  setSignTab(tab);
+                  setExpandedProductCat(null);
+                }}
                 style={{
                   flex: 1,
                   minWidth: 0,
@@ -694,12 +720,71 @@ export function CoinHistoryPage({
                     signGroups.income,
                     signGroups.incomeTotal,
                   )
-                : renderGroupCard(
-                    "spend-detail",
-                    "支出明細（近→遠）",
-                    signGroups.spend,
-                    -signGroups.spendTotal,
-                  )}
+                : (
+                  <>
+                    <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.5 }}>
+                      💡 支出可依商品分類（飲食/購物/娛樂…）看花在哪
+                    </div>
+                    {spendProductGroups.map((group) => {
+                      const expanded = expandedProductCat === group.label;
+                      return (
+                        <div
+                          key={group.label}
+                          style={{
+                            background: TH.card,
+                            border: `1px solid ${expanded ? TH.accent : TH.border}`,
+                            borderRadius: 12,
+                            padding: 10,
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedProductCat(expanded ? null : group.label)
+                            }
+                            style={{
+                              width: "100%",
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              gap: 8,
+                              background: "transparent",
+                              border: "none",
+                              padding: 0,
+                              cursor: "pointer",
+                              textAlign: "left",
+                            }}
+                          >
+                            <span style={{ fontSize: 10, color: TH.text, fontWeight: 800 }}>
+                              🛒 {group.label} · {group.rows.length} 筆 {expanded ? "▾" : "▸"}
+                            </span>
+                            <span style={{ fontSize: 9, color: TH.red, whiteSpace: "nowrap" }}>
+                              小計 {group.subtotal} 🪙
+                            </span>
+                          </button>
+                          {expanded && (
+                            <div
+                              style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: 6,
+                                marginTop: 8,
+                              }}
+                            >
+                              {group.rows.map(renderRow)}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {renderGroupCard(
+                      "spend-detail",
+                      "全部支出（近→遠）",
+                      signGroups.spend,
+                      -signGroups.spendTotal,
+                    )}
+                  </>
+                )}
             </>
           )}
         </div>

@@ -29,6 +29,8 @@ export type CoinIncomeLogRow = {
   sessionUuid?: string;
   /** 帳列種類；舊資料無此欄一律視為 session */
   kind?: "session" | "bonus" | "spend" | "opening";
+  /** 商店商品分類（飲食/購物/娛樂/其他） */
+  productCat?: string;
 };
 
 // 日期與 toLocalDateStr / CFG.TODAY_STR 一致（本地 YYYY-MM-DD，非 UTC）

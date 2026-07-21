@@ -9,6 +9,9 @@ import type { Session } from "@/lib/types";
 
 const LEDGER_MIGRATED_KEY = "flowlife_coin_ledger_migrated";
 
+const stripZeroRows = (rows: CoinIncomeLogRow[]) =>
+  rows.filter((r) => (r.amount ?? 0) !== 0);
+
 /** 金幣明細帳＝單一真相；餘額＝明細 amount 加總 */
 export function useCoinLog() {
   const [coinIncomeLog, setCoinIncomeLog] = useState<CoinIncomeLogRow[]>([]);
@@ -17,7 +20,7 @@ export function useCoinLog() {
 
   useEffect(() => {
     const saved = loadJSON<unknown>(LS_KEYS.coinIncomeLog, []);
-    const rows = Array.isArray(saved) ? (saved as CoinIncomeLogRow[]) : [];
+    const rows = stripZeroRows(Array.isArray(saved) ? (saved as CoinIncomeLogRow[]) : []);
     lastPushedRef.current = rows;
 
     const migrated = localStorage.getItem(LEDGER_MIGRATED_KEY) === "1";
@@ -66,7 +69,7 @@ export function useCoinLog() {
   useEffect(
     () =>
       subscribeAppState(APP_STATE_KEYS.coinLog, () => {
-        const v = loadJSON<CoinIncomeLogRow[]>(LS_KEYS.coinIncomeLog, []);
+        const v = stripZeroRows(loadJSON<CoinIncomeLogRow[]>(LS_KEYS.coinIncomeLog, []));
         lastPushedRef.current = v;
         setCoinIncomeLog(v);
       }),
@@ -87,7 +90,7 @@ export function useCoinLog() {
     );
   const resetCoinLog = () => setCoinIncomeLog([]);
 
-  const spendCoins = (amount: number, label: string) => {
+  const spendCoins = (amount: number, label: string, productCat?: string) => {
     if (amount <= 0) return false;
     if (coins < amount) return false;
     const now = new Date();
@@ -102,6 +105,7 @@ export function useCoinLog() {
       taskName: label,
       amount: -amount,
       kind: "spend",
+      productCat,
     });
     return true;
   };
@@ -242,14 +246,23 @@ export function useCoinLog() {
     );
 
   /** 扣款並回傳新帳列 id（不足則 null） */
-  const spendReturningId = (amount: number, label: string): number | null => {
+  const spendReturningId = (amount: number, label: string, productCat?: string): number | null => {
     if (amount <= 0 || coins < amount) return null;
     const now = new Date();
     const p = (n: number) => String(n).padStart(2, "0");
     const d = `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
     const t = `${p(now.getHours())}:${p(now.getMinutes())}`;
     const id = Date.now();
-    appendCoinRow({ id, date: d, time: t, at: `${d} ${t}`, taskName: label, amount: -amount, kind: "spend" });
+    appendCoinRow({
+      id,
+      date: d,
+      time: t,
+      at: `${d} ${t}`,
+      taskName: label,
+      amount: -amount,
+      kind: "spend",
+      productCat,
+    });
     return id;
   };
 

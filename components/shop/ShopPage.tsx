@@ -47,7 +47,7 @@ export function ShopPage({
   onBack,
 }: {
   coins: number;
-  onSpend: (amount: number, label?: string) => boolean;
+  onSpend: (amount: number, label?: string, productCat?: string) => boolean;
   spendRows?: CoinIncomeLogRow[];
   allSpendRows?: CoinIncomeLogRow[];
   onRefundSpend?: (rowId: number) => void;
@@ -410,7 +410,7 @@ export function ShopPage({
                   className="flowlife-pressable"
                   type="button"
                   onClick={() => {
-                    if (!onSpend(price, item.name)) {
+                    if (!onSpend(price, item.name, item.productCat)) {
                       showNotice("金幣不足");
                       return;
                     }
