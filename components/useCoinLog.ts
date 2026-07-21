@@ -241,6 +241,21 @@ export function useCoinLog() {
       l.filter((r) => !(r.id === rowId && (r.kind ?? "") === "spend")),
     );
 
+  /** 扣款並回傳新帳列 id（不足則 null） */
+  const spendReturningId = (amount: number, label: string): number | null => {
+    if (amount <= 0 || coins < amount) return null;
+    const now = new Date();
+    const p = (n: number) => String(n).padStart(2, "0");
+    const d = `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
+    const t = `${p(now.getHours())}:${p(now.getMinutes())}`;
+    const id = Date.now();
+    appendCoinRow({ id, date: d, time: t, at: `${d} ${t}`, taskName: label, amount: -amount, kind: "spend" });
+    return id;
+  };
+
+  const setCoinRowAmount = (id: number, amount: number) =>
+    setCoinIncomeLog((l) => l.map((r) => (r.id === id ? { ...r, amount } : r)));
+
   /** 取出消費紀錄（新到舊） */
   const spendRows = coinIncomeLog
     .filter((r) => (r.kind ?? "") === "spend")
@@ -260,6 +275,8 @@ export function useCoinLog() {
     findOrphanCoinRows,
     removeCoinRowsByIds,
     refundSpend,
+    spendReturningId,
+    setCoinRowAmount,
     spendRows,
     bumpCoinAmountBySession,
     resetCoinLog,

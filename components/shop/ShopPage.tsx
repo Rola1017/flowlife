@@ -42,6 +42,8 @@ export function ShopPage({
   spendRows,
   allSpendRows,
   onRefundSpend,
+  onBuyEntertainment,
+  entActive,
   onBack,
 }: {
   coins: number;
@@ -49,6 +51,8 @@ export function ShopPage({
   spendRows?: CoinIncomeLogRow[];
   allSpendRows?: CoinIncomeLogRow[];
   onRefundSpend?: (rowId: number) => void;
+  onBuyEntertainment?: (item: ShopItem, minutes: number) => boolean;
+  entActive?: boolean;
   onBack: () => void;
 }) {
   const [items, setItems] = useState<ShopItem[]>([]);
@@ -56,6 +60,7 @@ export function ShopPage({
   const [addOpen, setAddOpen] = useState(false);
   const [draft, setDraft] = useState(emptyDraft);
   const [notice, setNotice] = useState("");
+  const [buyMins, setBuyMins] = useState<Record<number, string>>({});
 
   const updateShopItems = (next: ShopItem[]) => {
     setItems(next);
@@ -352,28 +357,48 @@ export function ShopPage({
               </div>
             </div>
             {isTime ? (
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                <div style={{ fontSize: 11, color: TH.muted, lineHeight: 1.4 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
+                <div style={{ fontSize: 11, color: TH.muted }}>
                   ⏱ 每分鐘 {item.coinsPerMin ?? 0} 🪙
                   {catLabel ? ` · 記入 ${catLabel}` : ""}
                 </div>
-                <button
-                  type="button"
-                  disabled
-                  style={{
-                    padding: "6px 12px",
-                    borderRadius: 20,
-                    border: "none",
-                    background: "#374151",
-                    color: "#6B7280",
-                    fontSize: 10,
-                    fontWeight: 800,
-                    cursor: "not-allowed",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  計時功能下一步開放
-                </button>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                  <input
+                    type="number"
+                    min={1}
+                    placeholder="分鐘"
+                    value={buyMins[item.id] ?? ""}
+                    onChange={(e) => setBuyMins((m) => ({ ...m, [item.id]: e.target.value }))}
+                    style={{ ...inputStyle, width: 70, marginBottom: 0 }}
+                  />
+                  <span style={{ fontSize: 11, color: TH.gold, fontWeight: 800 }}>
+                    = {Math.round((Number(buyMins[item.id]) || 0) * (item.coinsPerMin ?? 0))} 🪙
+                  </span>
+                  <button
+                    type="button"
+                    disabled={entActive}
+                    onClick={() => {
+                      const m = Number(buyMins[item.id]);
+                      if (!m || m <= 0) return;
+                      if (onBuyEntertainment?.(item, m)) {
+                        setBuyMins((mm) => ({ ...mm, [item.id]: "" }));
+                      }
+                    }}
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: 20,
+                      border: "none",
+                      background: entActive ? "#374151" : `linear-gradient(135deg,${TH.gold},${TH.accent})`,
+                      color: entActive ? "#6B7280" : "#000",
+                      fontSize: 10,
+                      fontWeight: 800,
+                      cursor: entActive ? "not-allowed" : "pointer",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {entActive ? "娛樂進行中" : "購買並開始"}
+                  </button>
+                </div>
               </div>
             ) : (
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>

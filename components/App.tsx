@@ -17,7 +17,7 @@ import { TABS } from "@/lib/tabs";
 import { LS_KEYS, loadJSON, loadNumber, saveJSON, saveNumber } from "@/lib/storage";
 import { migrateCategoryIds, saveCategories, DEFAULT_CATEGORIES } from "@/lib/categories";
 import { clearReviewsCloud } from "@/lib/reviews";
-import type { Session } from "@/lib/types";
+import type { Session, ActiveEntertainment, ShopItem } from "@/lib/types";
 import { patchReflection, setSessionMins, setSessionTimes, buildManualSession, stampSession, ensureSessionUuid } from "@/lib/sessions";
 import { useReviewCloudSync } from "@/components/hooks/useReviewCloudSync";
 import { useSessionCloudSync } from "@/components/hooks/useSessionCloudSync";
@@ -115,10 +115,14 @@ function AppContent() {
     removeCoinRowsByIds,
     refundSpend,
     spendRows,
+    spendReturningId,
+    setCoinRowAmount,
     linkRowsToSessions,
   } = useCoinLog();
   const didLinkCoinRef = useRef(false);
   const [coinToast, setCoinToast] = useState<string | null>(null);
+  const [ent, setEnt] = useState<ActiveEntertainment | null>(null);
+  const [entRemain, setEntRemain] = useState(0);
   const [focused, setFocused] = useState(DEFAULT_RATINGS.focused);
   const [neutral, setNeutral] = useState(DEFAULT_RATINGS.neutral);
   const [distracted, setDistracted] = useState(DEFAULT_RATINGS.distracted);
@@ -193,6 +197,74 @@ function AppContent() {
     const t = setTimeout(() => setCoinToast(null), 4600);
     return () => clearTimeout(t);
   }, [coinToast]);
+
+  useEffect(() => {
+    const s = loadJSON<ActiveEntertainment | null>(LS_KEYS.activeEnt, null);
+    if (s) setEnt(s);
+  }, []);
+
+  useEffect(() => {
+    if (ent) saveJSON(LS_KEYS.activeEnt, ent);
+    else localStorage.removeItem(LS_KEYS.activeEnt);
+  }, [ent]);
+
+  const endEntertainment = useCallback(() => {
+    setEnt((current) => {
+      if (!current) return null;
+      const elapsedSec = Math.floor((Date.now() - current.startAt) / 1000);
+      const usedMins = Math.min(current.boughtMinutes, Math.floor(elapsedSec / 60));
+      setCoinRowAmount(current.spendRowId, -(usedMins * current.coinsPerMin));
+      const refund = (current.boughtMinutes - usedMins) * current.coinsPerMin;
+      const name = current.name;
+      setCoinToast(`「${name}」結束：用了 ${usedMins} 分，退回 ${refund} 金幣`);
+      return null;
+    });
+  }, [setCoinRowAmount]);
+
+  const handleBuyEntertainment = useCallback(
+    (item: ShopItem, minutes: number): boolean => {
+      if (ent) {
+        setCoinToast("已有進行中的娛樂，請先結束");
+        return false;
+      }
+      const cpm = item.coinsPerMin ?? 0;
+      const cost = Math.round(minutes * cpm);
+      if (minutes <= 0 || cost <= 0) return false;
+      const rowId = spendReturningId(cost, item.name);
+      if (rowId == null) {
+        setCoinToast("金幣不足");
+        return false;
+      }
+      setEnt({
+        name: item.name,
+        cat1: item.cat1,
+        cat2: item.cat2,
+        cat3: item.cat3,
+        coinsPerMin: cpm,
+        boughtMinutes: minutes,
+        startAt: Date.now(),
+        spendRowId: rowId,
+      });
+      setCoinToast(`開始「${item.name}」${minutes} 分鐘（花 ${cost} 金幣）`);
+      return true;
+    },
+    [ent, spendReturningId],
+  );
+
+  useEffect(() => {
+    if (!ent) {
+      setEntRemain(0);
+      return;
+    }
+    const tick = () => {
+      const remain = ent.boughtMinutes * 60 - Math.floor((Date.now() - ent.startAt) / 1000);
+      setEntRemain(remain);
+      if (remain <= 0) endEntertainment();
+    };
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [ent, endEntertainment]);
 
   // 雲端同步回來時，把本地最新讀進畫面（用原始 setSessions，避免再次觸發推送）
   useEffect(
@@ -508,6 +580,8 @@ function AppContent() {
           refundSpend(rowId);
           setCoinToast("已取消購買，金幣已退回");
         }}
+        onBuyEntertainment={handleBuyEntertainment}
+        entActive={!!ent}
         onBack={pop}
       />
     ),
@@ -676,6 +750,46 @@ function AppContent() {
           </button>
         ))}
       </nav>
+      {ent && (
+        <div
+          style={{
+            position: "fixed",
+            left: "50%",
+            transform: "translateX(-50%)",
+            bottom: 130,
+            zIndex: 200,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            background: TH.card,
+            border: `1px solid ${TH.gold}66`,
+            borderRadius: 999,
+            padding: "8px 14px",
+            boxShadow: "0 4px 16px #000A",
+          }}
+        >
+          <span style={{ fontSize: 12, fontWeight: 800, color: TH.gold }}>
+            ⏱ {ent.name} 剩 {String(Math.floor(Math.max(0, entRemain) / 60)).padStart(2, "0")}:
+            {String(Math.max(0, entRemain) % 60).padStart(2, "0")}
+          </span>
+          <button
+            type="button"
+            onClick={endEntertainment}
+            style={{
+              border: `1px solid ${TH.red}66`,
+              borderRadius: 999,
+              padding: "3px 12px",
+              background: "#EF444422",
+              color: TH.red,
+              fontSize: 11,
+              fontWeight: 800,
+              cursor: "pointer",
+            }}
+          >
+            結束
+          </button>
+        </div>
+      )}
       {coinToast && (
         <div
           style={{

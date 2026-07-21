@@ -481,8 +481,9 @@ TH.gold    = "#FBBF24"   // 金幣
 - **金幣頁依分類 CategorySelector**：「依分類」檢視重用番茄鐘同款 `CategorySelector`（大／中／小可各自點選）；未選分類時顯示大分類總覽（`typeGroups`），選了則依 `filteredLog` 篩選並顯示明細小計；「✕ 清除分類」回總覽。移除舊逐層下鑽（drillCat1/2）。
 - **金幣頁多選分類＋三檢視去重疊**：新增通用 `MultiCategoryFilter`（`components/ui`）支援跨大分類複選，分類命中改用 `catPath` + `matchesCatSelection`（完整路徑鍵，避免同名中分類誤加總）；「依時間」改打散流水帳（近→遠）、「收支」餘額卡改不可點、「依分類」未選顯示大分類總覽，有選則顯示「已選 N 項合計」。
 - **MultiCategoryFilter 中分類常駐**：中分類區永遠顯示全部大分類（`activeCat1 = cat1s`），不因已選收合；可自由跨大分類複選中／小分類。
-- **D1 商店商品資料化**：`ShopItem`（`instant` flat 價／`time` 每分鐘金幣＋掛番茄分類＋`productCat`）；`LS_KEYS.shopItems`＋`app_state key="shop_items"`；`ShopPage.updateShopItems` 單一寫入（LS＋推雲）；MOCK 僅首次種子為 instant；可編輯／刪除；time 購買鈕暫「計時功能下一步開放」。
+- **D1 商店商品資料化**：`ShopItem`（`instant` flat 價／`time` 每分鐘金幣＋掛番茄分類＋`productCat`）；`LS_KEYS.shopItems`＋`app_state key="shop_items"`；`ShopPage.updateShopItems` 單一寫入（LS＋推雲）；MOCK 僅首次種子為 instant；可編輯／刪除；time 購買已於 D2a 開放。
 - **D1 收尾：購買記錄單一真相**：移除本地 `purchaseLog`；商店「購買記錄」改由金幣帳本 `kind="spend"`（`allSpendRows`）依日期分組衍生；取消購買只動帳本，兩卡同步消失。
+- **D2a 計時商品購買→倒數→結束退幣**：`ActiveEntertainment`＋`LS_KEYS.activeEnt`（本地、不同步雲）；`useCoinLog.spendReturningId`／`setCoinRowAmount`（退幣＝調整原 spend 帳列金額，非另加一筆）；`App` 層 `ent`／`entRemain` 倒數 tick（歸零自動結束）；不滿一分鐘不計＝`Math.floor(秒/60)`；同時僅一個進行中娛樂；ShopPage time 商品分鐘輸入＋「購買並開始」；全域浮動倒數條＋手動結束。
 - **便利貼衝突處理強化（自訂鈕高亮＋一鍵移除）**：班課衝突時記住 `ovPendingPick`；尚未自訂課程時「👉 點我自訂這天課程」改黃色高亮。提醒橫幅新增含確認的「🗑 移除這 N 堂衝突課，並排入此班」：透過 `setOvCourses` 將週課 materialize 成當日自訂快照、刪除衝突課並避免重複地排入待排班別；取消確認不變更。開啟／切日期／關提醒／逐堂刪完皆同步清衝突與 pending state。
 - **課表複製貼上「自動清潔＋貼不上提醒」**：複製「課程＋班別」貼上時以 `shiftRange(place, shift, day)!==""` 過濾 picks（只貼該天真能排的班，消除隱形貼券）；被略過的班以頁面層 `pasteNotice` ⚠️橫幅明列（哪個班、哪天、去管理工作場所開可上班日）；單日貼上與「貼到選取的 N 天」皆適用；複製/關閉清提醒。未動 `lib/schedule.ts`／排班模型。
 - **便利貼微調（衝突紅格＋格內✕）**：班課衝突時衝突課格紅框紅底點亮（`ovConflictSlots`）、提醒精簡為一句含班別名；自訂狀態課格內建 ✕ 一鍵刪（刪完衝突自動消提醒）；沿用每週固定時紅格仍顯示但無 ✕；底部編輯器移除「移除這格」只留選/換科目。
@@ -541,6 +542,7 @@ TH.gold    = "#FBBF24"   // 金幣
 | 「明細」分頁改名 | 建議改「番茄反思」以與期間總結區隔；觸發＝命名定案時。 |
 | ~~手動補番茄跨午夜~~ ✅ 已解決 | `buildManualSession` 改雙 `datetime-local`（`startAt`/`endAt` 各含日期），`while` 迴圈按本日 24:00 切段、回傳多顆 `Session`，金幣一次算在第一段；跨午夜自動分段記到各天。 |
 | 多裝置刪除「復活」硬化（墓碑/deletedAt 同步） | 目前軟刪會先從 active sessions 雲端刪除，再以 app_state 備份垃圾桶；sessionsCloud 尚無 tombstone，離線／多裝置競態下舊 session 仍可能被合併回 active。**觸發時機＝Capacitor 多裝置階段**：在 sessions 雲端模型同步 `deletedAt` 墓碑並讓合併層以墓碑壓過舊 active row。 |
+| 娛樂計時為單機本地狀態，多裝置同步待評估 | **刻意本地**——進行中的計時娛樂存 `LS_KEYS.activeEnt`，不上雲；重開 App 依 `startAt` 時間戳續算倒數與退幣。多裝置同步待 Capacitor／多裝置階段再評估。 |
 | 娛樂時間／番茄倒數結束前 2 分／1 分本機推播 | **暫緩至 Capacitor 原生打包批次**——Web 環境在 App 切走／手機鎖屏時無法可靠發提醒，目前僅 App 開著時提示；計時採結束時間戳記帳，關閉 App 再回來仍能正確結算與退幣。真推播需 Capacitor 原生殼；**進行 Capacitor 原生打包批次時必須一併實作本機推播提醒（結束前 2 分／1 分），並回頭移除本條。** |
 | ~~reset 未清雲端~~ ✅ 已解決 | `handleResetAllData` 已清雲端全部：番茄(`updateSessions([])`)、金幣(`resetCoins`/`resetCoinLog`→push 0/[])、分類(`saveCategories(DEFAULT_CATEGORIES)`→推雲)、覆盤(`clearReviewsCloud()`)；重置後雲端＝番茄空/金幣0/記錄空/分類預設/覆盤空，不再被拉回。 |
 | ~~分類尚未上雲~~ ✅ 已完成 | 分類沿用 app_state 單例 `key="categories"`，`saveCategories` 推雲＋`App` 訂閱刷新（番茄/金幣/分類全上雲）。 |
@@ -574,12 +576,13 @@ TH.gold    = "#FBBF24"   // 金幣
 - ✅ **金幣餘額/金幣記錄上雲（app_state）完成**：`lib/appStateCloud`＋`useAppStateCloudSync`，單例以 `(user_id,key)` 為主鍵（`key="coins"`／`"coin_income_log"`），last-write-wins by 本地 meta（`LS_KEYS.appStateMeta`）vs 雲端 `updated_at`；`useCoins`/`useCoinLog` 用 `lastPushedRef` 擋遠端套用後回推。Supabase `app_state` 表需含 `(user_id,key,value jsonb,updated_at)`＋unique(user_id,key)＋RLS。
 - ✅ **分類上雲完成（番茄＋金幣＋分類全上雲，跨裝置一致）**：分類沿用 app_state 單例（`key="categories"`）；`saveCategories` 本地存檔後 `void pushAppState`，雲端套回走 appStateCloud→`saveJSON`（不經 saveCategories→不互推）；`App` 訂閱 `subscribeAppState("categories")` 用 `bumpCat` 觸發重畫讓子元件重讀 `CAT.*`。
 - 🔄 **S3 班別設定可編輯**：✅ **S3-1~3c-2 全完成**（資料化、上雲、Place 放寬、DayPlan picks 跨店＋重疊擋、dayPlans/weekSchedule 上雲、WorkplaceManager 時間/名稱/顏色/增刪班別與場所、`reconcileDayPlans` 孤兒以 label 接回、pick 存班別 id、`findShift` 只認 id、`ShiftDef.days` 可上班日閘門、picker 只渲染當天可上班班別、班表只顯示明確點選＝`DEFAULT_PLANS` 空＋「🧹 清空所有班別」）。⬜ **剩 S3-3d** 單次微調（邊緣）；✅ **指定日期例外排程 2a+2b**（便利貼 UI＋`shiftRangeOn`）；⬜ **reconcileOverrides**（見帳本）；⬜ **S4** 金鑰移 Edge Functions。
-- ✅ **D1 商店商品資料化**：商品可存 LS＋雲端同步＋編輯（instant／time 欄位齊備）；time 購買暫未開。
-- ⬜ **D2 計時購買／退幣**：計時商品開始／結束扣幣、取消購買連動。
-- ⬜ **D3 時間軸顯示＋金幣頁商品支出分類**：計時消費上時間軸；金幣頁「商品分類區」。
+- ✅ **D1 商店商品資料化**：商品可存 LS＋雲端同步＋編輯（instant／time 欄位齊備）；time 購買已於 D2a 開放。
+- ✅ **D2a 計時購買／倒數／退幣**：全額先扣、結束時調整原 spend 帳列（不滿一分鐘不計）；同時僅一個娛樂；本地 `activeEnt` 續算。
+- ⬜ **D2b 開始專注自動結束娛樂＋2/1 分提醒**：番茄開始專注時自動結束進行中娛樂；結束前 2 分／1 分本機推播（待 Capacitor）。
+- ⬜ **D3 娛樂進時間軸＋商品支出分類**：計時消費上時間軸；金幣頁「商品分類區」。
 - ⬜ **商店商品分類（飲食/購物/娛樂/其他，可自訂）＋金幣頁「商品分類區」**：商品側 `productCat` 已於 D1；金幣頁分類區隨 D3 實作。
 
 ---
 
-*最後更新：2026/07/21（D1 收尾：購買記錄改讀金幣帳本，消除雙來源）*
+*最後更新：2026/07/21（D2a：計時商品購買→倒數→結束退幣）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*

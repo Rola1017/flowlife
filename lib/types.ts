@@ -11,6 +11,17 @@ export type ShopItem = {
   productCat?: string; // 商品分類（飲食/購物/娛樂/其他，可自訂）
 };
 
+export type ActiveEntertainment = {
+  name: string;
+  cat1?: string;
+  cat2?: string;
+  cat3?: string;
+  coinsPerMin: number;
+  boughtMinutes: number;
+  startAt: number;
+  spendRowId: number;
+};
+
 export type Session = {
   /** 穩定主鍵（新記錄才有）；未來歷史編輯／Supabase 用 */
   id?: number;
