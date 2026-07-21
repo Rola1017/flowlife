@@ -503,6 +503,7 @@ function AppContent() {
         coins={coins}
         onSpend={(amount: number, label?: string) => spendCoins(amount, label ?? "商店消費")}
         spendRows={spendRows}
+        allSpendRows={spendRows}
         onRefundSpend={(rowId: number) => {
           refundSpend(rowId);
           setCoinToast("已取消購買，金幣已退回");

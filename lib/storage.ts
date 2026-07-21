@@ -10,7 +10,6 @@ export const LS_KEYS = {
   sessions: `${STORAGE_PREFIX}pomodoro_sessions`,
   ratingCounts: `${STORAGE_PREFIX}rating_counts`,
   idleTotalSecs: `${STORAGE_PREFIX}idle_total_secs`,
-  purchaseLog: `${STORAGE_PREFIX}purchase_log`,
   coinIncomeLog: `${STORAGE_PREFIX}coin_income_log`,
   dailyOverride: `${STORAGE_PREFIX}daily_override_`,
   routineOverride: `${STORAGE_PREFIX}routine_override_`,

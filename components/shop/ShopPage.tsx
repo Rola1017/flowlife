@@ -11,24 +11,6 @@ import { BackBtn } from "@/components/ui/BackBtn";
 import { CategorySelector } from "@/components/pomodoro/CategorySelector";
 import type { CoinIncomeLogRow } from "@/components/pomodoro/usePomodoro";
 
-type PurchaseLogRow = {
-  id: number;
-  name: string;
-  amount: number;
-  date: string;
-  time: string;
-  at: string;
-};
-
-function localDateParts(date = new Date()) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  const h = String(date.getHours()).padStart(2, "0");
-  const min = String(date.getMinutes()).padStart(2, "0");
-  return { date: `${y}-${m}-${d}`, time: `${h}:${min}`, at: `${y}-${m}-${d} ${h}:${min}` };
-}
-
 const emptyDraft = {
   name: "",
   desc: "",
@@ -58,12 +40,14 @@ export function ShopPage({
   coins,
   onSpend,
   spendRows,
+  allSpendRows,
   onRefundSpend,
   onBack,
 }: {
   coins: number;
   onSpend: (amount: number, label?: string) => boolean;
   spendRows?: CoinIncomeLogRow[];
+  allSpendRows?: CoinIncomeLogRow[];
   onRefundSpend?: (rowId: number) => void;
   onBack: () => void;
 }) {
@@ -72,8 +56,6 @@ export function ShopPage({
   const [addOpen, setAddOpen] = useState(false);
   const [draft, setDraft] = useState(emptyDraft);
   const [notice, setNotice] = useState("");
-  const [purchaseLog, setPurchaseLog] = useState<PurchaseLogRow[]>([]);
-  const [purchaseLogReady, setPurchaseLogReady] = useState(false);
 
   const updateShopItems = (next: ShopItem[]) => {
     setItems(next);
@@ -113,35 +95,20 @@ export function ShopPage({
     [],
   );
 
-  useEffect(() => {
-    const saved = loadJSON<unknown>(LS_KEYS.purchaseLog, []);
-    if (Array.isArray(saved)) setPurchaseLog(saved as PurchaseLogRow[]);
-    setPurchaseLogReady(true);
-  }, []);
-
-  useEffect(() => {
-    if (!purchaseLogReady) return;
-    saveJSON(LS_KEYS.purchaseLog, purchaseLog);
-  }, [purchaseLog, purchaseLogReady]);
-
   const purchaseGroups = useMemo(() => {
-    const grouped = purchaseLog.reduce<Record<string, PurchaseLogRow[]>>((acc, row) => {
-      acc[row.date] = [...(acc[row.date] ?? []), row];
+    const rows = allSpendRows ?? spendRows ?? [];
+    const grouped = rows.reduce<Record<string, CoinIncomeLogRow[]>>((acc, r) => {
+      acc[r.date] = [...(acc[r.date] ?? []), r];
       return acc;
     }, {});
     return Object.entries(grouped)
       .sort(([a], [b]) => b.localeCompare(a))
-      .map(([date, rows]) => ({
+      .map(([date, rs]) => ({
         date,
-        rows: rows.sort((a, b) => b.at.localeCompare(a.at)),
-        total: rows.reduce((sum, row) => sum + row.amount, 0),
+        rows: rs.sort((a, b) => b.at.localeCompare(a.at)),
+        total: rs.reduce((s, r) => s + Math.abs(r.amount), 0),
       }));
-  }, [purchaseLog]);
-
-  const recordPurchase = (name: string, amount: number) => {
-    const now = localDateParts();
-    setPurchaseLog((log) => [{ id: Date.now(), name, amount, ...now }, ...log]);
-  };
+  }, [allSpendRows, spendRows]);
 
   const openEdit = (it: ShopItem) => {
     setEditingId(it.id);
@@ -422,7 +389,6 @@ export function ShopPage({
                       showNotice("金幣不足");
                       return;
                     }
-                    recordPurchase(item.name, price);
                   }}
                   style={{
                     padding: "6px 16px",
@@ -530,10 +496,12 @@ export function ShopPage({
                   {group.rows.map((row) => (
                     <div key={row.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 11, color: TH.text, fontWeight: 800 }}>{row.name}</div>
+                        <div style={{ fontSize: 11, color: TH.text, fontWeight: 800 }}>{row.taskName}</div>
                         <div style={{ fontSize: 9, color: TH.muted }}>{row.time}</div>
                       </div>
-                      <div style={{ fontSize: 11, color: TH.red, fontWeight: 900 }}>-{row.amount} 🪙</div>
+                      <div style={{ fontSize: 11, color: TH.red, fontWeight: 900 }}>
+                        -{Math.abs(row.amount)} 🪙
+                      </div>
                     </div>
                   ))}
                 </div>

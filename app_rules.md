@@ -93,7 +93,6 @@ lib/
 | `flowlife_v1_coins` | 金幣餘額 |
 | `flowlife_v1_sessions` | 番茄鐘歷史 |
 | `flowlife_v1_focused/neutral/distracted` | 評分計數 |
-| `flowlife_v1_purchase_log` | 商店購買記錄 |
 | `flowlife_v1_coin_income_log` | 金幣收入記錄 |
 | `flowlife_v1_daily_override_YYYY-MM-DD` | 行程表當天個別修改 |
 | `flowlife_v1_routine_override_YYYY-MM-DD` | 當日作息覆寫（睡眠／吃飯等不可用時間） |
@@ -483,6 +482,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **金幣頁多選分類＋三檢視去重疊**：新增通用 `MultiCategoryFilter`（`components/ui`）支援跨大分類複選，分類命中改用 `catPath` + `matchesCatSelection`（完整路徑鍵，避免同名中分類誤加總）；「依時間」改打散流水帳（近→遠）、「收支」餘額卡改不可點、「依分類」未選顯示大分類總覽，有選則顯示「已選 N 項合計」。
 - **MultiCategoryFilter 中分類常駐**：中分類區永遠顯示全部大分類（`activeCat1 = cat1s`），不因已選收合；可自由跨大分類複選中／小分類。
 - **D1 商店商品資料化**：`ShopItem`（`instant` flat 價／`time` 每分鐘金幣＋掛番茄分類＋`productCat`）；`LS_KEYS.shopItems`＋`app_state key="shop_items"`；`ShopPage.updateShopItems` 單一寫入（LS＋推雲）；MOCK 僅首次種子為 instant；可編輯／刪除；time 購買鈕暫「計時功能下一步開放」。
+- **D1 收尾：購買記錄單一真相**：移除本地 `purchaseLog`；商店「購買記錄」改由金幣帳本 `kind="spend"`（`allSpendRows`）依日期分組衍生；取消購買只動帳本，兩卡同步消失。
 - **便利貼衝突處理強化（自訂鈕高亮＋一鍵移除）**：班課衝突時記住 `ovPendingPick`；尚未自訂課程時「👉 點我自訂這天課程」改黃色高亮。提醒橫幅新增含確認的「🗑 移除這 N 堂衝突課，並排入此班」：透過 `setOvCourses` 將週課 materialize 成當日自訂快照、刪除衝突課並避免重複地排入待排班別；取消確認不變更。開啟／切日期／關提醒／逐堂刪完皆同步清衝突與 pending state。
 - **課表複製貼上「自動清潔＋貼不上提醒」**：複製「課程＋班別」貼上時以 `shiftRange(place, shift, day)!==""` 過濾 picks（只貼該天真能排的班，消除隱形貼券）；被略過的班以頁面層 `pasteNotice` ⚠️橫幅明列（哪個班、哪天、去管理工作場所開可上班日）；單日貼上與「貼到選取的 N 天」皆適用；複製/關閉清提醒。未動 `lib/schedule.ts`／排班模型。
 - **便利貼微調（衝突紅格＋格內✕）**：班課衝突時衝突課格紅框紅底點亮（`ovConflictSlots`）、提醒精簡為一句含班別名；自訂狀態課格內建 ✕ 一鍵刪（刪完衝突自動消提醒）；沿用每週固定時紅格仍顯示但無 ✕；底部編輯器移除「移除這格」只留選/換科目。
@@ -553,7 +553,7 @@ TH.gold    = "#FBBF24"   // 金幣
 | 例外排程：過去日期不自動清除 | **刻意保留**——過去日期的例外不自動清除，供時間軸/未利用回看歷史（非 bug）。 |
 | 例外能否跨「可上班日」閘門 | ✅ **已決策（分流）**——**複製貼上/週模式課表**：守 `shiftRange` 閘門＋略過提醒；**便利貼**（2b）：`shiftRangeOn(..., isOverride=true)` 不受閘門，可挑任何班。 |
 | session/分類 name-based 改 uuid | **S2-2a＋S2-3 完成**——番茄並存 `cat1Id/cat2Id/cat3Id`（`stampSessionCatIds`）＋並存 `uuid` 跨裝置主鍵（`ensureSessionUuid`，只補不覆蓋、冪等），`App.updateSessions` 經 `stampSession` 單一接縫補（含啟動載入補舊番茄）；名字/number `id` 仍為現行權威、尚無處讀編號或 uuid（行為零變化）。**待**：番茄上雲使用 uuid 主鍵、S2-2b 改名/顯示改用編號退役 `cascadeRename`、週課表/coinLog 編號化。 |
-| 購買紀錄雙來源 | 商店同時有 `purchaseLog`（本地購買記錄卡）與金幣帳本 `kind="spend"`（最近購買／取消購買）。D1 暫保留雙來源；**觸發收斂＝D3**（時間軸顯示＋金幣頁商品支出分類）時統一以帳本為單一真相。 |
+| ~~購買紀錄雙來源~~ ✅ 已解決 | 已移除本地 `purchaseLog`；商店「最近購買／購買記錄」皆讀金幣帳本 `kind="spend"`（`spendRows`／`allSpendRows`）；取消購買只動帳本即兩處同步。 |
 
 ---
 
@@ -576,10 +576,10 @@ TH.gold    = "#FBBF24"   // 金幣
 - 🔄 **S3 班別設定可編輯**：✅ **S3-1~3c-2 全完成**（資料化、上雲、Place 放寬、DayPlan picks 跨店＋重疊擋、dayPlans/weekSchedule 上雲、WorkplaceManager 時間/名稱/顏色/增刪班別與場所、`reconcileDayPlans` 孤兒以 label 接回、pick 存班別 id、`findShift` 只認 id、`ShiftDef.days` 可上班日閘門、picker 只渲染當天可上班班別、班表只顯示明確點選＝`DEFAULT_PLANS` 空＋「🧹 清空所有班別」）。⬜ **剩 S3-3d** 單次微調（邊緣）；✅ **指定日期例外排程 2a+2b**（便利貼 UI＋`shiftRangeOn`）；⬜ **reconcileOverrides**（見帳本）；⬜ **S4** 金鑰移 Edge Functions。
 - ✅ **D1 商店商品資料化**：商品可存 LS＋雲端同步＋編輯（instant／time 欄位齊備）；time 購買暫未開。
 - ⬜ **D2 計時購買／退幣**：計時商品開始／結束扣幣、取消購買連動。
-- ⬜ **D3 時間軸顯示＋金幣頁商品支出分類**：計時消費上時間軸；金幣頁「商品分類區」；並收斂購買紀錄雙來源（`purchaseLog` vs 帳本）。
+- ⬜ **D3 時間軸顯示＋金幣頁商品支出分類**：計時消費上時間軸；金幣頁「商品分類區」。
 - ⬜ **商店商品分類（飲食/購物/娛樂/其他，可自訂）＋金幣頁「商品分類區」**：商品側 `productCat` 已於 D1；金幣頁分類區隨 D3 實作。
 
 ---
 
-*最後更新：2026/07/21（D1 商店商品資料化：可存／同步／編輯；time 欄位預留）*
+*最後更新：2026/07/21（D1 收尾：購買記錄改讀金幣帳本，消除雙來源）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*
