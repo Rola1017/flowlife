@@ -26,6 +26,7 @@ export const LS_KEYS = {
   appStateMeta: `${STORAGE_PREFIX}_appstate_meta`,
   workplaces: `${STORAGE_PREFIX}workplaces`,
   trashedSessions: `${STORAGE_PREFIX}trashed_sessions`,
+  shopItems: `${STORAGE_PREFIX}shop_items`,
 } as const;
 
 function assertVersionedKey(key: string): void {

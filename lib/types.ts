@@ -1,3 +1,16 @@
+export type ShopItem = {
+  id: number;
+  name: string;
+  desc?: string;
+  kind: "instant" | "time";
+  price?: number; // instant：一次性金幣價
+  coinsPerMin?: number; // time：每分鐘金幣
+  cat1?: string;
+  cat2?: string;
+  cat3?: string; // time：掛的番茄分類
+  productCat?: string; // 商品分類（飲食/購物/娛樂/其他，可自訂）
+};
+
 export type Session = {
   /** 穩定主鍵（新記錄才有）；未來歷史編輯／Supabase 用 */
   id?: number;
