@@ -15,7 +15,6 @@ export function MultiCategoryFilter({
     const next = new Set(selected);
     if (next.has(p)) next.delete(p);
     else {
-      // 選了子層就移除同路徑的父層／子層，避免重複計算
       for (const s of [...next]) {
         if (p.startsWith(s + CAT_PATH_SEP) || s.startsWith(p + CAT_PATH_SEP)) next.delete(s);
       }
@@ -52,9 +51,11 @@ export function MultiCategoryFilter({
       {activeCat1.map((c1) => {
         const c2s = CAT.cat2List(c1);
         if (c2s.length === 0) return null;
+        const c1Color = CAT.cat1Color(c1);
+        const selectedMids = c2s.filter((c2) => selected.has(catPath(c1, c2)));
         return (
-          <div key={`m-${c1}`}>
-            <div style={labelStyle}>{c1} · 中分類（可複選，可跨大分類一起選）</div>
+          <div key={`grp-${c1}`} style={{ borderTop: `2px solid ${c1Color}99`, paddingTop: 8, marginTop: 2 }}>
+            <div style={{ fontSize: 10, fontWeight: 800, color: c1Color, marginBottom: 5 }}>◆ {c1} · 中分類</div>
             <div style={rowStyle}>
               {c2s.map((c2) => (
                 <Chip
@@ -67,16 +68,12 @@ export function MultiCategoryFilter({
                 />
               ))}
             </div>
-
-            {c2s.map((c2) => {
-              if (!selected.has(catPath(c1, c2))) return null;
+            {selectedMids.map((c2) => {
               const c3s = CAT.cat3List(c1, c2);
               if (c3s.length === 0) return null;
               return (
-                <div key={`s-${c1}-${c2}`} style={{ marginTop: 6 }}>
-                  <div style={labelStyle}>
-                    {c1} › {c2} · 小分類（可複選）
-                  </div>
+                <div key={`s-${c1}-${c2}`} style={{ borderTop: `1px dashed ${TH.border}`, marginTop: 6, paddingTop: 6, marginLeft: 10 }}>
+                  <div style={labelStyle}>{c1} › {c2} · 小分類</div>
                   <div style={rowStyle}>
                     {c3s.map((c3) => (
                       <Chip
