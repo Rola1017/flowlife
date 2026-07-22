@@ -21,6 +21,7 @@ export const APP_STATE_KEYS = {
   trashedSessions: "trashed_sessions",
   shopItems: "shop_items",
   routine: "routine",
+  scheduleNote: "schedule_note",
 } as const;
 
 type AppStateKey = (typeof APP_STATE_KEYS)[keyof typeof APP_STATE_KEYS];
@@ -36,6 +37,7 @@ const LS_FOR_KEY: Record<AppStateKey, string> = {
   [APP_STATE_KEYS.trashedSessions]: LS_KEYS.trashedSessions,
   [APP_STATE_KEYS.shopItems]: LS_KEYS.shopItems,
   [APP_STATE_KEYS.routine]: LS_KEYS.routine,
+  [APP_STATE_KEYS.scheduleNote]: LS_KEYS.scheduleNote,
 };
 
 const DEFAULT_FOR_KEY: Record<AppStateKey, unknown> = {
@@ -49,6 +51,7 @@ const DEFAULT_FOR_KEY: Record<AppStateKey, unknown> = {
   [APP_STATE_KEYS.trashedSessions]: [],
   [APP_STATE_KEYS.shopItems]: [],
   [APP_STATE_KEYS.routine]: [], // 空陣列；loadRoutine 讀取時 fallback DEFAULT_ROUTINE
+  [APP_STATE_KEYS.scheduleNote]: "",
 };
 
 // 本地 meta：每個 key 的最後修改時間 {key: iso}

@@ -10,6 +10,23 @@ function fmtPointMins(m: number) {
   return r ? `${h}h${r}m` : `${h}h`;
 }
 
+/** 點多時自適應：等距抽樣 + 永遠含最高／最低／最後一天 */
+export function adaptiveShowIdx(data: number[]): Set<number> {
+  const n = data.length;
+  const showIdx = new Set<number>();
+  if (n === 0) return showIdx;
+  const step = n <= 7 ? 1 : n <= 14 ? 2 : Math.ceil(n / 7);
+  const maxIdx = data.indexOf(Math.max(...data));
+  const minIdx = data.indexOf(Math.min(...data));
+  data.forEach((_, i) => {
+    if (i % step === 0) showIdx.add(i);
+  });
+  showIdx.add(maxIdx);
+  showIdx.add(minIdx);
+  showIdx.add(n - 1);
+  return showIdx;
+}
+
 export function LineChart({
   data,
   labels,
@@ -21,7 +38,7 @@ export function LineChart({
   labels: string[];
   color?: string;
   height?: number;
-  /** 每個資料點上方標註數值（未利用趨勢用）；點數 >14 隔點顯示 */
+  /** 未利用趨勢：自適應標註最高／最低／抽樣點 */
   showValueLabels?: boolean;
 }) {
   if (!data || data.length < 2) return null;
@@ -38,7 +55,9 @@ export function LineChart({
   const path = pts.map((p, i) => (i === 0 ? "M" : "L") + `${p.x},${p.y}`).join(" ");
   const area = `${path} L${pts[pts.length - 1].x},${H - py} L${pts[0].x},${H - py} Z`;
   const gid = `g${color.replace(/[^a-z0-9]/gi, "")}`;
-  const sparseLabels = data.length > 14;
+  const showIdx = showValueLabels ? adaptiveShowIdx(data) : null;
+  const maxIdx = showValueLabels ? data.indexOf(Math.max(...data)) : -1;
+  const minIdx = showValueLabels ? data.indexOf(Math.min(...data)) : -1;
   return (
     <div>
       <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: "block", overflow: "visible" }}>
@@ -50,22 +69,29 @@ export function LineChart({
         </defs>
         <path d={area} fill={`url(#${gid})`} />
         <path d={path} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-        {pts.map((p, i) => (
-          <g key={i}>
-            <circle cx={p.x} cy={p.y} r={3} fill={color} />
-            {showValueLabels && (!sparseLabels || i % 2 === 0) && (
-              <text
-                x={p.x}
-                y={p.y - 6}
-                textAnchor="middle"
-                fontSize={8}
-                fill={TH.muted}
-              >
-                {fmtPointMins(data[i])}
-              </text>
-            )}
-          </g>
-        ))}
+        {pts.map((p, i) => {
+          const isMax = i === maxIdx;
+          const isMin = i === minIdx;
+          const labelColor = isMax ? TH.red : isMin ? TH.green : TH.muted;
+          const r = showValueLabels && (isMax || isMin) ? 4.5 : 3;
+          return (
+            <g key={i}>
+              <circle cx={p.x} cy={p.y} r={r} fill={isMax ? TH.red : isMin ? TH.green : color} />
+              {showIdx?.has(i) && (
+                <text
+                  x={p.x}
+                  y={p.y - 6}
+                  textAnchor="middle"
+                  fontSize={8}
+                  fill={labelColor}
+                  fontWeight={isMax || isMin ? 700 : 400}
+                >
+                  {fmtPointMins(data[i])}
+                </text>
+              )}
+            </g>
+          );
+        })}
       </svg>
       <div style={{ display: "flex", paddingLeft: px, paddingRight: px }}>
         {labels.map((l, i) => (
@@ -81,7 +107,7 @@ export function LineChart({
               whiteSpace: "nowrap",
             }}
           >
-            {l}
+            {!showIdx || showIdx.has(i) ? l : ""}
           </div>
         ))}
       </div>

@@ -57,6 +57,9 @@ export function TriCharts({
             height={70}
             showValueLabels
           />
+          <div style={{ fontSize: 9, color: TH.muted, marginTop: 4, lineHeight: 1.4 }}>
+            💡 點多時只標出重點日（最高／最低／最後一天）
+          </div>
         </Card>
       )}
     </>

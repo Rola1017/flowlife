@@ -96,7 +96,11 @@ const GAP = 2;
 const STEP = ROW_H + GAP;
 
 const DAYS = ["一", "二", "三", "四", "五", "六", "日"] as const;
+/** 日欄寬 ≈ 原 1fr（minWidth520 時 ~68px）×2；時間欄 44 不變 */
+const DAY_COL_MIN = 128;
+const GRID_COLS = `44px repeat(7, minmax(${DAY_COL_MIN}px, 1fr))`;
 const COL_W = `calc((100% - 44px - ${7 * GAP}px) / 7)`;
+const SCHED_MIN_W = 44 + 7 * DAY_COL_MIN + 7 * GAP;
 
 const inFixedSlot = (t: string, routine = loadRoutine()) =>
   routine.some((b) => toM(b.start) <= toM(t) && toM(t) < toM(b.end));
@@ -155,6 +159,22 @@ export function SchedulePage({
   const [routineRev, setRoutineRev] = useState(0);
   const [expandEarly, setExpandEarly] = useState(false);
   const [expandLate, setExpandLate] = useState(false);
+  const [note, setNote] = useState("");
+  useEffect(() => {
+    setNote(loadJSON<string>(LS_KEYS.scheduleNote, ""));
+  }, []);
+  useEffect(
+    () =>
+      subscribeAppState(APP_STATE_KEYS.scheduleNote, () =>
+        setNote(loadJSON<string>(LS_KEYS.scheduleNote, "")),
+      ),
+    [],
+  );
+  const saveNote = (v: string) => {
+    setNote(v);
+    saveJSON(LS_KEYS.scheduleNote, v);
+    void pushAppState(APP_STATE_KEYS.scheduleNote, v);
+  };
   useEffect(
     () => subscribeAppState(APP_STATE_KEYS.routine, () => setRoutineRev((n) => n + 1)),
     [],
@@ -468,7 +488,7 @@ export function SchedulePage({
 
   const rowGridStyle: CSSProperties = {
     display: "grid",
-    gridTemplateColumns: "44px repeat(7, 1fr)",
+    gridTemplateColumns: GRID_COLS,
     gap: GAP,
     height: ROW_H,
     marginBottom: GAP,
@@ -655,10 +675,12 @@ export function SchedulePage({
               fontSize: 8,
               fontWeight: 700,
               color: col ? labelOnDark(col) : undefined,
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              whiteSpace: "normal",
               overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              lineHeight: `${ROW_H - 6}px`,
+              lineHeight: 1.15,
             }}
           >
             {cell.n || cell.cat3 || cell.cat2 || cell.cat1}
@@ -674,7 +696,25 @@ export function SchedulePage({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <BackBtn onBack={onBack} label="課表" />
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <BackBtn onBack={onBack} label="課表" />
+        <input
+          value={note}
+          onChange={(e) => saveNote(e.target.value)}
+          placeholder="這份課表的標題／備註（例：勞保衝刺期 7/22–8/31）"
+          style={{
+            flex: 1,
+            minWidth: 0,
+            background: "#15151B",
+            border: `1px solid ${TH.border}`,
+            borderRadius: 8,
+            padding: "6px 10px",
+            color: TH.text,
+            fontSize: 12,
+            outline: "none",
+          }}
+        />
+      </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <Chip
           label="🏢 管理工作場所"
@@ -1820,7 +1860,7 @@ export function SchedulePage({
           scrollbarWidth: "none",
         }}
       >
-        <div style={{ minWidth: 520 }}>
+        <div style={{ minWidth: SCHED_MIN_W }}>
           <div
             style={{
               position: "sticky",
@@ -1833,7 +1873,7 @@ export function SchedulePage({
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "44px repeat(7, 1fr)",
+                gridTemplateColumns: GRID_COLS,
                 gap: GAP,
                 marginBottom: GAP,
               }}
@@ -1871,7 +1911,7 @@ export function SchedulePage({
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "44px repeat(7, 1fr)",
+                gridTemplateColumns: GRID_COLS,
                 gap: GAP,
                 marginBottom: GAP,
               }}
