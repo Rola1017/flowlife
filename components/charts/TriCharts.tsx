@@ -50,7 +50,13 @@ export function TriCharts({
           <SL>
             {period} 未利用 趨勢(時長)
           </SL>
-          <LineChart data={idleLine.data} labels={idleLine.labels} color={TH.muted} height={70} />
+          <LineChart
+            data={idleLine.data}
+            labels={idleLine.labels}
+            color={TH.muted}
+            height={70}
+            showValueLabels
+          />
         </Card>
       )}
     </>

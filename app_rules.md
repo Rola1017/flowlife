@@ -339,6 +339,8 @@ TH.gold    = "#FBBF24"   // 金幣
 
 **寫入單一來源**：`lib/reviews.ts`；`loadReviews`／`getReview` 唯讀。**free 用 `addReview` append、`removeReview` 刪；day／week／month／quarter 用 `upsertReview` 單筆**（空白 text ＝刪除該筆）。新建 id 走 `nextId` 單調遞增（防撞）。
 
+**未利用覆盤（E2）**：月曆「未利用」卡沿用同一套 reviews，**不另開儲存**；`periodKey` 前綴 `idle:`（例 `idle:2026-07`、`idle:${weekKey}`）與一般覆盤互不覆蓋；自動獲得雲端同步、LWW、空字串刪除。scope／key 隨 TriCharts 時間範圍切換。
+
 **入口**：`CalendarPage` → 🔍 覆盤 → 子切換「明細｜日｜週｜月｜季」；預設「日」。
 
 **ReviewView（明細）**：期間內番茄意圖/覆盤 inline 編輯（不變）。
@@ -502,6 +504,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **CFG.TODAY 現算＋未利用規則制**：`CFG.TODAY_STR`／`TODAY` 改 getter 每次現算（修跨午夜未利用整天填滿）；未利用改「落在 `availableSegments` 且未專注/娛樂 → 累積」規則制，移除寫死 08:00/13:30；`onFocusEnd`＋`pomoRunning` 串接。
 - **idle.subtract 夾上界**：`s = min(max(a,winStart), winEnd)`，修「未利用超出現在」根因（未來不可用時段起點被當成可用終點）；時間軸／月曆／未利用統計共用底層一併正確。
 - **E1 未利用升格為正式指標**：`idleMinutesForDate`／`usedFillsFor`／`idleSeries` 單一來源；月曆統計卡「未利用」＋「未利用 趨勢」折線（跟 period 切換）；每分鐘 tick 即時更新今天累積。
+- **E2 未利用可寫覆盤＋趨勢標註分鐘**：未利用覆盤**不新建儲存**，沿用 `lib/reviews.ts`（`upsertReview`／`getReview`／`subscribeReviews`、雲端 LWW、空字串＝刪）；`periodKey` 前綴 `idle:`（例 `idle:2026-07`）與一般覆盤互不覆蓋。月曆未利用卡可點展開編輯；已寫方針以 `TH.yellow` 顯示；scope／key 跟 period 切換（3天→day＋range、7天→week＋`weekKey`、14天→week＋range、月→month＋`monthKey`、季→quarter＋`quarterKey`）。未利用趨勢折線每點上方標註分鐘（`LineChart.showValueLabels`，>14 點隔點顯示）。
 - **便利貼衝突處理強化（自訂鈕高亮＋一鍵移除）**：班課衝突時記住 `ovPendingPick`；尚未自訂課程時「👉 點我自訂這天課程」改黃色高亮。提醒橫幅新增含確認的「🗑 移除這 N 堂衝突課，並排入此班」：透過 `setOvCourses` 將週課 materialize 成當日自訂快照、刪除衝突課並避免重複地排入待排班別；取消確認不變更。開啟／切日期／關提醒／逐堂刪完皆同步清衝突與 pending state。
 - **課表複製貼上「自動清潔＋貼不上提醒」**：複製「課程＋班別」貼上時以 `shiftRange(place, shift, day)!==""` 過濾 picks（只貼該天真能排的班，消除隱形貼券）；被略過的班以頁面層 `pasteNotice` ⚠️橫幅明列（哪個班、哪天、去管理工作場所開可上班日）；單日貼上與「貼到選取的 N 天」皆適用；複製/關閉清提醒。未動 `lib/schedule.ts`／排班模型。
 - **便利貼微調（衝突紅格＋格內✕）**：班課衝突時衝突課格紅框紅底點亮（`ovConflictSlots`）、提醒精簡為一句含班別名；自訂狀態課格內建 ✕ 一鍵刪（刪完衝突自動消提醒）；沿用每週固定時紅格仍顯示但無 ✕；底部編輯器移除「移除這格」只留選/換科目。
@@ -608,5 +611,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/07/22（E1：未利用升格為正式指標）*
+*最後更新：2026/07/22（E2：未利用覆盤沿用 reviews＋趨勢標註分鐘）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*

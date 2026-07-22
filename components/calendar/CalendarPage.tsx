@@ -3,11 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
-import { buildCalendarStats, sessionMatches, datesInPeriod } from "@/lib/analytics";
+import { buildCalendarStats, sessionMatches, datesInPeriod, periodRange } from "@/lib/analytics";
 import { CAT } from "@/lib/categories";
 import { availableMinutesFor, loadDayPlans, planForDate } from "@/lib/schedule";
 import { availableSegments, splitSessionsByAvailability } from "@/lib/idle";
 import { idleSeries } from "@/lib/timelineActual";
+import { weekKey, monthKey, quarterKey } from "@/lib/period";
+import { getReview, subscribeReviews, upsertReview, type ReviewScope } from "@/lib/reviews";
 import type { Session } from "@/lib/types";
 import { fmt, getDaysInMonth, getFirstDow } from "@/lib/utils";
 import { Chip } from "@/components/ui/Chip";
@@ -15,6 +17,29 @@ import { TriCharts } from "@/components/charts/TriCharts";
 import { ReviewView } from "./ReviewView";
 import { DayReview } from "./DayReview";
 import { PeriodReview } from "./PeriodReview";
+
+/** 未利用覆盤：沿用 reviews，periodKey 前綴 idle:；scope 對應時間範圍 */
+function idleReviewMeta(
+  period: string,
+  curY: number,
+  curM: number,
+): { scope: ReviewScope; periodKey: string } {
+  if (period === "月") {
+    return { scope: "month", periodKey: `idle:${monthKey(new Date(curY, curM - 1, 1))}` };
+  }
+  if (period === "季") {
+    return { scope: "quarter", periodKey: `idle:${quarterKey(CFG.TODAY)}` };
+  }
+  const { start, end } = periodRange(period, curY, curM);
+  if (period === "3天") {
+    return { scope: "day", periodKey: `idle:${start}_${end}` };
+  }
+  // 7天／14天 → week；7天額外可用 weekKey 對齊週覆盤語意，仍用 range 鍵以對齊圖表視窗
+  if (period === "7天") {
+    return { scope: "week", periodKey: `idle:${weekKey(CFG.TODAY)}` };
+  }
+  return { scope: "week", periodKey: `idle:${start}_${end}` };
+}
 
 const DOW = ["一", "二", "三", "四", "五", "六", "日"] as const;
 
@@ -153,6 +178,9 @@ export function CalendarPage({
   const [monthOffset, setMonthOffset] = useState(0);
   const [weekOffset, setWeekOffset] = useState(0);
   const [period, setPeriod] = useState("月");
+  const [idleReviewOpen, setIdleReviewOpen] = useState(false);
+  const [idleReviewDraft, setIdleReviewDraft] = useState("");
+  const [reviewRev, setReviewRev] = useState(0);
   const [nowMins, setNowMins] = useState(() => {
     const d = new Date();
     return d.getHours() * 60 + d.getMinutes();
@@ -166,6 +194,7 @@ export function CalendarPage({
     const t = setInterval(tick, 60_000);
     return () => clearInterval(t);
   }, []);
+  useEffect(() => subscribeReviews(() => setReviewRev((n) => n + 1)), []);
   const baseM0 = CFG.TODAY.getFullYear() * 12 + CFG.TODAY.getMonth(); // 真實今天的絕對月索引
   const totalM0 = baseM0 + monthOffset;
   const curY = Math.floor(totalM0 / 12);
@@ -266,6 +295,18 @@ export function CalendarPage({
     }),
     [idlePeriodSeries],
   );
+
+  const { scope: idleScope, periodKey: idlePeriodKey } = useMemo(
+    () => idleReviewMeta(period, curY, curM),
+    [period, curY, curM],
+  );
+  const idleReview = useMemo(
+    () => getReview(idleScope, idlePeriodKey),
+    [idleScope, idlePeriodKey, reviewRev],
+  );
+  useEffect(() => {
+    setIdleReviewOpen(false);
+  }, [idleScope, idlePeriodKey]);
 
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
   const weekNavLabel = useMemo(() => formatWeekNavRange(weekDates), [weekDates]);
@@ -471,15 +512,122 @@ export function CalendarPage({
             marginTop: 5,
           }}
         >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
-            <div>
-              <div style={{ fontSize: 8, color: TH.muted }}>未利用（{period}）</div>
-              <div style={{ fontSize: 14, fontWeight: 800, color: TH.muted }}>{fmt(idlePeriodTot)}</div>
+          <button
+            type="button"
+            onClick={() => {
+              setIdleReviewDraft(idleReview?.text ?? "");
+              setIdleReviewOpen((v) => !v);
+            }}
+            style={{
+              width: "100%",
+              background: "none",
+              border: "none",
+              padding: 0,
+              margin: 0,
+              textAlign: "left",
+              cursor: "pointer",
+              color: "inherit",
+              font: "inherit",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+              <div>
+                <div style={{ fontSize: 8, color: TH.muted }}>未利用（{period}）</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: TH.muted }}>{fmt(idlePeriodTot)}</div>
+              </div>
+              <span style={{ fontSize: 12, lineHeight: 1 }} aria-hidden>
+                {idleReview ? "📝" : "＋"}
+              </span>
             </div>
-          </div>
-          <div style={{ fontSize: 9, color: TH.muted, marginTop: 4, lineHeight: 1.4 }}>
-            💡 今天的未利用會即時累積（不必等今天結束）
-          </div>
+            {idleReview?.text && (
+              <div
+                style={{
+                  marginTop: 6,
+                  fontSize: 11,
+                  color: TH.yellow,
+                  fontWeight: 700,
+                  lineHeight: 1.5,
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                📝 {idleReview.text}
+              </div>
+            )}
+          </button>
+          {idleReviewOpen ? (
+            <div
+              style={{
+                marginTop: 8,
+                border: `1px solid ${TH.border}`,
+                borderRadius: 10,
+                padding: 10,
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+              }}
+            >
+              <div style={{ fontSize: 10, color: TH.muted }}>
+                💡 寫下這段期間未利用時間的原因與下一步方針（會跟著上面的時間範圍走）
+              </div>
+              <textarea
+                value={idleReviewDraft}
+                onChange={(e) => setIdleReviewDraft(e.target.value)}
+                rows={4}
+                placeholder="例：週三下午常被雜事打斷；下週改成先做 25 分番茄再處理雜務"
+                style={{
+                  background: "#15151B",
+                  border: `1px solid ${TH.border}`,
+                  borderRadius: 8,
+                  padding: "8px 10px",
+                  color: TH.text,
+                  fontSize: 12,
+                  outline: "none",
+                  resize: "vertical",
+                }}
+              />
+              <div style={{ display: "flex", gap: 6 }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    upsertReview(idleScope, idlePeriodKey, idleReviewDraft);
+                    setIdleReviewOpen(false);
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: "8px",
+                    borderRadius: 8,
+                    border: "none",
+                    background: TH.accent,
+                    color: "#fff",
+                    fontSize: 12,
+                    fontWeight: 800,
+                    cursor: "pointer",
+                  }}
+                >
+                  儲存
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIdleReviewOpen(false)}
+                  style={{
+                    padding: "8px 12px",
+                    borderRadius: 8,
+                    border: `1px solid ${TH.border}`,
+                    background: "transparent",
+                    color: TH.muted,
+                    fontSize: 12,
+                    cursor: "pointer",
+                  }}
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ fontSize: 9, color: TH.muted, marginTop: 4, lineHeight: 1.4 }}>
+              💡 今天的未利用會即時累積（不必等今天結束）
+            </div>
+          )}
         </div>
       )}
       {calView !== "week" && (
