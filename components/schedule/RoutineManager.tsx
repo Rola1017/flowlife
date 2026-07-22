@@ -7,12 +7,14 @@ import {
   saveRoutine,
   DEFAULT_ROUTINE,
   routineLabel,
+  overlappingIndices,
   type RoutineBlock,
 } from "@/lib/schedule";
 
 export function RoutineManager({ onClose }: { onClose: () => void }) {
   const [rows, setRows] = useState<RoutineBlock[]>(() => loadRoutine());
   const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [itemDrag, setItemDrag] = useState<{ ri: number; ii: number } | null>(null);
   const persist = (next: RoutineBlock[]) => {
     const out = next.map((r) => ({ ...r, label: routineLabel(r.emoji, r.items ?? []) }));
     setRows(out);
@@ -41,6 +43,9 @@ export function RoutineManager({ onClose }: { onClose: () => void }) {
       persist(DEFAULT_ROUTINE.map((r) => ({ ...r, items: (r.items ?? []).map((it) => ({ ...it })) })));
     }
   };
+
+  const conflicts = overlappingIndices(rows.map((r) => ({ start: r.start, end: r.end })));
+  const hasConflict = conflicts.size > 0;
 
   const inp = {
     background: "#15151B",
@@ -73,7 +78,14 @@ export function RoutineManager({ onClose }: { onClose: () => void }) {
           </button>
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => {
+              if (
+                hasConflict &&
+                !window.confirm("仍有作息時間重疊，可能造成課表/時間軸顯示異常。確定關閉？")
+              )
+                return;
+              onClose();
+            }}
             style={{
               fontSize: 12,
               fontWeight: 800,
@@ -92,6 +104,22 @@ export function RoutineManager({ onClose }: { onClose: () => void }) {
       <div style={{ fontSize: 10, color: TH.muted, marginBottom: 8 }}>
         💡 每行可放多個小項，小項可填「細節」（之後點小項會看到）；行上顯示的字＝小項名稱串起來
       </div>
+      {hasConflict && (
+        <div
+          style={{
+            border: `1px solid ${TH.red}66`,
+            background: "#EF444418",
+            borderRadius: 8,
+            padding: "6px 10px",
+            marginBottom: 8,
+            fontSize: 10.5,
+            color: TH.red,
+            lineHeight: 1.5,
+          }}
+        >
+          ⚠️ 有作息時間重疊（紅框標示），會導致課表/時間軸顯示異常，請調整成互不重疊
+        </div>
+      )}
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {rows.map((r, ri) => (
           <div
@@ -108,7 +136,7 @@ export function RoutineManager({ onClose }: { onClose: () => void }) {
               persist(next);
             }}
             style={{
-              border: `1px solid ${TH.border}`,
+              border: conflicts.has(ri) ? `1.5px solid ${TH.red}` : `1px solid ${TH.border}`,
               borderRadius: 10,
               padding: 8,
               opacity: dragIdx === ri ? 0.6 : 1,
@@ -159,10 +187,40 @@ export function RoutineManager({ onClose }: { onClose: () => void }) {
               >
                 🗑 刪行
               </button>
+              {conflicts.has(ri) && (
+                <span style={{ fontSize: 9, color: TH.red, width: "100%" }}>
+                  ⚠️ 與其他作息時間重疊
+                </span>
+              )}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               {(r.items ?? []).map((it, ii) => (
-                <div key={ii} style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                <div
+                  key={ii}
+                  draggable
+                  onDragStart={(e) => {
+                    e.stopPropagation();
+                    setItemDrag({ ri, ii });
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onDrop={(e) => {
+                    e.stopPropagation();
+                    if (!itemDrag || itemDrag.ri !== ri || itemDrag.ii === ii) {
+                      setItemDrag(null);
+                      return;
+                    }
+                    const items = [...(rows[ri].items ?? [])];
+                    const [moved] = items.splice(itemDrag.ii, 1);
+                    items.splice(ii, 0, moved);
+                    setItemDrag(null);
+                    updRow(ri, { items });
+                  }}
+                  style={{ display: "flex", gap: 4, alignItems: "center" }}
+                >
+                  <span style={{ cursor: "grab", color: TH.muted, fontSize: 11 }}>⋮</span>
                   <input
                     value={it.name}
                     onChange={(e) => updItem(ri, ii, { name: e.target.value })}

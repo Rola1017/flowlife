@@ -22,6 +22,7 @@
 
 - **【資料關聯地圖優先】**：動功能前先列出該資料被誰讀/寫/衍生，同一批改齊所有連動面，完成定義＝無任何一面漂移（日後併入對話與交接紀律 §8）。
 - **【副作用禁止置於 setState updater 內】**：`setState(updater)` 在 React 嚴格模式會雙執行，造成重複記錄等 bug；`setCoinIncomeLog`/`updateSessions`/`toast` 等副作用一律移出 updater 外（用 ref 讀目前值＋防重入）。
+- **【不變式守恆】**：每種資料先寫下不變式→單一寫入口強制把關→做成共用檢查器多處重用（併入 §8）。例：作息行時間互不重疊 → `timeRangesOverlap`／`overlappingIndices`。
 
 ---
 
@@ -495,6 +496,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **D3b 消費帶商品分類＋支出依 productCat 分組**：`CoinIncomeLogRow.productCat`；`spendCoins`／`spendReturningId` 帶入；金幣頁收支「支出」依 productCat 分組可展開；無 cat1 時顯示 productCat；0 元消費列 hydrate 清除＋退全額 `refundSpend` 刪列。
 - **R1 固定作息資料化＋小項/細節＋編輯器**：`RoutineBlock` 擴充 `emoji`/`items`；`DEFAULT_ROUTINE`＋`loadRoutine`/`saveRoutine`/`ensureRoutineSeeded`（LS＋`app_state key="routine"`）；`routineFor` 改讀 `loadRoutine`；`routineLabel` 存檔時組字；課表頁 `RoutineManager`（加行/小項/細節/重設）；顯示端沿用 `label`，`blockedRanges` 僅用 start/end。
 - **R3 課表頭尾折疊＋作息拖曳排序**：課表核心視窗 `06:00–23:00`，可展開凌晨/深夜；`buildRows(winStart,winEnd)` 單一視窗；班別覆蓋層跟 `HALF_SLOTS` 自動偏移。`RoutineManager` 原生 HTML5 拖曳排序，`persist` 不再強制依時間排序。
+- **作息時間重疊防護＋小項拖曳**：`lib/schedule.timeRangesOverlap`／`overlappingIndices` 共用檢查器；`RoutineManager` 紅框＋頂部警告＋完成確認；小項列可 ⋮ 拖曳（`stopPropagation` 不干擾行拖曳）。
 - **便利貼衝突處理強化（自訂鈕高亮＋一鍵移除）**：班課衝突時記住 `ovPendingPick`；尚未自訂課程時「👉 點我自訂這天課程」改黃色高亮。提醒橫幅新增含確認的「🗑 移除這 N 堂衝突課，並排入此班」：透過 `setOvCourses` 將週課 materialize 成當日自訂快照、刪除衝突課並避免重複地排入待排班別；取消確認不變更。開啟／切日期／關提醒／逐堂刪完皆同步清衝突與 pending state。
 - **課表複製貼上「自動清潔＋貼不上提醒」**：複製「課程＋班別」貼上時以 `shiftRange(place, shift, day)!==""` 過濾 picks（只貼該天真能排的班，消除隱形貼券）；被略過的班以頁面層 `pasteNotice` ⚠️橫幅明列（哪個班、哪天、去管理工作場所開可上班日）；單日貼上與「貼到選取的 N 天」皆適用；複製/關閉清提醒。未動 `lib/schedule.ts`／排班模型。
 - **便利貼微調（衝突紅格＋格內✕）**：班課衝突時衝突課格紅框紅底點亮（`ovConflictSlots`）、提醒精簡為一句含班別名；自訂狀態課格內建 ✕ 一鍵刪（刪完衝突自動消提醒）；沿用每週固定時紅格仍顯示但無 ✕；底部編輯器移除「移除這格」只留選/換科目。
@@ -600,5 +602,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/07/22（R3：課表頭尾折疊＋作息拖曳排序）*
+*最後更新：2026/07/22（作息時間重疊防護＋小項拖曳排序）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*

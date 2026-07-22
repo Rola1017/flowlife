@@ -73,6 +73,24 @@ const toMin = (t: string) => {
 const fmtHM = (m: number) =>
   `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 
+/** 兩個 [start,end] 字串時段是否重疊（碰邊不算）。"24:00" 視為 1440。 */
+export function timeRangesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
+  const m = (t: string) => (t === "24:00" ? 1440 : toMin(t));
+  return m(aStart) < m(bEnd) && m(bStart) < m(aEnd);
+}
+
+/** 一組時段中，找出彼此重疊的索引集合（回傳所有涉及重疊的 index）。 */
+export function overlappingIndices(ranges: { start: string; end: string }[]): Set<number> {
+  const bad = new Set<number>();
+  for (let i = 0; i < ranges.length; i++)
+    for (let j = i + 1; j < ranges.length; j++)
+      if (timeRangesOverlap(ranges[i].start, ranges[i].end, ranges[j].start, ranges[j].end)) {
+        bad.add(i);
+        bad.add(j);
+      }
+  return bad;
+}
+
 function findShift(place: Place, shift: string, list: WorkplaceConfig[] = loadWorkplaces()) {
   return list.find((w) => w.id === place)?.shifts.find((s) => s.id === shift);
 }
