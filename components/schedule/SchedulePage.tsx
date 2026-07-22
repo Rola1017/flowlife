@@ -37,8 +37,8 @@ import { Card, SL } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { BackBtn } from "@/components/ui/BackBtn";
 
-type SchedRow = { t: string; n: string; cat1: string; cat2: string; cat3: string };
-type Draft = { name: string; cat1: string; cat2: string; cat3: string };
+type SchedRow = { t: string; n: string; cat1: string; cat2: string; cat3: string; color?: string };
+type Draft = { name: string; cat1: string; cat2: string; cat3: string; color: string };
 
 type RawSchedRow = {
   t: string;
@@ -47,6 +47,7 @@ type RawSchedRow = {
   cat1?: string;
   cat2?: string;
   cat3?: string;
+  color?: string;
 };
 
 type RowDef =
@@ -110,6 +111,7 @@ function normalizeSchedule(raw: Record<string, RawSchedRow[]>): Record<string, S
         cat1: row.cat1 ?? row.c ?? "學習",
         cat2: row.cat2 ?? "",
         cat3: row.cat3 ?? "",
+        color: row.color,
       }))
       .filter((r) => !inFixedSlot(r.t));
   }
@@ -223,8 +225,8 @@ export function SchedulePage({
   }, [workplaces]);
   type EditTarget = { d: string; t: string };
   const [editTargets, setEditTargets] = useState<EditTarget[] | null>(null);
-  const [draft, setDraft] = useState<Draft>({ name: "", cat1: "學習", cat2: "", cat3: "" });
-  type HistoryItem = { name: string; cat1: string; cat2: string; cat3: string };
+  const [draft, setDraft] = useState<Draft>({ name: "", cat1: "學習", cat2: "", cat3: "", color: "" });
+  type HistoryItem = { name: string; cat1: string; cat2: string; cat3: string; color?: string };
   const [history, setHistory] = useState<HistoryItem[]>(() =>
     loadJSON<HistoryItem[]>(LS_KEYS.scheduleHistory, []),
   );
@@ -320,10 +322,10 @@ export function SchedulePage({
     new Set(ovPicks.flatMap((p) => shiftTimesOn(p.place, p.shift, ovDate, true)));
   const ovCourseAt = (t: string) => ovEffectiveCourses().find((c) => c.t === t);
   const courseLabelOf = (c: SchedRow) => c.n || c.cat3 || c.cat2 || c.cat1;
-  const addOvCourse = (t: string, c: { n: string; cat1: string; cat2: string; cat3: string }) =>
+  const addOvCourse = (t: string, c: { n: string; cat1: string; cat2: string; cat3: string; color?: string }) =>
     setOvCourses((prev) => [
       ...(prev ?? ovWeeklyCourses()).filter((x) => x.t !== t),
-      { t, n: c.n, cat1: c.cat1, cat2: c.cat2, cat3: c.cat3 },
+      { t, n: c.n, cat1: c.cat1, cat2: c.cat2, cat3: c.cat3, color: c.color },
     ]);
   const removeOvCourse = (t: string) =>
     setOvCourses((prev) => (prev ?? ovWeeklyCourses()).filter((x) => x.t !== t));
@@ -605,8 +607,8 @@ export function SchedulePage({
     const first = getCell(targets[0].d, targets[0].t);
     setDraft(
       first
-        ? { name: first.n, cat1: first.cat1, cat2: first.cat2, cat3: first.cat3 }
-        : { name: "", cat1: "學習", cat2: "", cat3: "" },
+        ? { name: first.n, cat1: first.cat1, cat2: first.cat2, cat3: first.cat3, color: first.color ?? "" }
+        : { name: "", cat1: "學習", cat2: "", cat3: "", color: "" },
     );
     setEditTargets(targets);
   };
@@ -615,8 +617,8 @@ export function SchedulePage({
     setEditTargets([{ d, t }]);
     setDraft(
       cell
-        ? { name: cell.n, cat1: cell.cat1, cat2: cell.cat2, cat3: cell.cat3 }
-        : { name: "", cat1: "學習", cat2: "", cat3: "" },
+        ? { name: cell.n, cat1: cell.cat1, cat2: cell.cat2, cat3: cell.cat3, color: cell.color ?? "" }
+        : { name: "", cat1: "學習", cat2: "", cat3: "", color: "" },
     );
   };
 
@@ -630,7 +632,7 @@ export function SchedulePage({
     }
     const cell = getCell(d, t);
     const col = cell
-      ? CAT.deepColorFull(cell.cat1, cell.cat2 || undefined, cell.cat3 || undefined)
+      ? cell.color || CAT.deepColorFull(cell.cat1, cell.cat2 || undefined, cell.cat3 || undefined)
       : null;
     const sel = selectMode && selected.has(selKey(d, t));
     return (
@@ -1098,7 +1100,7 @@ export function SchedulePage({
                 const conflict = ovConflictSlots.has(t);
                 const c = ovCourseAt(t);
                 const col = c
-                  ? CAT.deepColorFull(c.cat1, c.cat2 || undefined, c.cat3 || undefined)
+                  ? c.color || CAT.deepColorFull(c.cat1, c.cat2 || undefined, c.cat3 || undefined)
                   : null;
                 const editable = ovCourses !== null && !covered;
                 return (
@@ -1438,14 +1440,20 @@ export function SchedulePage({
               <div style={fieldLabelStyle}>最近選過</div>
               <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                 {history.slice(0, 5).map((h, i) => {
-                  const col = CAT.deepColorFull(h.cat1, h.cat2 || undefined, h.cat3 || undefined);
+                  const col = h.color || CAT.deepColorFull(h.cat1, h.cat2 || undefined, h.cat3 || undefined);
                   const label = h.name || h.cat3 || h.cat2 || h.cat1;
                   return (
                     <button
                       key={`hist-${i}`}
                       type="button"
                       onClick={() =>
-                        setDraft({ name: h.name, cat1: h.cat1, cat2: h.cat2, cat3: h.cat3 })
+                        setDraft({
+                          name: h.name,
+                          cat1: h.cat1,
+                          cat2: h.cat2,
+                          cat3: h.cat3,
+                          color: h.color ?? "",
+                        })
                       }
                       style={{
                         display: "flex",
@@ -1562,12 +1570,86 @@ export function SchedulePage({
               </select>
             </div>
           )}
+          <div style={{ marginBottom: 8 }}>
+            <div style={fieldLabelStyle}>顏色（同一分類下不同科目可各自上色）</div>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
+              <button
+                type="button"
+                onClick={() => setDraft({ ...draft, color: "" })}
+                style={{
+                  fontSize: 9,
+                  padding: "4px 10px",
+                  borderRadius: 16,
+                  cursor: "pointer",
+                  border: `1px solid ${draft.color === "" ? TH.accent : TH.border}`,
+                  background: draft.color === "" ? TH.accent + "22" : "transparent",
+                  color: draft.color === "" ? TH.accent : TH.muted,
+                  fontWeight: 700,
+                }}
+              >
+                跟隨分類
+              </button>
+              {[
+                "#EF4444",
+                "#F59E0B",
+                "#FDE68A",
+                "#22C55E",
+                "#10B981",
+                "#06B6D4",
+                "#3B82F6",
+                "#8B5CF6",
+                "#EC4899",
+                "#94A3B8",
+              ].map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setDraft({ ...draft, color: c })}
+                  aria-label={c}
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: "50%",
+                    background: c,
+                    cursor: "pointer",
+                    border: draft.color === c ? `2px solid ${TH.text}` : `1px solid ${TH.border}`,
+                    boxShadow: draft.color === c ? `0 0 0 3px ${c}44` : "none",
+                    padding: 0,
+                  }}
+                />
+              ))}
+              <input
+                type="color"
+                value={draft.color || "#3B82F6"}
+                onChange={(e) => setDraft({ ...draft, color: e.target.value })}
+                title="自訂顏色"
+                style={{
+                  width: 28,
+                  height: 24,
+                  background: "transparent",
+                  border: `1px solid ${TH.border}`,
+                  borderRadius: 6,
+                  padding: 0,
+                  cursor: "pointer",
+                }}
+              />
+            </div>
+            <div style={{ fontSize: 9, color: TH.muted, marginTop: 4 }}>
+              💡 不選＝跟著分類顏色走；選了顏色只影響這個科目，課表與時間軸都會套用
+            </div>
+          </div>
           <div style={{ display: "flex", gap: 6 }}>
             <button
               type="button"
               onClick={() => {
                 const data = draft.cat1
-                  ? { n: draft.name, cat1: draft.cat1, cat2: draft.cat2, cat3: draft.cat3 }
+                  ? {
+                      n: draft.name,
+                      cat1: draft.cat1,
+                      cat2: draft.cat2,
+                      cat3: draft.cat3,
+                      color: draft.color || undefined,
+                    }
                   : null;
                 setCells(editTargets, data);
                 if (draft.cat1) {
@@ -1576,6 +1658,7 @@ export function SchedulePage({
                     cat1: draft.cat1,
                     cat2: draft.cat2,
                     cat3: draft.cat3,
+                    color: draft.color || undefined,
                   });
                 }
                 setEditTargets(null);

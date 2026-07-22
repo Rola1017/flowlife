@@ -4,7 +4,7 @@ import { pushAppState, APP_STATE_KEYS, notifyAppState } from "@/lib/appStateClou
 export type Place = string;
 export type DayPick = { place: Place; shift: string };
 export type DayPlan = { picks: DayPick[] };
-export type CourseInfo = { t: string; n: string; cat1: string; cat2: string; cat3: string };
+export type CourseInfo = { t: string; n: string; cat1: string; cat2: string; cat3: string; color?: string };
 export type DayOverride = { picks: DayPick[]; courses?: CourseInfo[] };
 
 export type ShiftRangeDef = { days: string[] | null; start: string; end: string };
@@ -191,6 +191,7 @@ function normalizeDayOverride(raw: unknown): DayOverride {
         cat1: String(x.cat1 ?? ""),
         cat2: String(x.cat2 ?? ""),
         cat3: String(x.cat3 ?? ""),
+        color: typeof x.color === "string" ? x.color : undefined,
       };
     });
     return { picks: base.picks, courses };

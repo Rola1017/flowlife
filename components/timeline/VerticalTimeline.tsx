@@ -93,7 +93,7 @@ export function VerticalTimeline({
   }, []);
 
   const schedulePln = useMemo(() => {
-    type Cell = { t: string; n: string; cat1: string; cat2: string; cat3: string };
+    type Cell = { t: string; n: string; cat1: string; cat2: string; cat3: string; color?: string };
     const cells = coursesForDate(date) as Cell[];
 
     const fixedBlocks = routineBlocksInWindow(wStart, wEnd, date).map((b) => ({
@@ -115,7 +115,8 @@ export function VerticalTimeline({
     const courseBlocks = cells.map((cell) => {
       const end = addHalfHour(cell.t);
       const label = cell.n || cell.cat3 || cell.cat2 || cell.cat1;
-      const color = CAT.deepColorFull(cell.cat1, cell.cat2 || undefined, cell.cat3 || undefined);
+      const color =
+        cell.color || CAT.deepColorFull(cell.cat1, cell.cat2 || undefined, cell.cat3 || undefined);
       return { start: cell.t, end, label, color, kind: "course" as const };
     });
 
