@@ -25,6 +25,7 @@ import { useAppStateCloudSync } from "@/components/hooks/useAppStateCloudSync";
 import { subscribeSessions, syncSessionDiffToCloud } from "@/lib/sessionsCloud";
 import { APP_STATE_KEYS, pushAppState, subscribeAppState } from "@/lib/appStateCloud";
 import { ensureWorkplacesSeeded, ensureRoutineSeeded } from "@/lib/schedule";
+import { toM } from "@/lib/utils";
 import { Card } from "@/components/ui/Card";
 import { Header } from "@/components/Header";
 import { HomePage } from "@/components/home/HomePage";
@@ -136,7 +137,6 @@ function AppContent() {
   const [restEndAt, setRestEndAt] = useState<number | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [resetVersion, setResetVersion] = useState(0);
-  const lastAutoIdleKeyRef = useRef<string>("");
 
   const { todos, handleStart, handleEnd, handleToggleDone, addTodo, updateTodo, resetTodos } = useTodos([]);
 
@@ -390,23 +390,42 @@ function AppContent() {
   }, [idleTotalSecs, hydrated]);
 
   useEffect(() => {
-    const t = setInterval(() => {
+    const TARGETS = ["08:00", "13:30"] as const;
+    const tick = () => {
       const now = new Date();
       const dow = now.getDay(); // 1~5 => Mon~Fri
       if (dow < 1 || dow > 5) return;
-      const h = now.getHours();
-      const m = now.getMinutes();
-      const isTargetTime = (h === 8 && m === 0) || (h === 13 && m === 30);
-      if (!isTargetTime) return;
-
-      const slot = `${h}:${String(m).padStart(2, "0")}`;
-      const dateKey = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}-${slot}`;
-      if (lastAutoIdleKeyRef.current === dateKey) return;
-      lastAutoIdleKeyRef.current = dateKey;
-
-      setIdleTrackStart((prev) => prev ?? Date.now());
-    }, 1000);
-    return () => clearInterval(t);
+      const nowMins = now.getHours() * 60 + now.getMinutes();
+      const flagKey = `${LS_KEYS.idleAutoFlag}${CFG.TODAY_STR}`;
+      const fired = new Set(
+        (localStorage.getItem(flagKey) ?? "")
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
+      );
+      let changed = false;
+      for (const T of TARGETS) {
+        if (nowMins < toM(T)) continue;
+        if (fired.has(T)) continue;
+        // 娛樂進行中：記旗標、不起算（避免結束後從 T 補算把娛樂時段算進去）
+        if (entRef.current) {
+          fired.add(T);
+          changed = true;
+          continue;
+        }
+        const base = new Date();
+        const [h, m] = T.split(":").map(Number);
+        base.setHours(h, m, 0, 0);
+        const tMs = base.getTime();
+        setIdleTrackStart((prev) => prev ?? tMs); // 已在計則不覆寫；起點＝T 不少計
+        fired.add(T);
+        changed = true;
+      }
+      if (changed) localStorage.setItem(flagKey, [...fired].join(","));
+    };
+    tick(); // 開 App 立即補觸發
+    const id = setInterval(tick, 60_000);
+    return () => clearInterval(id);
   }, []);
 
   const push = (type: string, props: Record<string, unknown> = {}) => setSubPage({ type, props });

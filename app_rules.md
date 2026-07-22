@@ -497,6 +497,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **R1 固定作息資料化＋小項/細節＋編輯器**：`RoutineBlock` 擴充 `emoji`/`items`；`DEFAULT_ROUTINE`＋`loadRoutine`/`saveRoutine`/`ensureRoutineSeeded`（LS＋`app_state key="routine"`）；`routineFor` 改讀 `loadRoutine`；`routineLabel` 存檔時組字；課表頁 `RoutineManager`（加行/小項/細節/重設）；顯示端沿用 `label`，`blockedRanges` 僅用 start/end。
 - **R3 課表頭尾折疊＋作息拖曳排序**：課表核心視窗 `06:00–23:00`，可展開凌晨/深夜；`buildRows(winStart,winEnd)` 單一視窗；班別覆蓋層跟 `HALF_SLOTS` 自動偏移。`RoutineManager` 原生 HTML5 拖曳排序，`persist` 不再強制依時間排序。
 - **作息時間重疊防護＋小項拖曳**：`lib/schedule.timeRangesOverlap`／`overlappingIndices` 共用檢查器；`RoutineManager` 紅框＋頂部警告＋完成確認；小項列可 ⋮ 拖曳（`stopPropagation` 不干擾行拖曳）。
+- **未利用自動起算改補觸發**：平日 08:00／13:30 改為「已過時刻且今日旗標未記 → 立即起算」；起點＝該時刻時間戳（不少計）；`LS_KEYS.idleAutoFlag`+日期防重複；娛樂進行中只記旗標不起算；專注中仍由 `usePomodoro` 熄滅 idle。
 - **便利貼衝突處理強化（自訂鈕高亮＋一鍵移除）**：班課衝突時記住 `ovPendingPick`；尚未自訂課程時「👉 點我自訂這天課程」改黃色高亮。提醒橫幅新增含確認的「🗑 移除這 N 堂衝突課，並排入此班」：透過 `setOvCourses` 將週課 materialize 成當日自訂快照、刪除衝突課並避免重複地排入待排班別；取消確認不變更。開啟／切日期／關提醒／逐堂刪完皆同步清衝突與 pending state。
 - **課表複製貼上「自動清潔＋貼不上提醒」**：複製「課程＋班別」貼上時以 `shiftRange(place, shift, day)!==""` 過濾 picks（只貼該天真能排的班，消除隱形貼券）；被略過的班以頁面層 `pasteNotice` ⚠️橫幅明列（哪個班、哪天、去管理工作場所開可上班日）；單日貼上與「貼到選取的 N 天」皆適用；複製/關閉清提醒。未動 `lib/schedule.ts`／排班模型。
 - **便利貼微調（衝突紅格＋格內✕）**：班課衝突時衝突課格紅框紅底點亮（`ovConflictSlots`）、提醒精簡為一句含班別名；自訂狀態課格內建 ✕ 一鍵刪（刪完衝突自動消提醒）；沿用每週固定時紅格仍顯示但無 ✕；底部編輯器移除「移除這格」只留選/換科目。
@@ -602,5 +603,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/07/22（作息時間重疊防護＋小項拖曳排序）*
+*最後更新：2026/07/22（未利用自動起算改補觸發）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*
