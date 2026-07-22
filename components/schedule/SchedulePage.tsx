@@ -97,7 +97,7 @@ const STEP = ROW_H + GAP;
 
 const DAYS = ["一", "二", "三", "四", "五", "六", "日"] as const;
 /** 日欄寬 ≈ 原 1fr（minWidth520 時 ~68px）×2；時間欄 44 不變 */
-const DAY_COL_MIN = 128;
+const DAY_COL_MIN = 85;
 const GRID_COLS = `44px repeat(7, minmax(${DAY_COL_MIN}px, 1fr))`;
 const COL_W = `calc((100% - 44px - ${7 * GAP}px) / 7)`;
 const SCHED_MIN_W = 44 + 7 * DAY_COL_MIN + 7 * GAP;

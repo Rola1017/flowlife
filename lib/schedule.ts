@@ -438,3 +438,100 @@ export function currentOrNextCourse(now: Date = new Date()): CourseNow | null {
   }
   return null;
 }
+
+type CatRef = { cat1?: string; cat2?: string; cat3?: string };
+
+function categoryRefHit(
+  c: CatRef,
+  level: 1 | 2 | 3,
+  cat1: string,
+  cat2?: string,
+  cat3?: string,
+): boolean {
+  if ((c.cat1 ?? "") !== cat1) return false;
+  if (level >= 2 && (c.cat2 ?? "") !== (cat2 ?? "")) return false;
+  if (level === 3 && (c.cat3 ?? "") !== (cat3 ?? "")) return false;
+  return true;
+}
+
+/** 僅查詢會受影響的格數（刪除前提示用），不修改資料 */
+export function countCategoryRefs(
+  level: 1 | 2 | 3,
+  cat1: string,
+  cat2?: string,
+  cat3?: string,
+): number {
+  let n = 0;
+  const week = loadJSON<Record<string, CatRef[]>>(LS_KEYS.weekSchedule, {});
+  for (const rows of Object.values(week)) {
+    for (const r of rows) {
+      if (categoryRefHit(r, level, cat1, cat2, cat3)) n++;
+    }
+  }
+  const ovs = loadDayOverrides();
+  for (const ov of Object.values(ovs)) {
+    if (ov.courses === undefined) continue;
+    for (const c of ov.courses) {
+      if (categoryRefHit(c, level, cat1, cat2, cat3)) n++;
+    }
+  }
+  return n;
+}
+
+/** 分類刪除後，把課表與便利貼中引用該分類的格子降級為未分類（保留課名與時段，不毀資料）。
+ *  回傳受影響格數。level: 1=大分類 2=中分類 3=小分類 */
+export function purgeCategoryRefs(
+  level: 1 | 2 | 3,
+  cat1: string,
+  cat2?: string,
+  cat3?: string,
+): number {
+  let affected = 0;
+  const hit = (c: CatRef) => categoryRefHit(c, level, cat1, cat2, cat3);
+  const degrade = <T extends CatRef>(c: T): T => {
+    affected++;
+    if (level === 3) return { ...c, cat3: "" };
+    if (level === 2) return { ...c, cat2: "", cat3: "" };
+    return { ...c, cat1: "未分類", cat2: "", cat3: "" };
+  };
+
+  const week = loadJSON<
+    Record<string, { t: string; n: string; cat1?: string; cat2?: string; cat3?: string }[]>
+  >(LS_KEYS.weekSchedule, {});
+  let weekChanged = false;
+  const nextWeek: typeof week = {};
+  for (const [day, rows] of Object.entries(week)) {
+    nextWeek[day] = rows.map((r) => {
+      if (!hit(r)) return r;
+      weekChanged = true;
+      return degrade(r);
+    });
+  }
+  if (weekChanged) {
+    saveJSON(LS_KEYS.weekSchedule, nextWeek);
+    notifyAppState(APP_STATE_KEYS.weekSchedule);
+    void pushAppState(APP_STATE_KEYS.weekSchedule, nextWeek);
+  }
+
+  const ovs = loadDayOverrides();
+  let ovChanged = false;
+  const nextOvs: Record<string, DayOverride> = {};
+  for (const [d, ov] of Object.entries(ovs)) {
+    if (ov.courses === undefined) {
+      nextOvs[d] = ov;
+      continue;
+    }
+    const courses = ov.courses.map((c) => {
+      if (!hit(c)) return c;
+      ovChanged = true;
+      return degrade(c);
+    });
+    nextOvs[d] = { ...ov, courses };
+  }
+  if (ovChanged) {
+    saveDayOverrides(nextOvs);
+    notifyAppState(APP_STATE_KEYS.dayOverrides);
+  }
+
+  return affected;
+}

@@ -11,6 +11,7 @@ import {
   saveCategories,
 } from "@/lib/categories";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
+import { countCategoryRefs, purgeCategoryRefs } from "@/lib/schedule";
 
 const DEFAULT_PALETTE = [
   "#EA0000",
@@ -280,9 +281,16 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
 
   const deleteBig = (bi: number) => {
     if (categories[bi].name === "未分類") return;
-    if (!window.confirm(`刪除大分類「${categories[bi].name}」？`)) return;
+    const name = categories[bi].name;
+    const n = countCategoryRefs(1, name);
+    const msg =
+      n > 0
+        ? `刪除「${name}」？課表／便利貼中有 ${n} 格使用此分類，將自動改為未分類（課名與時段保留）。\n已完成的番茄紀錄不受影響。`
+        : `刪除「${name}」？`;
+    if (!window.confirm(msg)) return;
     const next = categories.filter((_, i) => i !== bi);
     persist(next);
+    purgeCategoryRefs(1, name);
   };
 
   const addBig = () => {
@@ -317,10 +325,18 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
   };
 
   const deleteMid = (bi: number, mi: number) => {
-    if (!window.confirm(`刪除中分類「${categories[bi].mids[mi].name}」？`)) return;
+    const cat1 = categories[bi].name;
+    const cat2 = categories[bi].mids[mi].name;
+    const n = countCategoryRefs(2, cat1, cat2);
+    const msg =
+      n > 0
+        ? `刪除「${cat2}」？課表／便利貼中有 ${n} 格使用此分類，將自動改為未分類（課名與時段保留）。\n已完成的番茄紀錄不受影響。`
+        : `刪除「${cat2}」？`;
+    if (!window.confirm(msg)) return;
     const next = cloneData(categories);
     next[bi].mids.splice(mi, 1);
     persist(next);
+    purgeCategoryRefs(2, cat1, cat2);
   };
 
   const moveMid = (bi: number, mi: number, dir: -1 | 1) => {
@@ -354,10 +370,19 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
   };
 
   const deleteSub = (bi: number, mi: number, si: number) => {
-    if (!window.confirm(`刪除小分類「${categories[bi].mids[mi].subs[si].name}」？`)) return;
+    const cat1 = categories[bi].name;
+    const cat2 = categories[bi].mids[mi].name;
+    const cat3 = categories[bi].mids[mi].subs[si].name;
+    const n = countCategoryRefs(3, cat1, cat2, cat3);
+    const msg =
+      n > 0
+        ? `刪除「${cat3}」？課表／便利貼中有 ${n} 格使用此分類，將自動改為未分類（課名與時段保留）。\n已完成的番茄紀錄不受影響。`
+        : `刪除「${cat3}」？`;
+    if (!window.confirm(msg)) return;
     const next = cloneData(categories);
     next[bi].mids[mi].subs.splice(si, 1);
     persist(next);
+    purgeCategoryRefs(3, cat1, cat2, cat3);
   };
 
   const moveSub = (bi: number, mi: number, si: number, dir: -1 | 1) => {
@@ -389,6 +414,9 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
         <SL>大分類</SL>
         <p style={{ fontSize: 10, color: TH.muted, margin: "0 0 10px", lineHeight: 1.5 }}>
           中分類顏色可自訂（點色塊修改）；小分類繼承中分類顏色，依序漸淺。用 ↑↓ 調整排序。
+        </p>
+        <p style={{ fontSize: 10, color: TH.muted, margin: "0 0 10px", lineHeight: 1.5 }}>
+          💡 刪分類時，課表中使用它的格子會自動改為未分類，不會消失
         </p>
 
         {categories.map((big, bi) => {
