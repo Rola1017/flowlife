@@ -1,7 +1,7 @@
 import { CFG } from "@/lib/config";
 import { CAT } from "@/lib/categories";
 import { DS, DE, toM } from "@/lib/utils";
-import { availableSegments, idleGapsWithin } from "@/lib/idle";
+import { availableSegments, idleGapsWithin, idleMinutes } from "@/lib/idle";
 import { LS_KEYS, loadJSON } from "@/lib/storage";
 
 export type ActSegment = { start: string; end: string; label: string; color: string };
@@ -61,6 +61,41 @@ export function actIdleFor(
   if (cutoff <= winStart) return [];
   const avail = availableSegments(date, winStart, cutoff);
   return idleGapsWithin(avail, fills, 5);
+}
+
+/** 某日已利用時段（番茄 session ＋ 手動補登 override）。待辦實際時段由呼叫端可選傳入。 */
+export function usedFillsFor(date: string, extraFills: [number, number][] = []): [number, number][] {
+  const act = [...actSessionsFor(date), ...overridesFor(date)];
+  return [...act.map((b) => [toM(b.start), toM(b.end)] as [number, number]), ...extraFills];
+}
+
+/**
+ * 某日未利用分鐘（單一來源）。
+ * 今天：只算到「現在」；過去：整日；未來：0。
+ * nowMins 省略時以當下時間計算。
+ */
+export function idleMinutesForDate(
+  date: string,
+  nowMins?: number,
+  extraFills: [number, number][] = [],
+): number {
+  const cur =
+    nowMins ??
+    (() => {
+      const d = new Date();
+      return d.getHours() * 60 + d.getMinutes();
+    })();
+  const pct = ((cur - DS) / (DE - DS)) * 100;
+  const gaps = actIdleFor(date, pct, usedFillsFor(date, extraFills));
+  return idleMinutes(gaps);
+}
+
+/** 一段日期範圍的每日未利用分鐘（趨勢圖用） */
+export function idleSeries(
+  dates: string[],
+  nowMins?: number,
+): { date: string; mins: number }[] {
+  return dates.map((d) => ({ date: d, mins: idleMinutesForDate(d, nowMins) }));
 }
 
 export function buildActualSegments(

@@ -114,6 +114,19 @@ export function buildLineSeries(sessions: Session[], period: string, anchorY: nu
   return { labels, focus, pomos };
 }
 
+/** period 視窗內每一天（含端點） */
+export function datesInPeriod(period: string, anchorY: number, anchorM: number): string[] {
+  const { start, end } = periodRange(period, anchorY, anchorM);
+  const out: string[] = [];
+  const d = new Date(`${start}T12:00:00`);
+  const endD = new Date(`${end}T12:00:00`);
+  while (d <= endD) {
+    out.push(dstr(d));
+    d.setDate(d.getDate() + 1);
+  }
+  return out;
+}
+
 /** 行事曆主統計入口 */
 export function buildCalendarStats(opts: {
   sessions: Session[];

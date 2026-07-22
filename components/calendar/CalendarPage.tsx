@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
-import { buildCalendarStats, sessionMatches } from "@/lib/analytics";
+import { buildCalendarStats, sessionMatches, datesInPeriod } from "@/lib/analytics";
 import { CAT } from "@/lib/categories";
 import { availableMinutesFor, loadDayPlans, planForDate } from "@/lib/schedule";
 import { availableSegments, splitSessionsByAvailability } from "@/lib/idle";
+import { idleSeries } from "@/lib/timelineActual";
 import type { Session } from "@/lib/types";
 import { fmt, getDaysInMonth, getFirstDow } from "@/lib/utils";
 import { Chip } from "@/components/ui/Chip";
@@ -152,6 +153,19 @@ export function CalendarPage({
   const [monthOffset, setMonthOffset] = useState(0);
   const [weekOffset, setWeekOffset] = useState(0);
   const [period, setPeriod] = useState("月");
+  const [nowMins, setNowMins] = useState(() => {
+    const d = new Date();
+    return d.getHours() * 60 + d.getMinutes();
+  });
+  useEffect(() => {
+    const tick = () => {
+      const d = new Date();
+      setNowMins(d.getHours() * 60 + d.getMinutes());
+    };
+    tick();
+    const t = setInterval(tick, 60_000);
+    return () => clearInterval(t);
+  }, []);
   const baseM0 = CFG.TODAY.getFullYear() * 12 + CFG.TODAY.getMonth(); // 真實今天的絕對月索引
   const totalM0 = baseM0 + monthOffset;
   const curY = Math.floor(totalM0 / 12);
@@ -235,6 +249,23 @@ export function CalendarPage({
       .reduce((s, x) => s + (x.mins ?? 0), 0);
   }, [sessions, prevY, prevM, selCat1Set, selCat2]);
   const pctVsLast = prevTot ? Math.round(((mTot - prevTot) / prevTot) * 100) : 0;
+
+  const periodDates = useMemo(() => datesInPeriod(period, curY, curM), [period, curY, curM]);
+  const idlePeriodSeries = useMemo(() => idleSeries(periodDates, nowMins), [periodDates, nowMins]);
+  const idlePeriodTot = useMemo(
+    () => idlePeriodSeries.reduce((s, x) => s + x.mins, 0),
+    [idlePeriodSeries],
+  );
+  const idleLine = useMemo(
+    () => ({
+      labels: idlePeriodSeries.map((x) => {
+        const [, m, d] = x.date.split("-");
+        return `${m}/${d}`;
+      }),
+      data: idlePeriodSeries.map((x) => x.mins),
+    }),
+    [idlePeriodSeries],
+  );
 
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
   const weekNavLabel = useMemo(() => formatWeekNavRange(weekDates), [weekDates]);
@@ -427,6 +458,27 @@ export function CalendarPage({
               {pomo10}/{pomo25}
               <span style={{ fontSize: 7, color: TH.muted, fontWeight: 600, marginLeft: 3 }}>滿10/25分</span>
             </div>
+          </div>
+        </div>
+      )}
+      {calView === "month" && (
+        <div
+          style={{
+            background: TH.card,
+            border: `1px solid ${TH.border}`,
+            borderRadius: 10,
+            padding: "8px 10px",
+            marginTop: 5,
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+            <div>
+              <div style={{ fontSize: 8, color: TH.muted }}>未利用（{period}）</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: TH.muted }}>{fmt(idlePeriodTot)}</div>
+            </div>
+          </div>
+          <div style={{ fontSize: 9, color: TH.muted, marginTop: 4, lineHeight: 1.4 }}>
+            💡 今天的未利用會即時累積（不必等今天結束）
           </div>
         </div>
       )}
@@ -830,7 +882,14 @@ export function CalendarPage({
         </>
       )}
       {calView === "month" && (
-        <TriCharts chartData={chartData} lineD={lineD} period={period} onPeriodChange={setPeriod} label={chartLabel} />
+        <TriCharts
+          chartData={chartData}
+          lineD={lineD}
+          period={period}
+          onPeriodChange={setPeriod}
+          label={chartLabel}
+          idleLine={idleLine}
+        />
       )}
         </>
       )}

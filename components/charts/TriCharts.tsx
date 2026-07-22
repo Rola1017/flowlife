@@ -12,12 +12,14 @@ export function TriCharts({
   period,
   onPeriodChange,
   label,
+  idleLine,
 }: {
   chartData: { label: string; value: number; color: string }[];
   lineD: { labels: string[]; focus: number[] };
   period: string;
   onPeriodChange: (p: string) => void;
   label: string;
+  idleLine?: { labels: string[]; data: number[] };
 }) {
   const lineColor = chartData[0]?.color || TH.accent;
   return (
@@ -43,6 +45,14 @@ export function TriCharts({
         <SL>{period} 趨勢(時長)</SL>
         <LineChart data={lineD.focus} labels={lineD.labels} color={lineColor} height={70} />
       </Card>
+      {idleLine && idleLine.data.length >= 2 && (
+        <Card>
+          <SL>
+            {period} 未利用 趨勢(時長)
+          </SL>
+          <LineChart data={idleLine.data} labels={idleLine.labels} color={TH.muted} height={70} />
+        </Card>
+      )}
     </>
   );
 }
