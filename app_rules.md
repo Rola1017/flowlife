@@ -23,6 +23,7 @@
 - **【資料關聯地圖優先】**：動功能前先列出該資料被誰讀/寫/衍生，同一批改齊所有連動面，完成定義＝無任何一面漂移（日後併入對話與交接紀律 §8）。
 - **【副作用禁止置於 setState updater 內】**：`setState(updater)` 在 React 嚴格模式會雙執行，造成重複記錄等 bug；`setCoinIncomeLog`/`updateSessions`/`toast` 等副作用一律移出 updater 外（用 ref 讀目前值＋防重入）。
 - **【不變式守恆】**：每種資料先寫下不變式→單一寫入口強制把關→做成共用檢查器多處重用（併入 §8）。例：作息行時間互不重疊 → `timeRangesOverlap`／`overlappingIndices`。
+- **【區段輸出必須落在傳入視窗內】**：`availableSegments`／`subtract` 等區段運算的輸出必須完全落在 `[winStart, winEnd]`；只夾下界會讓未來不可用時段把可用區段撐出「現在」之後（未利用超界根因）。
 
 ---
 
@@ -499,6 +500,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **作息時間重疊防護＋小項拖曳**：`lib/schedule.timeRangesOverlap`／`overlappingIndices` 共用檢查器；`RoutineManager` 紅框＋頂部警告＋完成確認；小項列可 ⋮ 拖曳（`stopPropagation` 不干擾行拖曳）。
 - **未利用自動起算改補觸發**：平日 08:00／13:30 改為「已過時刻且今日旗標未記 → 立即起算」；起點＝該時刻時間戳（不少計）；`LS_KEYS.idleAutoFlag`+日期防重複；娛樂進行中只記旗標不起算；專注中仍由 `usePomodoro` 熄滅 idle。
 - **CFG.TODAY 現算＋未利用規則制**：`CFG.TODAY_STR`／`TODAY` 改 getter 每次現算（修跨午夜未利用整天填滿）；未利用改「落在 `availableSegments` 且未專注/娛樂 → 累積」規則制，移除寫死 08:00/13:30；`onFocusEnd`＋`pomoRunning` 串接。
+- **idle.subtract 夾上界**：`s = min(max(a,winStart), winEnd)`，修「未利用超出現在」根因（未來不可用時段起點被當成可用終點）；時間軸／月曆／未利用統計共用底層一併正確。
 - **便利貼衝突處理強化（自訂鈕高亮＋一鍵移除）**：班課衝突時記住 `ovPendingPick`；尚未自訂課程時「👉 點我自訂這天課程」改黃色高亮。提醒橫幅新增含確認的「🗑 移除這 N 堂衝突課，並排入此班」：透過 `setOvCourses` 將週課 materialize 成當日自訂快照、刪除衝突課並避免重複地排入待排班別；取消確認不變更。開啟／切日期／關提醒／逐堂刪完皆同步清衝突與 pending state。
 - **課表複製貼上「自動清潔＋貼不上提醒」**：複製「課程＋班別」貼上時以 `shiftRange(place, shift, day)!==""` 過濾 picks（只貼該天真能排的班，消除隱形貼券）；被略過的班以頁面層 `pasteNotice` ⚠️橫幅明列（哪個班、哪天、去管理工作場所開可上班日）；單日貼上與「貼到選取的 N 天」皆適用；複製/關閉清提醒。未動 `lib/schedule.ts`／排班模型。
 - **便利貼微調（衝突紅格＋格內✕）**：班課衝突時衝突課格紅框紅底點亮（`ovConflictSlots`）、提醒精簡為一句含班別名；自訂狀態課格內建 ✕ 一鍵刪（刪完衝突自動消提醒）；沿用每週固定時紅格仍顯示但無 ✕；底部編輯器移除「移除這格」只留選/換科目。
@@ -604,5 +606,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/07/22（CFG.TODAY 現算＋未利用規則制）*
+*最後更新：2026/07/22（idle.subtract 夾上界＝未利用超界根因）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*

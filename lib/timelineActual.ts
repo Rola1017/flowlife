@@ -63,32 +63,6 @@ export function actIdleFor(
   return idleGapsWithin(avail, fills, 5);
 }
 
-/** 純診斷：與 actIdleFor 相同的 cutoff／分支算法，不改計算邏輯 */
-export function idleCutoffDebug(
-  date: string,
-  nowPct: number,
-  winStart: number = DS,
-  winEnd: number = DE,
-): { branch: string; cutoff: number; cutoffHM: string } {
-  let branch = "";
-  let cutoff = 0;
-  if (date === CFG.TODAY_STR) {
-    branch = "today";
-    cutoff = Math.round(winStart + Math.min(1, Math.max(0, nowPct / 100)) * (winEnd - winStart));
-  } else if (date < CFG.TODAY_STR) {
-    branch = "past(全日)";
-    cutoff = winEnd;
-  } else {
-    branch = "future(空)";
-    cutoff = -1;
-  }
-  const hm =
-    cutoff < 0
-      ? "-"
-      : `${String(Math.floor(cutoff / 60)).padStart(2, "0")}:${String(cutoff % 60).padStart(2, "0")}`;
-  return { branch, cutoff, cutoffHM: hm };
-}
-
 export function buildActualSegments(
   date: string,
   nowPct: number,

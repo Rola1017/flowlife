@@ -15,7 +15,7 @@ import {
   routineBlocksInWindow,
 } from "@/lib/schedule";
 import { subscribeAppState, APP_STATE_KEYS } from "@/lib/appStateCloud";
-import { actSessionsFor, actIdleFor, idleCutoffDebug } from "@/lib/timelineActual";
+import { actSessionsFor, actIdleFor } from "@/lib/timelineActual";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 
 type TodoOverlay = {
@@ -791,28 +791,6 @@ export function VerticalTimeline({
         >
           {expandLate ? "▲ 收合深夜" : "▼ 展開深夜 23:00–24:00"}
         </button>
-      </div>
-      <div
-        style={{
-          marginTop: 6,
-          fontSize: 9,
-          color: TH.muted,
-          lineHeight: 1.6,
-          border: `1px dashed ${TH.border}`,
-          borderRadius: 8,
-          padding: "6px 8px",
-          wordBreak: "break-all",
-        }}
-      >
-        🔧 診斷｜顯示日期 date={date}｜今天 CFG.TODAY_STR={CFG.TODAY_STR}｜
-        相等？{String(date === CFG.TODAY_STR)}｜date&lt;今天？{String(date < CFG.TODAY_STR)}
-        <br />
-        現在 nowHM={nowHM()}｜wStart={wStart}｜wEnd={wEnd}｜curNowPct={curNowPct.toFixed(2)}
-        <br />
-        分支={idleCutoffDebug(date, curNowPct, wStart, wEnd).branch}｜
-        cutoff={idleCutoffDebug(date, curNowPct, wStart, wEnd).cutoffHM}
-        <br />
-        未利用區塊：{idleBlocks.map((g) => `${g.start}~${g.end}`).join(" / ") || "（無）"}
       </div>
     </div>
   );

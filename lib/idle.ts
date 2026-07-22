@@ -21,7 +21,7 @@ function subtract(winStart: number, winEnd: number, blocked: Interval[]): Interv
   const out: Interval[] = [];
   let pos = winStart;
   for (const [a, b] of blocked) {
-    const s = Math.max(a, winStart),
+    const s = Math.min(Math.max(a, winStart), winEnd),
       e = Math.min(b, winEnd);
     if (e <= pos) continue;
     if (s > pos) out.push([pos, s]);
