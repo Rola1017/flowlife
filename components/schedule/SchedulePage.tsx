@@ -96,11 +96,6 @@ const GAP = 2;
 const STEP = ROW_H + GAP;
 
 const DAYS = ["一", "二", "三", "四", "五", "六", "日"] as const;
-/** 日欄寬 ≈ 原 1fr（minWidth520 時 ~68px）×2；時間欄 44 不變 */
-const DAY_COL_MIN = 85;
-const GRID_COLS = `44px repeat(7, minmax(${DAY_COL_MIN}px, 1fr))`;
-const COL_W = `calc((100% - 44px - ${7 * GAP}px) / 7)`;
-const SCHED_MIN_W = 44 + 7 * DAY_COL_MIN + 7 * GAP;
 
 const inFixedSlot = (t: string, routine = loadRoutine()) =>
   routine.some((b) => toM(b.start) <= toM(t) && toM(t) < toM(b.end));
@@ -257,6 +252,32 @@ export function SchedulePage({
   const [ovCourseWarn, setOvCourseWarn] = useState<string | null>(null);
   const [ovConflictSlots, setOvConflictSlots] = useState<Set<string>>(new Set());
   const [ovPendingPick, setOvPendingPick] = useState<DayPick | null>(null);
+
+  /** 依目前所有課名量測最長寬度決定欄寬（單行不換行）；SSR 或無資料時用預設 */
+  const dayColMin = useMemo(() => {
+    const labels: string[] = [];
+    for (const rows of Object.values(sched)) {
+      for (const r of rows) labels.push(r.n || r.cat3 || r.cat2 || r.cat1 || "");
+    }
+    for (const ov of Object.values(dayOverrides)) {
+      for (const c of ov.courses ?? []) labels.push(c.n || c.cat3 || c.cat2 || c.cat1 || "");
+    }
+    const FALLBACK = 85;
+    if (labels.length === 0) return FALLBACK;
+    if (typeof document === "undefined") return FALLBACK;
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return FALLBACK;
+    ctx.font = "700 8px system-ui, -apple-system, 'Noto Sans TC', sans-serif";
+    let max = 0;
+    for (const l of labels) max = Math.max(max, ctx.measureText(l).width);
+    // 左右 padding 4+4、邊框 2、保險 6
+    return Math.round(Math.min(240, Math.max(60, max + 16)));
+  }, [sched, dayOverrides]);
+
+  const GRID_COLS = useMemo(() => `44px repeat(7, minmax(${dayColMin}px, 1fr))`, [dayColMin]);
+  const COL_W = `calc((100% - 44px - ${7 * GAP}px) / 7)`;
+  const SCHED_MIN_W = useMemo(() => 44 + 7 * dayColMin + 7 * GAP, [dayColMin]);
 
   const shiftLabelOf = (place: Place, shiftId: string) =>
     workplaces.find((w) => w.id === place)?.shifts.find((s) => s.id === shiftId)?.label ?? shiftId;
@@ -675,12 +696,10 @@ export function SchedulePage({
               fontSize: 8,
               fontWeight: 700,
               color: col ? labelOnDark(col) : undefined,
-              display: "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical",
-              whiteSpace: "normal",
+              whiteSpace: "nowrap",
+              textOverflow: "ellipsis",
               overflow: "hidden",
-              lineHeight: 1.15,
+              lineHeight: 1.2,
             }}
           >
             {cell.n || cell.cat3 || cell.cat2 || cell.cat1}
@@ -1833,6 +1852,9 @@ export function SchedulePage({
       </div>
       <div style={{ fontSize: 10, color: TH.muted }}>
         💡 點最上面的星期（一、二…）可複製整天課程／班別，再貼到其他天
+      </div>
+      <div style={{ fontSize: 10, color: TH.muted }}>
+        💡 欄寬會依「目前最長的課程名稱」自動調整，讓名稱能一行顯示
       </div>
       <div style={{ display: "flex", gap: 6, marginBottom: 4 }}>
         <button
