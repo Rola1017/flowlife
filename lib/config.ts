@@ -33,8 +33,12 @@ export function reminderLabel(id: unknown): string {
 }
 
 export const CFG = {
-  TODAY_STR: toLocalDateStr(),
-  TODAY: new Date(),
+  get TODAY_STR() {
+    return toLocalDateStr();
+  },
+  get TODAY() {
+    return new Date();
+  },
   DAY_START: "06:00",
   DAY_END: "23:00",
   /** 點「結束」後到變 done 的確認等待（ms） */
@@ -66,4 +70,4 @@ export const CFG = {
     { mins: 420, coins: 500, label: "7小時" },
   ],
   TIME_RANGES: ["3天", "7天", "14天", "月", "季"],
-} as const;
+};

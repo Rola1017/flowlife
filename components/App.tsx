@@ -25,7 +25,8 @@ import { useAppStateCloudSync } from "@/components/hooks/useAppStateCloudSync";
 import { subscribeSessions, syncSessionDiffToCloud } from "@/lib/sessionsCloud";
 import { APP_STATE_KEYS, pushAppState, subscribeAppState } from "@/lib/appStateCloud";
 import { ensureWorkplacesSeeded, ensureRoutineSeeded } from "@/lib/schedule";
-import { toM } from "@/lib/utils";
+import { DS, DE } from "@/lib/utils";
+import { availableSegments } from "@/lib/idle";
 import { Card } from "@/components/ui/Card";
 import { Header } from "@/components/Header";
 import { HomePage } from "@/components/home/HomePage";
@@ -130,6 +131,8 @@ function AppContent() {
   const [neutral, setNeutral] = useState(DEFAULT_RATINGS.neutral);
   const [distracted, setDistracted] = useState(DEFAULT_RATINGS.distracted);
   const [idleTrackStart, setIdleTrackStart] = useState<number | null>(null);
+  const idleTrackStartRef = useRef<number | null>(null);
+  const [pomoRunning, setPomoRunning] = useState(false);
   useReviewCloudSync();
   useSessionCloudSync();
   useAppStateCloudSync();
@@ -385,48 +388,40 @@ function AppContent() {
   }, [focused, neutral, distracted, hydrated]);
 
   useEffect(() => {
+    idleTrackStartRef.current = idleTrackStart;
+  }, [idleTrackStart]);
+
+  useEffect(() => {
     if (!hydrated) return;
     saveNumber(LS_KEYS.idleTotalSecs, idleTotalSecs);
   }, [idleTotalSecs, hydrated]);
 
+  // 未利用規則制：落在可用時段且未在專注/娛樂 → 累積；否則結算並停下
   useEffect(() => {
-    const TARGETS = ["08:00", "13:30"] as const;
     const tick = () => {
       const now = new Date();
-      const dow = now.getDay(); // 1~5 => Mon~Fri
-      if (dow < 1 || dow > 5) return;
-      const nowMins = now.getHours() * 60 + now.getMinutes();
-      const flagKey = `${LS_KEYS.idleAutoFlag}${CFG.TODAY_STR}`;
-      const fired = new Set(
-        (localStorage.getItem(flagKey) ?? "")
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean),
-      );
-      let changed = false;
-      for (const T of TARGETS) {
-        if (nowMins < toM(T)) continue;
-        if (fired.has(T)) continue;
-        // 娛樂進行中：記旗標、不起算（避免結束後從 T 補算把娛樂時段算進去）
-        if (entRef.current) {
-          fired.add(T);
-          changed = true;
-          continue;
+      const mins = now.getHours() * 60 + now.getMinutes();
+      const avail = availableSegments(CFG.TODAY_STR, DS, DE);
+      const inAvail = avail.some(([a, b]) => mins >= a && mins < b);
+      const shouldTrack = inAvail && !pomoRunning && !entRef.current;
+      const prev = idleTrackStartRef.current;
+      if (shouldTrack) {
+        if (prev == null) {
+          const t0 = Date.now();
+          idleTrackStartRef.current = t0;
+          setIdleTrackStart(t0);
         }
-        const base = new Date();
-        const [h, m] = T.split(":").map(Number);
-        base.setHours(h, m, 0, 0);
-        const tMs = base.getTime();
-        setIdleTrackStart((prev) => prev ?? tMs); // 已在計則不覆寫；起點＝T 不少計
-        fired.add(T);
-        changed = true;
+      } else if (prev != null) {
+        const el = Math.floor((Date.now() - prev) / 1000);
+        idleTrackStartRef.current = null;
+        setIdleTrackStart(null);
+        if (el > 0) setIdleTotalSecs((v) => v + el);
       }
-      if (changed) localStorage.setItem(flagKey, [...fired].join(","));
     };
-    tick(); // 開 App 立即補觸發
-    const id = setInterval(tick, 60_000);
-    return () => clearInterval(id);
-  }, []);
+    tick();
+    const t = setInterval(tick, 60_000);
+    return () => clearInterval(t);
+  }, [pomoRunning, ent]);
 
   const push = (type: string, props: Record<string, unknown> = {}) => setSubPage({ type, props });
   const pop = () => setSubPage(null);
@@ -764,7 +759,11 @@ function AppContent() {
       restEndAt={restEndAt}
       setRestEndAt={setRestEndAt}
       resetVersion={resetVersion}
-      onFocusStart={endEntertainment}
+      onFocusStart={() => {
+        setPomoRunning(true);
+        endEntertainment();
+      }}
+      onFocusEnd={() => setPomoRunning(false)}
     />
   );
 

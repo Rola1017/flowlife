@@ -57,6 +57,7 @@ export function usePomodoro({
   coinIncomeLog,
   setCoinIncomeLog,
   onFocusStart,
+  onFocusEnd,
 }: {
   sessions: Session[];
   setSessions: Dispatch<SetStateAction<Session[]>>;
@@ -73,6 +74,7 @@ export function usePomodoro({
   coinIncomeLog: CoinIncomeLogRow[];
   setCoinIncomeLog: Dispatch<SetStateAction<CoinIncomeLogRow[]>>;
   onFocusStart?: () => void;
+  onFocusEnd?: () => void;
 }) {
   const REWARD_FX_MS = 3700;
 
@@ -146,6 +148,7 @@ export function usePomodoro({
     restWasActiveRef.current = false;
     focusReadyToBreakRef.current = false;
     setLastSessionId(null);
+    onFocusEnd?.();
   }, [resetVersion]);
 
   useEffect(() => {
@@ -235,7 +238,7 @@ export function usePomodoro({
   }, [idleTrackStart]);
 
   // 不變量：專注中（或休息進行中）未利用時間必為關。
-  // 任何來源（如 App.tsx 平日 08:00／13:30 自動排程）誤點燃 idle，都在此立即熄滅，
+  // 任何來源（如 App 規則制 tick）誤點燃 idle，都在此立即熄滅，
   // 且「不累加」——那段時間是專注/休息，不是閒置（這是刻意的，勿改成累加）。
   useEffect(() => {
     if ((mode === "focus" || restSecs > 0) && idleTrackStart) {
@@ -457,6 +460,7 @@ export function usePomodoro({
     if (!isNoCoin) {
       setRewardFx({ id: Date.now(), amount: totalGain, big: dur > 25, treasure: isTreasure });
     }
+    onFocusEnd?.();
   };
 
   const updateReflection = (id: number, text: string) => {
@@ -495,6 +499,7 @@ export function usePomodoro({
     setRestTotalSecs(0);
     setIdleSecs(0);
     setIdleTrackStart(Date.now());
+    onFocusEnd?.();
   };
 
   const todayDate = localDateParts().date;

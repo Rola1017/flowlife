@@ -28,8 +28,6 @@ export const LS_KEYS = {
   shopItems: `${STORAGE_PREFIX}shop_items`,
   activeEnt: `${STORAGE_PREFIX}active_entertainment`,
   routine: `${STORAGE_PREFIX}routine`,
-  /** 未利用自動起算今日旗標前綴，完整 key＝idleAutoFlag + YYYY-MM-DD */
-  idleAutoFlag: `${STORAGE_PREFIX}idle_auto_`,
 } as const;
 
 function assertVersionedKey(key: string): void {
