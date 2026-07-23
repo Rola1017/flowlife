@@ -5,7 +5,7 @@ import { CFG } from "@/lib/config";
 import { CAT } from "@/lib/categories";
 import { TH } from "@/lib/theme";
 import { LS_KEYS } from "@/lib/storage";
-import { fmt, fmtIdleTime, toM } from "@/lib/utils";
+import { fmt, fmtIdleHM, toM } from "@/lib/utils";
 import { currentScheduleBlock } from "@/lib/schedule";
 import { Card, SL } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
@@ -433,8 +433,60 @@ export function PomodoroPage({
     );
   };
 
+  const activityCard =
+    activity.kind === "idle" ? (
+      <div
+        style={{
+          width: "100%",
+          background: "#1C1C22",
+          border: `1px solid #2E2E38`,
+          borderRadius: 14,
+          padding: "12px 16px",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+          <span style={{ fontSize: 16 }}>⏳</span>
+          <div>
+            <div style={{ fontSize: 10, color: TH.red, fontWeight: 700 }}>當日未利用時間加總</div>
+          </div>
+          <div style={{ marginLeft: "auto", fontSize: 20, fontWeight: 900, color: TH.red }}>
+            {fmtIdleHM(idleTotalToday)}
+          </div>
+        </div>
+        <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4 }}>
+          💡 只算今天、且已扣掉睡眠與上班時段；沒有安排活動時預設就在累積
+        </div>
+      </div>
+    ) : (
+      <div
+        style={{
+          width: "100%",
+          background: "#1C1C22",
+          border: `1px solid #2E2E38`,
+          borderRadius: 14,
+          padding: "12px 16px",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: TH.text, flex: 1, minWidth: 0 }}>
+            {activity.label}
+          </div>
+          {activity.start && activity.end && (
+            <div style={{ fontSize: 11, color: TH.muted, fontWeight: 700, flexShrink: 0 }}>
+              {activity.start}～{activity.end}
+              <span style={{ marginLeft: 6, color: TH.accent }}>剩 {remainMins} 分</span>
+            </div>
+          )}
+        </div>
+        <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4 }}>
+          今日未利用 {fmtIdleHM(idleTotalToday)}
+        </div>
+      </div>
+    );
+
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, width: "100%" }}>
+      {activityCard}
       <CourseBanner
         onQuickStart={
           mode !== "focus"
@@ -1102,55 +1154,6 @@ export function PomodoroPage({
             {tot < yLearn ? `🎯 再 ${fmt(yLearn - tot)} 超越昨天學習` : `✅ 已超越昨天！+${fmt(tot - yLearn)}`}
           </div>
         </>
-      )}
-      {activity.kind === "idle" ? (
-        <div
-          style={{
-            width: "100%",
-            background: "#1C1C22",
-            border: `1px solid #2E2E38`,
-            borderRadius: 14,
-            padding: "12px 16px",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-            <span style={{ fontSize: 16 }}>⏳</span>
-            <div>
-              <div style={{ fontSize: 10, color: TH.red, fontWeight: 700 }}>當日未利用時間加總</div>
-            </div>
-            <div style={{ marginLeft: "auto", fontSize: 20, fontWeight: 900, color: TH.red }}>
-              {fmtIdleTime(idleTotalToday)}
-            </div>
-          </div>
-          <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4 }}>
-            💡 只算今天、且已扣掉睡眠與上班時段；沒有安排活動時預設就在累積
-          </div>
-        </div>
-      ) : (
-        <div
-          style={{
-            width: "100%",
-            background: "#1C1C22",
-            border: `1px solid #2E2E38`,
-            borderRadius: 14,
-            padding: "12px 16px",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: TH.text, flex: 1, minWidth: 0 }}>
-              {activity.label}
-            </div>
-            {activity.start && activity.end && (
-              <div style={{ fontSize: 11, color: TH.muted, fontWeight: 700, flexShrink: 0 }}>
-                {activity.start}～{activity.end}
-                <span style={{ marginLeft: 6, color: TH.accent }}>剩 {remainMins} 分</span>
-              </div>
-            )}
-          </div>
-          <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4 }}>
-            今日未利用 {fmtIdleTime(idleTotalToday)}
-          </div>
-        </div>
       )}
       <Card style={{ width: "100%" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
