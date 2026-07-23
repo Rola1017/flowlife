@@ -100,6 +100,8 @@ export function VerticalTimeline({
       start: b.start,
       end: b.end,
       label: b.label,
+      emoji: b.emoji,
+      items: b.items,
       color: "",
       kind: "fixed" as const,
     }));
@@ -341,7 +343,25 @@ export function VerticalTimeline({
                   whiteSpace: "nowrap",
                 }}
               >
-                {item.label}
+                {isFixed && "items" in item && item.items && item.items.length > 0 ? (
+                  <>
+                    {item.emoji ? `${item.emoji} ` : ""}
+                    {item.items.map((it, j) => (
+                      <span
+                        key={j}
+                        style={{
+                          color: it.hi ? TH.yellow : TH.muted,
+                          fontWeight: it.hi ? 900 : 700,
+                        }}
+                      >
+                        {j > 0 ? "、" : ""}
+                        {it.name}
+                      </span>
+                    ))}
+                  </>
+                ) : (
+                  item.label
+                )}
               </div>
             </div>
           );

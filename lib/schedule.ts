@@ -243,7 +243,7 @@ export function planForDate(
   return plans[weekdayOf(dateStr)] ?? { picks: [] };
 }
 
-export type RoutineItem = { name: string; detail?: string };
+export type RoutineItem = { name: string; detail?: string; hi?: boolean };
 export type RoutineBlock = {
   start: string;
   end: string;
@@ -279,7 +279,11 @@ export function loadRoutine(): RoutineBlock[] {
   return raw.map((b) => {
     const items =
       Array.isArray(b.items) && b.items.length
-        ? b.items.map((it) => ({ name: String(it.name ?? ""), detail: it.detail }))
+        ? b.items.map((it) => ({
+            name: String(it.name ?? ""),
+            detail: it.detail,
+            hi: it.hi === true,
+          }))
         : [{ name: (b.label ?? "作息").replace(/^\S+\s/, "") || "作息" }];
     return {
       start: b.start,
@@ -335,7 +339,7 @@ export function routineBlocksInWindow(startMin: number, endMin: number, dateStr?
   for (const b of routineFor(dateStr)) {
     const s = Math.max(startMin, toMin(b.start));
     const e = Math.min(endMin, toMin(b.end));
-    if (e > s) out.push({ start: fmtHM(s), end: fmtHM(e), label: b.label });
+    if (e > s) out.push({ start: fmtHM(s), end: fmtHM(e), label: b.label, emoji: b.emoji, items: b.items });
   }
   return out;
 }
@@ -538,7 +542,8 @@ export function purgeCategoryRefs(
 }
 
 export type NowActivity =
-  | { kind: "routine" | "shift" | "course"; label: string; start: string; end: string };
+  | { kind: "routine"; label: string; start: string; end: string; items?: RoutineItem[] }
+  | { kind: "shift" | "course"; label: string; start: string; end: string };
 
 /** 某日某時刻落在哪個「已規劃」區塊（作息＞班別＞課程）。都不落＝null（＝未利用預設態）。 */
 export function currentScheduleBlock(
@@ -552,7 +557,8 @@ export function currentScheduleBlock(
     return nowMins >= a && nowMins < b;
   };
   for (const b of routineFor(dateStr)) {
-    if (inRange(b.start, b.end)) return { kind: "routine", label: b.label, start: b.start, end: b.end };
+    if (inRange(b.start, b.end))
+      return { kind: "routine", label: b.label, start: b.start, end: b.end, items: b.items };
   }
   const overrides = loadDayOverrides();
   const isOv = !!overrides[dateStr];

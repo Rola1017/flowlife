@@ -22,7 +22,7 @@ export function RoutineManager({ onClose }: { onClose: () => void }) {
   };
   const updRow = (i: number, patch: Partial<RoutineBlock>) =>
     persist(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
-  const updItem = (ri: number, ii: number, patch: Partial<{ name: string; detail: string }>) =>
+  const updItem = (ri: number, ii: number, patch: Partial<{ name: string; detail: string; hi: boolean }>) =>
     updRow(ri, {
       items: (rows[ri].items ?? []).map((it, idx) => (idx === ii ? { ...it, ...patch } : it)),
     });
@@ -103,6 +103,9 @@ export function RoutineManager({ onClose }: { onClose: () => void }) {
       </div>
       <div style={{ fontSize: 10, color: TH.muted, marginBottom: 8 }}>
         💡 每行可放多個小項，小項可填「細節」（之後點小項會看到）；行上顯示的字＝小項名稱串起來
+      </div>
+      <div style={{ fontSize: 10, color: TH.muted, marginBottom: 10, lineHeight: 1.5 }}>
+        💡 點一下小項可『點亮』成黃色，讓它在行程表更醒目（再點一下取消）
       </div>
       {hasConflict && (
         <div
@@ -218,14 +221,42 @@ export function RoutineManager({ onClose }: { onClose: () => void }) {
                     setItemDrag(null);
                     updRow(ri, { items });
                   }}
-                  style={{ display: "flex", gap: 4, alignItems: "center" }}
+                  style={{
+                    display: "flex",
+                    gap: 4,
+                    alignItems: "center",
+                    borderRadius: 6,
+                    border: it.hi ? `1px solid ${TH.yellow}66` : "1px solid transparent",
+                    padding: it.hi ? "2px 4px" : "2px 0",
+                  }}
                 >
                   <span style={{ cursor: "grab", color: TH.muted, fontSize: 11 }}>⋮</span>
+                  <button
+                    type="button"
+                    title={it.hi ? "取消點亮" : "點亮"}
+                    onClick={() => updItem(ri, ii, { hi: !it.hi })}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      fontSize: 12,
+                      padding: "0 2px",
+                      color: it.hi ? TH.yellow : TH.muted,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {it.hi ? "⭐" : "☆"}
+                  </button>
                   <input
                     value={it.name}
                     onChange={(e) => updItem(ri, ii, { name: e.target.value })}
                     placeholder="小項名稱"
-                    style={{ ...inp, flex: 1 }}
+                    style={{
+                      ...inp,
+                      flex: 1,
+                      color: it.hi ? TH.yellow : TH.text,
+                      fontWeight: it.hi ? 900 : 400,
+                    }}
                   />
                   <input
                     value={it.detail ?? ""}

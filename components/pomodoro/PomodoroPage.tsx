@@ -469,7 +469,24 @@ export function PomodoroPage({
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
           <div style={{ fontSize: 13, fontWeight: 800, color: TH.text, flex: 1, minWidth: 0 }}>
-            {activity.label}
+            {activity.kind === "routine" && activity.items && activity.items.length > 0 ? (
+              <>
+                {activity.items.map((it, j) => (
+                  <span
+                    key={j}
+                    style={{
+                      color: it.hi ? TH.yellow : TH.text,
+                      fontWeight: it.hi ? 900 : 800,
+                    }}
+                  >
+                    {j > 0 ? "、" : ""}
+                    {it.name}
+                  </span>
+                ))}
+              </>
+            ) : (
+              activity.label
+            )}
           </div>
           {activity.start && activity.end && (
             <div style={{ fontSize: 11, color: TH.muted, fontWeight: 700, flexShrink: 0 }}>

@@ -27,6 +27,7 @@ import {
   saveWorkplaces,
   loadRoutine,
   type RoutineBlock,
+  type RoutineItem,
 } from "@/lib/schedule";
 import { subscribeAppState, pushAppState, APP_STATE_KEYS } from "@/lib/appStateCloud";
 import { CFG } from "@/lib/config";
@@ -51,7 +52,14 @@ type RawSchedRow = {
 };
 
 type RowDef =
-  | { kind: "fixed"; times: string[]; label: string; span: "all" | "weekday" }
+  | {
+      kind: "fixed";
+      times: string[];
+      label: string;
+      span: "all" | "weekday";
+      emoji?: string;
+      items?: RoutineItem[];
+    }
   | { kind: "class"; time: string };
 
 const CORE_START_MIN = toM("06:00");
@@ -60,6 +68,29 @@ const FULL_START_MIN = 0;
 const FULL_END_MIN = 24 * 60;
 const fmtHM2 = (m: number) =>
   `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+
+function renderFixedRoutineText(row: Extract<RowDef, { kind: "fixed" }>) {
+  if (row.items && row.items.length > 0) {
+    return (
+      <>
+        {row.emoji ? `${row.emoji} ` : ""}
+        {row.items.map((it, j) => (
+          <span
+            key={j}
+            style={{
+              color: it.hi ? TH.yellow : TH.muted,
+              fontWeight: it.hi ? 900 : 700,
+            }}
+          >
+            {j > 0 ? "、" : ""}
+            {it.name}
+          </span>
+        ))}
+      </>
+    );
+  }
+  return row.label;
+}
 
 // 課表固定列由 loadRoutine() 衍生（單一來源）；視窗起訖決定顯示範圍
 function buildRows(routine: RoutineBlock[], winStart: number, winEnd: number): RowDef[] {
@@ -74,7 +105,14 @@ function buildRows(routine: RoutineBlock[], winStart: number, winEnd: number): R
         times.push(fmtHM2(t));
         t += 30;
       }
-      rows.push({ kind: "fixed", times, label: blk.label, span: "all" });
+      rows.push({
+        kind: "fixed",
+        times,
+        label: blk.label,
+        span: "all",
+        emoji: blk.emoji,
+        items: blk.items,
+      });
     } else {
       rows.push({ kind: "class", time: fmtHM2(t) });
       t += 30;
@@ -1091,7 +1129,7 @@ export function SchedulePage({
                       }}
                     >
                       <div style={{ ...timeColStyle }}>{row.times[0]}</div>
-                      <div style={{ ...fixedCellStyle, height: "100%" }}>{row.label}</div>
+                      <div style={{ ...fixedCellStyle, height: "100%" }}>{renderFixedRoutineText(row)}</div>
                     </div>
                   );
                 }
@@ -2089,7 +2127,7 @@ export function SchedulePage({
                         <div style={timeColStyleFor(row.times[0])}>{row.times[0]}</div>
                       </div>
                       <div style={{ ...fixedCellStyle, gridColumn: "2 / -1", height: "100%" }}>
-                        {row.label}
+                        {renderFixedRoutineText(row)}
                       </div>
                     </div>
                   );
@@ -2100,7 +2138,7 @@ export function SchedulePage({
                       <div style={timeColStyleFor(row.times[0])}>{row.times[0]}</div>
                     </div>
                     <div style={{ ...fixedCellStyle, gridColumn: "span 5", height: "100%" }}>
-                      {row.label}
+                      {renderFixedRoutineText(row)}
                     </div>
                     <div style={wePlaceholderStyle} />
                     <div style={wePlaceholderStyle} />
