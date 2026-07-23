@@ -518,6 +518,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **固定作息小項可點亮**：`RoutineItem.hi`（長期重點標記，隨 `saveRoutine` 上雲）；`loadRoutine` 正規化保留 hi；`routineBlocksInWindow`／`currentScheduleBlock` 一併帶出 emoji＋items；行程表／課表固定列／番茄鐘當前活動卡三處統一逐項渲染，hi 者黃色粗體；label 組法不受 hi 影響。
 - **作息小項列排版治本**：input 加 `minWidth:0`＋`boxSizing:border-box`，點亮/未點亮 padding 與 border 等寬（未點亮用 transparent），✕/⭐/⋮ 皆 `flexShrink:0` → 任何狀態下刪除鈕恆可見可按；當前活動卡「今日未利用」改紅色。
 - **拖曳排序統一積木**：新增 `components/ui/SortableList.tsx`（dnd-kit，pointer/touch/keyboard sensors、即時讓位動畫、把手觸發），`RoutineManager` 行與小項兩層改用之，移除全庫 HTML5 `draggable` 實作。日後任何排序需求一律套用此元件，不得另寫拖曳邏輯。當前活動卡「今日未利用」文字字重 400、數字 800，皆紅色。
+- **當前活動卡未利用數字加底線**：數字 `textDecoration:underline`＋`textUnderlineOffset:3`；「今日未利用」四字不加底線。
 - **便利貼衝突處理強化（自訂鈕高亮＋一鍵移除）**：班課衝突時記住 `ovPendingPick`；尚未自訂課程時「👉 點我自訂這天課程」改黃色高亮。提醒橫幅新增含確認的「🗑 移除這 N 堂衝突課，並排入此班」：透過 `setOvCourses` 將週課 materialize 成當日自訂快照、刪除衝突課並避免重複地排入待排班別；取消確認不變更。開啟／切日期／關提醒／逐堂刪完皆同步清衝突與 pending state。
 - **課表複製貼上「自動清潔＋貼不上提醒」**：複製「課程＋班別」貼上時以 `shiftRange(place, shift, day)!==""` 過濾 picks（只貼該天真能排的班，消除隱形貼券）；被略過的班以頁面層 `pasteNotice` ⚠️橫幅明列（哪個班、哪天、去管理工作場所開可上班日）；單日貼上與「貼到選取的 N 天」皆適用；複製/關閉清提醒。未動 `lib/schedule.ts`／排班模型。
 - **便利貼微調（衝突紅格＋格內✕）**：班課衝突時衝突課格紅框紅底點亮（`ovConflictSlots`）、提醒精簡為一句含班別名；自訂狀態課格內建 ✕ 一鍵刪（刪完衝突自動消提醒）；沿用每週固定時紅格仍顯示但無 ✕；底部編輯器移除「移除這格」只留選/換科目。
@@ -626,8 +627,10 @@ TH.gold    = "#FBBF24"   // 金幣
 - ⬜ **娛樂 session 加 `source:"entertainment"` 標記**：讓「取消購買↔移除 session」以 id 精準對應（目前以 name+date+零幣比對）。
 - ⬜ **當前活動卡：落在『上班班別』時應顯示 💼 場所+班別＋時段＋剩餘分鐘**——待 Rola 於上班時段驗證。
 - ⬜ **當前活動卡：落在『課表課程』時應顯示 📘 課名＋時段＋剩餘分鐘**——待 Rola 於有課時段驗證。
+- ⬜ **課表時間欄手機橫向捲動遮擋**：既有 `timeBackdropStyle`（sticky left + `TH.bg` + zIndex 6）與表頭 sticky top；本批〔A〕因結構已符合假設而停手，待釐清真機仍遮擋的實際根因後再改。
+- ⬜ **觸控相容性盤點清單**（見本批 Cursor 回報），待逐項處理。
 
 ---
 
-*最後更新：2026/07/23（SortableList dnd-kit 統一拖曳）*
+*最後更新：2026/07/23（未利用底線＋觸控盤點；課表 sticky〔A〕停手）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*
