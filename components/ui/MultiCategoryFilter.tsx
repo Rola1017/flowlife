@@ -50,7 +50,11 @@ export function MultiCategoryFilter({
         const c2s = CAT.cat2List(c1);
         if (c2s.length === 0) return null;
         const c1Color = CAT.cat1Color(c1);
-        const selectedMids = c2s.filter((c2) => selected.has(catPath(c1, c2)));
+        const showSubMids = c2s.filter(
+          (c2) =>
+            selected.has(catPath(c1, c2)) ||
+            CAT.cat3List(c1, c2).some((c3) => selected.has(catPath(c1, c2, c3))),
+        );
         return (
           <div key={`grp-${c1}`} style={{ borderTop: `2px solid ${c1Color}99`, paddingTop: 8, marginTop: 2 }}>
             <div style={{ fontSize: 10, fontWeight: 800, color: c1Color, marginBottom: 5 }}>◆ {c1} · 中分類</div>
@@ -66,7 +70,7 @@ export function MultiCategoryFilter({
                 />
               ))}
             </div>
-            {selectedMids.map((c2) => {
+            {showSubMids.map((c2) => {
               const c3s = CAT.cat3List(c1, c2);
               if (c3s.length === 0) return null;
               return (
