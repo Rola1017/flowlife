@@ -47,8 +47,6 @@ export function PomodoroPage({
   setDistracted,
   idleTrackStart,
   setIdleTrackStart,
-  idleTotalSecs,
-  setIdleTotalSecs,
   restEndAt,
   setRestEndAt,
   resetVersion,
@@ -72,8 +70,6 @@ export function PomodoroPage({
   setDistracted: Dispatch<SetStateAction<number>>;
   idleTrackStart: number | null;
   setIdleTrackStart: Dispatch<SetStateAction<number | null>>;
-  idleTotalSecs: number;
-  setIdleTotalSecs: Dispatch<SetStateAction<number>>;
   restEndAt: number | null;
   setRestEndAt: Dispatch<SetStateAction<number | null>>;
   resetVersion: number;
@@ -141,8 +137,6 @@ export function PomodoroPage({
     setDistracted,
     idleTrackStart,
     setIdleTrackStart,
-    idleTotalSecs,
-    setIdleTotalSecs,
     restEndAt,
     setRestEndAt,
     resetVersion,
@@ -1105,23 +1099,14 @@ export function PomodoroPage({
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
             <span style={{ fontSize: 16 }}>⏳</span>
             <div>
-              <div style={{ fontSize: 10, color: TH.red, fontWeight: 700 }}>未利用時間累積中</div>
-              <div style={{ fontSize: 9, color: TH.muted }}>距離上次休息時間</div>
+              <div style={{ fontSize: 10, color: TH.red, fontWeight: 700 }}>當日未利用時間加總</div>
             </div>
             <div style={{ marginLeft: "auto", fontSize: 20, fontWeight: 900, color: TH.red }}>
               {fmtIdleTime(idleTotalToday)}
             </div>
           </div>
-          <div style={{ height: 3, background: "#0D0D0F", borderRadius: 2, overflow: "hidden" }}>
-            <div
-              style={{
-                height: "100%",
-                width: `${Math.min((idleSecs / 3600) * 100, 100)}%`,
-                background: TH.red,
-                borderRadius: 2,
-                transition: "width 1s linear",
-              }}
-            />
+          <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4 }}>
+            💡 只算今天、且已扣掉睡眠與上班時段
           </div>
         </div>
       )}

@@ -6,6 +6,7 @@ import { buildLineSeries } from "@/lib/analytics";
 import { coinsForSecs, playRestEnd, toLocalDateStr, toM } from "@/lib/utils";
 import { patchReflection } from "@/lib/sessions";
 import { CAT } from "@/lib/categories";
+import { idleMinutesForDate } from "@/lib/timelineActual";
 import type { Session } from "@/lib/types";
 
 export type PomodoroSessionRow = Session;
@@ -49,8 +50,6 @@ export function usePomodoro({
   setDistracted,
   idleTrackStart,
   setIdleTrackStart,
-  idleTotalSecs,
-  setIdleTotalSecs,
   restEndAt,
   setRestEndAt,
   resetVersion,
@@ -66,8 +65,6 @@ export function usePomodoro({
   setDistracted: Dispatch<SetStateAction<number>>;
   idleTrackStart: number | null;
   setIdleTrackStart: Dispatch<SetStateAction<number | null>>;
-  idleTotalSecs: number;
-  setIdleTotalSecs: Dispatch<SetStateAction<number>>;
   restEndAt: number | null;
   setRestEndAt: Dispatch<SetStateAction<number | null>>;
   resetVersion: number;
@@ -108,8 +105,6 @@ export function usePomodoro({
 
   const stopIdleAndAccumulate = () => {
     if (!idleTrackStart) return;
-    const elapsed = Math.max(0, Math.floor((Date.now() - idleTrackStart) / 1000));
-    if (elapsed > 0) setIdleTotalSecs((v) => v + elapsed);
     setIdleTrackStart(null);
     setIdleSecs(0);
   };
@@ -554,7 +549,21 @@ export function usePomodoro({
 
   const isRestActive = restSecs > 0;
   const effectiveMode = isRestActive ? "rest" : mode;
-  const idleTotalToday = idleTotalSecs + (idleTrackStart ? idleSecs : 0);
+  const [idleNowMins, setIdleNowMins] = useState(() => {
+    const d = new Date();
+    return d.getHours() * 60 + d.getMinutes();
+  });
+  useEffect(() => {
+    const t = setInterval(() => {
+      const d = new Date();
+      setIdleNowMins(d.getHours() * 60 + d.getMinutes());
+    }, 30_000);
+    return () => clearInterval(t);
+  }, []);
+  const idleTotalToday = useMemo(
+    () => idleMinutesForDate(CFG.TODAY_STR, idleNowMins) * 60, // 分→秒給 fmtIdleTime
+    [sessions, idleNowMins, idleTrackStart],
+  );
   const todayCoinIncomeLog = coinIncomeLog
     .filter((row) => row.date === todayDate)
     .sort((a, b) => b.at.localeCompare(a.at));

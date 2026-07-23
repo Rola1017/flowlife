@@ -9,7 +9,6 @@ export const LS_KEYS = {
   /** @alias pomodoroSessions */
   sessions: `${STORAGE_PREFIX}pomodoro_sessions`,
   ratingCounts: `${STORAGE_PREFIX}rating_counts`,
-  idleTotalSecs: `${STORAGE_PREFIX}idle_total_secs`,
   coinIncomeLog: `${STORAGE_PREFIX}coin_income_log`,
   dailyOverride: `${STORAGE_PREFIX}daily_override_`,
   routineOverride: `${STORAGE_PREFIX}routine_override_`,

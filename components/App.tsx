@@ -14,7 +14,7 @@ import {
 import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
 import { TABS } from "@/lib/tabs";
-import { LS_KEYS, loadJSON, loadNumber, saveJSON, saveNumber } from "@/lib/storage";
+import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 import { migrateCategoryIds, saveCategories, DEFAULT_CATEGORIES } from "@/lib/categories";
 import { clearReviewsCloud } from "@/lib/reviews";
 import type { Session, ActiveEntertainment, ShopItem } from "@/lib/types";
@@ -45,7 +45,6 @@ import { useTodos } from "@/components/todo/useTodos";
 import { TodoEditSheet } from "@/components/todo/TodoEditSheet";
 
 const DEFAULT_RATINGS = { focused: 0, neutral: 0, distracted: 0 };
-const DEFAULT_IDLE_TOTAL_SECS = 0;
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
   state = { hasError: false };
@@ -136,7 +135,6 @@ function AppContent() {
   useReviewCloudSync();
   useSessionCloudSync();
   useAppStateCloudSync();
-  const [idleTotalSecs, setIdleTotalSecs] = useState(DEFAULT_IDLE_TOTAL_SECS);
   const [restEndAt, setRestEndAt] = useState<number | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [resetVersion, setResetVersion] = useState(0);
@@ -187,7 +185,6 @@ function AppContent() {
     setFocused(typeof r.focused === "number" ? r.focused : DEFAULT_RATINGS.focused);
     setNeutral(typeof r.neutral === "number" ? r.neutral : DEFAULT_RATINGS.neutral);
     setDistracted(typeof r.distracted === "number" ? r.distracted : DEFAULT_RATINGS.distracted);
-    setIdleTotalSecs(loadNumber(LS_KEYS.idleTotalSecs, DEFAULT_IDLE_TOTAL_SECS));
     setHydrated(true);
   }, [updateSessions]);
 
@@ -276,17 +273,11 @@ function AppContent() {
       };
       entRef.current = newEnt;
       setEnt(newEnt);
-      setIdleTrackStart((prev) => {
-        if (prev) {
-          const el = Math.floor((Date.now() - prev) / 1000);
-          if (el > 0) setIdleTotalSecs((v) => v + el);
-        }
-        return null;
-      });
+      setIdleTrackStart(null);
       setCoinToast(`開始「${item.name}」${minutes} 分鐘（花 ${cost} 金幣）`);
       return true;
     },
-    [ent, spendReturningId, setIdleTrackStart, setIdleTotalSecs],
+    [ent, spendReturningId, setIdleTrackStart],
   );
 
   useEffect(() => {
@@ -391,12 +382,7 @@ function AppContent() {
     idleTrackStartRef.current = idleTrackStart;
   }, [idleTrackStart]);
 
-  useEffect(() => {
-    if (!hydrated) return;
-    saveNumber(LS_KEYS.idleTotalSecs, idleTotalSecs);
-  }, [idleTotalSecs, hydrated]);
-
-  // 未利用規則制：落在可用時段且未在專注/娛樂 → 累積；否則結算並停下
+  // 未利用規則制：落在可用時段且未在專注/娛樂 → 追蹤；否則清除
   useEffect(() => {
     const tick = () => {
       const now = new Date();
@@ -412,10 +398,8 @@ function AppContent() {
           setIdleTrackStart(t0);
         }
       } else if (prev != null) {
-        const el = Math.floor((Date.now() - prev) / 1000);
         idleTrackStartRef.current = null;
         setIdleTrackStart(null);
-        if (el > 0) setIdleTotalSecs((v) => v + el);
       }
     };
     tick();
@@ -445,7 +429,6 @@ function AppContent() {
     setNeutral(DEFAULT_RATINGS.neutral);
     setDistracted(DEFAULT_RATINGS.distracted);
     setIdleTrackStart(null);
-    setIdleTotalSecs(DEFAULT_IDLE_TOTAL_SECS);
     setRestEndAt(null);
     resetTodos([]);
     updateSessions([]);
@@ -463,7 +446,6 @@ function AppContent() {
         LS_KEYS.coinIncomeLog,
         LS_KEYS.coins,
         LS_KEYS.ratingCounts,
-        LS_KEYS.idleTotalSecs,
       ].forEach((k) => localStorage.removeItem(k));
       localStorage.removeItem("flowlife_coin_ledger_migrated");
     }
@@ -472,7 +454,6 @@ function AppContent() {
     setNeutral(DEFAULT_RATINGS.neutral);
     setDistracted(DEFAULT_RATINGS.distracted);
     setIdleTrackStart(null);
-    setIdleTotalSecs(DEFAULT_IDLE_TOTAL_SECS);
     setRestEndAt(null);
     updateSessions([]);
     updateTrashed([]);
@@ -481,7 +462,6 @@ function AppContent() {
 
   const handleResetIdle = () => {
     setIdleTrackStart(null);
-    setIdleTotalSecs(DEFAULT_IDLE_TOTAL_SECS);
   };
 
   const handleEditSessionMins = (id: number, newMins: number) => {
@@ -754,8 +734,6 @@ function AppContent() {
       setDistracted={setDistracted}
       idleTrackStart={idleTrackStart}
       setIdleTrackStart={setIdleTrackStart}
-      idleTotalSecs={idleTotalSecs}
-      setIdleTotalSecs={setIdleTotalSecs}
       restEndAt={restEndAt}
       setRestEndAt={setRestEndAt}
       resetVersion={resetVersion}

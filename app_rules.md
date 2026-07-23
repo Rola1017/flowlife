@@ -513,6 +513,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **課程自訂色（同小分類可各自上色）**：`CourseInfo.color?`；讀取單一規則 `color || CAT.deepColorFull(...)`，四處一次改齊——課表格／便利貼單日格／直式行程表課程塊／「最近選過」。編輯卡可選跟隨分類、10 預設色、或自訂色；空＝跟分類（舊資料外觀不變）。隨 weekSchedule／dayOverrides 既有雲端同步。
 - **功能B 行事曆分類篩選路徑集合化**：CalendarPage/ReviewView/analytics 由 `selCat1Set+selCat2` 舊模型改吃 `selPaths:Set<string>`＋`matchesCatSelection`（與金幣頁統一為單一分類篩選來源）；`buildDistribution` 選取時每路徑一片加總、未選時大分類總覽；`MultiCategoryFilter` 可折疊面板＋💡。
 - **MultiCategoryFilter 小分類顯示修正**：小分類區塊改為「中分類被選 或 其下任一小分類被選」即展開（原本僅中分類被選才展開，導致選小分類後父層被移除→區塊收合→選中的小分類看不見）；共用元件，行事曆與金幣頁同步修好。
+- **未利用單一來源化**：番茄鐘卡改用 `idleMinutesForDate`（當日夾界、扣睡眠/班別），退役 `idleTotalSecs` 累加器（移除 state/LS/累加寫入/props）；標題改「當日未利用時間加總」、移除「距離上次休息時間」與當前段進度條、加💡。與行事曆/時間軸統一為單一未利用來源。
 - **便利貼衝突處理強化（自訂鈕高亮＋一鍵移除）**：班課衝突時記住 `ovPendingPick`；尚未自訂課程時「👉 點我自訂這天課程」改黃色高亮。提醒橫幅新增含確認的「🗑 移除這 N 堂衝突課，並排入此班」：透過 `setOvCourses` 將週課 materialize 成當日自訂快照、刪除衝突課並避免重複地排入待排班別；取消確認不變更。開啟／切日期／關提醒／逐堂刪完皆同步清衝突與 pending state。
 - **課表複製貼上「自動清潔＋貼不上提醒」**：複製「課程＋班別」貼上時以 `shiftRange(place, shift, day)!==""` 過濾 picks（只貼該天真能排的班，消除隱形貼券）；被略過的班以頁面層 `pasteNotice` ⚠️橫幅明列（哪個班、哪天、去管理工作場所開可上班日）；單日貼上與「貼到選取的 N 天」皆適用；複製/關閉清提醒。未動 `lib/schedule.ts`／排班模型。
 - **便利貼微調（衝突紅格＋格內✕）**：班課衝突時衝突課格紅框紅底點亮（`ovConflictSlots`）、提醒精簡為一句含班別名；自訂狀態課格內建 ✕ 一鍵刪（刪完衝突自動消提醒）；沿用每週固定時紅格仍顯示但無 ✕；底部編輯器移除「移除這格」只留選/換科目。
@@ -567,7 +568,7 @@ TH.gold    = "#FBBF24"   // 金幣
 | 關閉開放註冊 | Supabase Auth 目前開放註冊；觸發＝主帳號建好後關閉。 |
 | 自訂 SMTP | 觸發＝多人版上線。 |
 | Google 一鍵登入 | 加值功能；觸發＝有需求時。 |
-| idleTotalSecs 跨日歸零 | 待議；觸發＝確認跨日行為後。 |
+| ~~idleTotalSecs 跨日歸零~~ ✅ 已解決 | 未利用改單一來源 `idleMinutesForDate`，當日自動歸零、扣睡眠班別；`idleTotalSecs` 已退役。 |
 | 待辦進行中即時碳掉未利用 | 目前完成（有 `endAt`）後才碳；觸發＝要「進行中」即時碳掉時。 |
 | 「明細」分頁改名 | 建議改「番茄反思」以與期間總結區隔；觸發＝命名定案時。 |
 | ~~手動補番茄跨午夜~~ ✅ 已解決 | `buildManualSession` 改雙 `datetime-local`（`startAt`/`endAt` 各含日期），`while` 迴圈按本日 24:00 切段、回傳多顆 `Session`，金幣一次算在第一段；跨午夜自動分段記到各天。 |
@@ -620,5 +621,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/07/23（MultiCategoryFilter 小分類選中仍展開）*
+*最後更新：2026/07/23（未利用單一來源化：退役 idleTotalSecs）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*
