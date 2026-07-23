@@ -279,22 +279,23 @@ TH.gold    = "#FBBF24"   // 金幣
 
 **資料來源**：真實 `sessions`（`buildCalendarStats`）；已移除 `MOCK.lineData`、`CAT.chartDataFor` 假資料。
 
-**大分類篩選**（`selCat1Set: string[]`）：
-- 空集合＝全部加總
-- 單擊某大分類＝單選（可下鑽中分類 `selCat2`，僅恰選 1 大類時有效）
-- 長按大分類 chip＝多選加總（`Chip.onLongPress`，450ms，長按不誤觸單擊）
+**大分類篩選**（`selPaths: Set<string>`，路徑語意）：
+- 空 Set＝全部；可跨大分類複選中／小分類路徑做加總
+- UI：`MultiCategoryFilter` 可折疊面板（與金幣頁同一元件／`matchesCatSelection`）
+- 圓餅有選時每路徑一片；未選時各大分類總覽
+- 選取路徑互不巢套（MultiCategoryFilter toggle 保證）＝加總不重複計
 
 **period 視窗**（圓餅／長條用 `periodRange`；折線用 `buildLineSeries`）：
 - `3天`／`7天`／`14天`／`季`：以今天往回
 - `月`：導覽中的 `curY`／`curM`
 
-**分佈切片**（`buildDistribution`）：0 或 ≥2 大類→大分類；1 大類→中分類；1 大類+中分類→小分類。
+**分佈切片**（`buildDistribution`）：未選→大分類總覽；有選→每條路徑一片加總。
 
 **月曆四宮格**：時長／日均／有效天＋番茄數 `x/y`（滿10分顆數／滿25分顆數，旁註「滿10/25分」）。
 
 **月曆圓圈**（比照週曆 95/10/5 模型）：內圈 r=13＝可用內讀書（`activeColor` 弧）＋底圈 `TH.border` 未畫滿處＝未利用；外圈 r=15 藍弧＝加碼 off-hours（`offDash > 0` 才畫，不與內弧重疊）；不再用總讀書同圈 overflow。
 
-**連動**：月曆圈圈 `focusByDate`、四宮格、`TriCharts` 三圖皆吃 `sessionMatches` 篩選。
+**連動**：月曆圈圈 `focusByDate`、四宮格、`TriCharts` 三圖、覆盤明細皆吃同一組 `selPaths`。
 
 **週曆**（`calView === "week"`）：
 - 每欄底部頁尾：上排專注時長 `fmt(dayFocus)`、中排 `🍅` 番茄顆數、下排 `{totalPct}%`（≥100% 藍色，可破百）
@@ -315,13 +316,13 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ## 八（補3）、覆盤頁 ReviewView（`components/calendar/ReviewView.tsx`）
 
-**入口**：`CalendarPage` 頂端 `calMode` 切換「📆 行事曆／🔍 覆盤」；預設行事曆；分類 chips 兩段與行事曆模式共用（`selCat1Set`／`selCat2`）。
+**入口**：`CalendarPage` 頂端 `calMode` 切換「📆 行事曆／🔍 覆盤」；預設行事曆；分類篩選面板與行事曆模式共用（`selPaths`）。
 
 **資料來源**：真實 `sessions`，篩選「有意圖或覆盤」的番茄（`intention?.trim() || reflection?.trim()`）；零 MOCK。
 
 **期間視窗**：自帶 `period` state（3天／7天／14天／月／季），用 `lib/analytics.periodRange`；**不**與行事曆 `TriCharts` 的 `period` 共用。
 
-**分類篩選**：`lib/analytics.sessionMatches(s, cats, cat2)`。
+**分類篩選**：`matchesCatSelection(selPaths, …)`（`lib/analytics.sessionMatches` 為薄包裝）。
 
 **清單卡片**：評分 emoji、名稱（或分類路徑）、時長、日期＋起訖＋分類路徑（›）；🎯 意圖唯讀；✍️ 覆盤可點 inline 編輯。
 
@@ -510,6 +511,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **課表欄寬縮 1/3＋刪分類連動課表**：`DAY_COL_MIN` 128→85。`purgeCategoryRefs`／`countCategoryRefs`（`lib/schedule.ts`）單一入口：刪大/中/小分類前 confirm（有引用則提示 N 格改未分類），persist 後降級週課表＋便利貼 `courses`（level1→`cat1=未分類`；level2 清 cat2/3；level3 清 cat3），課名時段保留、番茄歷史不動；寫入走 weekSchedule／`saveDayOverrides`＋`notifyAppState`。
 - **課表欄寬動態量測**：移除固定 `DAY_COL_MIN`；元件內 `canvas.measureText` 量測週課表＋便利貼所有課名最長寬（font 700 8px），夾在 60–240px，`minmax(Npx,1fr)`＋`SCHED_MIN_W` 跟著變；課名改單行 ellipsis。SSR/無資料回退 85。
 - **課程自訂色（同小分類可各自上色）**：`CourseInfo.color?`；讀取單一規則 `color || CAT.deepColorFull(...)`，四處一次改齊——課表格／便利貼單日格／直式行程表課程塊／「最近選過」。編輯卡可選跟隨分類、10 預設色、或自訂色；空＝跟分類（舊資料外觀不變）。隨 weekSchedule／dayOverrides 既有雲端同步。
+- **功能B 行事曆分類篩選路徑集合化**：CalendarPage/ReviewView/analytics 由 `selCat1Set+selCat2` 舊模型改吃 `selPaths:Set<string>`＋`matchesCatSelection`（與金幣頁統一為單一分類篩選來源）；`buildDistribution` 選取時每路徑一片加總、未選時大分類總覽；`MultiCategoryFilter` 可折疊面板＋💡。
 - **便利貼衝突處理強化（自訂鈕高亮＋一鍵移除）**：班課衝突時記住 `ovPendingPick`；尚未自訂課程時「👉 點我自訂這天課程」改黃色高亮。提醒橫幅新增含確認的「🗑 移除這 N 堂衝突課，並排入此班」：透過 `setOvCourses` 將週課 materialize 成當日自訂快照、刪除衝突課並避免重複地排入待排班別；取消確認不變更。開啟／切日期／關提醒／逐堂刪完皆同步清衝突與 pending state。
 - **課表複製貼上「自動清潔＋貼不上提醒」**：複製「課程＋班別」貼上時以 `shiftRange(place, shift, day)!==""` 過濾 picks（只貼該天真能排的班，消除隱形貼券）；被略過的班以頁面層 `pasteNotice` ⚠️橫幅明列（哪個班、哪天、去管理工作場所開可上班日）；單日貼上與「貼到選取的 N 天」皆適用；複製/關閉清提醒。未動 `lib/schedule.ts`／排班模型。
 - **便利貼微調（衝突紅格＋格內✕）**：班課衝突時衝突課格紅框紅底點亮（`ovConflictSlots`）、提醒精簡為一句含班別名；自訂狀態課格內建 ✕ 一鍵刪（刪完衝突自動消提醒）；沿用每週固定時紅格仍顯示但無 ✕；底部編輯器移除「移除這格」只留選/換科目。
@@ -554,6 +556,7 @@ TH.gold    = "#FBBF24"   // 金幣
 | 決策 | 內容 |
 |------|------|
 | reviews 上提 App.tsx | 現況 `DayReview`／`ReviewNudgeCard` 各自 load/save 或直讀 `getReview`；暫緩原因＝覆盤頁與主頁不同 tab 不同時掛載，第三步經評估不需上提；**觸發上提時機＝未來同畫面同時出現浮現卡與覆盤編輯、需即時連動時**（附原脈絡：Batch C 走 `calIntent` 跳轉即可）。 |
+| ~~行事曆與金幣頁兩套分類篩選~~ ✅ 已解決 | 行事曆與金幣頁兩套分類篩選 → 已統一為 `matchesCatSelection` 單一來源（`selPaths:Set<string>`＋`MultiCategoryFilter`）。 |
 | 週/月/季靈感 | 現況靈感僅「日」；暫緩原因＝週 key＝週一日期會與日靈感撞同格；觸發＝若要週級靈感，把 free key 命名空間化為 `scope:periodKey`。 |
 | ~~過去期數導覽~~ ✅ 已完成 | 日/週/月/季皆可用 ‹ › 往過去翻（`dayOffset`／`offset`，`CFG.TODAY` 推算，不可往未來），舊總結可編輯儲存走該期 key。 |
 | ~~free 靈感上雲~~ ✅ 已解決 | 靈感(free) row-based 上雲：每則 `uuid`(對應 reviews 表 `id` 主鍵)、`ensureFreeUuids` 冪等補號、`addReview(free)`→`pushFreeCloud`、`removeReview(free)`→`deleteFreeCloud`、`syncReviewsFromCloud` 末段 uuid-LWW 合併；免改 schema。 |
@@ -616,5 +619,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/07/23（課程自訂色；color || 分類色）*
+*最後更新：2026/07/23（功能B：行事曆分類篩選路徑集合化）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*

@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { TH, readableTextOn } from "@/lib/theme";
-import { CAT } from "@/lib/categories";
+import { CAT, matchesCatSelection } from "@/lib/categories";
 import { fmt } from "@/lib/utils";
-import { periodRange, sessionMatches } from "@/lib/analytics";
+import { periodRange } from "@/lib/analytics";
 import type { Session } from "@/lib/types";
 
 const PERIODS = ["3天", "7天", "14天", "月", "季"] as const;
@@ -15,13 +15,11 @@ function catPath(s: Session): string {
 
 export function ReviewView({
   sessions,
-  cats,
-  cat2,
+  sel,
   onPatchReflection,
 }: {
   sessions: Session[];
-  cats: string[];
-  cat2: string;
+  sel: Set<string>;
   onPatchReflection: (id: number, text: string) => void;
 }) {
   const [period, setPeriod] = useState<string>("7天");
@@ -35,14 +33,14 @@ export function ReviewView({
 
   const pairs = useMemo(() => {
     return sessions
-      .filter((s) => sessionMatches(s, cats, cat2))
+      .filter((s) => matchesCatSelection(sel, s.cat1, s.cat2, s.cat3))
       .filter((s) => s.date && s.date >= start && s.date <= end)
       .filter((s) => s.intention?.trim() || s.reflection?.trim())
       .sort((a, b) => {
         if (a.date !== b.date) return b.date.localeCompare(a.date);
         return (b.startTime ?? "").localeCompare(a.startTime ?? "");
       });
-  }, [sessions, cats, cat2, start, end]);
+  }, [sessions, sel, start, end]);
 
   const startEdit = (s: Session) => {
     if (s.id == null) return;

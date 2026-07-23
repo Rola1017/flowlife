@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
-import { buildCalendarStats, sessionMatches, datesInPeriod, periodRange } from "@/lib/analytics";
-import { CAT } from "@/lib/categories";
+import { buildCalendarStats, datesInPeriod, periodRange } from "@/lib/analytics";
+import { CAT, CAT_PATH_SEP, matchesCatSelection } from "@/lib/categories";
 import { availableMinutesFor, loadDayPlans, planForDate } from "@/lib/schedule";
 import { availableSegments, splitSessionsByAvailability } from "@/lib/idle";
 import { idleSeries } from "@/lib/timelineActual";
@@ -12,7 +12,7 @@ import { weekKey, monthKey, quarterKey } from "@/lib/period";
 import { getReview, subscribeReviews, upsertReview, type ReviewScope } from "@/lib/reviews";
 import type { Session } from "@/lib/types";
 import { fmt, getDaysInMonth, getFirstDow } from "@/lib/utils";
-import { Chip } from "@/components/ui/Chip";
+import { MultiCategoryFilter } from "@/components/ui/MultiCategoryFilter";
 import { TriCharts } from "@/components/charts/TriCharts";
 import { ReviewView } from "./ReviewView";
 import { DayReview } from "./DayReview";
@@ -173,8 +173,8 @@ export function CalendarPage({
     onIntentConsumed?.();
   }, [intent, onIntentConsumed]);
   const [calView, setCalView] = useState("month");
-  const [selCat1Set, setSelCat1Set] = useState<string[]>([]);
-  const [selCat2, setSelCat2] = useState("");
+  const [selPaths, setSelPaths] = useState<Set<string>>(new Set());
+  const [filterOpen, setFilterOpen] = useState(false);
   const [monthOffset, setMonthOffset] = useState(0);
   const [weekOffset, setWeekOffset] = useState(0);
   const [period, setPeriod] = useState("月");
@@ -203,25 +203,34 @@ export function CalendarPage({
     fdow = getFirstDow(curY, curM);
   const prevM = curM === 1 ? 12 : curM - 1;
   const prevY = curM === 1 ? curY - 1 : curY;
-  const singleCat1 = selCat1Set.length === 1 ? selCat1Set[0] : "";
+  const selArr = [...selPaths];
+  const singleColor =
+    selPaths.size === 1
+      ? (() => {
+          const [c1, c2, c3] = selArr[0].split(CAT_PATH_SEP);
+          return CAT.deepColorFull(c1, c2 || undefined, c3 || undefined);
+        })()
+      : "";
+  const activeColor = singleColor || TH.red;
   const chartLabel =
-    selCat1Set.length === 0
+    selPaths.size === 0
       ? "全部分類"
-      : selCat1Set.length === 1
-        ? selCat2 || singleCat1
-        : selCat1Set.join("＋");
-  const activeColor = singleCat1 ? CAT.cat1Color(singleCat1) : TH.red;
+      : selPaths.size === 1
+        ? (() => {
+            const [c1, c2, c3] = selArr[0].split(CAT_PATH_SEP);
+            return c3 || c2 || c1;
+          })()
+        : `已選 ${selPaths.size} 項`;
   const { chartData, lineD } = useMemo(
     () =>
       buildCalendarStats({
         sessions,
-        cats: selCat1Set,
-        cat2: selCat2,
+        sel: selPaths,
         period,
         anchorY: curY,
         anchorM: curM,
       }),
-    [sessions, selCat1Set, selCat2, period, curY, curM],
+    [sessions, selPaths, period, curY, curM],
   );
   const [dayPlans] = useState(loadDayPlans);
 
@@ -229,30 +238,30 @@ export function CalendarPage({
     const map: Record<string, number> = {};
     for (const s of sessions) {
       if (!s.date) continue;
-      if (!sessionMatches(s, selCat1Set, selCat2)) continue;
+      if (!matchesCatSelection(selPaths, s.cat1, s.cat2, s.cat3)) continue;
       map[s.date] = (map[s.date] ?? 0) + (s.mins ?? 0);
     }
     return map;
-  }, [sessions, selCat1Set, selCat2]);
+  }, [sessions, selPaths]);
 
   const sessionsByDate = useMemo(() => {
     const map: Record<string, Session[]> = {};
     for (const s of sessions) {
-      if (!s.date || !sessionMatches(s, selCat1Set, selCat2)) continue;
+      if (!s.date || !matchesCatSelection(selPaths, s.cat1, s.cat2, s.cat3)) continue;
       (map[s.date] ??= []).push(s);
     }
     return map;
-  }, [sessions, selCat1Set, selCat2]);
+  }, [sessions, selPaths]);
 
   const countByDate = useMemo(() => {
     const map: Record<string, number> = {};
     for (const s of sessions) {
       if (!s.date) continue;
-      if (!sessionMatches(s, selCat1Set, selCat2)) continue;
+      if (!matchesCatSelection(selPaths, s.cat1, s.cat2, s.cat3)) continue;
       map[s.date] = (map[s.date] ?? 0) + 1;
     }
     return map;
-  }, [sessions, selCat1Set, selCat2]);
+  }, [sessions, selPaths]);
 
   const mData = useMemo(
     () =>
@@ -264,8 +273,11 @@ export function CalendarPage({
   );
 
   const monthSessions = useMemo(
-    () => sessionsInMonth(sessions, curY, curM).filter((s) => sessionMatches(s, selCat1Set, selCat2)),
-    [sessions, curY, curM, selCat1Set, selCat2],
+    () =>
+      sessionsInMonth(sessions, curY, curM).filter((s) =>
+        matchesCatSelection(selPaths, s.cat1, s.cat2, s.cat3),
+      ),
+    [sessions, curY, curM, selPaths],
   );
   const mTot = useMemo(() => monthSessions.reduce((s, x) => s + (x.mins ?? 0), 0), [monthSessions]);
   const dayCount = useMemo(() => new Set(monthSessions.map((s) => s.date).filter(Boolean)).size, [monthSessions]);
@@ -274,9 +286,9 @@ export function CalendarPage({
   const pomo25 = useMemo(() => monthSessions.filter((s) => (s.mins ?? 0) >= 25).length, [monthSessions]);
   const prevTot = useMemo(() => {
     return sessionsInMonth(sessions, prevY, prevM)
-      .filter((s) => sessionMatches(s, selCat1Set, selCat2))
+      .filter((s) => matchesCatSelection(selPaths, s.cat1, s.cat2, s.cat3))
       .reduce((s, x) => s + (x.mins ?? 0), 0);
-  }, [sessions, prevY, prevM, selCat1Set, selCat2]);
+  }, [sessions, prevY, prevM, selPaths]);
   const pctVsLast = prevTot ? Math.round(((mTot - prevTot) / prevTot) * 100) : 0;
 
   const periodDates = useMemo(() => datesInPeriod(period, curY, curM), [period, curY, curM]);
@@ -355,55 +367,60 @@ export function CalendarPage({
           </button>
         ))}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        <div style={{ display: "flex", gap: 4, overflowX: "auto", paddingBottom: 2 }}>
-          <Chip
-            label="全部"
-            active={selCat1Set.length === 0}
-            color={TH.red}
-            onClick={() => {
-              setSelCat1Set([]);
-              setSelCat2("");
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={() => setFilterOpen((o) => !o)}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 10,
+              border: `1px solid ${filterOpen || selPaths.size > 0 ? TH.accent : TH.border}`,
+              background: filterOpen || selPaths.size > 0 ? TH.accent + "22" : "transparent",
+              color: filterOpen || selPaths.size > 0 ? TH.accent : TH.muted,
+              fontSize: 11,
+              fontWeight: 800,
+              cursor: "pointer",
             }}
-          />
-          {CAT.cat1List()
-            .filter((c) => c !== "未分類")
-            .map((c) => (
-              <Chip
-                key={c}
-                label={c}
-                active={selCat1Set.includes(c)}
-                color={CAT.cat1Color(c)}
-                onClick={() => {
-                  setSelCat1Set((p) => (p.length === 1 && p[0] === c ? [] : [c]));
-                  setSelCat2("");
-                }}
-                onLongPress={() => {
-                  setSelCat1Set((p) => (p.includes(c) ? p.filter((x) => x !== c) : [...p, c]));
-                  setSelCat2("");
-                }}
-              />
-            ))}
+          >
+            🔎 分類篩選
+          </button>
+          <span style={{ fontSize: 11, color: TH.text, fontWeight: 700 }}>{chartLabel}</span>
+          {selPaths.size > 0 && (
+            <button
+              type="button"
+              onClick={() => setSelPaths(new Set())}
+              style={{
+                padding: "4px 8px",
+                borderRadius: 8,
+                border: `1px solid ${TH.border}`,
+                background: "transparent",
+                color: TH.muted,
+                fontSize: 10,
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              全部
+            </button>
+          )}
         </div>
-        <span style={{ fontSize: 8, color: TH.muted, paddingLeft: 2 }}>
-          💡 單擊＝單選；長按可多選大分類做加總
-        </span>
+        <div style={{ fontSize: 9, color: TH.muted, paddingLeft: 2 }}>
+          💡 可跨大分類複選中／小分類做加總；不選＝看全部
+        </div>
+        {filterOpen && (
+          <div
+            style={{
+              background: TH.card,
+              border: `1px solid ${TH.border}`,
+              borderRadius: 12,
+              padding: 10,
+            }}
+          >
+            <MultiCategoryFilter selected={selPaths} onChange={setSelPaths} />
+          </div>
+        )}
       </div>
-      {singleCat1 && CAT.cat2List(singleCat1).length > 0 && (
-        <div style={{ display: "flex", gap: 4, overflowX: "auto", paddingBottom: 2 }}>
-          <span style={{ fontSize: 9, color: TH.muted, flexShrink: 0, alignSelf: "center" }}>中分類：</span>
-          {CAT.cat2List(singleCat1).map((c) => (
-            <Chip
-              key={c}
-              label={c}
-              active={selCat2 === c}
-              color={CAT.cat2Color(singleCat1, c)}
-              onClick={() => setSelCat2(selCat2 === c ? "" : c)}
-              style={{ fontSize: 9, padding: "3px 8px" }}
-            />
-          ))}
-        </div>
-      )}
       {calMode === "review" && (
         <>
           <div style={{ display: "flex", gap: 5 }}>
@@ -439,8 +456,7 @@ export function CalendarPage({
           {reviewSubMode === "detail" && (
             <ReviewView
               sessions={sessions}
-              cats={selCat1Set}
-              cat2={selCat2}
+              sel={selPaths}
               onPatchReflection={onPatchReflection}
             />
           )}

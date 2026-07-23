@@ -1,4 +1,4 @@
-import { CAT } from "@/lib/categories";
+import { CAT, CAT_PATH_SEP, matchesCatSelection } from "@/lib/categories";
 import type { Session } from "@/lib/types";
 
 export type ChartDatum = { label: string; value: number; color: string };
@@ -7,11 +7,9 @@ export type LineSeries = { labels: string[]; focus: number[]; pomos: number[] };
 const pad = (n: number) => String(n).padStart(2, "0");
 const dstr = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-/** 是否符合目前選取（大分類集合空＝全部；selCat2 僅在恰選 1 大分類時有意義） */
-export function sessionMatches(s: Session, cats: string[], cat2: string): boolean {
-  if (cats.length > 0 && !cats.includes(s.cat1)) return false;
-  if (cats.length === 1 && cat2 && s.cat2 !== cat2) return false;
-  return true;
+/** 是否符合目前選取（空 Set＝全部；路徑語意走 matchesCatSelection） */
+export function sessionMatches(s: Session, sel: Set<string>): boolean {
+  return matchesCatSelection(sel, s.cat1, s.cat2, s.cat3);
 }
 
 /** period 視窗（含端點）。日/週/14天/季一律以今天往回；「月」用導覽中的月 */
@@ -32,38 +30,34 @@ export function periodRange(period: string, anchorY: number, anchorM: number): {
   return { start: dstr(s), end };
 }
 
-/** 圓餅/長條切片：恰1大類→中分類；1大類+中分類→小分類；0或≥2大類→大分類 */
-export function buildDistribution(sessions: Session[], cats: string[], cat2: string): ChartDatum[] {
-  const sum: Record<string, number> = {};
-  const add = (k: string, v: number) => {
-    sum[k] = (sum[k] ?? 0) + v;
-  };
-  if (cats.length === 1 && cat2) {
-    const c1 = cats[0];
-    for (const s of sessions) add(s.cat3 || "（未細分）", s.mins);
-    return Object.entries(sum)
-      .map(([k, v]) => ({
-        label: k,
-        value: v,
-        color: k === "（未細分）" ? CAT.cat2Color(c1, cat2) : CAT.cat3Color(c1, cat2, k),
-      }))
+/** 圓餅/長條：未選＝各大分類總覽；有選＝每條路徑一片加總（選取互不巢套＝不重複計） */
+export function buildDistribution(sessions: Session[], sel: Set<string>): ChartDatum[] {
+  if (sel.size === 0) {
+    const sum: Record<string, number> = {};
+    for (const s of sessions) {
+      const k = s.cat1 || "未分類";
+      sum[k] = (sum[k] ?? 0) + s.mins;
+    }
+    return CAT.cat1List()
+      .filter((c) => sum[c])
+      .map((c) => ({ label: c, value: sum[c], color: CAT.cat1Color(c) }))
       .sort((a, b) => b.value - a.value);
   }
-  if (cats.length === 1) {
-    const c1 = cats[0];
-    for (const s of sessions) add(s.cat2 || "（未細分）", s.mins);
-    return Object.entries(sum)
-      .map(([k, v]) => ({
-        label: k,
-        value: v,
-        color: k === "（未細分）" ? CAT.cat1Color(c1) : CAT.cat2Color(c1, k),
-      }))
-      .sort((a, b) => b.value - a.value);
-  }
-  for (const s of sessions) add(s.cat1 || "未分類", s.mins);
-  return CAT.cat1List()
-    .filter((c) => sum[c])
-    .map((c) => ({ label: c, value: sum[c], color: CAT.cat1Color(c) }))
+
+  return [...sel]
+    .map((p) => {
+      const [c1, c2, c3] = p.split(CAT_PATH_SEP);
+      const one = new Set([p]);
+      const value = sessions
+        .filter((s) => matchesCatSelection(one, s.cat1, s.cat2, s.cat3))
+        .reduce((a, s) => a + (s.mins ?? 0), 0);
+      return {
+        label: c3 || c2 || c1,
+        value,
+        color: CAT.deepColorFull(c1, c2 || undefined, c3 || undefined),
+      };
+    })
+    .filter((d) => d.value > 0)
     .sort((a, b) => b.value - a.value);
 }
 
@@ -130,18 +124,17 @@ export function datesInPeriod(period: string, anchorY: number, anchorM: number):
 /** 行事曆主統計入口 */
 export function buildCalendarStats(opts: {
   sessions: Session[];
-  cats: string[];
-  cat2: string;
+  sel: Set<string>;
   period: string;
   anchorY: number;
   anchorM: number;
 }): { chartData: ChartDatum[]; lineD: LineSeries } {
-  const { sessions, cats, cat2, period, anchorY, anchorM } = opts;
-  const catFiltered = sessions.filter((s) => sessionMatches(s, cats, cat2));
+  const { sessions, sel, period, anchorY, anchorM } = opts;
+  const catFiltered = sessions.filter((s) => sessionMatches(s, sel));
   const { start, end } = periodRange(period, anchorY, anchorM);
   const windowSessions = catFiltered.filter((s) => s.date && s.date >= start && s.date <= end);
   return {
-    chartData: buildDistribution(windowSessions, cats, cat2),
+    chartData: buildDistribution(windowSessions, sel),
     lineD: buildLineSeries(catFiltered, period, anchorY, anchorM),
   };
 }
