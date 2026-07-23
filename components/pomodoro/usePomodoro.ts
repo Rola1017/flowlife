@@ -549,20 +549,20 @@ export function usePomodoro({
 
   const isRestActive = restSecs > 0;
   const effectiveMode = isRestActive ? "rest" : mode;
-  const [idleNowMins, setIdleNowMins] = useState(() => {
+  const [nowMins, setNowMins] = useState(() => {
     const d = new Date();
     return d.getHours() * 60 + d.getMinutes();
   });
   useEffect(() => {
     const t = setInterval(() => {
       const d = new Date();
-      setIdleNowMins(d.getHours() * 60 + d.getMinutes());
+      setNowMins(d.getHours() * 60 + d.getMinutes());
     }, 30_000);
     return () => clearInterval(t);
   }, []);
   const idleTotalToday = useMemo(
-    () => idleMinutesForDate(CFG.TODAY_STR, idleNowMins) * 60, // 分→秒給 fmtIdleTime
-    [sessions, idleNowMins, idleTrackStart],
+    () => idleMinutesForDate(CFG.TODAY_STR, nowMins) * 60, // 分→秒給 fmtIdleTime
+    [sessions, nowMins],
   );
   const todayCoinIncomeLog = coinIncomeLog
     .filter((row) => row.date === todayDate)
@@ -616,6 +616,7 @@ export function usePomodoro({
     effectiveMode,
     isRestActive,
     idleTotalToday,
+    nowMins,
     todayCoinIncomeTotal,
     recentCoinIncomeLog,
     setCoinIncomeLog,

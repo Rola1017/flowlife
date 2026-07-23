@@ -536,3 +536,45 @@ export function purgeCategoryRefs(
 
   return affected;
 }
+
+export type NowActivity =
+  | { kind: "routine" | "shift" | "course"; label: string; start: string; end: string };
+
+/** 某日某時刻落在哪個「已規劃」區塊（作息＞班別＞課程）。都不落＝null（＝未利用預設態）。 */
+export function currentScheduleBlock(
+  dateStr: string,
+  nowMins: number,
+  dayPlans?: Record<string, DayPlan>,
+): NowActivity | null {
+  const inRange = (s: string, e: string) => {
+    const a = toMin(s),
+      b = e === "24:00" ? 1440 : toMin(e);
+    return nowMins >= a && nowMins < b;
+  };
+  for (const b of routineFor(dateStr)) {
+    if (inRange(b.start, b.end)) return { kind: "routine", label: b.label, start: b.start, end: b.end };
+  }
+  const overrides = loadDayOverrides();
+  const isOv = !!overrides[dateStr];
+  const plan = planForDate(dateStr, dayPlans, overrides as Record<string, DayPlan>);
+  for (const pk of plan.picks) {
+    const r = shiftRangeOn(pk.place, pk.shift, dateStr, isOv);
+    if (!r) continue;
+    const [a, b] = r.split("~");
+    if (inRange(a, b))
+      return { kind: "shift", label: `💼 ${placeName(pk.place)}${pk.shift}班`, start: a, end: b };
+  }
+  for (const c of coursesForDate(dateStr)) {
+    if (!c.t) continue;
+    const end = fmtHM(toMin(c.t) + 30);
+    if (inRange(c.t, end)) {
+      return {
+        kind: "course",
+        label: `📘 ${c.n || c.cat3 || c.cat2 || c.cat1 || "課程"}`,
+        start: c.t,
+        end,
+      };
+    }
+  }
+  return null;
+}

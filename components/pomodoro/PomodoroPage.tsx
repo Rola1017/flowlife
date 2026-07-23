@@ -5,7 +5,8 @@ import { CFG } from "@/lib/config";
 import { CAT } from "@/lib/categories";
 import { TH } from "@/lib/theme";
 import { LS_KEYS } from "@/lib/storage";
-import { fmt, fmtIdleTime } from "@/lib/utils";
+import { fmt, fmtIdleTime, toM } from "@/lib/utils";
+import { currentScheduleBlock } from "@/lib/schedule";
 import { Card, SL } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { CategorySelector } from "@/components/pomodoro/CategorySelector";
@@ -54,6 +55,7 @@ export function PomodoroPage({
   setCoinIncomeLog: setCoinIncomeLogProp,
   onFocusStart,
   onFocusEnd,
+  entName = null,
 }: {
   sessions: Session[];
   setSessions: Dispatch<SetStateAction<Session[]>>;
@@ -77,6 +79,7 @@ export function PomodoroPage({
   setCoinIncomeLog: Dispatch<SetStateAction<CoinIncomeLogRow[]>>;
   onFocusStart?: () => void;
   onFocusEnd?: () => void;
+  entName?: string | null;
 }) {
   const {
     dur,
@@ -115,6 +118,7 @@ export function PomodoroPage({
     effectiveMode,
     isRestActive,
     idleTotalToday,
+    nowMins,
     todayCoinIncomeTotal,
     recentCoinIncomeLog,
     setCoinIncomeLog,
@@ -145,6 +149,19 @@ export function PomodoroPage({
     onFocusStart,
     onFocusEnd,
   });
+
+  const nowBlock = useMemo(() => currentScheduleBlock(CFG.TODAY_STR, nowMins), [nowMins]);
+  const activity =
+    mode === "focus"
+      ? { kind: "focus" as const, label: "🍅 專注中", start: "", end: "" }
+      : isRestActive
+        ? { kind: "rest" as const, label: "💤 休息中", start: "", end: "" }
+        : entName
+          ? { kind: "ent" as const, label: `🎮 ${entName}`, start: "", end: "" }
+          : (nowBlock ?? { kind: "idle" as const, label: "", start: "", end: "" });
+  const remainMins = activity.end
+    ? Math.max(0, (activity.end === "24:00" ? 1440 : toM(activity.end)) - nowMins)
+    : 0;
 
   const [showEventDropdown, setShowEventDropdown] = useState(false);
   const [intentionOpen, setIntentionOpen] = useState(false);
@@ -1086,7 +1103,7 @@ export function PomodoroPage({
           </div>
         </>
       )}
-      {idleTrackStart && (
+      {activity.kind === "idle" ? (
         <div
           style={{
             width: "100%",
@@ -1106,7 +1123,32 @@ export function PomodoroPage({
             </div>
           </div>
           <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4 }}>
-            💡 只算今天、且已扣掉睡眠與上班時段
+            💡 只算今天、且已扣掉睡眠與上班時段；沒有安排活動時預設就在累積
+          </div>
+        </div>
+      ) : (
+        <div
+          style={{
+            width: "100%",
+            background: "#1C1C22",
+            border: `1px solid #2E2E38`,
+            borderRadius: 14,
+            padding: "12px 16px",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: TH.text, flex: 1, minWidth: 0 }}>
+              {activity.label}
+            </div>
+            {activity.start && activity.end && (
+              <div style={{ fontSize: 11, color: TH.muted, fontWeight: 700, flexShrink: 0 }}>
+                {activity.start}～{activity.end}
+                <span style={{ marginLeft: 6, color: TH.accent }}>剩 {remainMins} 分</span>
+              </div>
+            )}
+          </div>
+          <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4 }}>
+            今日未利用 {fmtIdleTime(idleTotalToday)}
           </div>
         </div>
       )}

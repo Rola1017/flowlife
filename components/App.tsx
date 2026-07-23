@@ -460,10 +460,6 @@ function AppContent() {
     setResetVersion((v) => v + 1);
   };
 
-  const handleResetIdle = () => {
-    setIdleTrackStart(null);
-  };
-
   const handleEditSessionMins = (id: number, newMins: number) => {
     const { sessions: next } = setSessionMins(sessions, id, newMins);
     updateSessions(next);
@@ -605,7 +601,6 @@ function AppContent() {
         onResetAllData={handleResetAllData}
         onResetTodos={resetTodos}
         onClearRecords={handleClearRecords}
-        onResetIdle={handleResetIdle}
       />
     ),
     categoryManager: (props = {}) => (
@@ -742,6 +737,7 @@ function AppContent() {
         endEntertainment();
       }}
       onFocusEnd={() => setPomoRunning(false)}
+      entName={ent?.name ?? null}
     />
   );
 
