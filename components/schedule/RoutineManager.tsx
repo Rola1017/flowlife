@@ -10,11 +10,10 @@ import {
   overlappingIndices,
   type RoutineBlock,
 } from "@/lib/schedule";
+import { SortableList } from "@/components/ui/SortableList";
 
 export function RoutineManager({ onClose }: { onClose: () => void }) {
   const [rows, setRows] = useState<RoutineBlock[]>(() => loadRoutine());
-  const [dragIdx, setDragIdx] = useState<number | null>(null);
-  const [itemDrag, setItemDrag] = useState<{ ri: number; ii: number } | null>(null);
   const persist = (next: RoutineBlock[]) => {
     const out = next.map((r) => ({ ...r, label: routineLabel(r.emoji, r.items ?? []) }));
     setRows(out);
@@ -124,26 +123,22 @@ export function RoutineManager({ onClose }: { onClose: () => void }) {
           ⚠️ 有作息時間重疊（紅框標示），會導致課表/時間軸顯示異常，請調整成互不重疊
         </div>
       )}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {rows.map((r, ri) => (
+      <SortableList
+        items={rows}
+        getId={(_, i) => `row-${i}`}
+        gap={10}
+        onReorder={(from, to) => {
+          const next = [...rows];
+          const [m] = next.splice(from, 1);
+          next.splice(to, 0, m);
+          persist(next);
+        }}
+        renderItem={(r, ri, handle) => (
           <div
-            key={ri}
-            draggable
-            onDragStart={() => setDragIdx(ri)}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={() => {
-              if (dragIdx === null || dragIdx === ri) return;
-              const next = [...rows];
-              const [moved] = next.splice(dragIdx, 1);
-              next.splice(ri, 0, moved);
-              setDragIdx(null);
-              persist(next);
-            }}
             style={{
               border: conflicts.has(ri) ? `1.5px solid ${TH.red}` : `1px solid ${TH.border}`,
               borderRadius: 10,
               padding: 8,
-              opacity: dragIdx === ri ? 0.6 : 1,
             }}
           >
             <div
@@ -155,7 +150,12 @@ export function RoutineManager({ onClose }: { onClose: () => void }) {
                 marginBottom: 6,
               }}
             >
-              <span style={{ cursor: "grab", color: TH.muted, marginRight: 4 }}>⋮⋮</span>
+              <span
+                {...handle}
+                style={{ ...handle.style, color: TH.muted, marginRight: 4, fontSize: 12 }}
+              >
+                ⋮⋮
+              </span>
               <input
                 value={r.emoji ?? ""}
                 onChange={(e) => updRow(ri, { emoji: e.target.value })}
@@ -198,92 +198,91 @@ export function RoutineManager({ onClose }: { onClose: () => void }) {
               )}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {(r.items ?? []).map((it, ii) => (
-                <div
-                  key={ii}
-                  draggable
-                  onDragStart={(e) => {
-                    e.stopPropagation();
-                    setItemDrag({ ri, ii });
-                  }}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                  onDrop={(e) => {
-                    e.stopPropagation();
-                    if (!itemDrag || itemDrag.ri !== ri || itemDrag.ii === ii) {
-                      setItemDrag(null);
-                      return;
-                    }
-                    const items = [...(rows[ri].items ?? [])];
-                    const [moved] = items.splice(itemDrag.ii, 1);
-                    items.splice(ii, 0, moved);
-                    setItemDrag(null);
-                    updRow(ri, { items });
-                  }}
-                  style={{
-                    display: "flex",
-                    gap: 4,
-                    alignItems: "center",
-                    borderRadius: 6,
-                    border: `1px solid ${it.hi ? TH.yellow + "66" : "transparent"}`,
-                    padding: "2px 4px",
-                    minWidth: 0,
-                  }}
-                >
-                  <span style={{ cursor: "grab", color: TH.muted, fontSize: 11, flexShrink: 0 }}>⋮</span>
-                  <button
-                    type="button"
-                    title={it.hi ? "取消點亮" : "點亮"}
-                    onClick={() => updItem(ri, ii, { hi: !it.hi })}
+              <SortableList
+                items={r.items ?? []}
+                getId={(_, i) => `item-${ri}-${i}`}
+                gap={4}
+                onReorder={(from, to) => {
+                  const items = [...(rows[ri].items ?? [])];
+                  const [m] = items.splice(from, 1);
+                  items.splice(to, 0, m);
+                  updRow(ri, { items });
+                }}
+                renderItem={(it, ii, itemHandle) => (
+                  <div
                     style={{
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      fontSize: 12,
-                      padding: "0 2px",
-                      color: it.hi ? TH.yellow : TH.muted,
-                      flexShrink: 0,
-                    }}
-                  >
-                    {it.hi ? "⭐" : "☆"}
-                  </button>
-                  <input
-                    value={it.name}
-                    onChange={(e) => updItem(ri, ii, { name: e.target.value })}
-                    placeholder="小項名稱"
-                    style={{
-                      ...inp,
-                      flex: 1,
+                      display: "flex",
+                      gap: 4,
+                      alignItems: "center",
+                      borderRadius: 6,
+                      border: `1px solid ${it.hi ? TH.yellow + "66" : "transparent"}`,
+                      padding: "2px 4px",
                       minWidth: 0,
-                      color: it.hi ? TH.yellow : TH.text,
-                      fontWeight: it.hi ? 900 : 400,
-                    }}
-                  />
-                  <input
-                    value={it.detail ?? ""}
-                    onChange={(e) => updItem(ri, ii, { detail: e.target.value })}
-                    placeholder="細節（可留空）"
-                    style={{ ...inp, flex: 1.4, minWidth: 0 }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => delItem(ri, ii)}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: TH.red,
-                      fontSize: 13,
-                      cursor: "pointer",
-                      flexShrink: 0,
-                      padding: "0 2px",
                     }}
                   >
-                    ✕
-                  </button>
-                </div>
-              ))}
+                    <span
+                      {...itemHandle}
+                      style={{
+                        ...itemHandle.style,
+                        color: TH.muted,
+                        fontSize: 11,
+                        flexShrink: 0,
+                      }}
+                    >
+                      ⋮
+                    </span>
+                    <button
+                      type="button"
+                      title={it.hi ? "取消點亮" : "點亮"}
+                      onClick={() => updItem(ri, ii, { hi: !it.hi })}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        fontSize: 12,
+                        padding: "0 2px",
+                        color: it.hi ? TH.yellow : TH.muted,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {it.hi ? "⭐" : "☆"}
+                    </button>
+                    <input
+                      value={it.name}
+                      onChange={(e) => updItem(ri, ii, { name: e.target.value })}
+                      placeholder="小項名稱"
+                      style={{
+                        ...inp,
+                        flex: 1,
+                        minWidth: 0,
+                        color: it.hi ? TH.yellow : TH.text,
+                        fontWeight: it.hi ? 900 : 400,
+                      }}
+                    />
+                    <input
+                      value={it.detail ?? ""}
+                      onChange={(e) => updItem(ri, ii, { detail: e.target.value })}
+                      placeholder="細節（可留空）"
+                      style={{ ...inp, flex: 1.4, minWidth: 0 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => delItem(ri, ii)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: TH.red,
+                        fontSize: 13,
+                        cursor: "pointer",
+                        flexShrink: 0,
+                        padding: "0 2px",
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+              />
               <button
                 type="button"
                 onClick={() => addItem(ri)}
@@ -305,8 +304,8 @@ export function RoutineManager({ onClose }: { onClose: () => void }) {
               顯示：{routineLabel(r.emoji, r.items ?? [])}
             </div>
           </div>
-        ))}
-      </div>
+        )}
+      />
       <button
         type="button"
         onClick={addRow}

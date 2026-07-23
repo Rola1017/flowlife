@@ -495,8 +495,9 @@ export function PomodoroPage({
             </div>
           )}
         </div>
-        <div style={{ fontSize: 9, color: TH.red, fontWeight: 800, lineHeight: 1.4 }}>
-          今日未利用 {fmtIdleHM(idleTotalToday)}
+        <div style={{ fontSize: 9, lineHeight: 1.4 }}>
+          <span style={{ color: TH.red, fontWeight: 400 }}>今日未利用 </span>
+          <span style={{ color: TH.red, fontWeight: 800 }}>{fmtIdleHM(idleTotalToday)}</span>
         </div>
       </div>
     );

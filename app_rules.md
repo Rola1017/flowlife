@@ -500,8 +500,8 @@ TH.gold    = "#FBBF24"   // 金幣
 - **娛樂取消購買連動移除 session**：商店 `onRefundSpend` 退幣後，以 `name+date+earnedCoins=0` 移除對應娛樂 session；結束提示補「可按開始專注 🍅」。
 - **D3b 消費帶商品分類＋支出依 productCat 分組**：`CoinIncomeLogRow.productCat`；`spendCoins`／`spendReturningId` 帶入；金幣頁收支「支出」依 productCat 分組可展開；無 cat1 時顯示 productCat；0 元消費列 hydrate 清除＋退全額 `refundSpend` 刪列。
 - **R1 固定作息資料化＋小項/細節＋編輯器**：`RoutineBlock` 擴充 `emoji`/`items`；`DEFAULT_ROUTINE`＋`loadRoutine`/`saveRoutine`/`ensureRoutineSeeded`（LS＋`app_state key="routine"`）；`routineFor` 改讀 `loadRoutine`；`routineLabel` 存檔時組字；課表頁 `RoutineManager`（加行/小項/細節/重設）；顯示端沿用 `label`，`blockedRanges` 僅用 start/end。
-- **R3 課表頭尾折疊＋作息拖曳排序**：課表核心視窗 `06:00–23:00`，可展開凌晨/深夜；`buildRows(winStart,winEnd)` 單一視窗；班別覆蓋層跟 `HALF_SLOTS` 自動偏移。`RoutineManager` 原生 HTML5 拖曳排序，`persist` 不再強制依時間排序。
-- **作息時間重疊防護＋小項拖曳**：`lib/schedule.timeRangesOverlap`／`overlappingIndices` 共用檢查器；`RoutineManager` 紅框＋頂部警告＋完成確認；小項列可 ⋮ 拖曳（`stopPropagation` 不干擾行拖曳）。
+- **R3 課表頭尾折疊＋作息拖曳排序**：課表核心視窗 `06:00–23:00`，可展開凌晨/深夜；`buildRows(winStart,winEnd)` 單一視窗；班別覆蓋層跟 `HALF_SLOTS` 自動偏移。`RoutineManager` 拖曳排序（已改 dnd-kit `SortableList`），`persist` 不再強制依時間排序。
+- **作息時間重疊防護＋小項拖曳**：`lib/schedule.timeRangesOverlap`／`overlappingIndices` 共用檢查器；`RoutineManager` 紅框＋頂部警告＋完成確認；小項列可 ⋮ 拖曳（獨立巢狀 `DndContext`，僅把手觸發）。
 - **未利用自動起算改補觸發**：平日 08:00／13:30 改為「已過時刻且今日旗標未記 → 立即起算」；起點＝該時刻時間戳（不少計）；`LS_KEYS.idleAutoFlag`+日期防重複；娛樂進行中只記旗標不起算；專注中仍由 `usePomodoro` 熄滅 idle。
 - **CFG.TODAY 現算＋未利用規則制**：`CFG.TODAY_STR`／`TODAY` 改 getter 每次現算（修跨午夜未利用整天填滿）；未利用改「落在 `availableSegments` 且未專注/娛樂 → 累積」規則制，移除寫死 08:00/13:30；`onFocusEnd`＋`pomoRunning` 串接。
 - **idle.subtract 夾上界**：`s = min(max(a,winStart), winEnd)`，修「未利用超出現在」根因（未來不可用時段起點被當成可用終點）；時間軸／月曆／未利用統計共用底層一併正確。
@@ -517,6 +517,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **番茄鐘頁『當前活動』卡**：新增 `lib/schedule.ts currentScheduleBlock(date,nowMins)` 共用判定器（作息＞班別＞課程，全部讀既有單一來源）；番茄鐘卡改為永遠顯示，依序 專注/休息/娛樂/已規劃區塊/未利用(預設)；未利用數字與顯示條件同源，非未利用狀態亦於卡底顯示今日未利用；移除設定頁「歸零未利用時間」與 `handleResetIdle`。當前活動卡置於番茄鐘頁最上方（課程橫幅之上）；未利用統計改用 `fmtIdleHM` 一律顯示到分鐘（`fmtIdleTime` 保留供 RingTimer 即時碼錶顯示秒數）。
 - **固定作息小項可點亮**：`RoutineItem.hi`（長期重點標記，隨 `saveRoutine` 上雲）；`loadRoutine` 正規化保留 hi；`routineBlocksInWindow`／`currentScheduleBlock` 一併帶出 emoji＋items；行程表／課表固定列／番茄鐘當前活動卡三處統一逐項渲染，hi 者黃色粗體；label 組法不受 hi 影響。
 - **作息小項列排版治本**：input 加 `minWidth:0`＋`boxSizing:border-box`，點亮/未點亮 padding 與 border 等寬（未點亮用 transparent），✕/⭐/⋮ 皆 `flexShrink:0` → 任何狀態下刪除鈕恆可見可按；當前活動卡「今日未利用」改紅色。
+- **拖曳排序統一積木**：新增 `components/ui/SortableList.tsx`（dnd-kit，pointer/touch/keyboard sensors、即時讓位動畫、把手觸發），`RoutineManager` 行與小項兩層改用之，移除全庫 HTML5 `draggable` 實作。日後任何排序需求一律套用此元件，不得另寫拖曳邏輯。當前活動卡「今日未利用」文字字重 400、數字 800，皆紅色。
 - **便利貼衝突處理強化（自訂鈕高亮＋一鍵移除）**：班課衝突時記住 `ovPendingPick`；尚未自訂課程時「👉 點我自訂這天課程」改黃色高亮。提醒橫幅新增含確認的「🗑 移除這 N 堂衝突課，並排入此班」：透過 `setOvCourses` 將週課 materialize 成當日自訂快照、刪除衝突課並避免重複地排入待排班別；取消確認不變更。開啟／切日期／關提醒／逐堂刪完皆同步清衝突與 pending state。
 - **課表複製貼上「自動清潔＋貼不上提醒」**：複製「課程＋班別」貼上時以 `shiftRange(place, shift, day)!==""` 過濾 picks（只貼該天真能排的班，消除隱形貼券）；被略過的班以頁面層 `pasteNotice` ⚠️橫幅明列（哪個班、哪天、去管理工作場所開可上班日）；單日貼上與「貼到選取的 N 天」皆適用；複製/關閉清提醒。未動 `lib/schedule.ts`／排班模型。
 - **便利貼微調（衝突紅格＋格內✕）**：班課衝突時衝突課格紅框紅底點亮（`ovConflictSlots`）、提醒精簡為一句含班別名；自訂狀態課格內建 ✕ 一鍵刪（刪完衝突自動消提醒）；沿用每週固定時紅格仍顯示但無 ✕；底部編輯器移除「移除這格」只留選/換科目。
@@ -584,6 +585,7 @@ TH.gold    = "#FBBF24"   // 金幣
 | 技術債 #1 班別硬寫死 | ✅ **S3 班別使用者化完成**（S3-1~3c-2）：資料化、上雲、跨店 picks、重疊擋、時間/名稱/顏色可編、場所/班別增刪、pick 存班別 id、`findShift` 只認 id、孤兒 `reconcileDayPlans`、`ShiftDef.days` 可上班日閘門、單段時間隱藏 per-range 日子鈕（`rangeForDay` 單段套用所有可上班日）、WorkplaceManager「重設為預設」救援鈕。**剩**：⬜ S3-3d 單次微調（邊緣）。 |
 | ~~工作場所顏色綁分類名~~ ✅ 已解 | 3c-1b 顏色已解綁存入 `workplace.color`（`colorSeeded` 種子＋`placeColor`/`VerticalTimeline` 優先讀 color），改名不掉色。註：工作場所色與分類色現為兩套，logged 兼差時間色仍走 `CAT.cat2Color`。 |
 | 【指定日期例外排程】 | ✅ **2a+2b 完成**（`day_overrides`/`planForDate`/`shiftRangeOn`＋課表便利貼面板）。**待辦**：`reconcileOverrides`（班別刪除後孤兒便利貼清理，比照 `reconcileDayPlans`）。 |
+| ~~HTML5 拖放不支援觸控（Capacitor 手機版必壞）~~ ✅ 已治本 | 已改 `components/ui/SortableList.tsx`（dnd-kit pointer/touch/keyboard）；全庫 HTML5 `draggable` 已移除；日後排序一律套用此積木。 |
 | 抽 DayColumn 共用元件 | **技術債**——便利貼單日格子與課表頁 7 欄格子有渲染邏輯重複；未來抽共用 `<DayColumn>` 元件（課表頁與便利貼共用），現階段隔離不改動已穩定課表頁。 |
 | 便利貼新建科目 | **待議**——便利貼加課僅能從 `loadScheduleCourses` 科目庫選；全新科目需先在每週課表建立。未來如需在便利貼直接新建科目再議。 |
 | reconcileOverrides 待辦 | 便利貼引用的班別被刪後 key 殘留但無害（`findShift`→空）；未來加 `reconcileOverrides` 比照 `reconcileDayPlans` 清孤兒。 |
@@ -627,5 +629,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/07/23（作息小項列排版＋未利用紅字）*
+*最後更新：2026/07/23（SortableList dnd-kit 統一拖曳）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*
