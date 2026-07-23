@@ -55,6 +55,7 @@ export function RoutineManager({ onClose }: { onClose: () => void }) {
     fontSize: 12,
     padding: "4px 6px",
     colorScheme: "dark" as const,
+    boxSizing: "border-box" as const,
   };
   return (
     <div style={{ background: TH.card, border: `1px solid ${TH.border}`, borderRadius: 12, padding: 12 }}>
@@ -226,11 +227,12 @@ export function RoutineManager({ onClose }: { onClose: () => void }) {
                     gap: 4,
                     alignItems: "center",
                     borderRadius: 6,
-                    border: it.hi ? `1px solid ${TH.yellow}66` : "1px solid transparent",
-                    padding: it.hi ? "2px 4px" : "2px 0",
+                    border: `1px solid ${it.hi ? TH.yellow + "66" : "transparent"}`,
+                    padding: "2px 4px",
+                    minWidth: 0,
                   }}
                 >
-                  <span style={{ cursor: "grab", color: TH.muted, fontSize: 11 }}>⋮</span>
+                  <span style={{ cursor: "grab", color: TH.muted, fontSize: 11, flexShrink: 0 }}>⋮</span>
                   <button
                     type="button"
                     title={it.hi ? "取消點亮" : "點亮"}
@@ -254,6 +256,7 @@ export function RoutineManager({ onClose }: { onClose: () => void }) {
                     style={{
                       ...inp,
                       flex: 1,
+                      minWidth: 0,
                       color: it.hi ? TH.yellow : TH.text,
                       fontWeight: it.hi ? 900 : 400,
                     }}
@@ -262,7 +265,7 @@ export function RoutineManager({ onClose }: { onClose: () => void }) {
                     value={it.detail ?? ""}
                     onChange={(e) => updItem(ri, ii, { detail: e.target.value })}
                     placeholder="細節（可留空）"
-                    style={{ ...inp, flex: 1.4 }}
+                    style={{ ...inp, flex: 1.4, minWidth: 0 }}
                   />
                   <button
                     type="button"
@@ -273,6 +276,8 @@ export function RoutineManager({ onClose }: { onClose: () => void }) {
                       color: TH.red,
                       fontSize: 13,
                       cursor: "pointer",
+                      flexShrink: 0,
+                      padding: "0 2px",
                     }}
                   >
                     ✕
