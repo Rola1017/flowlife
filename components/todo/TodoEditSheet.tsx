@@ -113,7 +113,7 @@ export function TodoEditSheet({
             <input
               value={draft.text}
               onChange={(e) => setDraft((v) => ({ ...v, text: e.target.value }))}
-              placeholder="事件名稱"
+              placeholder="活動名稱"
               style={{
                 background: "#15151B",
                 border: `1px solid ${TH.border}`,

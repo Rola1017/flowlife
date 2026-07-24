@@ -1530,7 +1530,7 @@ export function SchedulePage({
           <input
             value={draft.name}
             onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-            placeholder="科目名稱..."
+            placeholder="活動名稱..."
             style={{
               width: "100%",
               background: "#0A0A0C",
@@ -1975,7 +1975,7 @@ export function SchedulePage({
         💡 點最上面的星期（一、二…）可複製整天課程／班別，再貼到其他天
       </div>
       <div style={{ fontSize: 10, color: TH.muted }}>
-        💡 欄寬會依「目前最長的課程名稱」自動調整，讓名稱能一行顯示
+        💡 欄寬會依「目前最長的活動名稱」自動調整，讓名稱能一行顯示
       </div>
       <div style={{ display: "flex", gap: 6, marginBottom: 4 }}>
         <button

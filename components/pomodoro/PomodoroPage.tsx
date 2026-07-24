@@ -4,9 +4,9 @@ import { useEffect, useMemo, useState, type CSSProperties, type Dispatch, type S
 import { CFG } from "@/lib/config";
 import { CAT } from "@/lib/categories";
 import { TH } from "@/lib/theme";
-import { LS_KEYS } from "@/lib/storage";
 import { fmt, fmtIdleHM, toM } from "@/lib/utils";
-import { currentScheduleBlock } from "@/lib/schedule";
+import { currentScheduleBlock, coursesForDate, loadScheduleCourses } from "@/lib/schedule";
+import { APP_STATE_KEYS, subscribeAppState } from "@/lib/appStateCloud";
 import { Card, SL } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { CategorySelector } from "@/components/pomodoro/CategorySelector";
@@ -186,8 +186,26 @@ export function PomodoroPage({
     if (mode === "focus") setIntentionOpen(false);
   }, [mode]);
 
+  const [schedRev, setSchedRev] = useState(0);
+  useEffect(() => {
+    const bump = () => setSchedRev((n) => n + 1);
+    const u1 = subscribeAppState(APP_STATE_KEYS.weekSchedule, bump);
+    const u2 = subscribeAppState(APP_STATE_KEYS.dayOverrides, bump);
+    return () => {
+      u1();
+      u2();
+    };
+  }, []);
+
   const recentEventNames = useMemo(() => {
-    const names = new Set<string>();
+    const ordered: string[] = [];
+    const seen = new Set<string>();
+    const add = (raw: string) => {
+      const name = raw.trim();
+      if (!name || seen.has(name)) return;
+      seen.add(name);
+      ordered.push(name);
+    };
     const matchesCat = (record: { cat1?: string; cat2?: string; cat3?: string }) => {
       if (catSel.cat1 && record.cat1 !== catSel.cat1) return false;
       if (catSel.cat2 && record.cat2 !== catSel.cat2) return false;
@@ -195,27 +213,35 @@ export function PomodoroPage({
       return true;
     };
 
+    // 1) 今日課程
+    for (const c of coursesForDate(CFG.TODAY_STR)) {
+      if (!c.n?.trim()) continue;
+      if (!matchesCat(c)) continue;
+      add(c.n);
+    }
+    // 2) sessions 新→舊
     for (const s of [...sessions].reverse()) {
       if (!s.name?.trim()) continue;
       if (!matchesCat(s)) continue;
-      names.add(s.name.trim());
+      add(s.name);
+    }
+    // 3) 金幣紀錄 新→舊
+    for (const r of [...coinIncomeLog].reverse()) {
+      if (!r.taskName?.trim()) continue;
+      if (!matchesCat(r)) continue;
+      add(r.taskName);
+    }
+    // 4) 整週課表其餘課程
+    for (const c of loadScheduleCourses()) {
+      if (!c.n?.trim()) continue;
+      if (!matchesCat(c)) continue;
+      add(c.n);
     }
 
-    try {
-      const stored = JSON.parse(
-        localStorage.getItem(LS_KEYS.coinIncomeLog) || "[]",
-      ) as Array<{ taskName?: string; cat1?: string; cat2?: string; cat3?: string }>;
-      for (const r of [...stored].reverse()) {
-        if (!r.taskName?.trim()) continue;
-        if (!matchesCat(r)) continue;
-        names.add(r.taskName.trim());
-      }
-    } catch {
-      /* ignore */
-    }
+    return ordered.slice(0, 12);
+  }, [sessions, coinIncomeLog, catSel.cat1, catSel.cat2, catSel.cat3, CFG.TODAY_STR, schedRev]);
 
-    return Array.from(names).slice(0, 10);
-  }, [sessions, catSel.cat1, catSel.cat2, catSel.cat3]);
+  const eventNameExactPicked = recentEventNames.some((n) => n === taskName.trim());
 
   const coinFieldStyle: CSSProperties = {
     width: "100%",
@@ -333,7 +359,7 @@ export function PomodoroPage({
             <input
               value={editTaskName}
               onChange={(e) => setEditTaskName(e.target.value)}
-              placeholder="事件名稱"
+              placeholder="活動名稱"
               style={coinFieldStyle}
             />
             <div>
@@ -921,8 +947,9 @@ export function PomodoroPage({
             mode === "focus" ? updateConfirmedName(e.target.value) : setTaskName(e.target.value)
           }
           onFocus={() => setShowEventDropdown(true)}
+          onPointerDown={() => setShowEventDropdown(true)}
           onBlur={() => setTimeout(() => setShowEventDropdown(false), 150)}
-          placeholder="輸入事件名稱（可選）..."
+          placeholder="輸入活動名稱（可選）…"
           style={{
             width: "100%",
             background: TH.card,
@@ -951,10 +978,23 @@ export function PomodoroPage({
               boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
             }}
           >
+            <div
+              style={{
+                fontSize: 9,
+                color: TH.muted,
+                padding: "6px 12px",
+                borderBottom: `1px solid ${TH.border}`,
+                pointerEvents: "none",
+              }}
+            >
+              💡 今天課表上的科目也會出現在這裡
+            </div>
             {recentEventNames
               .filter(
                 (name) =>
-                  !taskName.trim() || name.toLowerCase().includes(taskName.toLowerCase()),
+                  eventNameExactPicked ||
+                  !taskName.trim() ||
+                  name.toLowerCase().includes(taskName.toLowerCase()),
               )
               .map((name) => (
                 <button

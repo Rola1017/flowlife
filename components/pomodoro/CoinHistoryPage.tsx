@@ -301,7 +301,7 @@ export function CoinHistoryPage({
             <input
               value={editTaskName}
               onChange={(e) => setEditTaskName(e.target.value)}
-              placeholder="事件名稱"
+            placeholder="活動名稱"
               style={fieldStyle}
             />
             <div>
@@ -534,7 +534,7 @@ export function CoinHistoryPage({
           <input
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
-            placeholder="搜尋事件名稱…"
+            placeholder="搜尋活動名稱…"
             style={fieldStyle}
           />
         </div>

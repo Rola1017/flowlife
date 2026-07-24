@@ -439,7 +439,7 @@ export function TimelinePage({
             <input
               value={draft.text}
               onChange={(e) => setDraft((v) => ({ ...v, text: e.target.value }))}
-              placeholder="事件名稱（必填）"
+              placeholder="活動名稱（必填）"
               style={{
                 background: "#15151B",
                 border: `1px solid ${TH.border}`,
