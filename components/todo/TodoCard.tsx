@@ -65,8 +65,10 @@ export function TodoCard({
           style={{
             width: 26,
             height: 26,
-            borderRadius: "50%",
-            background: TH.green,
+            padding: 9,
+            margin: -9,
+            boxSizing: "content-box",
+            background: "transparent",
             border: "none",
             cursor: "pointer",
             display: "flex",
@@ -75,16 +77,32 @@ export function TodoCard({
             flexShrink: 0,
             transition: "transform .15s,opacity .15s",
           }}
-          onMouseEnter={(e) => {
+          onPointerEnter={(e) => {
             e.currentTarget.style.transform = "scale(.85)";
             e.currentTarget.style.opacity = ".65";
           }}
-          onMouseLeave={(e) => {
+          onPointerLeave={(e) => {
             e.currentTarget.style.transform = "scale(1)";
             e.currentTarget.style.opacity = "1";
           }}
         >
-          <span style={{ fontSize: 12, color: "#fff", pointerEvents: "none" }}>✓</span>
+          <span
+            style={{
+              width: 26,
+              height: 26,
+              borderRadius: "50%",
+              background: TH.green,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 12,
+              color: "#fff",
+              pointerEvents: "none",
+              flexShrink: 0,
+            }}
+          >
+            ✓
+          </span>
         </button>
         <div
           role={canEdit ? "button" : undefined}

@@ -960,13 +960,14 @@ export function PomodoroPage({
                 <button
                   key={name}
                   type="button"
-                  onMouseDown={() => {
+                  onPointerDown={(e) => {
+                    e.preventDefault();
                     setTaskName(name);
                     setShowEventDropdown(false);
                   }}
                   style={{
                     width: "100%",
-                    padding: "8px 12px",
+                    padding: "16px 12px",
                     background: "transparent",
                     border: "none",
                     borderBottom: `1px solid ${TH.border}`,
@@ -974,11 +975,12 @@ export function PomodoroPage({
                     fontSize: 11,
                     textAlign: "left",
                     cursor: "pointer",
+                    boxSizing: "border-box",
                   }}
-                  onMouseEnter={(e) => {
+                  onPointerEnter={(e) => {
                     e.currentTarget.style.background = TH.border;
                   }}
-                  onMouseLeave={(e) => {
+                  onPointerLeave={(e) => {
                     e.currentTarget.style.background = "transparent";
                   }}
                 >
