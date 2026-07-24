@@ -573,11 +573,11 @@ export function SchedulePage({
     color: MEAL_TIMES.has(t) ? "#FDE68A" : TH.muted,
   });
 
-  // 時間欄凍結：左右捲動恆顯。不透明背板蓋住捲到底下的日格（zIndex 高於日格與班別覆蓋層）
+  // 時間欄凍結：左右捲動恆顯。不透明背板蓋住捲到底下的日格／班別塊（zIndex 高於覆蓋層 5）
   const timeBackdropStyle: CSSProperties = {
     position: "sticky",
     left: 0,
-    zIndex: 6,
+    zIndex: 20,
     background: TH.bg,
     height: "100%",
   };
@@ -2008,7 +2008,7 @@ export function SchedulePage({
             style={{
               position: "sticky",
               top: 0,
-              zIndex: 10,
+              zIndex: 21,
               background: TH.bg,
               paddingBottom: 2,
             }}
@@ -2022,7 +2022,13 @@ export function SchedulePage({
               }}
             >
               <div
-                style={{ ...timeBackdropStyle, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}
+                style={{
+                  ...timeBackdropStyle,
+                  zIndex: 22,
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "flex-end",
+                }}
               >
                 <div style={{ fontSize: 9, color: TH.muted, textAlign: "center" }}>時間</div>
               </div>

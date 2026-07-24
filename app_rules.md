@@ -519,6 +519,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **作息小項列排版治本**：input 加 `minWidth:0`＋`boxSizing:border-box`，點亮/未點亮 padding 與 border 等寬（未點亮用 transparent），✕/⭐/⋮ 皆 `flexShrink:0` → 任何狀態下刪除鈕恆可見可按；當前活動卡「今日未利用」改紅色。
 - **拖曳排序統一積木**：新增 `components/ui/SortableList.tsx`（dnd-kit，pointer/touch/keyboard sensors、即時讓位動畫、把手觸發），`RoutineManager` 行與小項兩層改用之，移除全庫 HTML5 `draggable` 實作。日後任何排序需求一律套用此元件，不得另寫拖曳邏輯。當前活動卡「今日未利用」文字字重 400、數字 800，皆紅色。
 - **當前活動卡未利用數字加底線**：數字 `textDecoration:underline`＋`textUnderlineOffset:3`；「今日未利用」四字不加底線。
+- **跨副本刪除復活治本**：`syncSessionsFromCloud` 以既有已上雲的 `trashed_sessions` 作為墓碑，合併時排除、並對墓碑 uuid 主動 `deleteSessionCloud`；不動 schema。課表時間欄/表頭 z-index 提升至 20/21/22，高於班別絕對定位塊(5)。
 - **便利貼衝突處理強化（自訂鈕高亮＋一鍵移除）**：班課衝突時記住 `ovPendingPick`；尚未自訂課程時「👉 點我自訂這天課程」改黃色高亮。提醒橫幅新增含確認的「🗑 移除這 N 堂衝突課，並排入此班」：透過 `setOvCourses` 將週課 materialize 成當日自訂快照、刪除衝突課並避免重複地排入待排班別；取消確認不變更。開啟／切日期／關提醒／逐堂刪完皆同步清衝突與 pending state。
 - **課表複製貼上「自動清潔＋貼不上提醒」**：複製「課程＋班別」貼上時以 `shiftRange(place, shift, day)!==""` 過濾 picks（只貼該天真能排的班，消除隱形貼券）；被略過的班以頁面層 `pasteNotice` ⚠️橫幅明列（哪個班、哪天、去管理工作場所開可上班日）；單日貼上與「貼到選取的 N 天」皆適用；複製/關閉清提醒。未動 `lib/schedule.ts`／排班模型。
 - **便利貼微調（衝突紅格＋格內✕）**：班課衝突時衝突課格紅框紅底點亮（`ovConflictSlots`）、提醒精簡為一句含班別名；自訂狀態課格內建 ✕ 一鍵刪（刪完衝突自動消提醒）；沿用每週固定時紅格仍顯示但無 ✕；底部編輯器移除「移除這格」只留選/換科目。
@@ -578,7 +579,7 @@ TH.gold    = "#FBBF24"   // 金幣
 | 待辦進行中即時碳掉未利用 | 目前完成（有 `endAt`）後才碳；觸發＝要「進行中」即時碳掉時。 |
 | 「明細」分頁改名 | 建議改「番茄反思」以與期間總結區隔；觸發＝命名定案時。 |
 | ~~手動補番茄跨午夜~~ ✅ 已解決 | `buildManualSession` 改雙 `datetime-local`（`startAt`/`endAt` 各含日期），`while` 迴圈按本日 24:00 切段、回傳多顆 `Session`，金幣一次算在第一段；跨午夜自動分段記到各天。 |
-| 多裝置刪除「復活」硬化（墓碑/deletedAt 同步） | 目前軟刪會先從 active sessions 雲端刪除，再以 app_state 備份垃圾桶；sessionsCloud 尚無 tombstone，離線／多裝置競態下舊 session 仍可能被合併回 active。**觸發時機＝Capacitor 多裝置階段**：在 sessions 雲端模型同步 `deletedAt` 墓碑並讓合併層以墓碑壓過舊 active row。 |
+| ~~多裝置刪除「復活」硬化（墓碑/deletedAt 同步）~~ ✅ 暫解 | 已用已上雲的 `trashed_sessions` 當墓碑（`trashedUuidSet`）：`syncSessionsFromCloud` 合併排除＋對墓碑 uuid `deleteSessionCloud`。永久方案（sessions 表 `deleted_at`）仍見「墓碑保存期 30 天」條。 |
 | 娛樂計時為單機本地狀態，多裝置同步待評估 | **刻意本地**——進行中的計時娛樂存 `LS_KEYS.activeEnt`，不上雲；重開 App 依 `startAt` 時間戳續算倒數與退幣。多裝置同步待 Capacitor／多裝置階段再評估。 |
 | 娛樂時間／番茄倒數結束前 2 分／1 分本機推播 | **暫緩至 Capacitor 原生打包批次**——Web 環境在 App 切走／手機鎖屏時無法可靠發提醒，目前僅 App 開著時提示；計時採結束時間戳記帳，關閉 App 再回來仍能正確結算與退幣。真推播需 Capacitor 原生殼；**進行 Capacitor 原生打包批次時必須一併實作本機推播提醒（結束前 2 分／1 分），並回頭移除本條。** |
 | ~~reset 未清雲端~~ ✅ 已解決 | `handleResetAllData` 已清雲端全部：番茄(`updateSessions([])`)、金幣(`resetCoins`/`resetCoinLog`→push 0/[])、分類(`saveCategories(DEFAULT_CATEGORIES)`→推雲)、覆盤(`clearReviewsCloud()`)；重置後雲端＝番茄空/金幣0/記錄空/分類預設/覆盤空，不再被拉回。 |
@@ -587,6 +588,7 @@ TH.gold    = "#FBBF24"   // 金幣
 | ~~工作場所顏色綁分類名~~ ✅ 已解 | 3c-1b 顏色已解綁存入 `workplace.color`（`colorSeeded` 種子＋`placeColor`/`VerticalTimeline` 優先讀 color），改名不掉色。註：工作場所色與分類色現為兩套，logged 兼差時間色仍走 `CAT.cat2Color`。 |
 | 【指定日期例外排程】 | ✅ **2a+2b 完成**（`day_overrides`/`planForDate`/`shiftRangeOn`＋課表便利貼面板）。**待辦**：`reconcileOverrides`（班別刪除後孤兒便利貼清理，比照 `reconcileDayPlans`）。 |
 | ~~HTML5 拖放不支援觸控（Capacitor 手機版必壞）~~ ✅ 已治本 | 已改 `components/ui/SortableList.tsx`（dnd-kit pointer/touch/keyboard）；全庫 HTML5 `draggable` 已移除；日後排序一律套用此積木。 |
+| 墓碑保存期＝垃圾桶 30 天 | 刪除復活治本以 `trashed_sessions` 當墓碑；30 天自動清空後墓碑消失，若某副本超過 30 天未同步理論上仍可能復活（可接受風險）。**觸發升級＝出現跨月未同步裝置復活案例時**：改 sessions 表加 `deleted_at` 欄位（需 schema 變更）。 |
 | 抽 DayColumn 共用元件 | **技術債**——便利貼單日格子與課表頁 7 欄格子有渲染邏輯重複；未來抽共用 `<DayColumn>` 元件（課表頁與便利貼共用），現階段隔離不改動已穩定課表頁。 |
 | 便利貼新建科目 | **待議**——便利貼加課僅能從 `loadScheduleCourses` 科目庫選；全新科目需先在每週課表建立。未來如需在便利貼直接新建科目再議。 |
 | reconcileOverrides 待辦 | 便利貼引用的班別被刪後 key 殘留但無害（`findShift`→空）；未來加 `reconcileOverrides` 比照 `reconcileDayPlans` 清孤兒。 |
@@ -627,10 +629,10 @@ TH.gold    = "#FBBF24"   // 金幣
 - ⬜ **娛樂 session 加 `source:"entertainment"` 標記**：讓「取消購買↔移除 session」以 id 精準對應（目前以 name+date+零幣比對）。
 - ⬜ **當前活動卡：落在『上班班別』時應顯示 💼 場所+班別＋時段＋剩餘分鐘**——待 Rola 於上班時段驗證。
 - ⬜ **當前活動卡：落在『課表課程』時應顯示 📘 課名＋時段＋剩餘分鐘**——待 Rola 於有課時段驗證。
-- ⬜ **課表時間欄手機橫向捲動遮擋**：既有 `timeBackdropStyle`（sticky left + `TH.bg` + zIndex 6）與表頭 sticky top；本批〔A〕因結構已符合假設而停手，待釐清真機仍遮擋的實際根因後再改。
+- ⬜ **課表時間欄手機橫向捲動遮擋**：✅ z-index 已升至時間欄 20／表頭 21／交會格 22（高於班別塊 5）；若真機仍有殘餘再查。
 - ⬜ **觸控相容性盤點清單**（見本批 Cursor 回報），待逐項處理。
 
 ---
 
-*最後更新：2026/07/23（未利用底線＋觸控盤點；課表 sticky〔A〕停手）*
+*最後更新：2026/07/24（刪除墓碑＋課表 z-index）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*

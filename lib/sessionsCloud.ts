@@ -116,13 +116,23 @@ export async function deleteSessionCloud(uuid: string) {
   await sb().from("sessions").delete().eq("user_id", uid).eq("uuid", uuid);
 }
 
-/** 拉＋合併（last-write-wins）＋自動把本地較新者上雲 */
+/** 垃圾桶（已上雲的 trashed_sessions）內所有 uuid＝墓碑集合；不另建儲存 */
+function trashedUuidSet(): Set<string> {
+  const trash = loadJSON<Session[]>(LS_KEYS.trashedSessions, []);
+  const set = new Set<string>();
+  if (!Array.isArray(trash)) return set;
+  for (const s of trash) if (s.uuid) set.add(s.uuid);
+  return set;
+}
+
+/** 拉＋合併（last-write-wins）＋自動把本地較新者上雲；垃圾桶 uuid 當墓碑，不得復活 */
 export async function syncSessionsFromCloud() {
   const uid = await getUid();
   if (!uid) return; // 沒登入＝純本地
   const { data: cloud, error } = await sb().from("sessions").select("*").eq("user_id", uid);
   if (error || !cloud) return;
 
+  const trashed = trashedUuidSet();
   const local = loadLocal();
   const map = new Map<string, Session>();
   for (const s of local) if (s.uuid) map.set(s.uuid, s);
@@ -130,6 +140,7 @@ export async function syncSessionsFromCloud() {
   const cloudUuids = new Set<string>();
   for (const r of cloud as SessionRow[]) {
     cloudUuids.add(r.uuid);
+    if (trashed.has(r.uuid)) continue; // 墓碑：不得寫回本地
     const cur = map.get(r.uuid);
     if (!cur) {
       map.set(r.uuid, fromRow(r));
@@ -138,16 +149,20 @@ export async function syncSessionsFromCloud() {
     }
   }
 
-  // 本地較新或雲端沒有者 → 推上雲
+  // 本地較新或雲端沒有者 → 推上雲；若在墓碑內 → 不推，改刪雲端
   for (const s of local) {
     if (!s.uuid) continue;
+    if (trashed.has(s.uuid)) {
+      void deleteSessionCloud(s.uuid);
+      continue;
+    }
     const r = (cloud as SessionRow[]).find((x) => x.uuid === s.uuid);
     if (!cloudUuids.has(s.uuid) || (s.updatedAt ?? "") > (r?.updated_at ?? "")) {
       void pushSessionCloud(s.uuid);
     }
   }
 
-  const merged = Array.from(map.values());
+  const merged = Array.from(map.values()).filter((s) => !s.uuid || !trashed.has(s.uuid));
   saveJSON(LS_KEYS.sessions, merged);
   emitSessions();
 }
