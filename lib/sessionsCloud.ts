@@ -116,23 +116,35 @@ export async function deleteSessionCloud(uuid: string) {
   await sb().from("sessions").delete().eq("user_id", uid).eq("uuid", uuid);
 }
 
-/** 垃圾桶（已上雲的 trashed_sessions）內所有 uuid＝墓碑集合；不另建儲存 */
-function trashedUuidSet(): Set<string> {
-  const trash = loadJSON<Session[]>(LS_KEYS.trashedSessions, []);
+/** 墓碑集合：本機＋雲端 trashed_sessions／deleted_session_uuids（自給自足，不依賴 app_state sync 先跑） */
+async function tombstoneSet(uid: string): Promise<Set<string>> {
   const set = new Set<string>();
-  if (!Array.isArray(trash)) return set;
-  for (const s of trash) if (s.uuid) set.add(s.uuid);
+  for (const s of loadJSON<Session[]>(LS_KEYS.trashedSessions, [])) {
+    if (s?.uuid) set.add(s.uuid);
+  }
+  for (const d of loadJSON<{ uuid?: string }[]>(LS_KEYS.deletedSessionUuids, [])) {
+    if (d?.uuid) set.add(d.uuid);
+  }
+  const { data } = await sb()
+    .from("app_state")
+    .select("key,value")
+    .eq("user_id", uid)
+    .in("key", ["trashed_sessions", "deleted_session_uuids"]);
+  for (const row of (data ?? []) as { key: string; value: unknown }[]) {
+    const arr = Array.isArray(row.value) ? (row.value as { uuid?: string }[]) : [];
+    for (const it of arr) if (it?.uuid) set.add(it.uuid);
+  }
   return set;
 }
 
-/** 拉＋合併（last-write-wins）＋自動把本地較新者上雲；垃圾桶 uuid 當墓碑，不得復活 */
+/** 拉＋合併（last-write-wins）＋自動把本地較新者上雲；墓碑 uuid 不得復活 */
 export async function syncSessionsFromCloud() {
   const uid = await getUid();
   if (!uid) return; // 沒登入＝純本地
   const { data: cloud, error } = await sb().from("sessions").select("*").eq("user_id", uid);
   if (error || !cloud) return;
 
-  const trashed = trashedUuidSet();
+  const trashed = await tombstoneSet(uid);
   const local = loadLocal();
   const map = new Map<string, Session>();
   for (const s of local) if (s.uuid) map.set(s.uuid, s);

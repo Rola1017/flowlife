@@ -19,6 +19,7 @@ export const APP_STATE_KEYS = {
   dayOverrides: "day_overrides",
   weekSchedule: "week_schedule",
   trashedSessions: "trashed_sessions",
+  deletedSessions: "deleted_session_uuids",
   shopItems: "shop_items",
   routine: "routine",
   scheduleNote: "schedule_note",
@@ -35,6 +36,7 @@ const LS_FOR_KEY: Record<AppStateKey, string> = {
   [APP_STATE_KEYS.dayOverrides]: LS_KEYS.dayOverrides,
   [APP_STATE_KEYS.weekSchedule]: LS_KEYS.weekSchedule,
   [APP_STATE_KEYS.trashedSessions]: LS_KEYS.trashedSessions,
+  [APP_STATE_KEYS.deletedSessions]: LS_KEYS.deletedSessionUuids,
   [APP_STATE_KEYS.shopItems]: LS_KEYS.shopItems,
   [APP_STATE_KEYS.routine]: LS_KEYS.routine,
   [APP_STATE_KEYS.scheduleNote]: LS_KEYS.scheduleNote,
@@ -49,6 +51,7 @@ const DEFAULT_FOR_KEY: Record<AppStateKey, unknown> = {
   [APP_STATE_KEYS.dayOverrides]: {}, // 空物件；loadDayOverrides 讀取時正規化
   [APP_STATE_KEYS.weekSchedule]: {}, // 空物件；normalizeSchedule 讀取時處理
   [APP_STATE_KEYS.trashedSessions]: [],
+  [APP_STATE_KEYS.deletedSessions]: [],
   [APP_STATE_KEYS.shopItems]: [],
   [APP_STATE_KEYS.routine]: [], // 空陣列；loadRoutine 讀取時 fallback DEFAULT_ROUTINE
   [APP_STATE_KEYS.scheduleNote]: "",

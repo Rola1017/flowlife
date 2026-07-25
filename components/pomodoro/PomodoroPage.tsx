@@ -163,7 +163,6 @@ export function PomodoroPage({
     ? Math.max(0, (activity.end === "24:00" ? 1440 : toM(activity.end)) - nowMins)
     : 0;
 
-  const [showEventDropdown, setShowEventDropdown] = useState(false);
   const [intentionOpen, setIntentionOpen] = useState(false);
   const [reflectionOpen, setReflectionOpen] = useState(false);
   const [reflectionDraft, setReflectionDraft] = useState("");
@@ -240,8 +239,6 @@ export function PomodoroPage({
 
     return ordered.slice(0, 12);
   }, [sessions, coinIncomeLog, catSel.cat1, catSel.cat2, catSel.cat3, CFG.TODAY_STR, schedRev]);
-
-  const eventNameExactPicked = recentEventNames.some((n) => n === taskName.trim());
 
   const coinFieldStyle: CSSProperties = {
     width: "100%",
@@ -940,15 +937,19 @@ export function PomodoroPage({
           )}
         </div>
       )}
-      <div style={{ position: "relative", width: "100%" }}>
+      <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 6 }}>
         <input
           value={mode === "focus" ? (confirmed?.name ?? "") : taskName}
           onChange={(e) =>
             mode === "focus" ? updateConfirmedName(e.target.value) : setTaskName(e.target.value)
           }
-          onFocus={() => setShowEventDropdown(true)}
-          onPointerDown={() => setShowEventDropdown(true)}
-          onBlur={() => setTimeout(() => setShowEventDropdown(false), 150)}
+          name="activity-name"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          data-lpignore="true"
+          data-1p-ignore="true"
           placeholder="輸入活動名稱（可選）…"
           style={{
             width: "100%",
@@ -960,74 +961,51 @@ export function PomodoroPage({
             fontSize: 12,
             outline: "none",
             opacity: 1,
+            boxSizing: "border-box",
           }}
         />
-        {showEventDropdown && recentEventNames.length > 0 && mode !== "focus" && (
-          <div
-            style={{
-              position: "absolute",
-              top: "100%",
-              left: 0,
-              right: 0,
-              zIndex: 50,
-              background: TH.card,
-              border: `1px solid ${TH.border}`,
-              borderRadius: 8,
-              marginTop: 2,
-              overflow: "hidden",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
-            }}
-          >
+        {mode !== "focus" && recentEventNames.length > 0 && (
+          <>
+            <div style={{ fontSize: 9, color: TH.muted, alignSelf: "flex-start" }}>
+              💡 點下面的標籤可快速填入：今天課表科目、最近做過的活動
+            </div>
             <div
               style={{
-                fontSize: 9,
-                color: TH.muted,
-                padding: "6px 12px",
-                borderBottom: `1px solid ${TH.border}`,
-                pointerEvents: "none",
+                display: "flex",
+                gap: 5,
+                overflowX: "auto",
+                paddingBottom: 2,
+                width: "100%",
+                WebkitOverflowScrolling: "touch",
               }}
             >
-              💡 今天課表上的科目也會出現在這裡
+              {recentEventNames.slice(0, 8).map((name) => {
+                const active = taskName.trim() === name;
+                return (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => setTaskName(name)}
+                    style={{
+                      padding: "7px 11px",
+                      borderRadius: 16,
+                      border: `1px solid ${TH.border}`,
+                      background: active ? TH.accent + "22" : TH.card,
+                      color: active ? TH.accent : TH.muted,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
+                      cursor: "pointer",
+                      touchAction: "manipulation",
+                    }}
+                  >
+                    {name}
+                  </button>
+                );
+              })}
             </div>
-            {recentEventNames
-              .filter(
-                (name) =>
-                  eventNameExactPicked ||
-                  !taskName.trim() ||
-                  name.toLowerCase().includes(taskName.toLowerCase()),
-              )
-              .map((name) => (
-                <button
-                  key={name}
-                  type="button"
-                  onPointerDown={(e) => {
-                    e.preventDefault();
-                    setTaskName(name);
-                    setShowEventDropdown(false);
-                  }}
-                  style={{
-                    width: "100%",
-                    padding: "16px 12px",
-                    background: "transparent",
-                    border: "none",
-                    borderBottom: `1px solid ${TH.border}`,
-                    color: TH.text,
-                    fontSize: 11,
-                    textAlign: "left",
-                    cursor: "pointer",
-                    boxSizing: "border-box",
-                  }}
-                  onPointerEnter={(e) => {
-                    e.currentTarget.style.background = TH.border;
-                  }}
-                  onPointerLeave={(e) => {
-                    e.currentTarget.style.background = "transparent";
-                  }}
-                >
-                  {name}
-                </button>
-              ))}
-          </div>
+          </>
         )}
       </div>
       {mode !== "focus" &&

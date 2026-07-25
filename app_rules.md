@@ -482,7 +482,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **垃圾桶退幣改帳本單一真相**：修「發幣＝基礎＋里程碑＋寶箱、退幣卻只看 `earnedCoins`」與「舊金幣列無 `sessionUuid` 斷鏈刪不掉」——`useCoinLog.removeCoinRowsForSession` 雙管道比對＋回傳實際入帳總額；`Session.refundedCoins?` 記實退金額供復原對稱；無入帳時 toast「沒有入帳金幣」、不動餘額。
 - **金幣孤兒對帳**：`useCoinLog.findOrphanCoinRows`／`removeCoinRowsByIds`——找出「番茄已不存在」（uuid 對不到，舊列再用日期＋起訖也對不到）的金幣帳列；金幣收支頁「🧾 對帳」先 confirm 筆數與金額，再清帳列並同步扣回金幣（修早期刪番茄遺留孤兒）。
 - **番茄改以時間區段為主**：`lib/sessions.setSessionTimes`（分鐘＝結束−開始，`24:00`→1440；金幣重算與 `setSessionMins` 同套，`noCoin` 仍 0）；歷史頁編輯鈕改「✏️時間」，改開始～結束即時顯示換算分鐘，儲存後時間軸定位同步更新。
-- **垃圾桶一鍵清空**：`handlePurgeAll`→`updateTrashed([])`；垃圾桶展開區「🗑 全部永久刪除（N）」有 confirm；金幣已於進垃圾桶時結清，全清不動金幣。
+- **垃圾桶一鍵清空**：`handlePurgeAll` 先為垃圾桶內每顆補齊獨立墓碑再 `updateTrashed([])`；金幣已於進垃圾桶時結清，全清不動金幣。
 - **#6 跨日番茄各段各自計算金幣**：修「跨午夜切兩顆卻金幣全算第一段、第二段 earnedCoins=0」——與「一顆番茄一筆帳」對帳前提矛盾。即時番茄（`confirmRating`）與手動補（`buildManualSession`）皆改各段依自身分鐘＋同一套 `coinsForSecs` 計幣；跨午夜帳列各段一筆；刪任一段只退該段金額。
 - **金幣架構治本（帳本單一真相）**：餘額＝`coinIncomeLog` 所有 `amount` 加總，不再獨立存 `useCoins`／`LS_KEYS.coins`（檔案已刪；`LS_KEYS.coins` 僅遷移讀取）。`CoinIncomeLogRow.kind?`（`session|bonus|spend|opening`）；一次性期初結餘遷移（`flowlife_coin_ledger_migrated`，diff＝舊餘額−明細總和）。四個唯一入口：`appendCoinRow`／`removeCoinRows*`／`upsertCoinRowForSession`／`spendCoins`。刪/改/商店皆只動明細 → 餘額自動變；`confirmRating`／`handleAddManual` 不再 `setCoins`。
 - **刪番茄餘額防護**：`useCoinLog.previewRefundForSession` 預覽該番茄帳列總額；`handleDeleteSession` 在餘額不足扣回時擋下，toast 提示金幣已花掉、需先賺回或取消購買，避免帳本透支。
@@ -520,8 +520,10 @@ TH.gold    = "#FBBF24"   // 金幣
 - **拖曳排序統一積木**：新增 `components/ui/SortableList.tsx`（dnd-kit，pointer/touch/keyboard sensors、即時讓位動畫、把手觸發），`RoutineManager` 行與小項兩層改用之，移除全庫 HTML5 `draggable` 實作。日後任何排序需求一律套用此元件，不得另寫拖曳邏輯。當前活動卡「今日未利用」文字字重 400、數字 800，皆紅色。
 - **當前活動卡未利用數字加底線**：數字 `textDecoration:underline`＋`textUnderlineOffset:3`；「今日未利用」四字不加底線。
 - **跨副本刪除復活治本**：`syncSessionsFromCloud` 以既有已上雲的 `trashed_sessions` 作為墓碑，合併時排除、並對墓碑 uuid 主動 `deleteSessionCloud`；不動 schema。課表時間欄/表頭 z-index 提升至 20/21/22，高於班別絕對定位塊(5)。
+- **刪除墓碑獨立化**：新增 app_state key `deleted_session_uuids`（`{uuid,at}[]`，60 天 GC），寫入點＝刪除／永久刪除／清空垃圾桶（新增）、復原（移除）、重置（清空）；`syncSessionsFromCloud` 改為 `await tombstoneSet(uid)`，直接查雲端 `trashed_sessions` + `deleted_session_uuids`，不再依賴 app_state 同步先完成。
 - **觸控相容性-1**：PomodoroPage 最近活動下拉選項 `onMouseDown`→`onPointerDown`(+`preventDefault`)，下拉項與 TodoCard 完成鈕 hover 回饋 `onMouseEnter/Leave`→`onPointerEnter/Leave`；點擊區補足 44×44（僅用 padding）。
-- **活動名稱用詞統一**：番茄鐘／金幣編輯／課表／時間軸／日檢視／待辦 → 顯示「活動名稱」（僅改文案，未動識別字）；番茄鐘建議清單新增課表課程名（今日課程 > 最近 sessions > 金幣紀錄 > 整週課表，去重 slice12）；修正選取後 input 仍具焦點導致清單無法再開（補 `onPointerDown`）＋選定後顯示完整清單。
+- **活動名稱用詞統一**：番茄鐘／金幣編輯／課表／時間軸／日檢視／待辦 → 顯示「活動名稱」（僅改文案，未動識別字）；番茄鐘建議清單新增課表課程名（今日課程 > 最近 sessions > 金幣紀錄 > 整週課表，去重 slice12）。
+- **番茄鐘活動名稱建議改常駐標籤列**：由浮動下拉改為輸入框下方常駐標籤列（橫向捲動、slice8、💡常駐），輸入框加 `autoComplete=off` 等屬性抑制密碼管理員面板。
 - **便利貼衝突處理強化（自訂鈕高亮＋一鍵移除）**：班課衝突時記住 `ovPendingPick`；尚未自訂課程時「👉 點我自訂這天課程」改黃色高亮。提醒橫幅新增含確認的「🗑 移除這 N 堂衝突課，並排入此班」：透過 `setOvCourses` 將週課 materialize 成當日自訂快照、刪除衝突課並避免重複地排入待排班別；取消確認不變更。開啟／切日期／關提醒／逐堂刪完皆同步清衝突與 pending state。
 - **課表複製貼上「自動清潔＋貼不上提醒」**：複製「課程＋班別」貼上時以 `shiftRange(place, shift, day)!==""` 過濾 picks（只貼該天真能排的班，消除隱形貼券）；被略過的班以頁面層 `pasteNotice` ⚠️橫幅明列（哪個班、哪天、去管理工作場所開可上班日）；單日貼上與「貼到選取的 N 天」皆適用；複製/關閉清提醒。未動 `lib/schedule.ts`／排班模型。
 - **便利貼微調（衝突紅格＋格內✕）**：班課衝突時衝突課格紅框紅底點亮（`ovConflictSlots`）、提醒精簡為一句含班別名；自訂狀態課格內建 ✕ 一鍵刪（刪完衝突自動消提醒）；沿用每週固定時紅格仍顯示但無 ✕；底部編輯器移除「移除這格」只留選/換科目。
@@ -581,7 +583,7 @@ TH.gold    = "#FBBF24"   // 金幣
 | 待辦進行中即時碳掉未利用 | 目前完成（有 `endAt`）後才碳；觸發＝要「進行中」即時碳掉時。 |
 | 「明細」分頁改名 | 建議改「番茄反思」以與期間總結區隔；觸發＝命名定案時。 |
 | ~~手動補番茄跨午夜~~ ✅ 已解決 | `buildManualSession` 改雙 `datetime-local`（`startAt`/`endAt` 各含日期），`while` 迴圈按本日 24:00 切段、回傳多顆 `Session`，金幣一次算在第一段；跨午夜自動分段記到各天。 |
-| ~~多裝置刪除「復活」硬化（墓碑/deletedAt 同步）~~ ✅ 暫解 | 已用已上雲的 `trashed_sessions` 當墓碑（`trashedUuidSet`）：`syncSessionsFromCloud` 合併排除＋對墓碑 uuid `deleteSessionCloud`。永久方案（sessions 表 `deleted_at`）仍見「墓碑保存期 30 天」條。 |
+| ~~多裝置刪除「復活」硬化（墓碑/deletedAt 同步）~~ ✅ 已治本 | 獨立墓碑 `deleted_session_uuids`＋`tombstoneSet` 直查雲端；清空垃圾桶仍保留墓碑。永久 schema `deleted_at` 見「墓碑保存期」條。 |
 | 娛樂計時為單機本地狀態，多裝置同步待評估 | **刻意本地**——進行中的計時娛樂存 `LS_KEYS.activeEnt`，不上雲；重開 App 依 `startAt` 時間戳續算倒數與退幣。多裝置同步待 Capacitor／多裝置階段再評估。 |
 | 娛樂時間／番茄倒數結束前 2 分／1 分本機推播 | **暫緩至 Capacitor 原生打包批次**——Web 環境在 App 切走／手機鎖屏時無法可靠發提醒，目前僅 App 開著時提示；計時採結束時間戳記帳，關閉 App 再回來仍能正確結算與退幣。真推播需 Capacitor 原生殼；**進行 Capacitor 原生打包批次時必須一併實作本機推播提醒（結束前 2 分／1 分），並回頭移除本條。** |
 | ~~reset 未清雲端~~ ✅ 已解決 | `handleResetAllData` 已清雲端全部：番茄(`updateSessions([])`)、金幣(`resetCoins`/`resetCoinLog`→push 0/[])、分類(`saveCategories(DEFAULT_CATEGORIES)`→推雲)、覆盤(`clearReviewsCloud()`)；重置後雲端＝番茄空/金幣0/記錄空/分類預設/覆盤空，不再被拉回。 |
@@ -590,8 +592,8 @@ TH.gold    = "#FBBF24"   // 金幣
 | ~~工作場所顏色綁分類名~~ ✅ 已解 | 3c-1b 顏色已解綁存入 `workplace.color`（`colorSeeded` 種子＋`placeColor`/`VerticalTimeline` 優先讀 color），改名不掉色。註：工作場所色與分類色現為兩套，logged 兼差時間色仍走 `CAT.cat2Color`。 |
 | 【指定日期例外排程】 | ✅ **2a+2b 完成**（`day_overrides`/`planForDate`/`shiftRangeOn`＋課表便利貼面板）。**待辦**：`reconcileOverrides`（班別刪除後孤兒便利貼清理，比照 `reconcileDayPlans`）。 |
 | ~~HTML5 拖放不支援觸控（Capacitor 手機版必壞）~~ ✅ 已治本 | 已改 `components/ui/SortableList.tsx`（dnd-kit pointer/touch/keyboard）；全庫 HTML5 `draggable` 已移除；日後排序一律套用此積木。 |
-| 墓碑保存期＝垃圾桶 30 天 | 刪除復活治本以 `trashed_sessions` 當墓碑；30 天自動清空後墓碑消失，若某副本超過 30 天未同步理論上仍可能復活（可接受風險）。**觸發升級＝出現跨月未同步裝置復活案例時**：改 sessions 表加 `deleted_at` 欄位（需 schema 變更）。 |
-| 垃圾桶「全部永久刪除」會一併清掉墓碑 | 永久刪除清掉 `trashed_sessions` → 極端情況（另一副本長期未同步）仍可能復活。**治本**：永久刪除時保留 `{uuid, deletedAt}` 精簡墓碑 30 天。**觸發時機＝觸控修正完成後或首次再遇到復活。** |
+| 墓碑保存期＝獨立墓碑 60 天 | `deleted_session_uuids` 掛載時清掉 `at` 超過 60 天者；垃圾桶仍 30 天。**觸發升級＝出現跨月未同步裝置復活案例時**：改 sessions 表加 `deleted_at`（需 schema 變更）。 |
+| ~~垃圾桶「全部永久刪除」會一併清掉墓碑~~ ✅ 已解 | `handlePurgeAll`／`handlePurgeSession` 保留／補齊獨立墓碑後才清垃圾桶。 |
 | 抽 DayColumn 共用元件 | **技術債**——便利貼單日格子與課表頁 7 欄格子有渲染邏輯重複；未來抽共用 `<DayColumn>` 元件（課表頁與便利貼共用），現階段隔離不改動已穩定課表頁。 |
 | 便利貼新建科目 | **待議**——便利貼加課僅能從 `loadScheduleCourses` 科目庫選；全新科目需先在每週課表建立。未來如需在便利貼直接新建科目再議。 |
 | reconcileOverrides 待辦 | 便利貼引用的班別被刪後 key 殘留但無害（`findShift`→空）；未來加 `reconcileOverrides` 比照 `reconcileDayPlans` 清孤兒。 |
@@ -638,5 +640,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/07/24（活動名稱統一＋建議清單含課表）*
+*最後更新：2026/07/24（獨立墓碑＋活動名稱常駐標籤）*
 *維護原則：每次完成重要功能，同步更新第十、十一節*

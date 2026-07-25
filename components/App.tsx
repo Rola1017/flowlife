@@ -143,6 +143,7 @@ function AppContent() {
 
   const [sessions, setSessions] = useState<Session[]>([]);
   const [trashedSessions, setTrashedSessions] = useState<Session[]>([]);
+  const [deletedUuids, setDeletedUuids] = useState<{ uuid: string; at: string }[]>([]);
 
   const updateSessions = useCallback((updater: SetStateAction<Session[]>) => {
     setSessions((prev) => {
@@ -166,6 +167,18 @@ function AppContent() {
     });
   }, []);
 
+  const updateDeletedUuids = useCallback((updater: SetStateAction<{ uuid: string; at: string }[]>) => {
+    setDeletedUuids((prev) => {
+      const next =
+        typeof updater === "function"
+          ? (updater as (p: { uuid: string; at: string }[]) => { uuid: string; at: string }[])(prev)
+          : updater;
+      saveJSON(LS_KEYS.deletedSessionUuids, next);
+      void pushAppState(APP_STATE_KEYS.deletedSessions, next);
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     migrateCategoryIds();
     ensureWorkplacesSeeded();
@@ -180,6 +193,16 @@ function AppContent() {
     if (keptTrash.length !== loadedTrash.length) {
       saveJSON(LS_KEYS.trashedSessions, keptTrash);
       void pushAppState(APP_STATE_KEYS.trashedSessions, keptTrash);
+    }
+    const loadedDeleted = loadJSON<{ uuid: string; at: string }[]>(LS_KEYS.deletedSessionUuids, []);
+    const delCutoff = Date.now() - 60 * 86400000;
+    const keptDeleted = (Array.isArray(loadedDeleted) ? loadedDeleted : []).filter(
+      (d) => d?.uuid && d?.at && new Date(d.at).getTime() >= delCutoff,
+    );
+    setDeletedUuids(keptDeleted);
+    if (keptDeleted.length !== (Array.isArray(loadedDeleted) ? loadedDeleted.length : 0)) {
+      saveJSON(LS_KEYS.deletedSessionUuids, keptDeleted);
+      void pushAppState(APP_STATE_KEYS.deletedSessions, keptDeleted);
     }
     const r = loadJSON<Partial<typeof DEFAULT_RATINGS>>(LS_KEYS.ratingCounts, {});
     setFocused(typeof r.focused === "number" ? r.focused : DEFAULT_RATINGS.focused);
@@ -319,6 +342,14 @@ function AppContent() {
     [],
   );
 
+  useEffect(
+    () =>
+      subscribeAppState(APP_STATE_KEYS.deletedSessions, () =>
+        setDeletedUuids(loadJSON<{ uuid: string; at: string }[]>(LS_KEYS.deletedSessionUuids, [])),
+      ),
+    [],
+  );
+
   // 分類雲端同步回來 → 觸發重畫，讓所有讀分類的子元件拿到最新
   const [, bumpCat] = useState(0);
   useEffect(
@@ -433,6 +464,7 @@ function AppContent() {
     resetTodos([]);
     updateSessions([]);
     updateTrashed([]);
+    updateDeletedUuids([]);
     setResetVersion((v) => v + 1);
     setTab("home");
     setSubPage(null);
@@ -457,6 +489,7 @@ function AppContent() {
     setRestEndAt(null);
     updateSessions([]);
     updateTrashed([]);
+    updateDeletedUuids([]);
     setResetVersion((v) => v + 1);
   };
 
@@ -501,10 +534,17 @@ function AppContent() {
     updateSessions(sessions.filter((s) => s.id !== id));
     const logged = removeCoinRowsForSession(target); // 帳本實際入帳（含里程碑/寶箱）
     const refund = logged > 0 ? logged : (target.earnedCoins ?? 0); // 帳本查無 → 退基礎幣
+    const deletedAt = new Date().toISOString();
     updateTrashed((prev) => [
-      { ...target, deletedAt: new Date().toISOString(), refundedCoins: refund },
+      { ...target, deletedAt, refundedCoins: refund },
       ...prev.filter((s) => s.uuid !== target.uuid),
     ]);
+    if (target.uuid) {
+      const uuid = target.uuid;
+      updateDeletedUuids((prev) =>
+        prev.some((d) => d.uuid === uuid) ? prev : [{ uuid, at: deletedAt }, ...prev],
+      );
+    }
     setCoinToast(
       refund > 0 ? `已移入垃圾桶，扣回 ${refund} 金幣` : "已移入垃圾桶（這顆沒有入帳金幣）",
     );
@@ -517,6 +557,7 @@ function AppContent() {
     delete clean.refundedCoins;
     updateSessions((prev) => [...prev, { ...clean, updatedAt: new Date().toISOString() }]);
     updateTrashed((prev) => prev.filter((s) => s.uuid !== uuid));
+    updateDeletedUuids((prev) => prev.filter((d) => d.uuid !== uuid));
     const gain = target.refundedCoins ?? (target.earnedCoins ?? 0);
     if (gain > 0) {
       const t = target.startTime ?? "";
@@ -539,9 +580,24 @@ function AppContent() {
     setCoinToast(gain > 0 ? `已復原，加回 ${gain} 金幣` : "已復原（這顆沒有金幣）");
   };
   const handlePurgeSession = (uuid: string) => {
+    // 墓碑保留（不可刪）；若缺則補上
+    updateDeletedUuids((prev) =>
+      prev.some((d) => d.uuid === uuid)
+        ? prev
+        : [{ uuid, at: new Date().toISOString() }, ...prev],
+    );
     updateTrashed((prev) => prev.filter((s) => s.uuid !== uuid));
   };
   const handlePurgeAll = () => {
+    const now = new Date().toISOString();
+    const trashSnapshot = trashedSessions;
+    updateDeletedUuids((prev) => {
+      const map = new Map(prev.map((d) => [d.uuid, d]));
+      for (const s of trashSnapshot) {
+        if (s.uuid && !map.has(s.uuid)) map.set(s.uuid, { uuid: s.uuid, at: now });
+      }
+      return Array.from(map.values());
+    });
     updateTrashed([]);
     setCoinToast("垃圾桶已清空");
   };

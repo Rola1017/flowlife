@@ -24,6 +24,7 @@ export const LS_KEYS = {
   appStateMeta: `${STORAGE_PREFIX}_appstate_meta`,
   workplaces: `${STORAGE_PREFIX}workplaces`,
   trashedSessions: `${STORAGE_PREFIX}trashed_sessions`,
+  deletedSessionUuids: `${STORAGE_PREFIX}deleted_session_uuids`,
   shopItems: `${STORAGE_PREFIX}shop_items`,
   activeEnt: `${STORAGE_PREFIX}active_entertainment`,
   routine: `${STORAGE_PREFIX}routine`,
