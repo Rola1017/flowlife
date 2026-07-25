@@ -110,9 +110,9 @@ describe("schedule.currentScheduleBlock", () => {
     expect(currentScheduleBlock(date, 0)).toBeNull();
   });
 
-  it("優先序：作息 > 班別 > 課程", () => {
+  it("優先序：班別 > 課程 > 作息（實際排班蓋過預設作息）", () => {
     seedBase();
-    // 三者皆蓋 10:00–10:30
+    // 三者皆蓋 10:00–10:30 → 應顯示班別（不是作息）
     saveJSON(LS_KEYS.routine, [
       { start: "10:00", end: "11:00", label: "作息塊", items: [{ name: "作息塊" }] },
     ]);
@@ -135,7 +135,55 @@ describe("schedule.currentScheduleBlock", () => {
       六: [{ t: "10:00", n: "課程A", cat1: "學習", cat2: "", cat3: "" }],
     });
     const plans = { 六: { picks: [{ place: "診", shift: "早" }] } };
-    expect(currentScheduleBlock(date, 10 * 60 + 5, plans)?.kind).toBe("routine");
+    expect(currentScheduleBlock(date, 10 * 60 + 5, plans)?.kind).toBe("shift");
+  });
+
+  it("上班時段與晚餐作息重疊 → 顯示上班（防 2026-07-25 週六卡片誤顯示晚餐）", () => {
+    seedBase();
+    saveJSON(LS_KEYS.routine, [
+      { start: "17:00", end: "18:00", label: "🍴 晚餐", items: [{ name: "晚餐" }] },
+    ]);
+    const wp: WorkplaceConfig[] = [
+      {
+        id: "診",
+        name: "診所",
+        shifts: [
+          {
+            id: "晚",
+            label: "晚",
+            days: ["六"],
+            ranges: [{ days: null, start: "14:00", end: "22:00" }],
+          },
+        ],
+      },
+    ];
+    saveJSON(LS_KEYS.workplaces, wp);
+    const plans = { 六: { picks: [{ place: "診", shift: "晚" }] } };
+    expect(currentScheduleBlock(date, 17 * 60 + 30, plans)?.kind).toBe("shift");
+  });
+
+  it("班別未排班時，仍回退到作息", () => {
+    seedBase();
+    saveJSON(LS_KEYS.routine, [
+      { start: "17:00", end: "18:00", label: "🍴 晚餐", items: [{ name: "晚餐" }] },
+    ]);
+    const wp: WorkplaceConfig[] = [
+      {
+        id: "診",
+        name: "診所",
+        shifts: [
+          {
+            id: "晚",
+            label: "晚",
+            days: ["六"],
+            ranges: [{ days: null, start: "14:00", end: "22:00" }],
+          },
+        ],
+      },
+    ];
+    saveJSON(LS_KEYS.workplaces, wp);
+    const plans = { 六: { picks: [] } };
+    expect(currentScheduleBlock(date, 17 * 60 + 30, plans)?.kind).toBe("routine");
   });
 });
 

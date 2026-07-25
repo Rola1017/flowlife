@@ -545,7 +545,7 @@ export type NowActivity =
   | { kind: "routine"; label: string; start: string; end: string; items?: RoutineItem[] }
   | { kind: "shift" | "course"; label: string; start: string; end: string };
 
-/** 某日某時刻落在哪個「已規劃」區塊（作息＞班別＞課程）。都不落＝null（＝未利用預設態）。 */
+/** 某日某時刻落在哪個「已規劃」區塊（班別＞課程＞作息；實際排班蓋過預設作息）。都不落＝null（＝未利用預設態）。 */
 export function currentScheduleBlock(
   dateStr: string,
   nowMins: number,
@@ -556,10 +556,6 @@ export function currentScheduleBlock(
       b = e === "24:00" ? 1440 : toMin(e);
     return nowMins >= a && nowMins < b;
   };
-  for (const b of routineFor(dateStr)) {
-    if (inRange(b.start, b.end))
-      return { kind: "routine", label: b.label, start: b.start, end: b.end, items: b.items };
-  }
   const overrides = loadDayOverrides();
   const isOv = !!overrides[dateStr];
   const plan = planForDate(dateStr, dayPlans, overrides as Record<string, DayPlan>);
@@ -581,6 +577,10 @@ export function currentScheduleBlock(
         end,
       };
     }
+  }
+  for (const b of routineFor(dateStr)) {
+    if (inRange(b.start, b.end))
+      return { kind: "routine", label: b.label, start: b.start, end: b.end, items: b.items };
   }
   return null;
 }

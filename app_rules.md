@@ -514,7 +514,8 @@ TH.gold    = "#FBBF24"   // 金幣
 - **功能B 行事曆分類篩選路徑集合化**：CalendarPage/ReviewView/analytics 由 `selCat1Set+selCat2` 舊模型改吃 `selPaths:Set<string>`＋`matchesCatSelection`（與金幣頁統一為單一分類篩選來源）；`buildDistribution` 選取時每路徑一片加總、未選時大分類總覽；`MultiCategoryFilter` 可折疊面板＋💡。
 - **MultiCategoryFilter 小分類顯示修正**：小分類區塊改為「中分類被選 或 其下任一小分類被選」即展開（原本僅中分類被選才展開，導致選小分類後父層被移除→區塊收合→選中的小分類看不見）；共用元件，行事曆與金幣頁同步修好。
 - **未利用單一來源化**：番茄鐘卡改用 `idleMinutesForDate`（當日夾界、扣睡眠/班別），退役 `idleTotalSecs` 累加器（移除 state/LS/累加寫入/props）；標題改「當日未利用時間加總」、移除「距離上次休息時間」與當前段進度條、加💡。與行事曆/時間軸統一為單一未利用來源。
-- **番茄鐘頁『當前活動』卡**：新增 `lib/schedule.ts currentScheduleBlock(date,nowMins)` 共用判定器（作息＞班別＞課程，全部讀既有單一來源）；番茄鐘卡改為永遠顯示，依序 專注/休息/娛樂/已規劃區塊/未利用(預設)；未利用數字與顯示條件同源，非未利用狀態亦於卡底顯示今日未利用；移除設定頁「歸零未利用時間」與 `handleResetIdle`。當前活動卡置於番茄鐘頁最上方（課程橫幅之上）；未利用統計改用 `fmtIdleHM` 一律顯示到分鐘（`fmtIdleTime` 保留供 RingTimer 即時碼錶顯示秒數）。
+- **番茄鐘頁『當前活動』卡**：新增 `lib/schedule.ts currentScheduleBlock(date,nowMins)` 共用判定器（班別＞課程＞作息，實際排班蓋過預設作息；全部讀既有單一來源）；番茄鐘卡改為永遠顯示，依序 專注/休息/娛樂/已規劃區塊/未利用(預設)；未利用數字與顯示條件同源，非未利用狀態亦於卡底顯示今日未利用；移除設定頁「歸零未利用時間」與 `handleResetIdle`。當前活動卡置於番茄鐘頁最上方（課程橫幅之上）；未利用統計改用 `fmtIdleHM` 一律顯示到分鐘（`fmtIdleTime` 保留供 RingTimer 即時碼錶顯示秒數）。
+- **currentScheduleBlock 優先序修正**：改為 班別 > 課程 > 作息（實際排班蓋過預設作息，與 `blockedRanges` 聯集語意一致）；修正原測試把「作息優先」誤鎖為正確之回歸漏洞。
 - **固定作息小項可點亮**：`RoutineItem.hi`（長期重點標記，隨 `saveRoutine` 上雲）；`loadRoutine` 正規化保留 hi；`routineBlocksInWindow`／`currentScheduleBlock` 一併帶出 emoji＋items；行程表／課表固定列／番茄鐘當前活動卡三處統一逐項渲染，hi 者黃色粗體；label 組法不受 hi 影響。
 - **作息小項列排版治本**：input 加 `minWidth:0`＋`boxSizing:border-box`，點亮/未點亮 padding 與 border 等寬（未點亮用 transparent），✕/⭐/⋮ 皆 `flexShrink:0` → 任何狀態下刪除鈕恆可見可按；當前活動卡「今日未利用」改紅色。
 - **拖曳排序統一積木**：新增 `components/ui/SortableList.tsx`（dnd-kit，pointer/touch/keyboard sensors、即時讓位動畫、把手觸發），`RoutineManager` 行與小項兩層改用之，移除全庫 HTML5 `draggable` 實作。日後任何排序需求一律套用此元件，不得另寫拖曳邏輯。當前活動卡「今日未利用」文字字重 400、數字 800，皆紅色。
@@ -668,5 +669,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/07/25（Vitest＋CI 測試地基）*
+*最後更新：2026/07/25（currentScheduleBlock 班別優先＋測試修正）*
 *維護原則：每次完成重要功能，同步更新第十、十一、十二節*
