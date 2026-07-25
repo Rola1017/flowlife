@@ -524,6 +524,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **觸控相容性-1**：PomodoroPage 最近活動下拉選項 `onMouseDown`→`onPointerDown`(+`preventDefault`)，下拉項與 TodoCard 完成鈕 hover 回饋 `onMouseEnter/Leave`→`onPointerEnter/Leave`；點擊區補足 44×44（僅用 padding）。
 - **活動名稱用詞統一**：番茄鐘／金幣編輯／課表／時間軸／日檢視／待辦 → 顯示「活動名稱」（僅改文案，未動識別字）；番茄鐘建議清單新增課表課程名（今日課程 > 最近 sessions > 金幣紀錄 > 整週課表，去重 slice12）。
 - **番茄鐘活動名稱建議改常駐標籤列**：由浮動下拉改為輸入框下方常駐標籤列（橫向捲動、slice8、💡常駐），輸入框加 `autoComplete=off` 等屬性抑制密碼管理員面板。
+- **建立 Vitest 測試地基與 GitHub Actions CI**：抽出 `mergeSessionsWithTombstones` 純函式以便測試同步合併；`tests/` 覆蓋 idle／schedule／categories／sessions／analytics／sessionsCloud；CI 跑 `tsc --noEmit`＋`npm test`。
 - **便利貼衝突處理強化（自訂鈕高亮＋一鍵移除）**：班課衝突時記住 `ovPendingPick`；尚未自訂課程時「👉 點我自訂這天課程」改黃色高亮。提醒橫幅新增含確認的「🗑 移除這 N 堂衝突課，並排入此班」：透過 `setOvCourses` 將週課 materialize 成當日自訂快照、刪除衝突課並避免重複地排入待排班別；取消確認不變更。開啟／切日期／關提醒／逐堂刪完皆同步清衝突與 pending state。
 - **課表複製貼上「自動清潔＋貼不上提醒」**：複製「課程＋班別」貼上時以 `shiftRange(place, shift, day)!==""` 過濾 picks（只貼該天真能排的班，消除隱形貼券）；被略過的班以頁面層 `pasteNotice` ⚠️橫幅明列（哪個班、哪天、去管理工作場所開可上班日）；單日貼上與「貼到選取的 N 天」皆適用；複製/關閉清提醒。未動 `lib/schedule.ts`／排班模型。
 - **便利貼微調（衝突紅格＋格內✕）**：班課衝突時衝突課格紅框紅底點亮（`ovConflictSlots`）、提醒精簡為一句含班別名；自訂狀態課格內建 ✕ 一鍵刪（刪完衝突自動消提醒）；沿用每週固定時紅格仍顯示但無 ✕；底部編輯器移除「移除這格」只留選/換科目。
@@ -640,5 +641,32 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/07/24（獨立墓碑＋活動名稱常駐標籤）*
-*維護原則：每次完成重要功能，同步更新第十、十一節*
+## 十二、自動化測試
+
+### 怎麼跑
+- `npm test` — Vitest 單次跑完（CI 同此）
+- `npm run test:watch` — 監看模式
+- `npm run typecheck` — `tsc --noEmit`（與 CI 獨立步驟相同；不依賴 `next build`）
+
+### 結構
+- `vitest.config.ts`：`environment: jsdom`、`globals: true`、`@` → 專案根
+- `tests/`（與 `lib/` 並列）：
+  - `idle.test.ts` — 未利用 subtract 夾窗（防延伸到不可用時段）
+  - `schedule.test.ts` — 時段重疊／`currentScheduleBlock`／`hi` 保留
+  - `categories.test.ts` — `catPath`／`matchesCatSelection` 不重複計
+  - `sessions.test.ts` — 跨午夜切段／手動補番茄／`setSessionTimes`
+  - `analytics.test.ts` — `sessionMatches`／`buildDistribution`
+  - `sessionsCloud.test.ts` — `mergeSessionsWithTombstones` 墓碑防復活
+- CI：`.github/workflows/ci.yml`（push／PR → main；`npm ci` → `tsc` → `npm test`）
+
+### 規則（每批新增測試）
+1. **已經出過事的邏輯**優先補回歸；註解標明防的歷史 bug。
+2. 期望值＝正確答案，不可把「當前錯誤輸出」貼成 assert。
+3. 涉及 localStorage 的測試：`beforeEach` 清空，避免互相污染。
+4. 同步／合併等副作用重的流程：抽出純函式再測（如 `mergeSessionsWithTombstones`），測完後行為須與抽出前等價。
+5. 本批若改了純函式／邊界條件，應同步加或改對應測試；CI 紅燈不得 `continue-on-error`。
+
+---
+
+*最後更新：2026/07/25（Vitest＋CI 測試地基）*
+*維護原則：每次完成重要功能，同步更新第十、十一、十二節*

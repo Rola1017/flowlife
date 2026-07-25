@@ -137,6 +137,49 @@ async function tombstoneSet(uid: string): Promise<Set<string>> {
   return set;
 }
 
+/**
+ * 同步合併純函式（無網路／無 localStorage）。
+ * 等價於 syncSessionsFromCloud 的合併＋墓碑過濾：跳過墓碑雲端列、墓碑本地改刪雲、最後過濾 merged。
+ */
+export function mergeSessionsWithTombstones(
+  local: Session[],
+  cloud: Session[],
+  tombstones: Set<string>,
+): { merged: Session[]; toPush: Session[]; toDeleteFromCloud: string[] } {
+  const map = new Map<string, Session>();
+  for (const s of local) if (s.uuid) map.set(s.uuid, s);
+
+  const cloudUuids = new Set<string>();
+  for (const c of cloud) {
+    if (!c.uuid) continue;
+    cloudUuids.add(c.uuid);
+    if (tombstones.has(c.uuid)) continue; // 墓碑：不得寫回本地
+    const cur = map.get(c.uuid);
+    if (!cur) {
+      map.set(c.uuid, c);
+    } else if ((c.updatedAt ?? "") > (cur.updatedAt ?? "")) {
+      map.set(c.uuid, { ...c, id: cur.id });
+    }
+  }
+
+  const toPush: Session[] = [];
+  const toDeleteFromCloud: string[] = [];
+  for (const s of local) {
+    if (!s.uuid) continue;
+    if (tombstones.has(s.uuid)) {
+      toDeleteFromCloud.push(s.uuid);
+      continue;
+    }
+    const c = cloud.find((x) => x.uuid === s.uuid);
+    if (!cloudUuids.has(s.uuid) || (s.updatedAt ?? "") > (c?.updatedAt ?? "")) {
+      toPush.push(s);
+    }
+  }
+
+  const merged = Array.from(map.values()).filter((s) => !s.uuid || !tombstones.has(s.uuid));
+  return { merged, toPush, toDeleteFromCloud };
+}
+
 /** 拉＋合併（last-write-wins）＋自動把本地較新者上雲；墓碑 uuid 不得復活 */
 export async function syncSessionsFromCloud() {
   const uid = await getUid();
@@ -146,35 +189,13 @@ export async function syncSessionsFromCloud() {
 
   const trashed = await tombstoneSet(uid);
   const local = loadLocal();
-  const map = new Map<string, Session>();
-  for (const s of local) if (s.uuid) map.set(s.uuid, s);
-
-  const cloudUuids = new Set<string>();
-  for (const r of cloud as SessionRow[]) {
-    cloudUuids.add(r.uuid);
-    if (trashed.has(r.uuid)) continue; // 墓碑：不得寫回本地
-    const cur = map.get(r.uuid);
-    if (!cur) {
-      map.set(r.uuid, fromRow(r));
-    } else if ((r.updated_at ?? "") > (cur.updatedAt ?? "")) {
-      map.set(r.uuid, fromRow(r, cur.id));
-    }
-  }
-
-  // 本地較新或雲端沒有者 → 推上雲；若在墓碑內 → 不推，改刪雲端
-  for (const s of local) {
-    if (!s.uuid) continue;
-    if (trashed.has(s.uuid)) {
-      void deleteSessionCloud(s.uuid);
-      continue;
-    }
-    const r = (cloud as SessionRow[]).find((x) => x.uuid === s.uuid);
-    if (!cloudUuids.has(s.uuid) || (s.updatedAt ?? "") > (r?.updated_at ?? "")) {
-      void pushSessionCloud(s.uuid);
-    }
-  }
-
-  const merged = Array.from(map.values()).filter((s) => !s.uuid || !trashed.has(s.uuid));
+  const cloudSessions = (cloud as SessionRow[]).map((r) => {
+    const cur = local.find((s) => s.uuid === r.uuid);
+    return fromRow(r, cur?.id);
+  });
+  const { merged, toPush, toDeleteFromCloud } = mergeSessionsWithTombstones(local, cloudSessions, trashed);
+  for (const uuid of toDeleteFromCloud) void deleteSessionCloud(uuid);
+  for (const s of toPush) if (s.uuid) void pushSessionCloud(s.uuid);
   saveJSON(LS_KEYS.sessions, merged);
   emitSessions();
 }
