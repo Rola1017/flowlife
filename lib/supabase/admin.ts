@@ -34,7 +34,7 @@ function asRecord<T>(v: unknown): Record<string, T> {
   return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, T>) : {};
 }
 
-/** 只讀拉取 ROLO 使用者的行程相關 app_state；缺 key 給安全預設、不丟錯 */
+/** 只讀拉取 RORO 使用者的行程相關 app_state；缺 key 給安全預設、不丟錯 */
 export async function loadScheduleDataFor(userId: string): Promise<ScheduleData> {
   const empty: ScheduleData = {
     routine: DEFAULT_ROUTINE,

@@ -44,8 +44,8 @@ function json(body: unknown, status: number) {
 
 export async function GET(req: Request) {
   try {
-    const key = req.headers.get("x-rolo-key");
-    if (!key || key !== process.env.ROLO_API_KEY) {
+    const key = req.headers.get("x-roro-key");
+    if (!key || key !== process.env.RORO_API_KEY) {
       return json({ ok: false, error: "unauthorized" }, 401);
     }
 
@@ -56,7 +56,7 @@ export async function GET(req: Request) {
       return json({ ok: false, error: "invalid date, expected YYYY-MM-DD" }, 400);
     }
 
-    const userId = process.env.ROLO_USER_ID;
+    const userId = process.env.RORO_USER_ID;
     if (!userId) {
       return json({ ok: false, error: "internal" }, 500);
     }
