@@ -61,6 +61,28 @@ export async function GET(req: Request) {
       return json({ ok: false, error: "internal" }, 500);
     }
 
+    // 臨時診斷：查完即移除（debug=1）
+    if (url.searchParams.get("debug") === "1") {
+      const data = await loadScheduleDataFor(userId);
+      return json(
+        {
+          ok: true,
+          date,
+          weekday: weekdayOf(date),
+          _debug: {
+            routineCount: data.routine?.length ?? 0,
+            workplacesCount: data.workplaces?.length ?? 0,
+            dayPlansKeys: Object.keys(data.dayPlans ?? {}),
+            weekScheduleKeys: Object.keys(data.weekSchedule ?? {}),
+            weekScheduleForWeekday: data.weekSchedule?.[weekdayOf(date)] ?? null,
+            dayOverrideForDate: data.dayOverrides?.[date] ?? null,
+            sampleWeekSchedule: JSON.stringify(data.weekSchedule ?? {}).slice(0, 800),
+          },
+        },
+        200,
+      );
+    }
+
     const data = await loadScheduleDataFor(userId);
     const blocks = buildTodayBlocks(date, data);
 
