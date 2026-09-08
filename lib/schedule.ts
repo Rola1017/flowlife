@@ -105,8 +105,8 @@ function rangeForDay(sh: ReturnType<typeof findShift>, day: string): ShiftRangeD
 export function listWorkplaces(): WorkplaceConfig[] {
   return loadWorkplaces();
 }
-export function placeName(id: Place): string {
-  return loadWorkplaces().find((w) => w.id === id)?.name ?? id; // 找不到回 id，不崩
+export function placeName(id: Place, workplaces?: WorkplaceConfig[]): string {
+  return (workplaces ?? loadWorkplaces()).find((w) => w.id === id)?.name ?? id; // 找不到回 id，不崩
 }
 export function placeShifts(id: Place): string[] {
   return loadWorkplaces().find((w) => w.id === id)?.shifts.map((s) => s.label) ?? [];
@@ -141,8 +141,14 @@ export function shiftTimes(place: Place, shift: string, day: string): string[] {
 }
 
 /** 指定日期解析某班別時間：便利貼(isOverride=true)不看可上班日閘門；週模式仍守閘門。 */
-export function shiftRangeOn(place: Place, shift: string, dateStr: string, isOverride: boolean): string {
-  const sh = findShift(place, shift);
+export function shiftRangeOn(
+  place: Place,
+  shift: string,
+  dateStr: string,
+  isOverride: boolean,
+  workplaces?: WorkplaceConfig[],
+): string {
+  const sh = findShift(place, shift, workplaces ?? loadWorkplaces());
   if (!sh) return "";
   const day = weekdayOf(dateStr);
   if (!isOverride && !sh.days?.includes(day)) return "";
@@ -150,8 +156,14 @@ export function shiftRangeOn(place: Place, shift: string, dateStr: string, isOve
   return r ? `${r.start}~${r.end}` : "";
 }
 
-export function shiftTimesOn(place: Place, shift: string, dateStr: string, isOverride: boolean): string[] {
-  const sh = findShift(place, shift);
+export function shiftTimesOn(
+  place: Place,
+  shift: string,
+  dateStr: string,
+  isOverride: boolean,
+  workplaces?: WorkplaceConfig[],
+): string[] {
+  const sh = findShift(place, shift, workplaces ?? loadWorkplaces());
   if (!sh) return [];
   const day = weekdayOf(dateStr);
   if (!isOverride && !sh.days?.includes(day)) return [];
@@ -276,6 +288,11 @@ export function routineLabel(emoji: string | undefined, items: RoutineItem[]): s
 export function loadRoutine(): RoutineBlock[] {
   const v = loadJSON<RoutineBlock[] | null>(LS_KEYS.routine, null);
   const raw = Array.isArray(v) && v.length > 0 ? v : DEFAULT_ROUTINE;
+  return normalizeRoutineBlocks(raw);
+}
+
+/** 正規化作息列（保留 hi／detail）；供 loadRoutine 與 buildTodayBlocks 共用 */
+export function normalizeRoutineBlocks(raw: RoutineBlock[]): RoutineBlock[] {
   return raw.map((b) => {
     const items =
       Array.isArray(b.items) && b.items.length
@@ -583,4 +600,110 @@ export function currentScheduleBlock(
       return { kind: "routine", label: b.label, start: b.start, end: b.end, items: b.items };
   }
   return null;
+}
+
+/** 可注入的行程資料包（後端／測試用不碰 localStorage） */
+export type ScheduleData = {
+  routine: RoutineBlock[];
+  dayPlans: Record<string, DayPlan>;
+  dayOverrides: Record<string, DayOverride>;
+  weekSchedule: Record<string, CourseInfo[]>;
+  workplaces: WorkplaceConfig[];
+};
+
+/** 指定日期行程塊（重疊不裁決；API / 測試用） */
+export type TodayBlock =
+  | {
+      type: "routine";
+      start: string;
+      end: string;
+      label: string;
+      emoji?: string;
+      items?: RoutineItem[];
+    }
+  | {
+      type: "shift";
+      start: string;
+      end: string;
+      label: string;
+      place: string;
+      placeName: string;
+      shift: string;
+    }
+  | {
+      type: "course";
+      start: string;
+      end: string;
+      label: string;
+      name: string;
+      cat1: string;
+      cat2: string;
+      cat3: string;
+    };
+
+const blockStartMin = (t: string) => (t === "24:00" ? 1440 : toMin(t));
+
+/**
+ * 指定日期全部行程塊（純函式）：作息＋班別＋課程各自列出（重疊不裁決），依 start 升冪。
+ * 重用 planForDate／coursesForDate／shiftRangeOn／placeName／weekdayOf 語意。
+ */
+export function buildTodayBlocks(date: string, data: ScheduleData): TodayBlock[] {
+  const routineRaw = Array.isArray(data.routine) && data.routine.length > 0 ? data.routine : DEFAULT_ROUTINE;
+  const routine = normalizeRoutineBlocks(routineRaw);
+  const workplaces =
+    Array.isArray(data.workplaces) && data.workplaces.length > 0
+      ? normalizeWorkplaces(data.workplaces)
+      : DEFAULT_WORKPLACES;
+  const dayPlans = data.dayPlans ?? {};
+  const dayOverrides = data.dayOverrides ?? {};
+  const weekSchedule = data.weekSchedule ?? {};
+
+  const blocks: TodayBlock[] = [];
+
+  for (const b of routine) {
+    blocks.push({
+      type: "routine",
+      start: b.start,
+      end: b.end,
+      label: b.label,
+      emoji: b.emoji,
+      items: b.items,
+    });
+  }
+
+  const isOv = !!dayOverrides[date];
+  const plan = planForDate(date, dayPlans, dayOverrides as Record<string, DayPlan>);
+  for (const pk of plan.picks) {
+    const r = shiftRangeOn(pk.place, pk.shift, date, isOv, workplaces);
+    if (!r) continue;
+    const [a, b] = r.split("~");
+    const pname = placeName(pk.place, workplaces);
+    blocks.push({
+      type: "shift",
+      start: a,
+      end: b,
+      label: `💼 ${pname}${pk.shift}班`,
+      place: pk.place,
+      placeName: pname,
+      shift: pk.shift,
+    });
+  }
+
+  for (const c of coursesForDate(date, weekSchedule, dayOverrides)) {
+    if (!c.t) continue;
+    const end = fmtHM(toMin(c.t) + 30);
+    blocks.push({
+      type: "course",
+      start: c.t,
+      end,
+      label: `📘 ${c.n || c.cat3 || c.cat2 || c.cat1 || "課程"}`,
+      name: c.n,
+      cat1: c.cat1,
+      cat2: c.cat2,
+      cat3: c.cat3,
+    });
+  }
+
+  blocks.sort((x, y) => blockStartMin(x.start) - blockStartMin(y.start));
+  return blocks;
 }
