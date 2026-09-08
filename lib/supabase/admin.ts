@@ -74,3 +74,39 @@ export async function loadScheduleDataFor(userId: string): Promise<ScheduleData>
     workplaces: asWorkplaces(byKey.get("workplaces")),
   };
 }
+
+/** 臨時診斷：逐 key 查 app_state；serviceKeyPrefix 僅前 8 碼，查完即移除 */
+export async function debugScheduleRaw(userId: string) {
+  const out = {
+    hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    serviceKeyPrefix: (process.env.SUPABASE_SERVICE_ROLE_KEY ?? "").slice(0, 8),
+    urlHost: (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "")
+      .replace(/^https?:\/\//, "")
+      .slice(0, 20),
+    perKey: {} as Record<string, { rows: number; err: string | null }>,
+  };
+
+  let sb: SupabaseClient;
+  try {
+    sb = createAdminClient();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "createAdminClient failed";
+    for (const k of ["routine", "day_plans", "day_overrides", "week_schedule", "workplaces"]) {
+      out.perKey[k] = { rows: 0, err: msg };
+    }
+    return out;
+  }
+
+  for (const k of ["routine", "day_plans", "day_overrides", "week_schedule", "workplaces"]) {
+    const { data, error } = await sb
+      .from("app_state")
+      .select("key")
+      .eq("user_id", userId)
+      .eq("key", k);
+    out.perKey[k] = {
+      rows: data?.length ?? 0,
+      err: error?.message ?? null,
+    };
+  }
+  return out;
+}

@@ -1,5 +1,5 @@
 import { buildTodayBlocks, weekdayOf } from "@/lib/schedule";
-import { loadScheduleDataFor } from "@/lib/supabase/admin";
+import { debugScheduleRaw, loadScheduleDataFor } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -81,6 +81,11 @@ export async function GET(req: Request) {
         },
         200,
       );
+    }
+
+    // 臨時診斷：逐 key + service key 前綴（debug=2）
+    if (url.searchParams.get("debug") === "2") {
+      return json({ ok: true, date, weekday: weekdayOf(date), _debug: await debugScheduleRaw(userId) }, 200);
     }
 
     const data = await loadScheduleDataFor(userId);
