@@ -132,12 +132,12 @@ export const fmtIdleTime = (s: number) => {
   return min ? `${h} 小時 ${min} 分` : `${h} 小時`;
 };
 
-/** 統計型時長顯示：一律印到分鐘，不省略（3 小時 0 分 / 45 分）。輸入為「秒」。 */
+/** 統計型時長顯示：精簡「N時M分」／「M分」，一律印到分鐘。輸入為「秒」。 */
 export const fmtIdleHM = (s: number) => {
   const m = Math.floor(s / 60);
   const h = Math.floor(m / 60),
     min = m % 60;
-  return h > 0 ? `${h} 小時 ${min} 分` : `${min} 分`;
+  return h > 0 ? `${h}時${min}分` : `${min}分`;
 };
 
 /** 時段頁左側時間刻度（06:30–23:00） */

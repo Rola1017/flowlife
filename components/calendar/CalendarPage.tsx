@@ -11,7 +11,7 @@ import { idleSeries } from "@/lib/timelineActual";
 import { weekKey, monthKey, quarterKey } from "@/lib/period";
 import { getReview, subscribeReviews, upsertReview, type ReviewScope } from "@/lib/reviews";
 import type { Session } from "@/lib/types";
-import { fmt, getDaysInMonth, getFirstDow } from "@/lib/utils";
+import { fmt, fmtIdleHM, getDaysInMonth, getFirstDow } from "@/lib/utils";
 import { MultiCategoryFilter } from "@/components/ui/MultiCategoryFilter";
 import { TriCharts } from "@/components/charts/TriCharts";
 import { ReviewView } from "./ReviewView";
@@ -549,7 +549,7 @@ export function CalendarPage({
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
               <div>
                 <div style={{ fontSize: 8, color: TH.muted }}>未利用（{period}）</div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: TH.muted }}>{fmt(idlePeriodTot)}</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: TH.muted }}>{fmtIdleHM(idlePeriodTot * 60)}</div>
               </div>
               <span style={{ fontSize: 12, lineHeight: 1 }} aria-hidden>
                 {idleReview ? "📝" : "＋"}
