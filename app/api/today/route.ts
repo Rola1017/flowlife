@@ -1,5 +1,5 @@
 import { buildTodayBlocks, weekdayOf } from "@/lib/schedule";
-import { debugScheduleRaw, loadScheduleDataFor } from "@/lib/supabase/admin";
+import { loadScheduleDataFor } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -59,33 +59,6 @@ export async function GET(req: Request) {
     const userId = process.env.RORO_USER_ID;
     if (!userId) {
       return json({ ok: false, error: "internal" }, 500);
-    }
-
-    // 臨時診斷：查完即移除（debug=1）
-    if (url.searchParams.get("debug") === "1") {
-      const data = await loadScheduleDataFor(userId);
-      return json(
-        {
-          ok: true,
-          date,
-          weekday: weekdayOf(date),
-          _debug: {
-            routineCount: data.routine?.length ?? 0,
-            workplacesCount: data.workplaces?.length ?? 0,
-            dayPlansKeys: Object.keys(data.dayPlans ?? {}),
-            weekScheduleKeys: Object.keys(data.weekSchedule ?? {}),
-            weekScheduleForWeekday: data.weekSchedule?.[weekdayOf(date)] ?? null,
-            dayOverrideForDate: data.dayOverrides?.[date] ?? null,
-            sampleWeekSchedule: JSON.stringify(data.weekSchedule ?? {}).slice(0, 800),
-          },
-        },
-        200,
-      );
-    }
-
-    // 臨時診斷：逐 key + service key 前綴（debug=2）
-    if (url.searchParams.get("debug") === "2") {
-      return json({ ok: true, date, weekday: weekdayOf(date), _debug: await debugScheduleRaw(userId) }, 200);
     }
 
     const data = await loadScheduleDataFor(userId);
