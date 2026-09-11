@@ -527,6 +527,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **番茄鐘活動名稱建議改常駐標籤列**：由浮動下拉改為輸入框下方常駐標籤列（橫向捲動、slice8、💡常駐），輸入框加 `autoComplete=off` 等屬性抑制密碼管理員面板。
 - **建立 Vitest 測試地基與 GitHub Actions CI**：抽出 `mergeSessionsWithTombstones` 純函式以便測試同步合併；`tests/` 覆蓋 idle／schedule／categories／sessions／analytics／sessionsCloud；CI 跑 `tsc --noEmit`＋`npm test`。
 - **新增唯讀 /api/today（Vercel, runtime=nodejs, force-dynamic）**：查「指定日期」行程（date 可為任意合法日期，過去/未來皆可；預設 Asia/Taipei 今天；`/api/today` 僅端點名），`x-roro-key` 驗證＋service-role 只讀 `RORO_USER_ID` 的 app_state，重用自 schedule 抽出的純函式 `buildTodayBlocks`（重疊不裁決、全列出、依 start 排序）；service/API key 僅後端。環境變數統一為 `RORO_*` 前綴，對齊 agent 名稱 Roro。
+- **app_state 加 service_role 唯讀 RLS policy**（`FOR SELECT TO service_role`，見 `supabase/rls_app_state_service_role_select.sql`），使 `/api/today` 的新版 `sb_secret_` key 能讀行程；僅唯讀、僅此表、僅 service_role，不影響前端 user-based 安全基線。第二階段寫入時另加精細化可寫 policy。
 - **便利貼衝突處理強化（自訂鈕高亮＋一鍵移除）**：班課衝突時記住 `ovPendingPick`；尚未自訂課程時「👉 點我自訂這天課程」改黃色高亮。提醒橫幅新增含確認的「🗑 移除這 N 堂衝突課，並排入此班」：透過 `setOvCourses` 將週課 materialize 成當日自訂快照、刪除衝突課並避免重複地排入待排班別；取消確認不變更。開啟／切日期／關提醒／逐堂刪完皆同步清衝突與 pending state。
 - **課表複製貼上「自動清潔＋貼不上提醒」**：複製「課程＋班別」貼上時以 `shiftRange(place, shift, day)!==""` 過濾 picks（只貼該天真能排的班，消除隱形貼券）；被略過的班以頁面層 `pasteNotice` ⚠️橫幅明列（哪個班、哪天、去管理工作場所開可上班日）；單日貼上與「貼到選取的 N 天」皆適用；複製/關閉清提醒。未動 `lib/schedule.ts`／排班模型。
 - **便利貼微調（衝突紅格＋格內✕）**：班課衝突時衝突課格紅框紅底點亮（`ovConflictSlots`）、提醒精簡為一句含班別名；自訂狀態課格內建 ✕ 一鍵刪（刪完衝突自動消提醒）；沿用每週固定時紅格仍顯示但無 ✕；底部編輯器移除「移除這格」只留選/換科目。
@@ -598,6 +599,7 @@ TH.gold    = "#FBBF24"   // 金幣
 | 墓碑保存期＝獨立墓碑 60 天 | `deleted_session_uuids` 掛載時清掉 `at` 超過 60 天者；垃圾桶仍 30 天。**觸發升級＝出現跨月未同步裝置復活案例時**：改 sessions 表加 `deleted_at`（需 schema 變更）。 |
 | ~~垃圾桶「全部永久刪除」會一併清掉墓碑~~ ✅ 已解 | `handlePurgeAll`／`handlePurgeSession` 保留／補齊獨立墓碑後才清垃圾桶。 |
 | /api/today 為第一階段「唯讀」（今天＋任意日期） | 第二階段「寫入／改行程」未做。設計前提＝「agent 提議、Rola 確認後才改」：除非 Rola 明確下指令怎麼改，否則 agent 任何自主判斷一律先問過 Rola 再動。寫入須另建後端不變式守門層，接於既有測試地基之後。 |
+| 新版 sb_secret_ key 不繞過 RLS | 與舊版 service_role JWT 不同，需顯式 policy 放行；已採 `app_state` **唯讀**最小權限（`FOR SELECT TO service_role`）。寫入階段另議精細化 policy。 |
 | 抽 DayColumn 共用元件 | **技術債**——便利貼單日格子與課表頁 7 欄格子有渲染邏輯重複；未來抽共用 `<DayColumn>` 元件（課表頁與便利貼共用），現階段隔離不改動已穩定課表頁。 |
 | 便利貼新建科目 | **待議**——便利貼加課僅能從 `loadScheduleCourses` 科目庫選；全新科目需先在每週課表建立。未來如需在便利貼直接新建科目再議。 |
 | reconcileOverrides 待辦 | 便利貼引用的班別被刪後 key 殘留但無害（`findShift`→空）；未來加 `reconcileOverrides` 比照 `reconcileDayPlans` 清孤兒。 |
@@ -672,5 +674,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/09/08（/api/today 唯讀指定日期行程）*
+*最後更新：2026/09/10（app_state service_role 唯讀 RLS）*
 *維護原則：每次完成重要功能，同步更新第十、十一、十二節*
