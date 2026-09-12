@@ -29,12 +29,46 @@ export function normalizeEstimateHours(v: unknown): number | undefined {
   return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : undefined;
 }
 
-/** 該待辦是否應顯示在 dateStr 這一天（跨日區間含首尾；單一來源）。 */
+/** 實際完成日：僅合法 YYYY-MM-DD，否則 undefined。 */
+export function normalizeDoneDate(v: unknown): string | undefined {
+  return isDate(v) ? v : undefined;
+}
+
+/** 該待辦是否應顯示在 dateStr 這一天（跨日區間含首尾；單一來源）。與 doneDate 無關。 */
 export function todoShowsOn(todo: { date: string; endDate?: string }, dateStr: string): boolean {
   if (todo.endDate && todo.endDate > todo.date) {
     return dateStr >= todo.date && dateStr <= todo.endDate;
   }
   return todo.date === dateStr;
+}
+
+/** 完成：時間／日期取值須在 updater 外算好再傳入。不改寫既有 endAt 語意，只加 doneDate。 */
+export function applyTodoComplete(
+  t: Todo,
+  fields: { endAt: string; doneDate: string; elapsed: number; updatedAt: string },
+): Todo {
+  return {
+    ...t,
+    phase: "done",
+    endAt: fields.endAt,
+    doneDate: fields.doneDate,
+    elapsed: fields.elapsed,
+    updatedAt: fields.updatedAt,
+  };
+}
+
+/** 取消完成：endAt／elapsed／doneDate 一併清空。 */
+export function applyTodoUncomplete(t: Todo, updatedAt: string): Todo {
+  return {
+    ...t,
+    phase: "pending",
+    startAt: null,
+    endAt: null,
+    startTs: null,
+    elapsed: null,
+    doneDate: undefined,
+    updatedAt,
+  };
 }
 
 /**
@@ -65,6 +99,7 @@ export function normalizeTodo(raw: unknown, today: string): Todo | null {
     phase: asPhase(r.phase),
     startAt: typeof r.startAt === "string" ? r.startAt : null,
     endAt: typeof r.endAt === "string" ? r.endAt : null,
+    doneDate: normalizeDoneDate(r.doneDate),
     startTs: typeof r.startTs === "number" ? r.startTs : null,
     elapsed: typeof r.elapsed === "number" ? r.elapsed : null,
     updatedAt,

@@ -172,6 +172,7 @@ export function HomePage({
                   <TodoCard
                     key={t.id}
                     todo={t}
+                    viewDate={CFG.TODAY_STR}
                     onStart={onStart}
                     onEnd={onEnd}
                     onToggleDone={onToggleDone}

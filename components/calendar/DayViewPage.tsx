@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Card, SL } from "@/components/ui/Card";
-import { BackBtn } from "@/components/ui/BackBtn";
 import { TodoCard } from "@/components/todo/TodoCard";
 import {
   createTodoFormDraft,
@@ -15,7 +14,7 @@ import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
 import { todoShowsOn } from "@/lib/todosCloud";
 import { buildActualSegments } from "@/lib/timelineActual";
-import { addMinHM, DS, DT, toM } from "@/lib/utils";
+import { addMinHM, DS, DT, toM, shiftDateStr, formatYmdLabel } from "@/lib/utils";
 import type { Todo } from "@/lib/types";
 
 function normalizeTimelineTime(time: string): string {
@@ -37,9 +36,26 @@ const getCurrentMinutes = () => {
   return now.getHours() * 60 + now.getMinutes();
 };
 
+const navHit: CSSProperties = {
+  flexShrink: 0,
+  width: 26,
+  height: 26,
+  padding: 9,
+  margin: -9,
+  boxSizing: "content-box",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "none",
+  border: "none",
+  color: TH.muted,
+  fontSize: 16,
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
 export function DayViewPage({
   date,
-  label,
   todos,
   onStart,
   onEnd,
@@ -50,7 +66,7 @@ export function DayViewPage({
   onBack,
 }: {
   date: string;
-  label: string;
+  label?: string;
   todos: Todo[];
   onStart: (id: number) => void;
   onEnd: (id: number) => void;
@@ -60,6 +76,7 @@ export function DayViewPage({
   onDeleteTodo: (id: number) => void;
   onBack: () => void;
 }) {
+  const [viewDate, setViewDate] = useState(date);
   const [addOpen, setAddOpen] = useState(false);
   const [draft, setDraft] = useState(() => createTodoFormDraft(date));
   const [quickDraft, setQuickDraft] = useState<TodoFormDraft | null>(null);
@@ -74,13 +91,17 @@ export function DayViewPage({
   }, []);
 
   useEffect(() => {
-    setDraft(createTodoFormDraft(date));
-    setAddOpen(false);
-    setQuickDraft(null);
+    setViewDate(date);
   }, [date]);
 
-  const active = todos.filter((t) => todoShowsOn(t, date) && t.phase !== "done");
-  const done = todos.filter((t) => todoShowsOn(t, date) && t.phase === "done");
+  useEffect(() => {
+    setDraft(createTodoFormDraft(viewDate));
+    setAddOpen(false);
+    setQuickDraft(null);
+  }, [viewDate]);
+
+  const active = todos.filter((t) => todoShowsOn(t, viewDate) && t.phase !== "done");
+  const done = todos.filter((t) => todoShowsOn(t, viewDate) && t.phase === "done");
   const pendingTL = active.filter((t) => t.startTime) as {
     id: number;
     text: string;
@@ -95,8 +116,8 @@ export function DayViewPage({
     endAt?: string;
   }[];
   const { act: miniAct, idle: miniIdle } = useMemo(
-    () => buildActualSegments(date, nowPct),
-    [date, nowPct],
+    () => buildActualSegments(viewDate, nowPct),
+    [viewDate, nowPct],
   );
 
   const submitTodo = () => {
@@ -105,8 +126,8 @@ export function DayViewPage({
       setDraft((v) => ({ ...v, error: result.error }));
       return;
     }
-    onAddTodo({ ...result.patch, date: result.patch.date || date });
-    setDraft(createTodoFormDraft(date));
+    onAddTodo({ ...result.patch, date: result.patch.date || viewDate });
+    setDraft(createTodoFormDraft(viewDate));
     setAddOpen(false);
   };
 
@@ -117,7 +138,7 @@ export function DayViewPage({
       setQuickDraft((v) => (v ? { ...v, error: result.error } : v));
       return;
     }
-    onAddTodo({ ...result.patch, date: result.patch.date || date });
+    onAddTodo({ ...result.patch, date: result.patch.date || viewDate });
     setQuickDraft(null);
   };
 
@@ -125,7 +146,52 @@ export function DayViewPage({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <BackBtn onBack={onBack} label={label} />
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          minWidth: 0,
+          width: "100%",
+          boxSizing: "border-box",
+          paddingBottom: 8,
+        }}
+      >
+        <button type="button" aria-label="返回" onClick={onBack} style={navHit}>
+          ←
+        </button>
+        <button
+          type="button"
+          aria-label="前一天"
+          onClick={() => setViewDate((d) => shiftDateStr(d, -1))}
+          style={navHit}
+        >
+          ‹
+        </button>
+        <div
+          style={{
+            flex: 1,
+            minWidth: 0,
+            textAlign: "center",
+            fontSize: 13,
+            fontWeight: 600,
+            color: TH.muted,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {formatYmdLabel(viewDate)}
+        </div>
+        <button
+          type="button"
+          aria-label="後一天"
+          onClick={() => setViewDate((d) => shiftDateStr(d, 1))}
+          style={navHit}
+        >
+          ›
+        </button>
+      </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         <div
@@ -173,15 +239,15 @@ export function DayViewPage({
         </div>
         <VerticalTimeline
           nowPct={nowPct}
-          showNowLine={date === CFG.TODAY_STR}
+          showNowLine={viewDate === CFG.TODAY_STR}
           pendingTodos={pendingTL}
           doneTodos={doneTL}
-          date={date}
+          date={viewDate}
           onEditTodo={onEditTodo}
           onTimeClick={(time) => {
             const hm = normalizeTimelineTime(time);
             setQuickDraft(
-              createTodoFormDraft(date, {
+              createTodoFormDraft(viewDate, {
                 startTime: hm,
                 endTime: addMinHM(hm, CFG.DEFAULT_TODO_DURATION_MIN),
                 cat: "未分類",
@@ -199,6 +265,7 @@ export function DayViewPage({
             <TodoCard
               key={t.id as number}
               todo={t}
+              viewDate={viewDate}
               onStart={onStart}
               onEnd={onEnd}
               onToggleDone={onToggleDone}
@@ -215,6 +282,7 @@ export function DayViewPage({
                 <TodoCard
                   key={t.id as number}
                   todo={t}
+                  viewDate={viewDate}
                   onStart={onStart}
                   onEnd={onEnd}
                   onToggleDone={onToggleDone}
@@ -229,7 +297,7 @@ export function DayViewPage({
           type="button"
           onClick={() => {
             setAddOpen((o) => {
-              if (!o) setDraft(createTodoFormDraft(date));
+              if (!o) setDraft(createTodoFormDraft(viewDate));
               return !o;
             });
           }}

@@ -80,6 +80,8 @@ export type Todo = {
   phase: TodoPhase;
   startAt?: string | null;
   endAt?: string | null;
+  /** 實際完成日（YYYY-MM-DD；按結束時寫入，與 endAt 時間互補） */
+  doneDate?: string;
   startTs?: number | null;
   elapsed?: number | null;
   /** 最後修改時間（ISO；雲端同步 last-write-wins 用） */

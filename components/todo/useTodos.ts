@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { APP_STATE_KEYS, pushAppState, subscribeAppState } from "@/lib/appStateCloud";
 import { CFG, type TodoReminderId, TODO_REMINDER_OPTIONS } from "@/lib/config";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
-import { gcTodoTombstones, mergeTodosWithTombstones, normalizeTodo, normalizeTodoList } from "@/lib/todosCloud";
+import { gcTodoTombstones, mergeTodosWithTombstones, normalizeTodo, normalizeTodoList, applyTodoComplete, applyTodoUncomplete } from "@/lib/todosCloud";
 import type { Todo, TodoTombstone } from "@/lib/types";
 import { nowStr } from "@/lib/utils";
 
@@ -27,6 +27,7 @@ function makeTodo(raw: Partial<Todo>, today: string): Todo {
     endAt: null,
     startTs: null,
     elapsed: null,
+    doneDate: undefined,
     reminder: normalizeReminder(raw.reminder),
     updatedAt: stamp(),
   };
@@ -178,14 +179,15 @@ export function useTodos(initial: Partial<Todo>[]) {
       }, 16);
       endTimers.current[id] = setTimeout(() => {
         clearEndTimers(id);
+        const cur = todosRef.current.find((x) => x.id === id);
+        if (!cur) return;
+        const elapsed = cur.startTs ? Date.now() - cur.startTs : 0;
         const endAt = nowStr();
-        apply((prev) => {
-          const cur = prev.find((x) => x.id === id);
-          const elapsed = cur?.startTs ? Date.now() - cur.startTs : 0;
-          return prev.map((x) =>
-            x.id === id ? { ...x, phase: "done", endAt, elapsed, updatedAt: stamp() } : x,
-          );
-        });
+        const doneDate = CFG.TODAY_STR;
+        const updatedAt = stamp();
+        apply((prev) =>
+          prev.map((x) => (x.id === id ? applyTodoComplete(x, { endAt, doneDate, elapsed, updatedAt }) : x)),
+        );
       }, CFG.END_CONFIRM);
       apply((ts) =>
         ts.map((x) => (x.id === id ? { ...x, phase: "ending", updatedAt: stamp() } : x)),
@@ -196,20 +198,9 @@ export function useTodos(initial: Partial<Todo>[]) {
 
   const handleToggleDone = useCallback(
     (id: number) => {
+      const updatedAt = stamp();
       apply((ts) =>
-        ts.map((t) =>
-          t.id === id && t.phase === "done"
-            ? {
-                ...t,
-                phase: "pending",
-                startAt: null,
-                endAt: null,
-                startTs: null,
-                elapsed: null,
-                updatedAt: stamp(),
-              }
-            : t,
-        ),
+        ts.map((t) => (t.id === id && t.phase === "done" ? applyTodoUncomplete(t, updatedAt) : t)),
       );
     },
     [apply],

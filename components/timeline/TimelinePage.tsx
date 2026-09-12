@@ -316,6 +316,7 @@ export function TimelinePage({
             <TodoCard
               key={t.id as number}
               todo={t}
+              viewDate={CFG.TODAY_STR}
               onStart={onStart}
               onEnd={onEnd}
               onToggleDone={onToggleDone}
@@ -332,6 +333,7 @@ export function TimelinePage({
                 <TodoCard
                   key={t.id as number}
                   todo={t}
+                  viewDate={CFG.TODAY_STR}
                   onStart={onStart}
                   onEnd={onEnd}
                   onToggleDone={onToggleDone}

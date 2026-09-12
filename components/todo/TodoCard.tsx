@@ -4,7 +4,7 @@ import { useState, useEffect, type CSSProperties } from "react";
 import { CFG, reminderLabel } from "@/lib/config";
 import { TH } from "@/lib/theme";
 import { CAT_COLOR } from "@/lib/categories";
-import { fmtMs, fmtElapsed } from "@/lib/utils";
+import { fmtMs, fmtElapsed, formatMd } from "@/lib/utils";
 import type { Todo } from "@/lib/types";
 
 const hit44: CSSProperties = {
@@ -45,6 +45,7 @@ function DeleteBtn({ text, onClick }: { text: string; onClick: () => void }) {
 
 export function TodoCard({
   todo,
+  viewDate,
   onStart,
   onEnd,
   onToggleDone,
@@ -52,6 +53,8 @@ export function TodoCard({
   onDelete,
 }: {
   todo: Todo;
+  /** 這張卡正在哪一天被顯示；用來區分「當天完成」vs「已於某日完成」 */
+  viewDate?: string;
   onStart: (id: number) => void;
   onEnd: (id: number) => void;
   onToggleDone: (id: number) => void;
@@ -185,6 +188,11 @@ export function TodoCard({
               <span style={{ fontSize: 9, color: "#4ADE80" }}>▶ {todo.startAt}</span>
             ) : null}
             <span style={{ fontSize: 9, color: "#60A5FA" }}>■ {todo.endAt}</span>
+            {todo.doneDate && viewDate && todo.doneDate !== viewDate ? (
+              <span style={{ fontSize: 9, color: TH.muted }}>✅ 已於 {formatMd(todo.doneDate)} 完成</span>
+            ) : (
+              <span style={{ fontSize: 9, color: TH.muted }}>✅ 當天完成</span>
+            )}
             {(todo.elapsed ?? 0) > 0 ? (
               <span style={{ fontSize: 9, color: TH.yellow, fontWeight: 700 }}>
                 共 {fmtElapsed(todo.elapsed ?? 0)}

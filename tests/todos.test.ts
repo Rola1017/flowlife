@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergeTodosWithTombstones, normalizeTodo, todoShowsOn } from "@/lib/todosCloud";
+import { applyTodoComplete, applyTodoUncomplete, mergeTodosWithTombstones, normalizeTodo, todoShowsOn } from "@/lib/todosCloud";
 import type { Todo } from "@/lib/types";
 
 const TODAY = "2026-09-13";
@@ -95,6 +95,13 @@ describe("todos normalize", () => {
     expect(moved!.deadline).toBe("2026-09-20");
     expect(moved!.endDate).toBe("2026-09-30");
   });
+
+  it("doneDate 非法／空字串 → undefined；合法日期保留", () => {
+    expect(normalizeTodo({ id: 40, text: "x", date: TODAY, doneDate: "" }, TODAY)!.doneDate).toBeUndefined();
+    expect(normalizeTodo({ id: 41, text: "x", date: TODAY, doneDate: "09-16" }, TODAY)!.doneDate).toBeUndefined();
+    expect(normalizeTodo({ id: 42, text: "x", date: TODAY, doneDate: "nope" }, TODAY)!.doneDate).toBeUndefined();
+    expect(normalizeTodo({ id: 43, text: "x", date: TODAY, doneDate: "2026-09-16" }, TODAY)!.doneDate).toBe("2026-09-16");
+  });
 });
 
 describe("todoShowsOn", () => {
@@ -120,6 +127,47 @@ describe("todoShowsOn", () => {
     const same = { date: "2026-09-15", endDate: "2026-09-15" };
     expect(todoShowsOn(same, "2026-09-15")).toBe(true);
     expect(todoShowsOn(same, "2026-09-16")).toBe(false);
+  });
+
+  it("todoShowsOn 不受 doneDate 影響", () => {
+    const span = { date: "2026-09-15", endDate: "2026-09-18", doneDate: "2026-09-16" };
+    expect(todoShowsOn(span, "2026-09-15")).toBe(true);
+    expect(todoShowsOn(span, "2026-09-16")).toBe(true);
+    expect(todoShowsOn(span, "2026-09-18")).toBe(true);
+    expect(todoShowsOn(span, "2026-09-14")).toBe(false);
+  });
+});
+
+describe("todos complete doneDate", () => {
+  it("跨日完成寫入完成當天；取消完成清空 doneDate，不改 date/endDate/deadline", () => {
+    const span = todo({
+      id: 50,
+      date: "2026-09-15",
+      endDate: "2026-09-18",
+      deadline: "2026-09-20",
+      phase: "started",
+    });
+    const done = applyTodoComplete(span, {
+      endAt: "10:00:00",
+      doneDate: "2026-09-16",
+      elapsed: 1200,
+      updatedAt: "2026-09-16T10:00:00.000Z",
+    });
+    expect(done.phase).toBe("done");
+    expect(done.endAt).toBe("10:00:00");
+    expect(done.doneDate).toBe("2026-09-16");
+    expect(done.date).toBe("2026-09-15");
+    expect(done.endDate).toBe("2026-09-18");
+    expect(done.deadline).toBe("2026-09-20");
+
+    const undone = applyTodoUncomplete(done, "2026-09-16T10:01:00.000Z");
+    expect(undone.phase).toBe("pending");
+    expect(undone.doneDate).toBeUndefined();
+    expect(undone.endAt).toBeNull();
+    expect(undone.elapsed).toBeNull();
+    expect(undone.date).toBe("2026-09-15");
+    expect(undone.endDate).toBe("2026-09-18");
+    expect(undone.deadline).toBe("2026-09-20");
   });
 });
 

@@ -3,7 +3,7 @@
 import { type CSSProperties } from "react";
 import { TodoDateRangePicker } from "@/components/ui/TodoDateRangePicker";
 import { CAT } from "@/lib/categories";
-import { TODO_REMINDER_OPTIONS, type TodoReminderId } from "@/lib/config";
+import { CFG, TODO_REMINDER_OPTIONS, type TodoReminderId } from "@/lib/config";
 import { TH } from "@/lib/theme";
 import type { Todo } from "@/lib/types";
 
@@ -162,6 +162,9 @@ export function TodoFormFields({
           }))
         }
       />
+      {draft.date && draft.date < CFG.TODAY_STR ? (
+        <div style={tip}>💡 這是過去的日期，會記錄為當天的事</div>
+      ) : null}
       <label style={{ fontSize: 10, color: TH.muted }}>⏳ 期限（選填）</label>
       <input
         type="date"
