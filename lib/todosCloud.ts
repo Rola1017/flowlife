@@ -51,6 +51,11 @@ export function resolveDoneDate(hint: string | undefined, today: string): string
   return isDate(hint) ? hint : today;
 }
 
+/** 完成時間：僅當完成日＝今天才填 nowHm；補記過去／未來留空。禁止在此用 new Date()。 */
+export function resolveDoneTime(doneDate: string, today: string, nowHm: string): string | undefined {
+  return doneDate === today ? nowHm : undefined;
+}
+
 /** 該待辦是否應顯示在 dateStr 這一天（跨日區間含首尾；單一來源）。與 doneDate 無關。 */
 export function todoShowsOn(todo: { date: string; endDate?: string }, dateStr: string): boolean {
   if (todo.endDate && todo.endDate > todo.date) {
@@ -62,7 +67,7 @@ export function todoShowsOn(todo: { date: string; endDate?: string }, dateStr: s
 /** 完成：時間／日期取值須在 updater 外算好再傳入。不改寫既有 endAt 語意，只加 doneDate／doneTime。 */
 export function applyTodoComplete(
   t: Todo,
-  fields: { endAt: string; doneDate: string; doneTime: string; elapsed: number; updatedAt: string },
+  fields: { endAt: string; doneDate: string; doneTime?: string; elapsed: number; updatedAt: string },
 ): Todo {
   return {
     ...t,

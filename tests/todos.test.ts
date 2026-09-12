@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyTodoComplete, applyTodoUncomplete, doneLabel, mergeTodosWithTombstones, normalizeTodo, resolveDoneDate, todoShowsOn } from "@/lib/todosCloud";
+import { applyTodoComplete, applyTodoUncomplete, doneLabel, mergeTodosWithTombstones, normalizeTodo, resolveDoneDate, resolveDoneTime, todoShowsOn } from "@/lib/todosCloud";
 import type { Todo } from "@/lib/types";
 
 const TODAY = "2026-09-13";
@@ -188,6 +188,21 @@ describe("todos complete doneDate", () => {
     expect(resolveDoneDate("", "2026-09-13")).toBe("2026-09-13");
     expect(resolveDoneDate("09-16", "2026-09-13")).toBe("2026-09-13");
   });
+
+  it("resolveDoneTime：完成日＝今天才填時間；非今天留空", () => {
+    expect(resolveDoneTime("2026-09-13", "2026-09-13", "07:40")).toBe("07:40");
+    expect(resolveDoneTime("2026-09-19", "2026-09-13", "07:40")).toBeUndefined();
+    expect(resolveDoneTime("2026-09-12", "2026-09-13", "07:40")).toBeUndefined();
+    const backdated = applyTodoComplete(todo({ id: 51, date: "2026-09-19", phase: "started" }), {
+      endAt: "07:40:00",
+      doneDate: "2026-09-19",
+      doneTime: resolveDoneTime("2026-09-19", "2026-09-13", "07:40"),
+      elapsed: 0,
+      updatedAt: "2026-09-13T07:40:00.000Z",
+    });
+    expect(backdated.doneDate).toBe("2026-09-19");
+    expect(backdated.doneTime).toBeUndefined();
+  });
 });
 
 describe("doneLabel 三態", () => {
@@ -197,6 +212,8 @@ describe("doneLabel 三態", () => {
     expect(doneLabel("2026-09-16", undefined)).toBe("✅ 當天完成 ✏️");
     expect(doneLabel("2026-09-16", "2026-09-15")).toBe("✅ 已於 9/16 完成 ✏️");
     expect(doneLabel("2026-09-16", "2026-09-18")).toBe("✅ 已於 9/16 完成 ✏️");
+    expect(doneLabel("2026-09-19", "2026-09-13", undefined)).toBe("✅ 已於 9/19 完成 ✏️");
+    expect(doneLabel("2026-09-19", "2026-09-13", undefined)).not.toContain("undefined");
   });
 
   it("有 doneTime 時附在日期後", () => {

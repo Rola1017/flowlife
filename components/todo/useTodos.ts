@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { APP_STATE_KEYS, pushAppState, subscribeAppState } from "@/lib/appStateCloud";
 import { CFG, type TodoReminderId, TODO_REMINDER_OPTIONS } from "@/lib/config";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
-import { gcTodoTombstones, mergeTodosWithTombstones, normalizeTodo, normalizeTodoList, applyTodoComplete, applyTodoUncomplete, resolveDoneDate } from "@/lib/todosCloud";
+import { gcTodoTombstones, mergeTodosWithTombstones, normalizeTodo, normalizeTodoList, applyTodoComplete, applyTodoUncomplete, resolveDoneDate, resolveDoneTime } from "@/lib/todosCloud";
 import type { Todo, TodoTombstone } from "@/lib/types";
 import { nowHM, nowStr } from "@/lib/utils";
 
@@ -185,7 +185,7 @@ export function useTodos(initial: Partial<Todo>[]) {
         if (!cur) return;
         const elapsed = cur.startTs ? Date.now() - cur.startTs : 0;
         const endAt = nowStr();
-        const doneTime = nowHM();
+        const doneTime = resolveDoneTime(doneDate, CFG.TODAY_STR, nowHM());
         const updatedAt = stamp();
         apply((prev) =>
           prev.map((x) =>

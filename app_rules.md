@@ -203,7 +203,7 @@ lib/
 
 - `startAt`：開始時間（字串 "HH:MM:SS"）
 - `endAt`：完成時間（字串 "HH:MM:SS"，`nowStr()`；本批不改寫）
-- `doneDate`：實際完成日（`YYYY-MM-DD`）。完成時 `doneDate = doneDateHint ?? 今天`（`TodoCard` 把 `viewDate` 當 hint 傳入 `onEnd`；某日詳情頁＝檢視日）。`doneTime`：實際完成時間 `HH:mm`。取值在 updater 外（`resolveDoneDate`）。取消完成一併清空兩者。歷史無 doneDate 顯示「✅ 已完成」。完成資訊可點進編輯面板改「✅ 完成於」。
+- `doneDate`：實際完成日（`YYYY-MM-DD`）。完成時 `doneDate = doneDateHint ?? 今天`（`TodoCard` 把 `viewDate` 當 hint 傳入 `onEnd`；某日詳情頁＝檢視日）。`doneTime`：實際完成時間 `HH:mm`；**僅當 doneDate＝今天才自動填 `nowHM()`**，補記過去／未來留空（編輯面板可手動補）。取值在 updater 外（`resolveDoneDate`／`resolveDoneTime`）。取消完成一併清空兩者。歷史無 doneDate 顯示「✅ 已完成」。完成資訊可點進編輯面板改「✅ 完成於」。
 - `startTime`：排定開始時間（用於行程表定位）
 - `endTime`：排定結束時間
 - `date`：已排定執行日（`YYYY-MM-DD`，打算哪天做，可改可挪）；未選或無效時 `makeTodo` 預設為 `CFG.TODAY_STR`。行事曆某日詳情新增必須帶入該日，不得 fallback 成今天。
@@ -536,7 +536,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **新增唯讀 /api/today（Vercel, runtime=nodejs, force-dynamic）**：查「指定日期」行程（date 可為任意合法日期，過去/未來皆可；預設 Asia/Taipei 今天；`/api/today` 僅端點名），`x-roro-key` 驗證＋service-role 只讀 `RORO_USER_ID` 的 app_state，重用自 schedule 抽出的純函式 `buildTodayBlocks`（重疊不裁決、全列出、依 start 排序）；service/API key 僅後端。環境變數統一為 `RORO_*` 前綴，對齊 agent 名稱 Roro。
 - **app_state 加 service_role 唯讀 RLS policy**（`FOR SELECT TO service_role`，見 `supabase/rls_app_state_service_role_select.sql`），使 `/api/today` 的新版 `sb_secret_` key 能讀行程；僅唯讀、僅此表、僅 service_role，不影響前端 user-based 安全基線。第二階段寫入時另加精細化可寫 policy。
 - **app/layout.tsx 補 viewport**（`width=device-width, initialScale=1, maximumScale=1, userScalable=false`）修手機自動放大；metadata title→FlowLife、lang→zh-Hant；`fmtIdleHM` 顯示改精簡「N時M分／M分」（番茄鐘卡＋行事曆未利用統計；`fmtIdleTime` 不動）。
-- **待辦完成日記錄 doneDate（跨日待辦區分『當天完成』與『已於某日完成』，TodoCard 新增 viewDate prop）；某日詳情頁加左右箭頭連續切換日期；開放過去日期新增待辦（與 Agent 寫入能力一致），過去日期顯示提示。doneDate 補齊所有完成路徑、取消完成時清空、歷史資料無 doneDate 顯示『已完成』；DayViewPage 支援 Pointer Events 左右滑動切換日期（含垂直優先判定與橫捲區排除）；箭頭視覺強化＋滑動提示。完成日期改由檢視日決定（onEnd 帶 doneDateHint，預設 viewDate）＋ 新增 doneTime；完成資訊可點擊進編輯面板修改『✅ 完成於』日期與時間；大分類新增顯示層 emoji（CAT.cat1Emoji，學習✍️／事業💼／閱讀📖／健康🌱／娛樂🎀／未分類🌑），儲存值與比對鍵不變。**
+- **待辦完成日記錄 doneDate（跨日待辦區分『當天完成』與『已於某日完成』，TodoCard 新增 viewDate prop）；某日詳情頁加左右箭頭連續切換日期；開放過去日期新增待辦（與 Agent 寫入能力一致），過去日期顯示提示。doneDate 補齊所有完成路徑、取消完成時清空、歷史資料無 doneDate 顯示『已完成』；DayViewPage 支援 Pointer Events 左右滑動切換日期（含垂直優先判定與橫捲區排除）；箭頭視覺強化＋滑動提示。完成日期改由檢視日決定（onEnd 帶 doneDateHint，預設 viewDate）＋ 新增 doneTime；doneTime 僅在 doneDate 等於今天時自動填入；補記過去/未來日期時時間留空，可於編輯面板手動補；完成資訊可點擊進編輯面板修改『✅ 完成於』日期與時間；大分類新增顯示層 emoji（CAT.cat1Emoji，學習✍️／事業💼／閱讀📖／健康🌱／娛樂🎀／未分類🌑），儲存值與比對鍵不變。**
 - **待辦三層時間語意：date（已排定執行日）／endDate（可執行區間，跨日每天顯示）／deadline（期限，外部約束，獨立不受計畫挪動影響）＋ estimateHours（預估用時，小時）；新增共用 todoShowsOn 單一來源判斷待辦屬於哪一天；日期選擇改 Notion 式（日期＋結束日期開關＋包含時間開關）；修正行事曆某日新增待辦未帶入該日期之 bug；新增與編輯待辦共用表單。**
 - **番茄頁手機橫向溢出修正（鐵律16③）**：根因＝活動名稱建議標籤列 `overflowX:auto` 缺 `minWidth:0`，flex `min-width:auto` 把整頁撐到殼層 `maxWidth:430`，窄於 430 的手機看起來歪一邊。已修建議列（列內橫滑、頁面不撐寬）＋當前活動卡／圓環列／分類 chips／時長鈕／趨勢 chips；`App` 殼層 `width:100%`＋`minWidth:0`。320／375 無 document 橫向捲動，桌面仍 430 置中。
 - **待辦地基**：`Todo` 型別化（`lib/types.ts`）、上雲 app_state key `todos`、獨立墓碑 `deleted_todo_ids`（60天GC）、新增 `deadline` 欄位、TodoCard／編輯面板加刪除鈕（confirm＋44×44）、直式行程表格子點開既有編輯面板刪除（格子放不下 44×44）、`handleEnd` 副作用移出 setState updater。
@@ -676,7 +676,7 @@ TH.gold    = "#FBBF24"   // 金幣
   - `analytics.test.ts` — `sessionMatches`／`buildDistribution`（未選時 label 走 cat1Display）
   - `sessionsCloud.test.ts` — `mergeSessionsWithTombstones` 墓碑防復活
   - `today.test.ts` — `buildTodayBlocks`（重疊不裁決、便利貼覆蓋、空資料回退、未來日期週三鎖死時區）
-  - `todos.test.ts` — 待辦墓碑防復活、同名不同 id、normalize deadline／endDate／estimateHours／doneDate／doneTime、updatedAt LWW、todoShowsOn 跨日含首尾（不受 doneDate 影響）、挪 date 不改 deadline、applyTodoComplete／Uncomplete 完成日語意、resolveDoneDate（hint vs 今天）、doneLabel 三態＋時間（日期字串鎖死、不用 Date.now()）
+  - `todos.test.ts` — 待辦墓碑防復活、同名不同 id、normalize deadline／endDate／estimateHours／doneDate／doneTime、updatedAt LWW、todoShowsOn 跨日含首尾（不受 doneDate 影響）、挪 date 不改 deadline、applyTodoComplete／Uncomplete 完成日語意、resolveDoneDate（hint vs 今天）、resolveDoneTime（僅今天自動填）、doneLabel 三態＋時間（日期字串鎖死、不用 Date.now()）
   - `utils.test.ts` — `fmtIdleHM` 精簡時分
 - CI：`.github/workflows/ci.yml`（push／PR → main；`npm ci` → `tsc` → `npm test`）
 
@@ -689,5 +689,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/09/13（完成日改檢視日＋doneTime 可編輯＋大分類顯示 emoji）*
+*最後更新：2026/09/13（doneTime 僅今天自動填；補記可手動補時間）*
 *維護原則：每次完成重要功能，同步更新第十、十一、十二節*

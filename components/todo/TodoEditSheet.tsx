@@ -105,7 +105,7 @@ export function TodoEditSheet({
                   />
                 </div>
                 <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4 }}>
-                  💡 事後才想起來記錄時，可以改成實際完成的日期與時間
+                  💡 在哪一天的頁面按完成，就記在那一天。若不是今天完成的，時間可在這裡自行補上
                 </div>
               </div>
             ) : null}
