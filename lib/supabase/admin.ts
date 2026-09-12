@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { todayTaipei } from "@/lib/apiShared";
 import {
   DEFAULT_ROUTINE,
   DEFAULT_WORKPLACES,
@@ -9,6 +10,8 @@ import {
   type ScheduleData,
   type WorkplaceConfig,
 } from "@/lib/schedule";
+import { gcTodoTombstones, mergeTodosWithTombstones, normalizeTodoList } from "@/lib/todosCloud";
+import type { Todo } from "@/lib/types";
 
 /** 僅後端使用：service-role client（絕不可 "use client"／前端 import） */
 function createAdminClient(): SupabaseClient {
@@ -73,4 +76,33 @@ export async function loadScheduleDataFor(userId: string): Promise<ScheduleData>
     weekSchedule: asRecord<CourseInfo[]>(byKey.get("week_schedule")),
     workplaces: asWorkplaces(byKey.get("workplaces")),
   };
+}
+
+/** 只讀拉取待辦；缺 key 回空陣列、不丟錯。墓碑走 gcTodoTombstones + mergeTodosWithTombstones。 */
+export async function loadTodosFor(userId: string): Promise<Todo[]> {
+  let sb: SupabaseClient;
+  try {
+    sb = createAdminClient();
+  } catch {
+    return [];
+  }
+
+  const { data, error } = await sb
+    .from("app_state")
+    .select("key,value")
+    .eq("user_id", userId)
+    .in("key", ["todos", "deleted_todo_ids"]);
+
+  if (error) return [];
+
+  const byKey = new Map<string, unknown>();
+  for (const row of data ?? []) {
+    if (row && typeof row.key === "string") byKey.set(row.key, row.value);
+  }
+
+  const today = todayTaipei();
+  const normalized = normalizeTodoList(byKey.get("todos"), today);
+  const tombs = gcTodoTombstones(byKey.get("deleted_todo_ids"), Date.now());
+  const { merged } = mergeTodosWithTombstones(normalized, [], tombs);
+  return merged;
 }
