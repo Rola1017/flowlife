@@ -289,6 +289,16 @@ export function migrateCategoryIds(): void {
 
 export const CAT_PATH_SEP = "\u001F";
 
+/** 大分類顯示用 emoji（不寫進名稱／不進雲端）。 */
+const CAT1_EMOJI: Record<string, string> = {
+  學習: "✍️",
+  事業: "💼",
+  閱讀: "📖",
+  健康: "🌱",
+  娛樂: "🎀",
+  未分類: "🌑",
+};
+
 export const catPath = (c1?: string, c2?: string, c3?: string) =>
   [c1, c2, c3].filter((x) => x && x.trim()).join(CAT_PATH_SEP);
 
@@ -305,6 +315,13 @@ export function matchesCatSelection(sel: Set<string>, c1?: string, c2?: string, 
 export const CAT = {
   cat1List: () => loadCategories().map((c) => c.name),
   cat1Color: (name: string) => loadCategories().find((c) => c.name === name)?.color ?? "#6B7280",
+  /** 大分類顯示用 emoji；名稱字串本身永不含 emoji（比對鍵／雲端資料不變）。查無回 ""。 */
+  cat1Emoji: (name: string) => CAT1_EMOJI[name] ?? "",
+  /** 顯示層：有 emoji 則「emoji + 空白 + 名稱」，否則原名稱。 */
+  cat1Display: (name: string) => {
+    const e = CAT1_EMOJI[name] ?? "";
+    return e ? `${e} ${name}` : name || "";
+  },
   isNoCoin: (cat1: string) => loadCategories().find((c) => c.name === cat1)?.noCoin === true,
   cat2List: (cat1: string) => loadCategories().find((c) => c.name === cat1)?.mids.map((m) => m.name) ?? [],
   cat2Color: (cat1: string, cat2: string) => {

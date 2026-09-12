@@ -1,10 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { Card, SL } from "@/components/ui/Card";
 import { formDraftToTodoPatch, TodoFormFields, todoToFormDraft } from "@/components/todo/TodoFormFields";
 import { TH } from "@/lib/theme";
 import type { Todo } from "@/lib/types";
+
+const fieldStyle: CSSProperties = {
+  background: "#15151B",
+  border: `1px solid ${TH.border}`,
+  borderRadius: 8,
+  padding: "8px 10px",
+  color: TH.text,
+  fontSize: 12,
+  outline: "none",
+  colorScheme: "dark",
+  width: "100%",
+  minWidth: 0,
+  boxSizing: "border-box",
+};
 
 export function TodoEditSheet({
   todo,
@@ -18,13 +32,18 @@ export function TodoEditSheet({
   onDelete?: (id: number) => void;
 }) {
   const [draft, setDraft] = useState(() => todoToFormDraft(todo));
+  const [doneDate, setDoneDate] = useState(todo.doneDate ?? "");
+  const [doneTime, setDoneTime] = useState(todo.doneTime ?? "");
 
   useEffect(() => {
     setDraft(todoToFormDraft(todo));
+    setDoneDate(todo.doneDate ?? "");
+    setDoneTime(todo.doneTime ?? "");
   }, [todo]);
 
   const id = todo.id;
   const canDelete = Boolean(onDelete) && (todo.phase === "pending" || todo.phase === "done");
+  const isDone = todo.phase === "done";
 
   const submit = () => {
     const result = formDraftToTodoPatch(draft);
@@ -32,7 +51,12 @@ export function TodoEditSheet({
       setDraft((v) => ({ ...v, error: result.error }));
       return;
     }
-    onSave(id, result.patch);
+    const patch = { ...result.patch };
+    if (isDone) {
+      patch.doneDate = doneDate.trim() || undefined;
+      patch.doneTime = doneTime.trim() ? doneTime.trim().slice(0, 5) : undefined;
+    }
+    onSave(id, patch);
   };
 
   return (
@@ -61,6 +85,30 @@ export function TodoEditSheet({
           <SL>修改待辦</SL>
           <div style={{ marginTop: 10 }}>
             <TodoFormFields key={todo.id} draft={draft} setDraft={setDraft} />
+            {isDone ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
+                <label style={{ fontSize: 10, color: TH.muted }}>✅ 完成於</label>
+                <div style={{ display: "flex", gap: 8, minWidth: 0 }}>
+                  <input
+                    type="date"
+                    value={doneDate}
+                    onChange={(e) => setDoneDate(e.target.value)}
+                    style={{ ...fieldStyle, flex: 1 }}
+                    aria-label="完成日期"
+                  />
+                  <input
+                    type="time"
+                    value={doneTime}
+                    onChange={(e) => setDoneTime(e.target.value.slice(0, 5))}
+                    style={{ ...fieldStyle, flex: 1 }}
+                    aria-label="完成時間"
+                  />
+                </div>
+                <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4 }}>
+                  💡 事後才想起來記錄時，可以改成實際完成的日期與時間
+                </div>
+              </div>
+            ) : null}
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
               {canDelete ? (
                 <button

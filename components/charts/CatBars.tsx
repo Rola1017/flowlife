@@ -9,7 +9,7 @@ export function CatBars({ data }: { data: { label: string; value: number; color:
         <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <div
             style={{
-              width: 56,
+              width: 72,
               fontSize: 9,
               color: TH.muted,
               textAlign: "right",

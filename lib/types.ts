@@ -82,6 +82,8 @@ export type Todo = {
   endAt?: string | null;
   /** 實際完成日（YYYY-MM-DD；按結束時寫入，與 endAt 時間互補） */
   doneDate?: string;
+  /** 實際完成時間 HH:mm（與 doneDate 互補，可事後修改） */
+  doneTime?: string;
   startTs?: number | null;
   elapsed?: number | null;
   /** 最後修改時間（ISO；雲端同步 last-write-wins 用） */

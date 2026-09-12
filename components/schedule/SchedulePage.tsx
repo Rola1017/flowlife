@@ -1567,7 +1567,7 @@ export function SchedulePage({
             {CAT.cat1List().map((c) => (
               <Chip
                 key={c}
-                label={c}
+                label={CAT.cat1Display(c)}
                 active={draft.cat1 === c}
                 color={CAT.cat1Color(c)}
                 onClick={() => setDraft({ ...draft, cat1: c, cat2: "", cat3: "" })}

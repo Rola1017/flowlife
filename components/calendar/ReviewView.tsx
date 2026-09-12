@@ -10,7 +10,7 @@ import type { Session } from "@/lib/types";
 const PERIODS = ["3天", "7天", "14天", "月", "季"] as const;
 
 function catPath(s: Session): string {
-  return [s.cat1, s.cat2, s.cat3].filter(Boolean).join(" › ");
+  return [CAT.cat1Display(s.cat1), s.cat2, s.cat3].filter(Boolean).join(" › ");
 }
 
 export function ReviewView({

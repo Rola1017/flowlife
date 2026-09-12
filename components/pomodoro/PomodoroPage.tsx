@@ -400,7 +400,7 @@ export function PomodoroPage({
               >
                 {CAT.cat1List().map((c) => (
                   <option key={c} value={c}>
-                    {c}
+                    {CAT.cat1Display(c)}
                   </option>
                 ))}
               </select>

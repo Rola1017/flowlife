@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { CAT_PATH_SEP, catPath, matchesCatSelection, DEFAULT_CATEGORIES } from "@/lib/categories";
+import { CAT, CAT_PATH_SEP, catPath, matchesCatSelection, DEFAULT_CATEGORIES } from "@/lib/categories";
 import { buildDistribution, sessionMatches } from "@/lib/analytics";
 import { LS_KEYS, saveJSON } from "@/lib/storage";
 import type { Session } from "@/lib/types";
@@ -92,5 +92,21 @@ describe("analytics.buildDistribution 不重複計", () => {
     const filteredMins = filtered.reduce((s, x) => s + x.mins, 0);
     const dist = buildDistribution(sessions, sel);
     expect(dist.reduce((s, d) => s + d.value, 0)).toBe(filteredMins);
+  });
+});
+
+describe("CAT.cat1Emoji", () => {
+  it("六個指定分類回對應 emoji；未知分類回空字串", () => {
+    expect(CAT.cat1Emoji("學習")).toBe("✍️");
+    expect(CAT.cat1Emoji("事業")).toBe("💼");
+    expect(CAT.cat1Emoji("閱讀")).toBe("📖");
+    expect(CAT.cat1Emoji("健康")).toBe("🌱");
+    expect(CAT.cat1Emoji("娛樂")).toBe("🎀");
+    expect(CAT.cat1Emoji("未分類")).toBe("🌑");
+    expect(CAT.cat1Emoji("自訂分類")).toBe("");
+    expect(CAT.cat1Emoji("兼差")).toBe("");
+    expect(CAT.cat1Display("學習")).toBe("✍️ 學習");
+    expect(CAT.cat1Display("自訂分類")).toBe("自訂分類");
+    expect(CAT.cat1Display("")).toBe("");
   });
 });

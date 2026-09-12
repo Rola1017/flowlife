@@ -280,7 +280,7 @@ export function TodoFormFields({
       >
         {CAT.cat1List().map((cat) => (
           <option key={cat as string} value={cat as string}>
-            {cat as string}
+            {CAT.cat1Display(cat as string)}
           </option>
         ))}
       </select>

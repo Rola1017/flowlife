@@ -8,6 +8,7 @@ import { ReviewNudgeCard } from "@/components/home/ReviewNudgeCard";
 import { CourseBanner } from "@/components/schedule/CourseBanner";
 import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
+import { CAT } from "@/lib/categories";
 import { todoShowsOn } from "@/lib/todosCloud";
 import { fmt, getPeriod } from "@/lib/utils";
 import type { Session, Todo } from "@/lib/types";
@@ -29,7 +30,7 @@ export function HomePage({
   yesterdaySessions: Session[];
   dayBeforeSessions: Session[];
   onStart: (id: number) => void;
-  onEnd: (id: number) => void;
+  onEnd: (id: number, doneDateHint?: string) => void;
   onToggleDone: (id: number) => void;
   onEditTodo: (id: number) => void;
   onDeleteTodo: (id: number) => void;
@@ -130,7 +131,7 @@ export function HomePage({
                     🎯 {s.intention}
                   </div>
                   <div style={{ fontSize: 9, color: TH.muted }}>
-                    {[s.name, s.cat1].filter(Boolean).join(" · ")} · {fmt(s.mins)}
+                    {[s.name, s.cat1 ? CAT.cat1Display(s.cat1) : ""].filter(Boolean).join(" · ")} · {fmt(s.mins)}
                   </div>
                 </div>
               </div>

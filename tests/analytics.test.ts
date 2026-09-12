@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { buildDistribution, sessionMatches } from "@/lib/analytics";
-import { CAT_PATH_SEP, catPath, DEFAULT_CATEGORIES } from "@/lib/categories";
+import { CAT, CAT_PATH_SEP, catPath, DEFAULT_CATEGORIES } from "@/lib/categories";
 import { LS_KEYS, saveJSON } from "@/lib/storage";
 import type { Session } from "@/lib/types";
 
@@ -32,8 +32,8 @@ describe("analytics.sessionMatches / buildDistribution", () => {
     ];
     const dist = buildDistribution(sessions, new Set());
     const byLabel = Object.fromEntries(dist.map((d) => [d.label, d.value]));
-    expect(byLabel[cat1a]).toBe(35);
-    if (cat1b !== cat1a) expect(byLabel[cat1b]).toBe(30);
+    expect(byLabel[CAT.cat1Display(cat1a)]).toBe(35);
+    if (cat1b !== cat1a) expect(byLabel[CAT.cat1Display(cat1b)]).toBe(30);
   });
 
   it("有選時＝每個選取路徑一片，各片總和等於過濾後總時數（不重複計）", () => {

@@ -4,9 +4,9 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { APP_STATE_KEYS, pushAppState, subscribeAppState } from "@/lib/appStateCloud";
 import { CFG, type TodoReminderId, TODO_REMINDER_OPTIONS } from "@/lib/config";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
-import { gcTodoTombstones, mergeTodosWithTombstones, normalizeTodo, normalizeTodoList, applyTodoComplete, applyTodoUncomplete } from "@/lib/todosCloud";
+import { gcTodoTombstones, mergeTodosWithTombstones, normalizeTodo, normalizeTodoList, applyTodoComplete, applyTodoUncomplete, resolveDoneDate } from "@/lib/todosCloud";
 import type { Todo, TodoTombstone } from "@/lib/types";
-import { nowStr } from "@/lib/utils";
+import { nowHM, nowStr } from "@/lib/utils";
 
 function normalizeReminder(r: unknown): TodoReminderId {
   const s = typeof r === "string" ? r : "none";
@@ -28,6 +28,7 @@ function makeTodo(raw: Partial<Todo>, today: string): Todo {
     startTs: null,
     elapsed: null,
     doneDate: undefined,
+    doneTime: undefined,
     reminder: normalizeReminder(raw.reminder),
     updatedAt: stamp(),
   };
@@ -158,7 +159,7 @@ export function useTodos(initial: Partial<Todo>[]) {
   );
 
   const handleEnd = useCallback(
-    (id: number) => {
+    (id: number, doneDateHint?: string) => {
       const t = todosRef.current.find((x) => x.id === id);
       if (!t) return;
       if (t.phase === "ending" || endTimers.current[id]) {
@@ -172,6 +173,7 @@ export function useTodos(initial: Partial<Todo>[]) {
         );
         return;
       }
+      const doneDate = resolveDoneDate(doneDateHint, CFG.TODAY_STR);
       const start = Date.now();
       endProgTimers.current[id] = setInterval(() => {
         const bar = document.getElementById(`end-bar-${id}`);
@@ -183,10 +185,12 @@ export function useTodos(initial: Partial<Todo>[]) {
         if (!cur) return;
         const elapsed = cur.startTs ? Date.now() - cur.startTs : 0;
         const endAt = nowStr();
-        const doneDate = CFG.TODAY_STR;
+        const doneTime = nowHM();
         const updatedAt = stamp();
         apply((prev) =>
-          prev.map((x) => (x.id === id ? applyTodoComplete(x, { endAt, doneDate, elapsed, updatedAt }) : x)),
+          prev.map((x) =>
+            x.id === id ? applyTodoComplete(x, { endAt, doneDate, doneTime, elapsed, updatedAt }) : x,
+          ),
         );
       }, CFG.END_CONFIRM);
       apply((ts) =>

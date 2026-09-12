@@ -3,7 +3,7 @@
 import { useState, useEffect, type CSSProperties } from "react";
 import { CFG, reminderLabel } from "@/lib/config";
 import { TH } from "@/lib/theme";
-import { CAT_COLOR } from "@/lib/categories";
+import { CAT } from "@/lib/categories";
 import { fmtMs, fmtElapsed } from "@/lib/utils";
 import { doneLabel } from "@/lib/todosCloud";
 import type { Todo } from "@/lib/types";
@@ -57,7 +57,7 @@ export function TodoCard({
   /** 這張卡正在哪一天被顯示；用來區分「當天完成」vs「已於某日完成」 */
   viewDate?: string;
   onStart: (id: number) => void;
-  onEnd: (id: number) => void;
+  onEnd: (id: number, doneDateHint?: string) => void;
   onToggleDone: (id: number) => void;
   onEdit?: (id: number) => void;
   onDelete?: (id: number) => void;
@@ -76,7 +76,7 @@ export function TodoCard({
             : estimateHours
               ? `${estimateHours}小時`
               : null;
-  const col = CAT_COLOR[cat] || TH.muted;
+  const col = CAT.cat1Color(cat) || TH.muted;
   const isStarted = phase === "started",
     isEnding = phase === "ending";
   const canEdit = Boolean(onEdit) && (phase === "pending" || phase === "done");
@@ -184,12 +184,43 @@ export function TodoCard({
           >
             {text}
           </div>
-          <div style={{ display: "flex", gap: 8, marginTop: 3, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, marginTop: 3, flexWrap: "wrap", alignItems: "center" }}>
             {todo.startAt ? (
               <span style={{ fontSize: 9, color: "#4ADE80" }}>▶ {todo.startAt}</span>
             ) : null}
             <span style={{ fontSize: 9, color: "#60A5FA" }}>■ {todo.endAt}</span>
-            <span style={{ fontSize: 9, color: TH.muted }}>{doneLabel(todo.doneDate, viewDate)}</span>
+            {canEdit ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit!(id);
+                }}
+                aria-label="修改完成日期與時間"
+                title="修改完成日期與時間"
+                style={{
+                  fontSize: 9,
+                  color: TH.muted,
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: 14,
+                  margin: -14,
+                  minHeight: 44,
+                  minWidth: 44,
+                  boxSizing: "content-box",
+                  lineHeight: 1.2,
+                  flexShrink: 0,
+                  textAlign: "left",
+                }}
+              >
+                {doneLabel(todo.doneDate, viewDate, todo.doneTime)}
+              </button>
+            ) : (
+              <span style={{ fontSize: 9, color: TH.muted }}>
+                {doneLabel(todo.doneDate, viewDate, todo.doneTime)}
+              </span>
+            )}
             {(todo.elapsed ?? 0) > 0 ? (
               <span style={{ fontSize: 9, color: TH.yellow, fontWeight: 700 }}>
                 共 {fmtElapsed(todo.elapsed ?? 0)}
@@ -218,7 +249,7 @@ export function TodoCard({
             flexShrink: 0,
           }}
         >
-          {cat}
+          {CAT.cat1Display(cat)}
         </span>
         {canDelete ? <DeleteBtn text={text} onClick={() => onDelete!(id)} /> : null}
       </div>
@@ -282,7 +313,7 @@ export function TodoCard({
               </span>
             )}
             <span style={{ fontSize: 9, color: col, background: col + "22", padding: "1px 6px", borderRadius: 8 }}>
-              {cat}
+              {CAT.cat1Display(cat)}
             </span>
             {mustDo && (
               <span style={{ fontSize: 9, color: TH.red, fontWeight: 700 }}>
@@ -328,7 +359,7 @@ export function TodoCard({
         <button
           className="flowlife-pressable"
           type="button"
-          onClick={() => onEnd(id)}
+          onClick={() => onEnd(id, viewDate)}
           style={{
             flex: 1,
             padding: "9px 0",

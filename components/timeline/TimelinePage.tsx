@@ -59,7 +59,7 @@ export function TimelinePage({
 }: {
   todos: Todo[];
   onStart: (id: number) => void;
-  onEnd: (id: number) => void;
+  onEnd: (id: number, doneDateHint?: string) => void;
   onToggleDone: (id: number) => void;
   onAddTodo: (todo: Partial<Todo>) => void;
   onEditTodo: (id: number) => void;

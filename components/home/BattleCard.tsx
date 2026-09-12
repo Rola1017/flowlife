@@ -58,7 +58,7 @@ export function BattleCard({
               whiteSpace: "nowrap",
             }}
           >
-            {a.cat1}
+            {CAT.cat1Display(a.cat1)}
           </span>
           <div
             style={{

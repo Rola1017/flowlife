@@ -225,9 +225,9 @@ export function CoinHistoryPage({
     const cat2Options = editCat1 ? CAT.cat2List(editCat1) : [];
     const cat3Options =
       editCat1 && editCat2 ? CAT.cat3List(editCat1, editCat2) : [];
-    const displayName = row.taskName?.trim() || row.cat1 || row.productCat || "未命名";
+    const displayName = row.taskName?.trim() || (row.cat1 ? CAT.cat1Display(row.cat1) : row.productCat) || "未命名";
     const catLabel = row.cat1
-      ? [row.cat1, row.cat2, row.cat3].filter(Boolean).join(" › ")
+      ? [CAT.cat1Display(row.cat1), row.cat2, row.cat3].filter(Boolean).join(" › ")
       : row.productCat;
     const timeLabel =
       row.startTime && row.endTime ? `${row.startTime}～${row.endTime}` : row.time;
@@ -318,7 +318,7 @@ export function CoinHistoryPage({
               >
                 {CAT.cat1List().map((c) => (
                   <option key={c} value={c}>
-                    {c}
+                    {CAT.cat1Display(c)}
                   </option>
                 ))}
               </select>

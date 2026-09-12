@@ -114,7 +114,7 @@ export function RingTimer({
             {mode === "focus" && <div style={{ fontSize: 8, color: ringColor, fontWeight: 800 }}>第 {focusCycle} 圈</div>}
             {mode === "focus" && confirmed && (
               <div style={{ fontSize: 8, color: CAT.cat1Color(confirmed.cat1), marginTop: 3 }}>
-                {confirmed.cat1}
+                {CAT.cat1Display(confirmed.cat1)}
                 {confirmed.cat2 && " › " + confirmed.cat2}
               </div>
             )}

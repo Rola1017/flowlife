@@ -18,7 +18,7 @@ import type { Session } from "@/lib/types";
 const WEEKDAY_TW = ["日", "一", "二", "三", "四", "五", "六"];
 
 function catPath(s: Session): string {
-  return [s.cat1, s.cat2, s.cat3].filter(Boolean).join(" › ");
+  return [CAT.cat1Display(s.cat1), s.cat2, s.cat3].filter(Boolean).join(" › ");
 }
 
 export function DayReview({ sessions }: { sessions: Session[] }) {

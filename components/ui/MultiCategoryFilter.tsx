@@ -36,7 +36,7 @@ export function MultiCategoryFilter({
           {cat1s.map((c1) => (
             <Chip
               key={c1}
-              label={c1}
+              label={CAT.cat1Display(c1)}
               active={selected.has(catPath(c1))}
               color={CAT.cat1Color(c1)}
               onClick={() => toggle(catPath(c1))}
@@ -57,7 +57,7 @@ export function MultiCategoryFilter({
         );
         return (
           <div key={`grp-${c1}`} style={{ borderTop: `2px solid ${c1Color}99`, paddingTop: 8, marginTop: 2 }}>
-            <div style={{ fontSize: 10, fontWeight: 800, color: c1Color, marginBottom: 5 }}>◆ {c1} · 中分類</div>
+            <div style={{ fontSize: 10, fontWeight: 800, color: c1Color, marginBottom: 5 }}>◆ {CAT.cat1Display(c1)} · 中分類</div>
             <div style={rowStyle}>
               {c2s.map((c2) => (
                 <Chip
@@ -75,7 +75,7 @@ export function MultiCategoryFilter({
               if (c3s.length === 0) return null;
               return (
                 <div key={`s-${c1}-${c2}`} style={{ borderTop: `1px dashed ${TH.border}`, marginTop: 6, paddingTop: 6, marginLeft: 10 }}>
-                  <div style={labelStyle}>{c1} › {c2} · 小分類</div>
+                  <div style={labelStyle}>{CAT.cat1Display(c1)} › {c2} · 小分類</div>
                   <div style={rowStyle}>
                     {c3s.map((c3) => (
                       <Chip

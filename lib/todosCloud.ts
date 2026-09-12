@@ -35,6 +35,22 @@ export function normalizeDoneDate(v: unknown): string | undefined {
   return isDate(v) ? v : undefined;
 }
 
+const HM_RE = /^\d{2}:\d{2}$/;
+
+/** 實際完成時間：僅精確 HH:mm（00–23:00–59），否則 undefined。 */
+export function normalizeDoneTime(v: unknown): string | undefined {
+  if (typeof v !== "string" || !HM_RE.test(v)) return undefined;
+  const h = Number(v.slice(0, 2));
+  const m = Number(v.slice(3, 5));
+  if (!Number.isFinite(h) || !Number.isFinite(m) || h > 23 || m > 59) return undefined;
+  return v;
+}
+
+/** 完成日取值：合法 hint 優先，否則今天字串。禁止在此用 new Date()。 */
+export function resolveDoneDate(hint: string | undefined, today: string): string {
+  return isDate(hint) ? hint : today;
+}
+
 /** 該待辦是否應顯示在 dateStr 這一天（跨日區間含首尾；單一來源）。與 doneDate 無關。 */
 export function todoShowsOn(todo: { date: string; endDate?: string }, dateStr: string): boolean {
   if (todo.endDate && todo.endDate > todo.date) {
@@ -43,22 +59,23 @@ export function todoShowsOn(todo: { date: string; endDate?: string }, dateStr: s
   return todo.date === dateStr;
 }
 
-/** 完成：時間／日期取值須在 updater 外算好再傳入。不改寫既有 endAt 語意，只加 doneDate。 */
+/** 完成：時間／日期取值須在 updater 外算好再傳入。不改寫既有 endAt 語意，只加 doneDate／doneTime。 */
 export function applyTodoComplete(
   t: Todo,
-  fields: { endAt: string; doneDate: string; elapsed: number; updatedAt: string },
+  fields: { endAt: string; doneDate: string; doneTime: string; elapsed: number; updatedAt: string },
 ): Todo {
   return {
     ...t,
     phase: "done",
     endAt: fields.endAt,
     doneDate: fields.doneDate,
+    doneTime: fields.doneTime,
     elapsed: fields.elapsed,
     updatedAt: fields.updatedAt,
   };
 }
 
-/** 取消完成：endAt／elapsed／doneDate 一併清空。 */
+/** 取消完成：endAt／elapsed／doneDate／doneTime 一併清空。 */
 export function applyTodoUncomplete(t: Todo, updatedAt: string): Todo {
   return {
     ...t,
@@ -68,15 +85,21 @@ export function applyTodoUncomplete(t: Todo, updatedAt: string): Todo {
     startTs: null,
     elapsed: null,
     doneDate: undefined,
+    doneTime: undefined,
     updatedAt,
   };
 }
 
-/** 完成卡文案三態（歷史無 doneDate 不說「當天完成」，避免誤導）。 */
-export function doneLabel(doneDate: string | undefined, viewDate: string | undefined): string {
-  if (!doneDate) return "✅ 已完成";
-  if (viewDate && doneDate !== viewDate) return `✅ 已於 ${formatMd(doneDate)} 完成`;
-  return "✅ 當天完成";
+/** 完成卡文案三態（歷史無 doneDate 不說「當天完成」，避免誤導）。可點擊編輯故帶 ✏️。 */
+export function doneLabel(
+  doneDate: string | undefined,
+  viewDate: string | undefined,
+  doneTime?: string,
+): string {
+  const timeBit = doneTime ? ` ${doneTime}` : "";
+  if (!doneDate) return `✅ 已完成${timeBit} ✏️`;
+  if (viewDate && doneDate !== viewDate) return `✅ 已於 ${formatMd(doneDate)}${timeBit} 完成 ✏️`;
+  return doneTime ? `✅ 當天 ${doneTime} 完成 ✏️` : "✅ 當天完成 ✏️";
 }
 
 /**
@@ -108,6 +131,7 @@ export function normalizeTodo(raw: unknown, today: string): Todo | null {
     startAt: typeof r.startAt === "string" ? r.startAt : null,
     endAt: typeof r.endAt === "string" ? r.endAt : null,
     doneDate: normalizeDoneDate(r.doneDate),
+    doneTime: normalizeDoneTime(r.doneTime),
     startTs: typeof r.startTs === "number" ? r.startTs : null,
     elapsed: typeof r.elapsed === "number" ? r.elapsed : null,
     updatedAt,

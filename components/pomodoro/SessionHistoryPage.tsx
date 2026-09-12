@@ -83,11 +83,11 @@ function SessionRow({
             <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: catColor, flexShrink: 0 }} />
               <span style={{ fontSize: 12, fontWeight: 800, color: TH.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {catParts[0]}
+                {catParts[0] === s.cat1 ? CAT.cat1Display(s.cat1) : catParts[0]}
               </span>
               {catParts.length > 1 && (
                 <span style={{ fontSize: 9, color: TH.muted, whiteSpace: "nowrap", flexShrink: 0 }}>
-                  {catParts.slice(1).join(" · ")}
+                  {catParts.slice(1).map((p) => (p === s.cat1 ? CAT.cat1Display(s.cat1) : p)).join(" · ")}
                 </span>
               )}
             </div>
@@ -621,7 +621,7 @@ export function SessionHistoryPage({
               </div>
             ) : (
               trashedSessions?.map((s, i) => {
-                const category = [s.cat1, s.cat2, s.cat3].filter(Boolean).join(" · ");
+                const category = [s.cat1 ? CAT.cat1Display(s.cat1) : "", s.cat2, s.cat3].filter(Boolean).join(" · ");
                 const time =
                   s.startTime && s.endTime ? `${s.startTime}～${s.endTime}` : "";
                 return (

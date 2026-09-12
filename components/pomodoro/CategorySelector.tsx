@@ -51,7 +51,7 @@ export function CategorySelector({
           {CAT.cat1List().map((c) => (
             <Chip
               key={c}
-              label={c}
+              label={CAT.cat1Display(c)}
               active={cat1 === c}
               color={CAT.cat1Color(c)}
               onClick={() => setC1(c)}

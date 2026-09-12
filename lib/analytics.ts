@@ -40,7 +40,7 @@ export function buildDistribution(sessions: Session[], sel: Set<string>): ChartD
     }
     return CAT.cat1List()
       .filter((c) => sum[c])
-      .map((c) => ({ label: c, value: sum[c], color: CAT.cat1Color(c) }))
+      .map((c) => ({ label: CAT.cat1Display(c), value: sum[c], color: CAT.cat1Color(c) }))
       .sort((a, b) => b.value - a.value);
   }
 
@@ -52,7 +52,7 @@ export function buildDistribution(sessions: Session[], sel: Set<string>): ChartD
         .filter((s) => matchesCatSelection(one, s.cat1, s.cat2, s.cat3))
         .reduce((a, s) => a + (s.mins ?? 0), 0);
       return {
-        label: c3 || c2 || c1,
+        label: c3 || c2 || CAT.cat1Display(c1),
         value,
         color: CAT.deepColorFull(c1, c2 || undefined, c3 || undefined),
       };

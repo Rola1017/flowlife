@@ -5,6 +5,7 @@ import { BackBtn } from "@/components/ui/BackBtn";
 import { Card, SL } from "@/components/ui/Card";
 import { TH } from "@/lib/theme";
 import {
+  CAT,
   type CategoryData,
   cat3ColorFrom,
   loadCategories,
@@ -486,6 +487,11 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
                     </>
                   )}
                 </div>
+                {CAT.cat1Emoji(big.name) ? (
+                  <span style={{ flexShrink: 0, fontSize: 14, lineHeight: 1 }} aria-hidden>
+                    {CAT.cat1Emoji(big.name)}
+                  </span>
+                ) : null}
                 <RenameInput value={big.name} onCommit={(n) => updateBigName(bi, n)} />
                 <button
                   type="button"
