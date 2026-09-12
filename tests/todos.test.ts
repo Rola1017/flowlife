@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyTodoComplete, applyTodoUncomplete, mergeTodosWithTombstones, normalizeTodo, todoShowsOn } from "@/lib/todosCloud";
+import { applyTodoComplete, applyTodoUncomplete, doneLabel, mergeTodosWithTombstones, normalizeTodo, todoShowsOn } from "@/lib/todosCloud";
 import type { Todo } from "@/lib/types";
 
 const TODAY = "2026-09-13";
@@ -168,6 +168,16 @@ describe("todos complete doneDate", () => {
     expect(undone.date).toBe("2026-09-15");
     expect(undone.endDate).toBe("2026-09-18");
     expect(undone.deadline).toBe("2026-09-20");
+  });
+});
+
+describe("doneLabel 三態", () => {
+  it("無 doneDate → 已完成；同日／無 viewDate → 當天完成；其他日 → 已於 M/D", () => {
+    expect(doneLabel(undefined, "2026-09-16")).toBe("✅ 已完成");
+    expect(doneLabel("2026-09-16", "2026-09-16")).toBe("✅ 當天完成");
+    expect(doneLabel("2026-09-16", undefined)).toBe("✅ 當天完成");
+    expect(doneLabel("2026-09-16", "2026-09-15")).toBe("✅ 已於 9/16 完成");
+    expect(doneLabel("2026-09-16", "2026-09-18")).toBe("✅ 已於 9/16 完成");
   });
 });
 

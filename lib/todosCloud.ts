@@ -1,4 +1,5 @@
 import type { Todo, TodoPhase, TodoTombstone } from "@/lib/types";
+import { formatMd } from "@/lib/dateStr";
 
 const PHASES: TodoPhase[] = ["pending", "started", "ending", "done"];
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -69,6 +70,13 @@ export function applyTodoUncomplete(t: Todo, updatedAt: string): Todo {
     doneDate: undefined,
     updatedAt,
   };
+}
+
+/** 完成卡文案三態（歷史無 doneDate 不說「當天完成」，避免誤導）。 */
+export function doneLabel(doneDate: string | undefined, viewDate: string | undefined): string {
+  if (!doneDate) return "✅ 已完成";
+  if (viewDate && doneDate !== viewDate) return `✅ 已於 ${formatMd(doneDate)} 完成`;
+  return "✅ 當天完成";
 }
 
 /**
