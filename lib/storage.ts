@@ -4,6 +4,7 @@ const LEGACY_STORAGE_PREFIX = "flowlife_";
 
 export const LS_KEYS = {
   todos: `${STORAGE_PREFIX}todos`,
+  deletedTodoIds: `${STORAGE_PREFIX}deleted_todo_ids`,
   coins: `${STORAGE_PREFIX}coins`,
   pomodoroSessions: `${STORAGE_PREFIX}pomodoro_sessions`,
   /** @alias pomodoroSessions */

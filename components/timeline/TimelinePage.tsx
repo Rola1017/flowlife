@@ -13,6 +13,7 @@ import { buildActualSegments } from "@/lib/timelineActual";
 import { loadRoutineOverride } from "@/lib/schedule";
 import { DS, DT, toM, nowHM, roundHM5, addMinHM } from "@/lib/utils";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
+import type { Todo } from "@/lib/types";
 
 function defaultTodoStartDateTime() {
   return `${CFG.TODAY_STR} ${roundHM5(nowHM())}`;
@@ -61,14 +62,16 @@ export function TimelinePage({
   onToggleDone,
   onAddTodo,
   onEditTodo,
+  onDeleteTodo,
   onShowSchedule,
 }: {
-  todos: Record<string, unknown>[];
+  todos: Todo[];
   onStart: (id: number) => void;
   onEnd: (id: number) => void;
   onToggleDone: (id: number) => void;
-  onAddTodo: (todo: Record<string, unknown>) => void;
+  onAddTodo: (todo: Partial<Todo>) => void;
   onEditTodo: (id: number) => void;
+  onDeleteTodo: (id: number) => void;
   onShowSchedule: () => void;
 }) {
   const [addOpen, setAddOpen] = useState(false);
@@ -121,18 +124,22 @@ export function TimelinePage({
     saveJSON(LS_KEYS.timelineTodoView, { pending: showPending, done: showDone });
   }, [showPending, showDone, todoViewLoaded]);
 
-  const active = todos.filter(
-    (t: { date?: string; phase?: string }) => t.date === CFG.TODAY_STR && t.phase !== "done",
-  );
-  const done = todos.filter(
-    (t: { date?: string; phase?: string }) => t.date === CFG.TODAY_STR && t.phase === "done",
-  );
-  const pendingTL = active.filter(
-    (t: { startTime?: string }) => t.startTime,
-  ) as { id: number; text: string; startTime: string; endTime: string }[];
-  const doneTL = done.filter(
-    (t: { endAt?: string }) => t.endAt,
-  ) as { id: number; text: string; startTime: string; endTime: string; endAt?: string; startAt?: string }[];
+  const active = todos.filter((t) => t.date === CFG.TODAY_STR && t.phase !== "done");
+  const done = todos.filter((t) => t.date === CFG.TODAY_STR && t.phase === "done");
+  const pendingTL = active.filter((t) => t.startTime) as {
+    id: number;
+    text: string;
+    startTime: string;
+    endTime: string;
+  }[];
+  const doneTL = done.filter((t) => t.endAt) as {
+    id: number;
+    text: string;
+    startTime: string;
+    endTime: string;
+    endAt?: string;
+    startAt?: string;
+  }[];
   const { act: miniAct, idle: miniIdle } = useMemo(
     () => buildActualSegments(CFG.TODAY_STR, nowPct),
     [nowPct, routineRev],
@@ -341,6 +348,7 @@ export function TimelinePage({
           date={CFG.TODAY_STR}
           routineRev={routineRev}
           onEditRoutine={(d) => setEditRoutineDate(d)}
+          onEditTodo={onEditTodo}
           onTimeClick={(time) => {
             const hm = normalizeTimelineTime(time);
             setQuickDraft({
@@ -373,6 +381,7 @@ export function TimelinePage({
               onEnd={onEnd}
               onToggleDone={onToggleDone}
               onEdit={onEditTodo}
+              onDelete={onDeleteTodo}
             />
           ))}
         </div>
@@ -388,6 +397,7 @@ export function TimelinePage({
               onEnd={onEnd}
               onToggleDone={onToggleDone}
               onEdit={onEditTodo}
+              onDelete={onDeleteTodo}
             />
               ))}
             </div>

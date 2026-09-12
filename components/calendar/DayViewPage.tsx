@@ -11,6 +11,7 @@ import { TH } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { buildActualSegments } from "@/lib/timelineActual";
 import { DS, DT, toM } from "@/lib/utils";
+import type { Todo } from "@/lib/types";
 
 function normalizeTimelineTime(time: string): string {
   const m = time.trim().match(/^(\d{1,2}):(\d{1,2})$/);
@@ -53,16 +54,18 @@ export function DayViewPage({
   onToggleDone,
   onAddTodo,
   onEditTodo,
+  onDeleteTodo,
   onBack,
 }: {
   date: string;
   label: string;
-  todos: Record<string, unknown>[];
+  todos: Todo[];
   onStart: (id: number) => void;
   onEnd: (id: number) => void;
   onToggleDone: (id: number) => void;
-  onAddTodo: (todo: Record<string, unknown>) => void;
+  onAddTodo: (todo: Partial<Todo>) => void;
   onEditTodo: (id: number) => void;
+  onDeleteTodo: (id: number) => void;
   onBack: () => void;
 }) {
   const [addOpen, setAddOpen] = useState(false);
@@ -94,18 +97,21 @@ export function DayViewPage({
     return () => clearInterval(timer);
   }, []);
 
-  const active = todos.filter(
-    (t: { date?: string; phase?: string }) => t.date === date && t.phase !== "done",
-  );
-  const done = todos.filter(
-    (t: { date?: string; phase?: string }) => t.date === date && t.phase === "done",
-  );
-  const pendingTL = active.filter(
-    (t: { startTime?: string }) => t.startTime,
-  ) as { id: number; text: string; startTime: string; endTime: string }[];
-  const doneTL = done.filter(
-    (t: { endAt?: string }) => t.endAt,
-  ) as { id: number; text: string; startTime: string; endTime: string; endAt?: string }[];
+  const active = todos.filter((t) => t.date === date && t.phase !== "done");
+  const done = todos.filter((t) => t.date === date && t.phase === "done");
+  const pendingTL = active.filter((t) => t.startTime) as {
+    id: number;
+    text: string;
+    startTime: string;
+    endTime: string;
+  }[];
+  const doneTL = done.filter((t) => t.endAt) as {
+    id: number;
+    text: string;
+    startTime: string;
+    endTime: string;
+    endAt?: string;
+  }[];
   const { act: miniAct, idle: miniIdle } = useMemo(
     () => buildActualSegments(date, nowPct),
     [date, nowPct],
@@ -231,6 +237,7 @@ export function DayViewPage({
           pendingTodos={pendingTL}
           doneTodos={doneTL}
           date={date}
+          onEditTodo={onEditTodo}
           onTimeClick={(time) => {
             const hm = normalizeTimelineTime(time);
             setQuickDraft({
@@ -257,6 +264,7 @@ export function DayViewPage({
               onEnd={onEnd}
               onToggleDone={onToggleDone}
               onEdit={onEditTodo}
+              onDelete={onDeleteTodo}
             />
           ))}
         </div>
@@ -272,6 +280,7 @@ export function DayViewPage({
                   onEnd={onEnd}
                   onToggleDone={onToggleDone}
                   onEdit={onEditTodo}
+                  onDelete={onDeleteTodo}
                 />
               ))}
             </div>

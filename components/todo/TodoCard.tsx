@@ -1,10 +1,47 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type CSSProperties } from "react";
 import { CFG, reminderLabel } from "@/lib/config";
 import { TH } from "@/lib/theme";
 import { CAT_COLOR } from "@/lib/categories";
 import { fmtMs, fmtElapsed } from "@/lib/utils";
+import type { Todo } from "@/lib/types";
+
+const hit44: CSSProperties = {
+  width: 26,
+  height: 26,
+  padding: 9,
+  margin: -9,
+  boxSizing: "content-box",
+  flexShrink: 0,
+};
+
+function DeleteBtn({ text, onClick }: { text: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      title="刪除待辦"
+      aria-label={`刪除待辦 ${text}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (window.confirm(`確定刪除待辦「${text}」？`)) onClick();
+      }}
+      style={{
+        ...hit44,
+        background: "transparent",
+        border: "none",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: 14,
+        lineHeight: 1,
+      }}
+    >
+      🗑
+    </button>
+  );
+}
 
 export function TodoCard({
   todo,
@@ -12,28 +49,21 @@ export function TodoCard({
   onEnd,
   onToggleDone,
   onEdit,
+  onDelete,
 }: {
-  todo: Record<string, unknown>;
+  todo: Todo;
   onStart: (id: number) => void;
   onEnd: (id: number) => void;
   onToggleDone: (id: number) => void;
   onEdit?: (id: number) => void;
+  onDelete?: (id: number) => void;
 }) {
-  const { id, text, cat, startTime, endTime, mustDo, phase, startAt, startTs } = todo as {
-    id: number;
-    text: string;
-    cat: string;
-    startTime: string;
-    endTime: string;
-    mustDo: boolean;
-    phase: string;
-    startAt: string | null;
-    startTs: number | null;
-  };
+  const { id, text, cat, startTime, endTime, mustDo, phase, startAt, startTs, deadline } = todo;
   const col = CAT_COLOR[cat] || TH.muted;
   const isStarted = phase === "started",
     isEnding = phase === "ending";
   const canEdit = Boolean(onEdit) && (phase === "pending" || phase === "done");
+  const canDelete = Boolean(onDelete) && (phase === "pending" || phase === "done");
   const [live, setLive] = useState("00:00");
 
   useEffect(() => {
@@ -124,21 +154,34 @@ export function TodoCard({
             outline: "none",
           }}
         >
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#6B7280", textDecoration: "line-through" }}>
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: "#6B7280",
+              textDecoration: "line-through",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
             {text}
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 3, flexWrap: "wrap" }}>
             {todo.startAt ? (
-              <span style={{ fontSize: 9, color: "#4ADE80" }}>▶ {String(todo.startAt)}</span>
+              <span style={{ fontSize: 9, color: "#4ADE80" }}>▶ {todo.startAt}</span>
             ) : null}
-            <span style={{ fontSize: 9, color: "#60A5FA" }}>■ {String(todo.endAt)}</span>
-            {(todo.elapsed as number) > 0 ? (
+            <span style={{ fontSize: 9, color: "#60A5FA" }}>■ {todo.endAt}</span>
+            {(todo.elapsed ?? 0) > 0 ? (
               <span style={{ fontSize: 9, color: TH.yellow, fontWeight: 700 }}>
-                共 {fmtElapsed(todo.elapsed as number)}
+                共 {fmtElapsed(todo.elapsed ?? 0)}
               </span>
             ) : (
               <span style={{ fontSize: 9, color: TH.muted }}>直接完成</span>
             )}
+            {deadline ? (
+              <span style={{ fontSize: 9, color: TH.muted }}>⏳ {deadline}</span>
+            ) : null}
           </div>
         </div>
         <span
@@ -153,6 +196,7 @@ export function TodoCard({
         >
           {cat}
         </span>
+        {canDelete ? <DeleteBtn text={text} onClick={() => onDelete!(id)} /> : null}
       </div>
     );
   }
@@ -188,7 +232,19 @@ export function TodoCard({
             outline: "none",
           }}
         >
-          <div style={{ fontSize: 12, fontWeight: 700, color: TH.text, marginBottom: 4 }}>{text}</div>
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: TH.text,
+              marginBottom: 4,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {text}
+          </div>
           <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
             {startTime && (
               <span style={{ fontSize: 9, color: TH.muted }}>
@@ -209,11 +265,15 @@ export function TodoCard({
                 必做
               </span>
             )}
+            {deadline ? (
+              <span style={{ fontSize: 9, color: TH.muted }}>⏳ {deadline}</span>
+            ) : null}
           </div>
         </div>
         {isStarted && startTs && (
           <span style={{ fontSize: 13, fontWeight: 800, color: TH.green, flexShrink: 0 }}>{live}</span>
         )}
+        {canDelete ? <DeleteBtn text={text} onClick={() => onDelete!(id)} /> : null}
       </div>
       <div style={{ display: "flex", gap: 8 }} onClick={(e) => e.stopPropagation()}>
         <button

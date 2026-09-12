@@ -139,7 +139,8 @@ function AppContent() {
   const [hydrated, setHydrated] = useState(false);
   const [resetVersion, setResetVersion] = useState(0);
 
-  const { todos, handleStart, handleEnd, handleToggleDone, addTodo, updateTodo, resetTodos } = useTodos([]);
+  const { todos, handleStart, handleEnd, handleToggleDone, addTodo, updateTodo, deleteTodo, resetTodos } =
+    useTodos([]);
 
   const [sessions, setSessions] = useState<Session[]>([]);
   const [trashedSessions, setTrashedSessions] = useState<Session[]>([]);
@@ -642,6 +643,7 @@ function AppContent() {
     onToggleDone: handleToggleDone,
     onAddTodo: addTodo,
     onEditTodo: (id: number) => setEditTodoId(id),
+    onDeleteTodo: deleteTodo,
   };
 
   const SUB_PAGE_MAP: Record<string, (props?: Record<string, unknown>) => ReactNode> = {
@@ -724,6 +726,7 @@ function AppContent() {
         onToggleDone={handleToggleDone}
         onAddTodo={addTodo}
         onEditTodo={todoProps.onEditTodo}
+        onDeleteTodo={deleteTodo}
         onBack={pop}
       />
     ),
@@ -935,6 +938,10 @@ function AppContent() {
           onClose={() => setEditTodoId(null)}
           onSave={(id, patch) => {
             updateTodo(id, patch);
+            setEditTodoId(null);
+          }}
+          onDelete={(id) => {
+            deleteTodo(id);
             setEditTodoId(null);
           }}
         />

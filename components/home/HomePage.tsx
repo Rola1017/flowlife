@@ -9,7 +9,7 @@ import { CourseBanner } from "@/components/schedule/CourseBanner";
 import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
 import { fmt, getPeriod } from "@/lib/utils";
-import type { Session } from "@/lib/types";
+import type { Session, Todo } from "@/lib/types";
 
 export function HomePage({
   todos,
@@ -20,9 +20,10 @@ export function HomePage({
   onEnd,
   onToggleDone,
   onEditTodo,
+  onDeleteTodo,
   onWriteSummary,
 }: {
-  todos: Record<string, unknown>[];
+  todos: Todo[];
   todaySessions: Session[];
   yesterdaySessions: Session[];
   dayBeforeSessions: Session[];
@@ -30,6 +31,7 @@ export function HomePage({
   onEnd: (id: number) => void;
   onToggleDone: (id: number) => void;
   onEditTodo: (id: number) => void;
+  onDeleteTodo: (id: number) => void;
   onWriteSummary: () => void;
 }) {
   const [expandReview, setExpandReview] = useState(false);
@@ -45,8 +47,8 @@ export function HomePage({
     (t: { date?: string; mustDo?: boolean; phase?: string }) =>
       t.date === CFG.TODAY_STR && t.mustDo && t.phase !== "done",
   );
-  const grouped: Record<string, Record<string, unknown>[]> = { 早: [], 午: [], 晚: [] };
-  mustDo.forEach((t: { startTime?: string }) => {
+  const grouped: Record<string, Todo[]> = { 早: [], 午: [], 晚: [] };
+  mustDo.forEach((t) => {
     const h = t.startTime ? parseInt(t.startTime, 10) : 7;
     grouped[getPeriod(h)].push(t);
   });
@@ -168,12 +170,13 @@ export function HomePage({
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {items.map((t) => (
                   <TodoCard
-                    key={t.id as number}
+                    key={t.id}
                     todo={t}
                     onStart={onStart}
                     onEnd={onEnd}
                     onToggleDone={onToggleDone}
                     onEdit={onEditTodo}
+                    onDelete={onDeleteTodo}
                   />
                 ))}
               </div>

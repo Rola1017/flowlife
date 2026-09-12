@@ -6,6 +6,7 @@ import { DateTimePicker, splitTodoDateTime } from "@/components/ui/DateTimePicke
 import { CFG, TODO_REMINDER_OPTIONS, type TodoReminderId } from "@/lib/config";
 import { TH } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
+import type { Todo } from "@/lib/types";
 
 const selectFieldStyle: CSSProperties = {
   background: "#15151B",
@@ -31,18 +32,16 @@ function normalizeReminder(r: unknown): TodoReminderId {
   return TODO_REMINDER_OPTIONS.some((o) => o.id === s) ? (s as TodoReminderId) : "none";
 }
 
-function draftFromTodo(todo: Record<string, unknown>) {
-  const dateStr =
-    typeof todo.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(todo.date)
-      ? todo.date
-      : CFG.TODAY_STR;
-  const st = typeof todo.startTime === "string" && todo.startTime.trim() ? todo.startTime : "";
-  const et = typeof todo.endTime === "string" && todo.endTime.trim() ? todo.endTime : "";
+function draftFromTodo(todo: Todo) {
+  const dateStr = /^\d{4}-\d{2}-\d{2}$/.test(todo.date) ? todo.date : CFG.TODAY_STR;
+  const st = todo.startTime?.trim() ? todo.startTime : "";
+  const et = todo.endTime?.trim() ? todo.endTime : "";
   return {
-    text: String(todo.text ?? ""),
+    text: todo.text ?? "",
     startDateTime: st ? `${dateStr} ${padTime(st)}` : (null as string | null),
     endDateTime: et ? `${dateStr} ${padTime(et)}` : (null as string | null),
-    cat: String(todo.cat ?? CAT.cat1List()[0]),
+    deadline: todo.deadline && /^\d{4}-\d{2}-\d{2}$/.test(todo.deadline) ? todo.deadline : "",
+    cat: todo.cat || (CAT.cat1List()[0] as string),
     mustDo: Boolean(todo.mustDo),
     reminder: normalizeReminder(todo.reminder),
     error: "",
@@ -53,10 +52,12 @@ export function TodoEditSheet({
   todo,
   onClose,
   onSave,
+  onDelete,
 }: {
-  todo: Record<string, unknown>;
+  todo: Todo;
   onClose: () => void;
-  onSave: (id: number, patch: Record<string, unknown>) => void;
+  onSave: (id: number, patch: Partial<Todo>) => void;
+  onDelete?: (id: number) => void;
 }) {
   const [draft, setDraft] = useState(() => draftFromTodo(todo));
 
@@ -64,7 +65,8 @@ export function TodoEditSheet({
     setDraft(draftFromTodo(todo));
   }, [todo]);
 
-  const id = todo.id as number;
+  const id = todo.id;
+  const canDelete = Boolean(onDelete) && (todo.phase === "pending" || todo.phase === "done");
 
   const submit = () => {
     const text = draft.text.trim();
@@ -74,11 +76,13 @@ export function TodoEditSheet({
       return;
     }
     const { date, startTime, endTime } = splitTodoDateTime(draft.startDateTime, draft.endDateTime);
+    const deadline = draft.deadline.trim();
     onSave(id, {
       text,
       date,
       startTime,
       endTime,
+      deadline: /^\d{4}-\d{2}-\d{2}$/.test(deadline) ? deadline : undefined,
       cat: draft.cat,
       mustDo: draft.mustDo,
       reminder: draft.reminder,
@@ -151,6 +155,16 @@ export function TodoEditSheet({
               }
               onChange={(val) => setDraft((v) => ({ ...v, endDateTime: val, error: "" }))}
             />
+            <label style={{ fontSize: 10, color: TH.muted }}>⏳ 期限（選填）</label>
+            <input
+              type="date"
+              value={draft.deadline}
+              onChange={(e) => setDraft((v) => ({ ...v, deadline: e.target.value }))}
+              style={selectFieldStyle}
+            />
+            <div style={{ fontSize: 10, color: TH.muted, lineHeight: 1.4 }}>
+              💡 填了期限，之後可以提醒你快到期（例如取件期限）
+            </div>
             <label style={{ fontSize: 10, color: TH.muted }}>提醒</label>
             <select
               value={draft.reminder}
@@ -192,6 +206,28 @@ export function TodoEditSheet({
             >
               {draft.mustDo ? "🔴 必做" : "⚪ 非必做"}
             </button>
+            {canDelete ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm(`確定刪除待辦「${todo.text}」？`)) onDelete!(id);
+                }}
+                style={{
+                  padding: "12px 10px",
+                  minHeight: 44,
+                  borderRadius: 10,
+                  border: `1px solid ${TH.red}`,
+                  background: "transparent",
+                  color: TH.red,
+                  fontSize: 12,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              >
+                🗑 刪除這則待辦
+              </button>
+            ) : null}
             {draft.error && (
               <div style={{ fontSize: 11, color: TH.red, textAlign: "center" }}>⚠️ {draft.error}</div>
             )}

@@ -45,6 +45,7 @@ export function VerticalTimeline({
   date = CFG.TODAY_STR,
   onTimeClick,
   onEditRoutine,
+  onEditTodo,
   routineRev = 0,
 }: {
   nowPct: number;
@@ -56,6 +57,8 @@ export function VerticalTimeline({
   date?: string;
   onTimeClick?: (time: string) => void;
   onEditRoutine?: (date: string) => void;
+  /** 行程表格子太小，點待辦改開既有編輯面板（內含刪除） */
+  onEditTodo?: (id: number) => void;
   routineRev?: number;
 }) {
   const [expandEarly, setExpandEarly] = useState(false);
@@ -548,6 +551,21 @@ export function VerticalTimeline({
               }}
             >
               <div
+                role={onEditTodo ? "button" : undefined}
+                tabIndex={onEditTodo ? 0 : undefined}
+                title={onEditTodo ? "點擊修改或刪除待辦" : undefined}
+                onClick={(e: MouseEvent) => {
+                  if (!onEditTodo) return;
+                  e.stopPropagation();
+                  onEditTodo(todo.id);
+                }}
+                onKeyDown={(e) => {
+                  if (!onEditTodo) return;
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onEditTodo(todo.id);
+                  }
+                }}
                 style={{
                   border: `1.5px solid ${TH.yellow}`,
                   borderRadius: 4,
@@ -555,6 +573,8 @@ export function VerticalTimeline({
                   background: "rgba(9,9,11,0.9)",
                   marginLeft: 2,
                   marginRight: 2,
+                  pointerEvents: onEditTodo ? "auto" : "none",
+                  cursor: onEditTodo ? "pointer" : undefined,
                 }}
               >
                 <div
@@ -729,11 +749,28 @@ export function VerticalTimeline({
               {group.items.map((marker) => (
                 <div
                   key={`tdd-${marker.todo.id}`}
+                  role={onEditTodo ? "button" : undefined}
+                  tabIndex={onEditTodo ? 0 : undefined}
+                  title={onEditTodo ? "點擊修改或刪除待辦" : undefined}
+                  onClick={(e: MouseEvent) => {
+                    if (!onEditTodo) return;
+                    e.stopPropagation();
+                    onEditTodo(marker.todo.id);
+                  }}
+                  onKeyDown={(e) => {
+                    if (!onEditTodo) return;
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onEditTodo(marker.todo.id);
+                    }
+                  }}
                   style={{
                     border: "1px solid #3A3A45",
                     borderRadius: 4,
                     padding: "2px 6px",
                     background: "rgba(15,15,18,0.88)",
+                    pointerEvents: onEditTodo ? "auto" : "none",
+                    cursor: onEditTodo ? "pointer" : undefined,
                   }}
                 >
                   <div

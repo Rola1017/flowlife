@@ -10,7 +10,7 @@ import { availableSegments, splitSessionsByAvailability } from "@/lib/idle";
 import { idleSeries } from "@/lib/timelineActual";
 import { weekKey, monthKey, quarterKey } from "@/lib/period";
 import { getReview, subscribeReviews, upsertReview, type ReviewScope } from "@/lib/reviews";
-import type { Session } from "@/lib/types";
+import type { Session, Todo } from "@/lib/types";
 import { fmt, fmtIdleHM, getDaysInMonth, getFirstDow } from "@/lib/utils";
 import { MultiCategoryFilter } from "@/components/ui/MultiCategoryFilter";
 import { TriCharts } from "@/components/charts/TriCharts";
@@ -154,7 +154,7 @@ export function CalendarPage({
   intent,
   onIntentConsumed,
 }: {
-  todos: Record<string, unknown>[];
+  todos: Todo[];
   sessions: Session[];
   onShowDay: (date: string, label: string) => void;
   onPatchReflection: (id: number, text: string) => void;
@@ -324,7 +324,7 @@ export function CalendarPage({
   const weekNavLabel = useMemo(() => formatWeekNavRange(weekDates), [weekDates]);
 
   const todosByDateSlot = useMemo(() => {
-    const map: Record<string, Record<WeekSlotId, Record<string, unknown>[]>> = {};
+    const map: Record<string, Record<WeekSlotId, Todo[]>> = {};
     for (const dateStr of weekDates) {
       map[dateStr] = { morning: [], noon: [], evening: [] };
     }

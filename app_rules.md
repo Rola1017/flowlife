@@ -529,6 +529,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **新增唯讀 /api/today（Vercel, runtime=nodejs, force-dynamic）**：查「指定日期」行程（date 可為任意合法日期，過去/未來皆可；預設 Asia/Taipei 今天；`/api/today` 僅端點名），`x-roro-key` 驗證＋service-role 只讀 `RORO_USER_ID` 的 app_state，重用自 schedule 抽出的純函式 `buildTodayBlocks`（重疊不裁決、全列出、依 start 排序）；service/API key 僅後端。環境變數統一為 `RORO_*` 前綴，對齊 agent 名稱 Roro。
 - **app_state 加 service_role 唯讀 RLS policy**（`FOR SELECT TO service_role`，見 `supabase/rls_app_state_service_role_select.sql`），使 `/api/today` 的新版 `sb_secret_` key 能讀行程；僅唯讀、僅此表、僅 service_role，不影響前端 user-based 安全基線。第二階段寫入時另加精細化可寫 policy。
 - **app/layout.tsx 補 viewport**（`width=device-width, initialScale=1, maximumScale=1, userScalable=false`）修手機自動放大；metadata title→FlowLife、lang→zh-Hant；`fmtIdleHM` 顯示改精簡「N時M分／M分」（番茄鐘卡＋行事曆未利用統計；`fmtIdleTime` 不動）。
+- **待辦地基**：`Todo` 型別化（`lib/types.ts`）、上雲 app_state key `todos`、獨立墓碑 `deleted_todo_ids`（60天GC）、新增 `deadline` 欄位、TodoCard／編輯面板加刪除鈕（confirm＋44×44）、直式行程表格子點開既有編輯面板刪除（格子放不下 44×44）、`handleEnd` 副作用移出 setState updater。
 - **便利貼衝突處理強化（自訂鈕高亮＋一鍵移除）**：班課衝突時記住 `ovPendingPick`；尚未自訂課程時「👉 點我自訂這天課程」改黃色高亮。提醒橫幅新增含確認的「🗑 移除這 N 堂衝突課，並排入此班」：透過 `setOvCourses` 將週課 materialize 成當日自訂快照、刪除衝突課並避免重複地排入待排班別；取消確認不變更。開啟／切日期／關提醒／逐堂刪完皆同步清衝突與 pending state。
 - **課表複製貼上「自動清潔＋貼不上提醒」**：複製「課程＋班別」貼上時以 `shiftRange(place, shift, day)!==""` 過濾 picks（只貼該天真能排的班，消除隱形貼券）；被略過的班以頁面層 `pasteNotice` ⚠️橫幅明列（哪個班、哪天、去管理工作場所開可上班日）；單日貼上與「貼到選取的 N 天」皆適用；複製/關閉清提醒。未動 `lib/schedule.ts`／排班模型。
 - **便利貼微調（衝突紅格＋格內✕）**：班課衝突時衝突課格紅框紅底點亮（`ovConflictSlots`）、提醒精簡為一句含班別名；自訂狀態課格內建 ✕ 一鍵刪（刪完衝突自動消提醒）；沿用每週固定時紅格仍顯示但無 ✕；底部編輯器移除「移除這格」只留選/換科目。
@@ -664,6 +665,8 @@ TH.gold    = "#FBBF24"   // 金幣
   - `analytics.test.ts` — `sessionMatches`／`buildDistribution`
   - `sessionsCloud.test.ts` — `mergeSessionsWithTombstones` 墓碑防復活
   - `today.test.ts` — `buildTodayBlocks`（重疊不裁決、便利貼覆蓋、空資料回退、未來日期週三鎖死時區）
+  - `todos.test.ts` — 待辦墓碑防復活、同名不同 id、normalize deadline、updatedAt LWW
+  - `utils.test.ts` — `fmtIdleHM` 精簡時分
 - CI：`.github/workflows/ci.yml`（push／PR → main；`npm ci` → `tsc` → `npm test`）
 
 ### 規則（每批新增測試）
@@ -675,5 +678,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/09/11（viewport＋fmtIdleHM 精簡）*
+*最後更新：2026/09/13（待辦上雲＋墓碑＋deadline＋刪除鈕）*
 *維護原則：每次完成重要功能，同步更新第十、十一、十二節*

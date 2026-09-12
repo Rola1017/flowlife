@@ -58,3 +58,27 @@ export type Session = {
   /** 進垃圾桶時實際退回的金幣（帳本金額；復原時對稱加回） */
   refundedCoins?: number;
 };
+
+export type TodoPhase = "pending" | "started" | "ending" | "done";
+
+export type Todo = {
+  id: number;
+  text: string;
+  cat: string;
+  date: string; // YYYY-MM-DD
+  startTime?: string; // HH:mm
+  endTime?: string; // HH:mm
+  /** 時效性／到期日（可空；不得存空字串） */
+  deadline?: string; // YYYY-MM-DD
+  mustDo?: boolean;
+  reminder?: string;
+  phase: TodoPhase;
+  startAt?: string | null;
+  endAt?: string | null;
+  startTs?: number | null;
+  elapsed?: number | null;
+  /** 最後修改時間（ISO；雲端同步 last-write-wins 用） */
+  updatedAt?: string;
+};
+
+export type TodoTombstone = { id: number; at: string };

@@ -5,6 +5,7 @@ import { BackBtn } from "@/components/ui/BackBtn";
 import { Card, SL } from "@/components/ui/Card";
 import { AuthPanel } from "@/components/auth/AuthPanel";
 import { TH } from "@/lib/theme";
+import type { Todo } from "@/lib/types";
 
 export function SettingsPage({
   onBack,
@@ -14,7 +15,7 @@ export function SettingsPage({
 }: {
   onBack: () => void;
   onResetAllData: () => void;
-  onResetTodos: (todos: Record<string, unknown>[]) => void;
+  onResetTodos: (todos: Partial<Todo>[]) => void;
   onClearRecords: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
