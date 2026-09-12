@@ -7,6 +7,7 @@ import { currentOrNextCourse, type CourseInfo } from "@/lib/schedule";
 
 const wrap: CSSProperties = {
   width: "100%",
+  minWidth: 0,
   background: TH.card,
   border: `1px solid ${TH.border}`,
   borderRadius: 12,
@@ -56,7 +57,7 @@ export function CourseBanner({
 
   return (
     <div style={{ ...wrap, border: `1px solid ${accent}55`, background: accent + "10" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, width: "100%", boxSizing: "border-box" }}>
         <span style={{ width: 8, height: 8, borderRadius: "50%", background: dot, flexShrink: 0 }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 9, color: accent, fontWeight: 800 }}>

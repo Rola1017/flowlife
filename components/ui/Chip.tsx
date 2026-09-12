@@ -60,6 +60,8 @@ export function Chip({
         cursor: "pointer",
         whiteSpace: "nowrap",
         flexShrink: 0,
+        minWidth: 0,
+        boxSizing: "border-box",
         userSelect: "none",
         WebkitUserSelect: "none",
         touchAction: "manipulation",

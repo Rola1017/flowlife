@@ -5,7 +5,7 @@ export function CatBadge({ cat1, cat2, cat3 }: { cat1: string; cat2?: string; ca
   const parts = [cat1, cat2, cat3].filter(Boolean);
   const color = CAT.deepColor(cat1, cat2);
   return (
-    <span style={{ fontSize: 9, color, background: color + "22", padding: "1px 6px", borderRadius: 8 }}>
+    <span style={{ fontSize: 9, color, background: color + "22", padding: "1px 6px", borderRadius: 8, display: "inline-block", maxWidth: "100%", boxSizing: "border-box", wordBreak: "break-word" }}>
       {parts.join(" › ")}
     </span>
   );

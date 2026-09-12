@@ -31,7 +31,7 @@ export function WeekHeat({ sessions, days = 7 }: { sessions: Session[]; days?: n
       {dayList.map((day) => {
         const daySessions = sessions.filter((s) => s.date === day.key);
         return (
-          <div key={day.key} style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          <div key={day.key} style={{ display: "flex", gap: 4, alignItems: "center", minWidth: 0, width: "100%", boxSizing: "border-box" }}>
             <div
               style={{
                 width: 36,
@@ -47,6 +47,7 @@ export function WeekHeat({ sessions, days = 7 }: { sessions: Session[]; days?: n
             <div
               style={{
                 flex: 1,
+                minWidth: 0,
                 height: 13,
                 background: "#1C1C22",
                 borderRadius: 4,

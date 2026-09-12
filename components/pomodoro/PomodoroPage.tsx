@@ -25,6 +25,20 @@ const COIN_CRACKERS = Array.from({ length: 16 }, (_, idx) => ({
   fontSize: idx % 4 < 2 ? 28 : 26,
 }));
 
+/** 鐵律16③：橫向 flex 子項必須能收縮，不可把祖先撐出視窗 */
+const FLEX_ITEM: CSSProperties = { minWidth: 0, boxSizing: "border-box" };
+/** 鐵律16③：可捲動列 — 自身鎖在 100%，子項 flexShrink:0 */
+const H_SCROLL: CSSProperties = {
+  display: "flex",
+  gap: 5,
+  overflowX: "auto",
+  width: "100%",
+  minWidth: 0,
+  maxWidth: "100%",
+  boxSizing: "border-box",
+  WebkitOverflowScrolling: "touch",
+};
+
 function formatDurLabel(d: number): string {
   if (d === 1) return "1m";
   if (d < 60) return `${d}`;
@@ -249,6 +263,8 @@ export function PomodoroPage({
     color: TH.text,
     fontSize: 11,
     outline: "none",
+    boxSizing: "border-box",
+    minWidth: 0,
   };
 
   const coinFieldLabelStyle: CSSProperties = {
@@ -315,12 +331,14 @@ export function PomodoroPage({
             border: "none",
             cursor: "pointer",
             textAlign: "left",
+            boxSizing: "border-box",
+            minWidth: 0,
           }}
         >
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ flex: 1, minWidth: 0, boxSizing: "border-box" }}>
             <div style={{ fontWeight: 700, fontSize: 11, color: TH.text }}>{displayName}</div>
             {row.cat1 && (
-              <div style={{ fontSize: 9, color: TH.muted, marginTop: 2, display: "flex", alignItems: "center" }}>
+              <div style={{ fontSize: 9, color: TH.muted, marginTop: 2, display: "flex", alignItems: "center", minWidth: 0 }}>
                 <span
                   style={{
                     display: "inline-block",
@@ -338,7 +356,16 @@ export function PomodoroPage({
             )}
             <div style={{ fontSize: 9, color: TH.muted }}>{timeLabel}</div>
           </div>
-          <div style={{ fontSize: 11, color: TH.gold, fontWeight: 900 }}>+{row.amount} 🪙</div>
+          <div
+            style={{
+              fontSize: 11,
+              color: TH.gold,
+              fontWeight: 900,
+              flexShrink: 0,
+            }}
+          >
+            +{row.amount} 🪙
+          </div>
         </button>
         {isEditing && (
           <div
@@ -414,12 +441,14 @@ export function PomodoroPage({
                 </select>
               </div>
             )}
-            <div style={{ display: "flex", gap: 6 }}>
+            <div style={{ display: "flex", gap: 6, minWidth: 0, width: "100%", boxSizing: "border-box" }}>
               <button
                 type="button"
                 onClick={() => saveCoinEdit(row.id)}
                 style={{
                   flex: 1,
+                  minWidth: 0,
+                  boxSizing: "border-box",
                   padding: "6px 0",
                   borderRadius: 8,
                   border: "none",
@@ -437,6 +466,8 @@ export function PomodoroPage({
                 onClick={() => setEditingCoinId(null)}
                 style={{
                   flex: 1,
+                  minWidth: 0,
+                  boxSizing: "border-box",
                   padding: "6px 0",
                   borderRadius: 8,
                   border: `1px solid ${TH.border}`,
@@ -465,14 +496,26 @@ export function PomodoroPage({
           border: `1px solid #2E2E38`,
           borderRadius: 14,
           padding: "12px 16px",
+          boxSizing: "border-box",
+          minWidth: 0,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-          <span style={{ fontSize: 16 }}>⏳</span>
-          <div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            marginBottom: 6,
+            minWidth: 0,
+            width: "100%",
+            boxSizing: "border-box",
+          }}
+        >
+          <span style={{ fontSize: 16, flexShrink: 0 }}>⏳</span>
+          <div style={FLEX_ITEM}>
             <div style={{ fontSize: 10, color: TH.red, fontWeight: 700 }}>當日未利用時間加總</div>
           </div>
-          <div style={{ marginLeft: "auto", fontSize: 20, fontWeight: 900, color: TH.red }}>
+          <div style={{ marginLeft: "auto", fontSize: 20, fontWeight: 900, color: TH.red, flexShrink: 0 }}>
             {fmtIdleHM(idleTotalToday)}
           </div>
         </div>
@@ -488,10 +531,22 @@ export function PomodoroPage({
           border: `1px solid #2E2E38`,
           borderRadius: 14,
           padding: "12px 16px",
+          boxSizing: "border-box",
+          minWidth: 0,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: TH.text, flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            marginBottom: 4,
+            minWidth: 0,
+            width: "100%",
+            boxSizing: "border-box",
+          }}
+        >
+          <div style={{ fontSize: 13, fontWeight: 800, color: TH.text, flex: 1, minWidth: 0, boxSizing: "border-box" }}>
             {activity.kind === "routine" && activity.items && activity.items.length > 0 ? (
               <>
                 {activity.items.map((it, j) => (
@@ -535,7 +590,17 @@ export function PomodoroPage({
     );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, width: "100%" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 12,
+        width: "100%",
+        minWidth: 0,
+        boxSizing: "border-box",
+      }}
+    >
       {activityCard}
       <CourseBanner
         onQuickStart={
@@ -544,7 +609,18 @@ export function PomodoroPage({
             : undefined
         }
       />
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, position: "relative", width: "100%" }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 12,
+          position: "relative",
+          width: "100%",
+          minWidth: 0,
+          boxSizing: "border-box",
+        }}
+      >
       <style>{`
         @keyframes flowlifePulseDone {
           0% { transform: scale(0.92); opacity: 0; }
@@ -735,7 +811,7 @@ export function PomodoroPage({
           </div>
         ))}
       {(effectiveMode === "rest" || idleTrackStart) && (
-        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 6, alignItems: "center" }}>
+        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 6, alignItems: "center", minWidth: 0, boxSizing: "border-box" }}>
           <div
             style={{
               fontSize: 9,
@@ -745,7 +821,7 @@ export function PomodoroPage({
           >
             {effectiveMode === "rest" && restSecs > 0 ? "💤 休息加時" : "➕ 加時繼續休息"}
           </div>
-          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "center" }}>
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "center", width: "100%", minWidth: 0, boxSizing: "border-box" }}>
             {[1, 3, 5, 10, 30, 60].map((mn) => (
               <button
                 key={mn}
@@ -760,6 +836,8 @@ export function PomodoroPage({
                   fontSize: 11,
                   fontWeight: 700,
                   cursor: "pointer",
+                  flexShrink: 0,
+                  boxSizing: "border-box",
                 }}
               >
                 {mn === 1 ? "+1分" : mn === 60 ? "+1h" : `+${mn}`}
@@ -768,8 +846,18 @@ export function PomodoroPage({
           </div>
         </div>
       )}
-      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, minWidth: 52 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 14,
+          width: "100%",
+          minWidth: 0,
+          boxSizing: "border-box",
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, minWidth: 52, flexShrink: 0, boxSizing: "border-box" }}>
           <div style={{ fontSize: 20 }}>🪙</div>
           <div style={{ fontSize: 15, fontWeight: 900, color: TH.gold }}>{coins.toLocaleString()}</div>
           <div style={{ fontSize: 8, color: TH.muted }}>金幣</div>
@@ -785,7 +873,7 @@ export function PomodoroPage({
           confirmed={confirmed}
           focusOverrunSecs={focusOverrunSecs}
         />
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, minWidth: 52 }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, minWidth: 52, flexShrink: 0, boxSizing: "border-box" }}>
           <div style={{ fontSize: 18 }}>🍅</div>
           <div style={{ fontSize: 15, fontWeight: 900, color: TH.text }}>{todayCount}</div>
           <div style={{ fontSize: 8, color: TH.muted }}>今日顆數</div>
@@ -810,14 +898,16 @@ export function PomodoroPage({
             fontWeight: 700,
             textAlign: "center",
             outline: "none",
+            boxSizing: "border-box",
+            minWidth: 0,
           }}
         />
       )}
 
       {showRating && !rated && (
-        <Card style={{ width: "100%", textAlign: "center" }}>
+        <Card style={{ width: "100%", textAlign: "center", minWidth: 0, boxSizing: "border-box" }}>
           <div style={{ fontSize: 11, color: TH.muted, marginBottom: 10 }}>這次的專注狀態？</div>
-          <div style={{ display: "flex", justifyContent: "center", gap: 10 }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: 10, flexWrap: "wrap", width: "100%", minWidth: 0, boxSizing: "border-box" }}>
             {(
               [
                 ["😤", "專心"],
@@ -850,7 +940,7 @@ export function PomodoroPage({
         </Card>
       )}
       {rated && (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 7, width: "100%" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 7, width: "100%", minWidth: 0, boxSizing: "border-box" }}>
           <div style={{ fontSize: 11, color: TH.green }}>✓ 已記錄</div>
           {!reflectionOpen ? (
             <button
@@ -869,7 +959,7 @@ export function PomodoroPage({
               ✍️ 寫覆盤（可選）
             </button>
           ) : (
-            <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 6, minWidth: 0, boxSizing: "border-box" }}>
               <textarea
                 value={reflectionDraft}
                 onChange={(e) => setReflectionDraft(e.target.value)}
@@ -889,7 +979,7 @@ export function PomodoroPage({
                   boxSizing: "border-box",
                 }}
               />
-              <div style={{ display: "flex", gap: 6 }}>
+              <div style={{ display: "flex", gap: 6, minWidth: 0, width: "100%", boxSizing: "border-box" }}>
                 <button
                   type="button"
                   onClick={() => {
@@ -901,6 +991,8 @@ export function PomodoroPage({
                   }}
                   style={{
                     flex: 1,
+                    minWidth: 0,
+                    boxSizing: "border-box",
                     border: "none",
                     borderRadius: 8,
                     padding: "6px 8px",
@@ -921,6 +1013,8 @@ export function PomodoroPage({
                   }}
                   style={{
                     flex: 1,
+                    minWidth: 0,
+                    boxSizing: "border-box",
                     border: `1px solid ${TH.border}`,
                     borderRadius: 8,
                     padding: "6px 8px",
@@ -937,7 +1031,7 @@ export function PomodoroPage({
           )}
         </div>
       )}
-      <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 6, minWidth: 0, boxSizing: "border-box" }}>
         <input
           value={mode === "focus" ? (confirmed?.name ?? "") : taskName}
           onChange={(e) =>
@@ -969,16 +1063,7 @@ export function PomodoroPage({
             <div style={{ fontSize: 9, color: TH.muted, alignSelf: "flex-start" }}>
               💡 點下面的標籤可快速填入：今天課表科目、最近做過的活動
             </div>
-            <div
-              style={{
-                display: "flex",
-                gap: 5,
-                overflowX: "auto",
-                paddingBottom: 2,
-                width: "100%",
-                WebkitOverflowScrolling: "touch",
-              }}
-            >
+            <div style={{ ...H_SCROLL, paddingBottom: 2 }}>
               {recentEventNames.slice(0, 8).map((name) => {
                 const active = taskName.trim() === name;
                 return (
@@ -1024,6 +1109,8 @@ export function PomodoroPage({
               color: TH.text,
               fontSize: 12,
               outline: "none",
+              boxSizing: "border-box",
+              minWidth: 0,
             }}
           />
         ) : (
@@ -1040,13 +1127,15 @@ export function PomodoroPage({
               fontSize: 10,
               textAlign: "left",
               cursor: "pointer",
+              boxSizing: "border-box",
+              minWidth: 0,
             }}
           >
             ✍️ 這次想弄懂的小概念／小目標（可選）
           </button>
         ))}
       {mode !== "focus" && (
-        <Card style={{ width: "100%", padding: 10 }}>
+        <Card style={{ width: "100%", padding: 10, minWidth: 0, boxSizing: "border-box" }}>
           <CategorySelector
             cat1={catSel.cat1}
             cat2={catSel.cat2}
@@ -1062,6 +1151,8 @@ export function PomodoroPage({
                 borderTop: `1px solid ${TH.border}`,
                 fontSize: 10,
                 color: TH.muted,
+                minWidth: 0,
+                boxSizing: "border-box",
               }}
             >
               已選：
@@ -1071,7 +1162,7 @@ export function PomodoroPage({
         </Card>
       )}
       {mode !== "focus" && (
-        <div style={{ display: "flex", gap: 6 }}>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center", width: "100%", minWidth: 0, boxSizing: "border-box" }}>
           {CFG.POMO_DURATIONS.map((d) => (
             <button
               key={d}
@@ -1086,6 +1177,8 @@ export function PomodoroPage({
                 fontSize: 12,
                 fontWeight: 700,
                 cursor: "pointer",
+                flexShrink: 0,
+                boxSizing: "border-box",
               }}
             >
               {formatDurLabel(d)}
@@ -1115,7 +1208,7 @@ export function PomodoroPage({
         </button>
       )}
       {mode === "focus" && (
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", minWidth: 0, boxSizing: "border-box" }}>
           {canShowRestBtn && (
             <button
               className="flowlife-pressable"
@@ -1202,11 +1295,11 @@ export function PomodoroPage({
           </div>
         </>
       )}
-      <Card style={{ width: "100%" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <SL style={{ marginBottom: 0 }}>今日統計</SL>
+      <Card style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, minWidth: 0, gap: 8 }}>
+          <SL style={{ marginBottom: 0, ...FLEX_ITEM }}>今日統計</SL>
           {onShowSessionHistory && (
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
               <span style={{ fontSize: 9, color: TH.muted }}>歷史記錄</span>
               <button
                 type="button"
@@ -1226,7 +1319,7 @@ export function PomodoroPage({
             </div>
           )}
         </div>
-        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 8, minWidth: 0, width: "100%", boxSizing: "border-box" }}>
           {(
             [
               ["😤", "專心", focused],
@@ -1238,6 +1331,8 @@ export function PomodoroPage({
               key={i}
               style={{
                 flex: 1,
+                minWidth: 0,
+                boxSizing: "border-box",
                 background: "#0A0A0C",
                 borderRadius: 10,
                 padding: "8px 4px",
@@ -1259,10 +1354,13 @@ export function PomodoroPage({
               background: "#0A0A0C",
               borderRadius: 8,
               padding: "6px 10px",
+              minWidth: 0,
+              gap: 8,
+              boxSizing: "border-box",
             }}
           >
-            <span style={{ fontSize: 10, color: TH.muted }}>🍅 有效（滿1分）</span>
-            <span style={{ fontSize: 11, fontWeight: 800, color: TH.text }}>
+            <span style={{ fontSize: 10, color: TH.muted, minWidth: 0 }}>🍅 有效（滿1分）</span>
+            <span style={{ fontSize: 11, fontWeight: 800, color: TH.text, flexShrink: 0 }}>
               {min1Count} 顆 · 共 {fmt(min1Total)}
             </span>
           </div>
@@ -1274,10 +1372,13 @@ export function PomodoroPage({
               background: "#0A0A0C",
               borderRadius: 8,
               padding: "6px 10px",
+              minWidth: 0,
+              gap: 8,
+              boxSizing: "border-box",
             }}
           >
-            <span style={{ fontSize: 10, color: TH.yellow }}>📈 進步（滿10分）</span>
-            <span style={{ fontSize: 11, fontWeight: 800, color: TH.yellow }}>
+            <span style={{ fontSize: 10, color: TH.yellow, minWidth: 0 }}>📈 進步（滿10分）</span>
+            <span style={{ fontSize: 11, fontWeight: 800, color: TH.yellow, flexShrink: 0 }}>
               {min10Count} 顆 · 共 {fmt(min10Total)}
             </span>
           </div>
@@ -1289,19 +1390,22 @@ export function PomodoroPage({
               background: "#0A0A0C",
               borderRadius: 8,
               padding: "6px 10px",
+              minWidth: 0,
+              gap: 8,
+              boxSizing: "border-box",
             }}
           >
-            <span style={{ fontSize: 10, color: TH.green }}>💪 紮實（滿25分）</span>
-            <span style={{ fontSize: 11, fontWeight: 800, color: TH.green }}>
+            <span style={{ fontSize: 10, color: TH.green, minWidth: 0 }}>💪 紮實（滿25分）</span>
+            <span style={{ fontSize: 11, fontWeight: 800, color: TH.green, flexShrink: 0 }}>
               {min25Count} 顆 · 共 {fmt(min25Total)}
             </span>
           </div>
         </div>
       </Card>
-      <Card style={{ width: "100%" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <SL style={{ marginBottom: 0 }}>金幣收支</SL>
-          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+      <Card style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, minWidth: 0, gap: 8 }}>
+          <SL style={{ marginBottom: 0, ...FLEX_ITEM }}>金幣收支</SL>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
             <span style={{ fontSize: 9, color: TH.muted }}>歷史記錄</span>
             <button
               type="button"
@@ -1331,8 +1435,8 @@ export function PomodoroPage({
             alignItems: "center",
           }}
         >
-          <span style={{ fontSize: 10, color: TH.muted, fontWeight: 800 }}>今日總收入</span>
-          <span style={{ fontSize: 14, color: TH.gold, fontWeight: 900 }}>+{todayCoinIncomeTotal} 🪙</span>
+          <span style={{ fontSize: 10, color: TH.muted, fontWeight: 800, minWidth: 0 }}>今日總收入</span>
+          <span style={{ fontSize: 14, color: TH.gold, fontWeight: 900, flexShrink: 0 }}>+{todayCoinIncomeTotal} 🪙</span>
         </div>
         {recentCoinIncomeLog.length === 0 ? (
           <div style={{ fontSize: 10, color: TH.muted, textAlign: "center", padding: 8 }}>尚無金幣收入</div>
@@ -1342,14 +1446,14 @@ export function PomodoroPage({
           </div>
         )}
       </Card>
-      <Card style={{ width: "100%" }}>
+      <Card style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }}>
         <SL>番茄鐘分佈</SL>
         <WeekHeat sessions={sessions} days={7} />
       </Card>
-      <Card style={{ width: "100%" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-          <SL style={{ marginBottom: 0 }}>趨勢(番茄顆數)</SL>
-          <div style={{ display: "flex", gap: 3 }}>
+      <Card style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, minWidth: 0, gap: 8 }}>
+          <SL style={{ marginBottom: 0, ...FLEX_ITEM }}>趨勢(番茄顆數)</SL>
+          <div style={{ display: "flex", gap: 3, flexWrap: "wrap", justifyContent: "flex-end", minWidth: 0, boxSizing: "border-box" }}>
             {CFG.TIME_RANGES.map((p) => (
               <Chip
                 key={p}
@@ -1376,6 +1480,8 @@ export function PomodoroPage({
           fontSize: 13,
           fontWeight: 800,
           cursor: "pointer",
+          boxSizing: "border-box",
+          minWidth: 0,
         }}
       >
         🏪 商店 · 🪙 {coins.toLocaleString()} 金幣

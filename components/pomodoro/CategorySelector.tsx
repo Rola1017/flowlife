@@ -21,9 +21,9 @@ export function CategorySelector({
   const setC2 = (v: string) => onChange({ cat1, cat2: cat2 === v ? "" : v, cat3: "" });
   const setC3 = (v: string) => onChange({ cat1, cat2, cat3: cat3 === v ? "" : v });
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", minWidth: 0, boxSizing: "border-box" }}>
+      <div style={{ minWidth: 0, boxSizing: "border-box" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, minWidth: 0, gap: 8 }}>
           <div style={{ fontSize: 9, color: TH.muted }}>
             大分類 <span style={{ color: TH.red }}>必填</span>
           </div>
@@ -39,6 +39,7 @@ export function CategorySelector({
                 border: "none",
                 cursor: "pointer",
                 padding: 0,
+                flexShrink: 0,
               }}
             >
               <span style={{ fontSize: 9, color: TH.muted }}>分類管理</span>
@@ -46,7 +47,7 @@ export function CategorySelector({
             </button>
           )}
         </div>
-        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", width: "100%", minWidth: 0, boxSizing: "border-box" }}>
           {CAT.cat1List().map((c) => (
             <Chip
               key={c}
@@ -54,15 +55,15 @@ export function CategorySelector({
               active={cat1 === c}
               color={CAT.cat1Color(c)}
               onClick={() => setC1(c)}
-              style={{ fontSize: 9 }}
+              style={{ fontSize: 9, maxWidth: "100%" }}
             />
           ))}
         </div>
       </div>
       {cat1 && cat1 !== "未分類" && cat2List.length > 0 && (
-        <div>
+        <div style={{ minWidth: 0, boxSizing: "border-box" }}>
           <div style={{ fontSize: 9, color: TH.muted, marginBottom: 4 }}>中分類</div>
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", width: "100%", minWidth: 0, boxSizing: "border-box" }}>
             {cat2List.map((c) => (
               <Chip
                 key={c}
@@ -70,16 +71,16 @@ export function CategorySelector({
                 active={cat2 === c}
                 color={CAT.cat2Color(cat1, c)}
                 onClick={() => setC2(c)}
-                style={{ fontSize: 9 }}
+                style={{ fontSize: 9, maxWidth: "100%" }}
               />
             ))}
           </div>
         </div>
       )}
       {cat2 && cat3List.length > 0 && (
-        <div>
+        <div style={{ minWidth: 0, boxSizing: "border-box" }}>
           <div style={{ fontSize: 9, color: TH.muted, marginBottom: 4 }}>小分類</div>
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", width: "100%", minWidth: 0, boxSizing: "border-box" }}>
             {cat3List.map((c) => (
               <Chip
                 key={c}
@@ -87,7 +88,7 @@ export function CategorySelector({
                 active={cat3 === c}
                 color={CAT.cat3Color(cat1, cat2, c)}
                 onClick={() => setC3(c)}
-                style={{ fontSize: 9 }}
+                style={{ fontSize: 9, maxWidth: "100%", whiteSpace: "normal" }}
               />
             ))}
           </div>

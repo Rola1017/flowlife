@@ -807,6 +807,9 @@ function AppContent() {
         color: TH.text,
         fontFamily: "-apple-system,'Noto Sans TC',sans-serif",
         maxWidth: 430,
+        width: "100%",
+        minWidth: 0,
+        boxSizing: "border-box",
         margin: "0 auto",
         minHeight: "100vh",
         display: "flex",
@@ -814,8 +817,26 @@ function AppContent() {
       }}
     >
       <Header quote={quote} setQuote={setQuote} onShowSettings={() => push("settings")} />
-      <div style={{ flex: 1, overflowY: "auto", padding: 14, paddingBottom: 90 }}>
-        <div style={{ display: !subPage && tab === "pomodoro" ? "block" : "none" }}>{pomodoroPage}</div>
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          padding: 14,
+          paddingBottom: 90,
+          width: "100%",
+          minWidth: 0,
+          boxSizing: "border-box",
+        }}
+      >
+        <div
+          style={{
+            display: !subPage && tab === "pomodoro" ? "block" : "none",
+            width: "100%",
+            minWidth: 0,
+          }}
+        >
+          {pomodoroPage}
+        </div>
         {(subPage || tab !== "pomodoro") &&
           (subPage ? SUB_PAGE_MAP[subPage.type]?.(subPage.props) : MAIN_PAGE_MAP[tab]?.())}
       </div>
@@ -828,6 +849,9 @@ function AppContent() {
           display: "flex",
           padding: "6px 2px 12px",
           zIndex: 99,
+          width: "100%",
+          minWidth: 0,
+          boxSizing: "border-box",
         }}
       >
         {TABS.map((t) => (
@@ -840,6 +864,7 @@ function AppContent() {
             }}
             style={{
               flex: 1,
+              minWidth: 0,
               background: "none",
               border: "none",
               cursor: "pointer",

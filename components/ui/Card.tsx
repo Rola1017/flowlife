@@ -9,6 +9,8 @@ export function Card({ children, style = {} }: { children: ReactNode; style?: CS
         border: `1px solid ${TH.border}`,
         borderRadius: 14,
         padding: 14,
+        boxSizing: "border-box",
+        minWidth: 0,
         ...style,
       }}
     >

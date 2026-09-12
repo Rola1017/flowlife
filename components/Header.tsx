@@ -30,10 +30,13 @@ export function Header({
         position: "sticky",
         top: 0,
         zIndex: 200,
+        width: "100%",
+        minWidth: 0,
+        boxSizing: "border-box",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", minWidth: 0, gap: 8 }}>
+        <div style={{ minWidth: 0, boxSizing: "border-box" }}>
           <div
             style={{
               fontSize: 19,
@@ -63,6 +66,7 @@ export function Header({
             fontSize: 11,
             fontWeight: 800,
             cursor: "pointer",
+            flexShrink: 0,
           }}
         >
           ⚙️ 設定
@@ -76,6 +80,8 @@ export function Header({
               onChange={(e) => setDraft(e.target.value)}
               style={{
                 flex: 1,
+                minWidth: 0,
+                boxSizing: "border-box",
                 background: "#1C1C22",
                 border: `1px solid ${TH.accent}`,
                 borderRadius: 8,
@@ -108,6 +114,7 @@ export function Header({
                 fontSize: 12,
                 fontWeight: 900,
                 cursor: "pointer",
+                flexShrink: 0,
               }}
             >
               ✓

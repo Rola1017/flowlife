@@ -55,7 +55,7 @@ export function RingTimer({
           : TH.muted;
 
   return (
-    <div style={{ position: "relative", width: 148, height: 148 }}>
+    <div style={{ position: "relative", width: 148, height: 148, flexShrink: 0 }}>
       <svg width={148} height={148} style={{ transform: "rotate(-90deg)" }}>
         <circle cx={74} cy={74} r={58} fill="none" stroke={TH.border} strokeWidth={8} />
         <circle
