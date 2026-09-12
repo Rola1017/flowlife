@@ -18,6 +18,25 @@ export function normalizeDeadline(v: unknown): string | undefined {
   return isDate(v) ? v : undefined;
 }
 
+/** 僅跨日時存；非法、空字串、或 endDate < date 皆 undefined。等於 date 視為單日不存。 */
+export function normalizeEndDate(endDate: unknown, date: string): string | undefined {
+  if (!isDate(endDate) || !isDate(date)) return undefined;
+  return endDate > date ? endDate : undefined;
+}
+
+/** 僅接受 > 0 的有限數字；0／負／NaN／非數字 → undefined。 */
+export function normalizeEstimateHours(v: unknown): number | undefined {
+  return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : undefined;
+}
+
+/** 該待辦是否應顯示在 dateStr 這一天（跨日區間含首尾；單一來源）。 */
+export function todoShowsOn(todo: { date: string; endDate?: string }, dateStr: string): boolean {
+  if (todo.endDate && todo.endDate > todo.date) {
+    return dateStr >= todo.date && dateStr <= todo.endDate;
+  }
+  return todo.date === dateStr;
+}
+
 /**
  * 正規化單筆待辦。`today` 由呼叫端傳入（測試鎖死日期，禁止在此用 new Date()）。
  * 缺 id 回 null。
@@ -30,14 +49,17 @@ export function normalizeTodo(raw: unknown, today: string): Todo | null {
   const startTime = typeof r.startTime === "string" && r.startTime.trim() ? r.startTime : undefined;
   const endTime = typeof r.endTime === "string" && r.endTime.trim() ? r.endTime : undefined;
   const updatedAt = typeof r.updatedAt === "string" && r.updatedAt ? r.updatedAt : undefined;
+  const date = isDate(r.date) ? r.date : today;
   return {
     id,
     text: typeof r.text === "string" ? r.text : "",
     cat: typeof r.cat === "string" && r.cat ? r.cat : "未分類",
-    date: isDate(r.date) ? r.date : today,
+    date,
     startTime,
     endTime,
+    endDate: normalizeEndDate(r.endDate, date),
     deadline: normalizeDeadline(r.deadline),
+    estimateHours: normalizeEstimateHours(r.estimateHours),
     mustDo: Boolean(r.mustDo),
     reminder: typeof r.reminder === "string" ? r.reminder : "none",
     phase: asPhase(r.phase),

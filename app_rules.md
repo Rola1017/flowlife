@@ -205,7 +205,12 @@ lib/
 - `endAt`：完成時間（字串 "HH:MM:SS"）
 - `startTime`：排定開始時間（用於行程表定位）
 - `endTime`：排定結束時間
-- `date`：待辦所屬日期（`YYYY-MM-DD`），新增表單可選；未選或無效時 `makeTodo` 預設為 `CFG.TODAY_STR`
+- `date`：已排定執行日（`YYYY-MM-DD`，打算哪天做，可改可挪）；未選或無效時 `makeTodo` 預設為 `CFG.TODAY_STR`。行事曆某日詳情新增必須帶入該日，不得 fallback 成今天。
+- `endDate`：可執行區間結束日（僅跨日且 `> date` 才存；單日不存）。區間內每天顯示，直到按結束。
+- `deadline`：期限（外部約束，與 date/endDate 獨立；計畫挪動不改它）
+- `estimateHours`：預估用時（小時；UI「1天」＝8 小時工作量）
+- 顯示哪一天一律走 `todoShowsOn`（`lib/todosCloud.ts`），禁止各處自行 `t.date ===`
+- 新增／編輯共用 `TodoFormFields`（Notion 式 `TodoDateRangePicker`：日期＋結束日期開關＋包含時間開關）
 - `reminder`：提醒設定（見第六節）；預設 `none`
 - **時段頁新增預設時間**：`lib/utils.nowHM` + `roundHM5` + `addMinHM`；開始＝當下取整 5 分、結束＝+`CFG.DEFAULT_TODO_DURATION_MIN`（60 分）；不再寫死 09:00／10:00
 
@@ -530,6 +535,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **新增唯讀 /api/today（Vercel, runtime=nodejs, force-dynamic）**：查「指定日期」行程（date 可為任意合法日期，過去/未來皆可；預設 Asia/Taipei 今天；`/api/today` 僅端點名），`x-roro-key` 驗證＋service-role 只讀 `RORO_USER_ID` 的 app_state，重用自 schedule 抽出的純函式 `buildTodayBlocks`（重疊不裁決、全列出、依 start 排序）；service/API key 僅後端。環境變數統一為 `RORO_*` 前綴，對齊 agent 名稱 Roro。
 - **app_state 加 service_role 唯讀 RLS policy**（`FOR SELECT TO service_role`，見 `supabase/rls_app_state_service_role_select.sql`），使 `/api/today` 的新版 `sb_secret_` key 能讀行程；僅唯讀、僅此表、僅 service_role，不影響前端 user-based 安全基線。第二階段寫入時另加精細化可寫 policy。
 - **app/layout.tsx 補 viewport**（`width=device-width, initialScale=1, maximumScale=1, userScalable=false`）修手機自動放大；metadata title→FlowLife、lang→zh-Hant；`fmtIdleHM` 顯示改精簡「N時M分／M分」（番茄鐘卡＋行事曆未利用統計；`fmtIdleTime` 不動）。
+- **待辦三層時間語意：date（已排定執行日）／endDate（可執行區間，跨日每天顯示）／deadline（期限，外部約束，獨立不受計畫挪動影響）＋ estimateHours（預估用時，小時）；新增共用 todoShowsOn 單一來源判斷待辦屬於哪一天；日期選擇改 Notion 式（日期＋結束日期開關＋包含時間開關）；修正行事曆某日新增待辦未帶入該日期之 bug；新增與編輯待辦共用表單。**
 - **番茄頁手機橫向溢出修正（鐵律16③）**：根因＝活動名稱建議標籤列 `overflowX:auto` 缺 `minWidth:0`，flex `min-width:auto` 把整頁撐到殼層 `maxWidth:430`，窄於 430 的手機看起來歪一邊。已修建議列（列內橫滑、頁面不撐寬）＋當前活動卡／圓環列／分類 chips／時長鈕／趨勢 chips；`App` 殼層 `width:100%`＋`minWidth:0`。320／375 無 document 橫向捲動，桌面仍 430 置中。
 - **待辦地基**：`Todo` 型別化（`lib/types.ts`）、上雲 app_state key `todos`、獨立墓碑 `deleted_todo_ids`（60天GC）、新增 `deadline` 欄位、TodoCard／編輯面板加刪除鈕（confirm＋44×44）、直式行程表格子點開既有編輯面板刪除（格子放不下 44×44）、`handleEnd` 副作用移出 setState updater。
 - **便利貼衝突處理強化（自訂鈕高亮＋一鍵移除）**：班課衝突時記住 `ovPendingPick`；尚未自訂課程時「👉 點我自訂這天課程」改黃色高亮。提醒橫幅新增含確認的「🗑 移除這 N 堂衝突課，並排入此班」：透過 `setOvCourses` 將週課 materialize 成當日自訂快照、刪除衝突課並避免重複地排入待排班別；取消確認不變更。開啟／切日期／關提醒／逐堂刪完皆同步清衝突與 pending state。
@@ -667,7 +673,7 @@ TH.gold    = "#FBBF24"   // 金幣
   - `analytics.test.ts` — `sessionMatches`／`buildDistribution`
   - `sessionsCloud.test.ts` — `mergeSessionsWithTombstones` 墓碑防復活
   - `today.test.ts` — `buildTodayBlocks`（重疊不裁決、便利貼覆蓋、空資料回退、未來日期週三鎖死時區）
-  - `todos.test.ts` — 待辦墓碑防復活、同名不同 id、normalize deadline、updatedAt LWW
+  - `todos.test.ts` — 待辦墓碑防復活、同名不同 id、normalize deadline／endDate／estimateHours、updatedAt LWW、todoShowsOn 跨日含首尾、挪 date 不改 deadline（語意獨立；日期字串鎖死、不用 Date.now()）
   - `utils.test.ts` — `fmtIdleHM` 精簡時分
 - CI：`.github/workflows/ci.yml`（push／PR → main；`npm ci` → `tsc` → `npm test`）
 
@@ -680,5 +686,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/09/13（番茄頁手機橫向溢出修正／鐵律16③）*
+*最後更新：2026/09/13（待辦三層時間語意／todoShowsOn／Notion 日期選擇／行事曆帶入日期）*
 *維護原則：每次完成重要功能，同步更新第十、十一、十二節*

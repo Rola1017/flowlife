@@ -225,9 +225,14 @@ export function useTodos(initial: Partial<Todo>[]) {
 
   const updateTodo = useCallback(
     (id: number, patch: Partial<Todo>) => {
-      const cleaned: Partial<Todo> = { ...patch, updatedAt: stamp() };
-      if ("deadline" in patch) cleaned.deadline = patch.deadline || undefined;
-      apply((ts) => ts.map((t) => (t.id === id ? { ...t, ...cleaned } : t)));
+      apply((ts) =>
+        ts.map((t) => {
+          if (t.id !== id) return t;
+          const merged = { ...t, ...patch, id: t.id, updatedAt: stamp() };
+          const next = normalizeTodo(merged, t.date);
+          return next ? { ...next, reminder: normalizeReminder(next.reminder) } : t;
+        }),
+      );
     },
     [apply],
   );

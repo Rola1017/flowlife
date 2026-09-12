@@ -10,6 +10,7 @@ import { availableSegments, splitSessionsByAvailability } from "@/lib/idle";
 import { idleSeries } from "@/lib/timelineActual";
 import { weekKey, monthKey, quarterKey } from "@/lib/period";
 import { getReview, subscribeReviews, upsertReview, type ReviewScope } from "@/lib/reviews";
+import { todoShowsOn } from "@/lib/todosCloud";
 import type { Session, Todo } from "@/lib/types";
 import { fmt, fmtIdleHM, getDaysInMonth, getFirstDow } from "@/lib/utils";
 import { MultiCategoryFilter } from "@/components/ui/MultiCategoryFilter";
@@ -329,11 +330,11 @@ export function CalendarPage({
       map[dateStr] = { morning: [], noon: [], evening: [] };
     }
     for (const todo of todos) {
-      const t = todo as { date?: string; startTime?: string };
-      if (!t.date || !map[t.date]) continue;
-      const slot = getWeekSlot(t.startTime ?? "");
+      const slot = getWeekSlot(todo.startTime ?? "");
       if (!slot) continue;
-      map[t.date][slot].push(todo);
+      for (const dateStr of weekDates) {
+        if (todoShowsOn(todo, dateStr)) map[dateStr][slot].push(todo);
+      }
     }
     return map;
   }, [todos, weekDates]);

@@ -58,7 +58,20 @@ export function TodoCard({
   onEdit?: (id: number) => void;
   onDelete?: (id: number) => void;
 }) {
-  const { id, text, cat, startTime, endTime, mustDo, phase, startAt, startTs, deadline } = todo;
+  const { id, text, cat, startTime, endTime, mustDo, phase, startAt, startTs, deadline, date, endDate, estimateHours } = todo;
+  const rangeLabel = endDate && endDate > date ? `${date}～${endDate}` : null;
+  const estLabel =
+    estimateHours === 0.5
+      ? "30分"
+      : estimateHours === 8
+        ? "1天"
+        : estimateHours === 4
+          ? "半天"
+          : estimateHours === 24
+            ? "3天"
+            : estimateHours
+              ? `${estimateHours}小時`
+              : null;
   const col = CAT_COLOR[cat] || TH.muted;
   const isStarted = phase === "started",
     isEnding = phase === "ending";
@@ -182,6 +195,12 @@ export function TodoCard({
             {deadline ? (
               <span style={{ fontSize: 9, color: TH.muted }}>⏳ {deadline}</span>
             ) : null}
+            {rangeLabel ? (
+              <span style={{ fontSize: 9, color: TH.muted }}>📅 {rangeLabel}</span>
+            ) : null}
+            {estLabel ? (
+              <span style={{ fontSize: 9, color: TH.muted }}>⏱ {estLabel}</span>
+            ) : null}
           </div>
         </div>
         <span
@@ -267,6 +286,12 @@ export function TodoCard({
             )}
             {deadline ? (
               <span style={{ fontSize: 9, color: TH.muted }}>⏳ {deadline}</span>
+            ) : null}
+            {rangeLabel ? (
+              <span style={{ fontSize: 9, color: TH.muted }}>📅 {rangeLabel}</span>
+            ) : null}
+            {estLabel ? (
+              <span style={{ fontSize: 9, color: TH.muted }}>⏱ {estLabel}</span>
             ) : null}
           </div>
         </div>

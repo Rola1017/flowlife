@@ -7,6 +7,8 @@ import { TH } from "@/lib/theme";
 const HOUR_OPTS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
 const MINUTE_OPTS = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0"));
 
+export { HOUR_OPTS, MINUTE_OPTS };
+
 export function parseDateTime(v: string | null): { date: string; hour: string; minute: string } | null {
   if (!v || typeof v !== "string") return null;
   const m = v.trim().match(/^(\d{4}-\d{2}-\d{2})\s+(\d{1,2}):(\d{1,2})$/);
@@ -29,6 +31,7 @@ export function buildDateTime(date: string, hour: string, minute: string): strin
   return `${date} ${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`;
 }
 
+/** @deprecated 待辦改走 TodoDateRangePicker，勿再把結束日期壓成單一 date。 */
 export function splitTodoDateTime(startDateTime: string | null, endDateTime: string | null): {
   date: string;
   startTime: string;

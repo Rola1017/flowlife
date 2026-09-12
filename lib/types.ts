@@ -65,11 +65,16 @@ export type Todo = {
   id: number;
   text: string;
   cat: string;
+  /** 已排定執行日（打算哪天做；可改、可挪） */
   date: string; // YYYY-MM-DD
   startTime?: string; // HH:mm
   endTime?: string; // HH:mm
-  /** 時效性／到期日（可空；不得存空字串） */
+  /** 可執行區間結束日（僅跨日時存；單日不存）。與 date 組成「這段期間內有空就做」 */
+  endDate?: string; // YYYY-MM-DD
+  /** 最晚必須完成（外部約束；與 date/endDate 獨立，計畫挪動不改它） */
   deadline?: string; // YYYY-MM-DD
+  /** 預估用時（小時；1天＝8小時工作量。供提醒門檻計算） */
+  estimateHours?: number;
   mustDo?: boolean;
   reminder?: string;
   phase: TodoPhase;

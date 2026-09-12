@@ -8,6 +8,7 @@ import { ReviewNudgeCard } from "@/components/home/ReviewNudgeCard";
 import { CourseBanner } from "@/components/schedule/CourseBanner";
 import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
+import { todoShowsOn } from "@/lib/todosCloud";
 import { fmt, getPeriod } from "@/lib/utils";
 import type { Session, Todo } from "@/lib/types";
 
@@ -44,8 +45,7 @@ export function HomePage({
   const yTot = yesterdaySessions.reduce((s, p) => s + p.mins, 0);
   const ydbTot = dayBeforeSessions.reduce((s, p) => s + p.mins, 0);
   const mustDo = todos.filter(
-    (t: { date?: string; mustDo?: boolean; phase?: string }) =>
-      t.date === CFG.TODAY_STR && t.mustDo && t.phase !== "done",
+    (t) => todoShowsOn(t, CFG.TODAY_STR) && t.mustDo && t.phase !== "done",
   );
   const grouped: Record<string, Todo[]> = { 早: [], 午: [], 晚: [] };
   mustDo.forEach((t) => {
@@ -56,8 +56,8 @@ export function HomePage({
 
   const nextTodo = useMemo(() => {
     const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
-    const cand = (todos as Array<{ date?: string; phase?: string; startTime?: string; text?: string }>)
-      .filter((t) => t.date === CFG.TODAY_STR && t.phase !== "done" && /^\d{1,2}:\d{2}/.test(t.startTime ?? ""))
+    const cand = todos
+      .filter((t) => todoShowsOn(t, CFG.TODAY_STR) && t.phase !== "done" && /^\d{1,2}:\d{2}/.test(t.startTime ?? ""))
       .map((t) => {
         const [h, m] = (t.startTime as string).split(":").map(Number);
         return { t, m: h * 60 + (m || 0) };
