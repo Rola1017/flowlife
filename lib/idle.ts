@@ -1,5 +1,5 @@
 import { toM } from "@/lib/utils";
-import { blockedRanges, type Interval, type DayPlan } from "@/lib/schedule";
+import { blockedRanges, blockedRangesWith, type Interval, type DayPlan, type ScheduleData } from "@/lib/schedule";
 
 export type IdleGap = { start: string; end: string };
 
@@ -40,6 +40,37 @@ export function availableSegments(
   dayPlans?: Record<string, DayPlan>,
 ): Interval[] {
   return subtract(winStart, winEnd, blockedRanges(date, dayPlans));
+}
+
+/**
+ * 可注入版：視窗內扣 blockedRangesWith（作息∪班別∪課程）。
+ * 不扣番茄紀錄。重用 subtract，不另寫一份。
+ */
+export function availableSegmentsWith(
+  date: string,
+  winStart: number,
+  winEnd: number,
+  data: ScheduleData,
+): Interval[] {
+  return subtract(winStart, winEnd, blockedRangesWith(date, data));
+}
+
+export type FreeSlot = { start: string; end: string; minutes: number };
+
+export function toFreeSlots(segs: Interval[], minMinutes: number): FreeSlot[] {
+  return segs
+    .map(([a, b]) => ({ start: fmtHM(a), end: fmtHM(b), minutes: b - a }))
+    .filter((s) => s.minutes >= minMinutes);
+}
+
+export function summarizeFreeSlots(slots: FreeSlot[]): {
+  slotCount: number;
+  totalFreeMinutes: number;
+  longestSlotMinutes: number;
+} {
+  const totalFreeMinutes = slots.reduce((s, x) => s + x.minutes, 0);
+  const longestSlotMinutes = slots.reduce((m, x) => Math.max(m, x.minutes), 0);
+  return { slotCount: slots.length, totalFreeMinutes, longestSlotMinutes };
 }
 
 /** 可用區段內、未被 fills 覆蓋、且 ≥ minGap 的空檔（時間軸未利用灰塊用） */

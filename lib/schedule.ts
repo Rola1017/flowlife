@@ -346,10 +346,6 @@ export function routineFor(dateStr?: string): RoutineBlock[] {
   return loadRoutine();
 }
 
-function routineRangesFor(dateStr: string): [number, number][] {
-  return routineFor(dateStr).map((b) => [toMin(b.start), toMin(b.end)] as [number, number]);
-}
-
 /** 取 [startMin,endMin] 內、已裁切的作息塊（給直式行程表／課表顯示共用） */
 export function routineBlocksInWindow(startMin: number, endMin: number, dateStr?: string): RoutineBlock[] {
   const out: RoutineBlock[] = [];
@@ -374,22 +370,43 @@ function mergeRanges(ivs: Interval[]): Interval[] {
   return out;
 }
 
-/** 某日不可用區間＝固定作息 ∪ 當日班別（全天分鐘制、已合併）— 單一來源 */
-export function blockedRanges(dateStr: string, dayPlans?: Record<string, DayPlan>): Interval[] {
-  const plans = dayPlans ?? loadDayPlans();
-  const overrides = loadDayOverrides();
-  const isOv = !!overrides[dateStr];
-  const plan = planForDate(dateStr, plans, overrides);
-  const ivs: Interval[] = [...routineRangesFor(dateStr)];
-  if (plan) {
-    for (const pk of plan.picks) {
-      const r = shiftRangeOn(pk.place, pk.shift, dateStr, isOv);
-      if (!r) continue;
-      const [a, b] = r.split("~");
-      ivs.push([toMin(a), toMin(b)]);
-    }
+/**
+ * 某日不可用區間（可注入）：作息 ∪ 班別 ∪ 課程（各 30 分），已合併。
+ * 不讀 localStorage；空 routine／無 picks／無課＝不佔用。
+ */
+export function blockedRangesWith(date: string, data: ScheduleData): Interval[] {
+  const routine = Array.isArray(data.routine) ? data.routine : [];
+  const dayPlans = data.dayPlans ?? {};
+  const dayOverrides = data.dayOverrides ?? {};
+  const weekSchedule = data.weekSchedule ?? {};
+  const workplaces = Array.isArray(data.workplaces) ? data.workplaces : [];
+
+  const isOv = !!dayOverrides[date];
+  const plan = planForDate(date, dayPlans, dayOverrides);
+  const ivs: Interval[] = routine.map((b) => [toMin(b.start), toMin(b.end)] as Interval);
+  for (const pk of plan.picks) {
+    const r = shiftRangeOn(pk.place, pk.shift, date, isOv, workplaces);
+    if (!r) continue;
+    const [a, b] = r.split("~");
+    ivs.push([toMin(a), toMin(b)]);
+  }
+  for (const c of coursesForDate(date, weekSchedule, dayOverrides)) {
+    if (!c.t) continue;
+    const s = toMin(c.t);
+    ivs.push([s, s + 30]);
   }
   return mergeRanges(ivs);
+}
+
+/** 某日不可用區間＝固定作息 ∪ 當日班別 ∪ 課程（全天分鐘制、已合併）— 組資料後走 blockedRangesWith */
+export function blockedRanges(dateStr: string, dayPlans?: Record<string, DayPlan>): Interval[] {
+  return blockedRangesWith(dateStr, {
+    routine: routineFor(dateStr),
+    dayPlans: dayPlans ?? loadDayPlans(),
+    dayOverrides: loadDayOverrides(),
+    weekSchedule: loadJSON<Record<string, CourseInfo[]>>(LS_KEYS.weekSchedule, {}),
+    workplaces: loadWorkplaces(),
+  });
 }
 
 function rangesOverlapStr(r1: string, r2: string): boolean {
