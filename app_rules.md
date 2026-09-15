@@ -536,6 +536,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **新增唯讀 /api/today（Vercel, runtime=nodejs, force-dynamic）**：查「指定日期」行程（date 可為任意合法日期，過去/未來皆可；預設 Asia/Taipei 今天；`/api/today` 僅端點名），`x-roro-key` 驗證＋service-role 只讀 `RORO_USER_ID` 的 app_state，重用自 schedule 抽出的純函式 `buildTodayBlocks`（重疊不裁決、全列出、依 start 排序）；service/API key 僅後端。環境變數統一為 `RORO_*` 前綴，對齊 agent 名稱 Roro。
 - **新增唯讀 /api/todos（Vercel, runtime=nodejs, force-dynamic）**：`x-roro-key` 認證＋service-role 只讀 `RORO_USER_ID` 的 app_state todos（含墓碑過濾）；參數 days(預設30)/from/to/includeDone；每筆附 scheduleType(scheduled|range)、catEmoji、daysUntilDeadline、hoursUntilDeadline、shouldAlert（門檻 max(24, estimateHours*1.5) 小時）；共用函式抽至 `lib/apiShared.ts` 供 `/api/today` 與 `/api/todos` 共用。
 - **新增唯讀 /api/free-slots**：參數 date/minMinutes/from/to，回傳空閒時段與 summary；重用 idle.ts 空檔演算法，新增可注入版本 blockedRangesWith / availableSegmentsWith（既有函式行為不變）；語意為『未被作息/班別/課程佔用的時段』，不扣番茄紀錄。
+- **CategoryManager 三層分類改用共用 SortableList 拖曳排序（穩定 id 為 key），移除 ⬆︎⬇︎。**
 - **app_state 加 service_role 唯讀 RLS policy**（`FOR SELECT TO service_role`，見 `supabase/rls_app_state_service_role_select.sql`），使 `/api/today` 的新版 `sb_secret_` key 能讀行程；僅唯讀、僅此表、僅 service_role，不影響前端 user-based 安全基線。第二階段寫入時另加精細化可寫 policy。
 - **app/layout.tsx 補 viewport**（`width=device-width, initialScale=1, maximumScale=1, userScalable=false`）修手機自動放大；metadata title→FlowLife、lang→zh-Hant；`fmtIdleHM` 顯示改精簡「N時M分／M分」（番茄鐘卡＋行事曆未利用統計；`fmtIdleTime` 不動）。
 - **待辦完成日記錄 doneDate（跨日待辦區分『當天完成』與『已於某日完成』，TodoCard 新增 viewDate prop）；某日詳情頁加左右箭頭連續切換日期；開放過去日期新增待辦（與 Agent 寫入能力一致），過去日期顯示提示。doneDate 補齊所有完成路徑、取消完成時清空、歷史資料無 doneDate 顯示『已完成』；DayViewPage 支援 Pointer Events 左右滑動切換日期（含垂直優先判定與橫捲區排除）；箭頭視覺強化＋滑動提示。完成日期改由檢視日決定（onEnd 帶 doneDateHint，預設 viewDate）＋ 新增 doneTime；doneTime 僅在 doneDate 等於今天時自動填入；補記過去/未來日期時時間留空，可於編輯面板手動補；完成資訊可點擊進編輯面板修改『✅ 完成於』日期與時間；大分類新增顯示層 emoji（CAT.cat1Emoji，學習✍️／事業💼／閱讀📖／健康🌱／娛樂🎀／未分類🌑），儲存值與比對鍵不變。**
@@ -681,7 +682,7 @@ TH.gold    = "#FBBF24"   // 金幣
   - `todos.test.ts` — 待辦墓碑防復活、同名不同 id、normalize deadline／endDate／estimateHours／doneDate／doneTime、updatedAt LWW、todoShowsOn 跨日含首尾（不受 doneDate 影響）、挪 date 不改 deadline、applyTodoComplete／Uncomplete 完成日語意、resolveDoneDate（hint vs 今天）、resolveDoneTime（僅今天自動填）、doneLabel 三態＋時間（日期字串鎖死、不用 Date.now()）
   - `todosApi.test.ts` — `computeAlert` 門檻／過期／無期限、`todoInWindow` 跨日交集與僅 deadline 命中（nowIso 字串鎖死）
   - `freeSlots.test.ts` — `availableSegmentsWith`／`toFreeSlots`：全空整天、作息切段邊界、班別∪作息聯集、minMinutes 濾碎片、`"24:00"`=1440、空檔＋佔用＝視窗長不變式（日期字串鎖死、不用 Date.now()）
-  - `utils.test.ts` — `fmtIdleHM` 精簡時分
+  - `utils.test.ts` — `fmtIdleHM` 精簡時分；`moveItem` from→to（含 from===to、頭尾互換、不改 id）
 - CI：`.github/workflows/ci.yml`（push／PR → main；`npm ci` → `tsc` → `npm test`）
 
 ### 規則（每批新增測試）
@@ -693,5 +694,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/09/13（唯讀 /api/free-slots＋blockedRangesWith／availableSegmentsWith 注入）*
+*最後更新：2026/09/15（CategoryManager 三層 SortableList 拖曳排序）*
 *維護原則：每次完成重要功能，同步更新第十、十一、十二節*

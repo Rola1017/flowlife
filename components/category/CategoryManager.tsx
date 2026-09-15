@@ -3,6 +3,7 @@
 import { useCallback, useState, type CSSProperties } from "react";
 import { BackBtn } from "@/components/ui/BackBtn";
 import { Card, SL } from "@/components/ui/Card";
+import { SortableList } from "@/components/ui/SortableList";
 import { TH } from "@/lib/theme";
 import {
   CAT,
@@ -13,6 +14,7 @@ import {
 } from "@/lib/categories";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 import { countCategoryRefs, purgeCategoryRefs } from "@/lib/schedule";
+import { moveItem } from "@/lib/utils";
 
 const DEFAULT_PALETTE = [
   "#EA0000",
@@ -211,6 +213,7 @@ function RenameInput({
       style={{
         flex: 1,
         minWidth: 0,
+        boxSizing: "border-box",
         background: TH.bg,
         border: `1px solid ${TH.border}`,
         borderRadius: 6,
@@ -226,11 +229,11 @@ function RenameInput({
 
 export function CategoryManager({ onBack }: { onBack: () => void }) {
   const [categories, setCategories] = useState<CategoryData>(() => loadCategories());
-  const [expandedBig, setExpandedBig] = useState<Record<number, boolean>>(() =>
-    Object.fromEntries(loadCategories().map((_, i) => [i, true])),
+  const [expandedBig, setExpandedBig] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(loadCategories().map((c) => [c.id, true])),
   );
   const [expandedMid, setExpandedMid] = useState<Record<string, boolean>>({});
-  const [colorPickerBig, setColorPickerBig] = useState<number | null>(null);
+  const [colorPickerBig, setColorPickerBig] = useState<string | null>(null);
   const [colorPickerMid, setColorPickerMid] = useState<string | null>(null);
   const [palette, setPalette] = useState<string[]>(() => loadJSON(LS_KEYS.colorPalette, DEFAULT_PALETTE));
 
@@ -245,14 +248,6 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
     setCategories(next);
     saveCategories(next);
   }, []);
-
-  const moveBig = (bi: number, dir: -1 | 1) => {
-    const j = bi + dir;
-    if (j < 0 || j >= categories.length) return;
-    const next = cloneData(categories);
-    [next[bi], next[j]] = [next[j], next[bi]];
-    persist(next);
-  };
 
   const updateBigName = (bi: number, name: string) => {
     const oldName = categories[bi].name;
@@ -314,7 +309,7 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
     }
     next[bi].mids.push({ id: crypto.randomUUID(), name: name.trim(), color: next[bi].color, subs: [] });
     persist(next);
-    setExpandedBig((e) => ({ ...e, [bi]: true }));
+    setExpandedBig((e) => ({ ...e, [next[bi].id]: true }));
   };
 
   const updateMidName = (bi: number, mi: number, name: string) => {
@@ -340,15 +335,6 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
     purgeCategoryRefs(2, cat1, cat2);
   };
 
-  const moveMid = (bi: number, mi: number, dir: -1 | 1) => {
-    const j = mi + dir;
-    if (j < 0 || j >= categories[bi].mids.length) return;
-    const next = cloneData(categories);
-    const mids = next[bi].mids;
-    [mids[mi], mids[j]] = [mids[j], mids[mi]];
-    persist(next);
-  };
-
   const addSub = (bi: number, mi: number) => {
     const name = window.prompt("新小分類名稱");
     if (!name?.trim()) return;
@@ -359,7 +345,7 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
     }
     next[bi].mids[mi].subs.push({ id: crypto.randomUUID(), name: name.trim() });
     persist(next);
-    setExpandedMid((e) => ({ ...e, [`${bi}-${mi}`]: true }));
+    setExpandedMid((e) => ({ ...e, [next[bi].mids[mi].id]: true }));
   };
 
   const updateSubName = (bi: number, mi: number, si: number, name: string) => {
@@ -386,16 +372,6 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
     purgeCategoryRefs(3, cat1, cat2, cat3);
   };
 
-  const moveSub = (bi: number, mi: number, si: number, dir: -1 | 1) => {
-    const subs = categories[bi].mids[mi].subs;
-    const j = si + dir;
-    if (j < 0 || j >= subs.length) return;
-    const next = cloneData(categories);
-    const arr = next[bi].mids[mi].subs;
-    [arr[si], arr[j]] = [arr[j], arr[si]];
-    persist(next);
-  };
-
   const btnSm: CSSProperties = {
     background: "none",
     border: `1px solid ${TH.border}`,
@@ -414,258 +390,286 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
       <Card>
         <SL>大分類</SL>
         <p style={{ fontSize: 10, color: TH.muted, margin: "0 0 10px", lineHeight: 1.5 }}>
-          中分類顏色可自訂（點色塊修改）；小分類繼承中分類顏色，依序漸淺。用 ↑↓ 調整排序。
+          中分類顏色可自訂（點色塊修改）；小分類繼承中分類顏色，依序漸淺。
+        </p>
+        <p style={{ fontSize: 10, color: TH.muted, margin: "0 0 10px", lineHeight: 1.5 }}>
+          💡 按住左邊的 ⋮⋮ 可以拖曳調整順序（手機用手指長按拖動）
         </p>
         <p style={{ fontSize: 10, color: TH.muted, margin: "0 0 10px", lineHeight: 1.5 }}>
           💡 刪分類時，課表中使用它的格子會自動改為未分類，不會消失
         </p>
 
-        {categories.map((big, bi) => {
-          const midKey = (mi: number) => `${bi}-${mi}`;
-          const isOpen = expandedBig[bi] ?? false;
-          return (
-            <div
-              key={`${big.name}-${bi}`}
-              style={{
-                border: `1px solid ${TH.border}`,
-                borderRadius: 10,
-                marginBottom: 8,
-                overflow: "hidden",
-              }}
-            >
+        <SortableList
+          items={categories}
+          getId={(big) => big.id}
+          gap={8}
+          onReorder={(from, to) => persist(moveItem(cloneData(categories), from, to))}
+          renderItem={(big, bi, handle) => {
+            const isOpen = expandedBig[big.id] ?? false;
+            return (
               <div
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "8px 10px",
-                  background: big.color + "18",
+                  border: `1px solid ${TH.border}`,
+                  borderRadius: 10,
+                  overflow: "hidden",
+                  minWidth: 0,
                 }}
               >
-                <button type="button" onClick={() => moveBig(bi, -1)} disabled={bi === 0} style={btnSm}>
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  onClick={() => moveBig(bi, 1)}
-                  disabled={bi === categories.length - 1}
-                  style={btnSm}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "8px 10px",
+                    background: big.color + "18",
+                    minWidth: 0,
+                  }}
                 >
-                  ↓
-                </button>
-                <div style={{ position: "relative" }} onClick={(e) => e.stopPropagation()}>
+                  <span
+                    {...handle}
+                    style={{ ...handle.style, flexShrink: 0, color: TH.muted, fontSize: 14, lineHeight: 1, padding: "4px 2px" }}
+                    aria-label="拖曳排序"
+                  >
+                    ⋮⋮
+                  </span>
+                  <div style={{ position: "relative", flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      onClick={() => setColorPickerBig(colorPickerBig === big.id ? null : big.id)}
+                      style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: 6,
+                        border: `1px solid ${TH.border}`,
+                        background: big.color,
+                        cursor: "pointer",
+                        flexShrink: 0,
+                      }}
+                    />
+                    {colorPickerBig === big.id && (
+                      <>
+                        <div
+                          style={{
+                            position: "fixed",
+                            inset: 0,
+                            zIndex: 199,
+                          }}
+                          onClick={() => setColorPickerBig(null)}
+                        />
+                        <ColorPicker
+                          value={big.color}
+                          onChange={(c) => updateBigColor(bi, c)}
+                          onClose={() => setColorPickerBig(null)}
+                          palette={palette}
+                          onPaletteChange={handlePaletteChange}
+                        />
+                      </>
+                    )}
+                  </div>
+                  {CAT.cat1Emoji(big.name) ? (
+                    <span style={{ flexShrink: 0, fontSize: 14, lineHeight: 1 }} aria-hidden>
+                      {CAT.cat1Emoji(big.name)}
+                    </span>
+                  ) : null}
+                  <RenameInput value={big.name} onCommit={(n) => updateBigName(bi, n)} />
                   <button
                     type="button"
-                    onClick={() => setColorPickerBig(colorPickerBig === bi ? null : bi)}
-                    style={{
-                      width: 22,
-                      height: 22,
-                      borderRadius: 6,
-                      border: `1px solid ${TH.border}`,
-                      background: big.color,
-                      cursor: "pointer",
-                      flexShrink: 0,
-                    }}
-                  />
-                  {colorPickerBig === bi && (
-                    <>
-                      <div
-                        style={{
-                          position: "fixed",
-                          inset: 0,
-                          zIndex: 199,
-                        }}
-                        onClick={() => setColorPickerBig(null)}
-                      />
-                      <ColorPicker
-                        value={big.color}
-                        onChange={(c) => updateBigColor(bi, c)}
-                        onClose={() => setColorPickerBig(null)}
-                        palette={palette}
-                        onPaletteChange={handlePaletteChange}
-                      />
-                    </>
+                    onClick={() => setExpandedBig((e) => ({ ...e, [big.id]: !isOpen }))}
+                    style={btnSm}
+                  >
+                    {isOpen ? "▲" : "▼"}
+                  </button>
+                  {big.name !== "未分類" && (
+                    <button type="button" onClick={() => deleteBig(bi)} style={{ ...btnSm, color: TH.red }}>
+                      刪
+                    </button>
                   )}
                 </div>
-                {CAT.cat1Emoji(big.name) ? (
-                  <span style={{ flexShrink: 0, fontSize: 14, lineHeight: 1 }} aria-hidden>
-                    {CAT.cat1Emoji(big.name)}
-                  </span>
-                ) : null}
-                <RenameInput value={big.name} onCommit={(n) => updateBigName(bi, n)} />
-                <button
-                  type="button"
-                  onClick={() => setExpandedBig((e) => ({ ...e, [bi]: !isOpen }))}
-                  style={btnSm}
-                >
-                  {isOpen ? "▲" : "▼"}
-                </button>
-                {big.name !== "未分類" && (
-                  <button type="button" onClick={() => deleteBig(bi)} style={{ ...btnSm, color: TH.red }}>
-                    刪
-                  </button>
-                )}
-              </div>
 
-              {isOpen && (
-                <div style={{ padding: "8px 10px 10px", background: TH.bg }}>
-                  <div style={{ marginBottom: 8 }}>
-                    <label
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
-                        fontSize: 11,
-                        color: TH.text,
-                        cursor: "pointer",
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={big.noCoin === true}
-                        onChange={(e) => updateBigNoCoin(bi, e.target.checked)}
-                      />
-                      ⌛ 只計時（不發金幣 ❌）
-                    </label>
-                    <div style={{ fontSize: 9, color: TH.muted, marginTop: 2, marginLeft: 22 }}>
-                      💡 娛樂／獎勵用；仍會記錄、顯示在時間軸，也不算未利用時間
-                    </div>
-                  </div>
-                  {big.mids.map((mid, mi) => {
-                    const midOpen = expandedMid[midKey(mi)] ?? false;
-                    const midCol = mid.color;
-                    return (
-                      <div
-                        key={`${mid.name}-${mi}`}
+                {isOpen && (
+                  <div style={{ padding: "8px 10px 10px", background: TH.bg, minWidth: 0 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <label
                         style={{
-                          marginBottom: 8,
-                          borderLeft: `3px solid ${midCol}`,
-                          paddingLeft: 8,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          fontSize: 11,
+                          color: TH.text,
+                          cursor: "pointer",
                         }}
                       >
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                          <button type="button" onClick={() => moveMid(bi, mi, -1)} disabled={mi === 0} style={btnSm}>
-                            ↑
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => moveMid(bi, mi, 1)}
-                            disabled={mi === big.mids.length - 1}
-                            style={btnSm}
+                        <input
+                          type="checkbox"
+                          checked={big.noCoin === true}
+                          onChange={(e) => updateBigNoCoin(bi, e.target.checked)}
+                        />
+                        ⌛ 只計時（不發金幣 ❌）
+                      </label>
+                      <div style={{ fontSize: 9, color: TH.muted, marginTop: 2, marginLeft: 22 }}>
+                        💡 娛樂／獎勵用；仍會記錄、顯示在時間軸，也不算未利用時間
+                      </div>
+                    </div>
+                    <SortableList
+                      items={big.mids}
+                      getId={(mid) => mid.id}
+                      gap={8}
+                      onReorder={(from, to) => {
+                        const next = cloneData(categories);
+                        next[bi].mids = moveItem(next[bi].mids, from, to);
+                        persist(next);
+                      }}
+                      renderItem={(mid, mi, midHandle) => {
+                        const midOpen = expandedMid[mid.id] ?? false;
+                        return (
+                          <div
+                            style={{
+                              borderLeft: `3px solid ${mid.color}`,
+                              paddingLeft: 8,
+                              minWidth: 0,
+                            }}
                           >
-                            ↓
-                          </button>
-                          <div style={{ position: "relative" }}>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setColorPickerMid(colorPickerMid === `${bi}-${mi}` ? null : `${bi}-${mi}`)
-                              }
+                            <div
                               style={{
-                                width: 18,
-                                height: 18,
-                                borderRadius: 4,
-                                border: "none",
-                                background: mid.color,
-                                cursor: "pointer",
-                                flexShrink: 0,
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 6,
+                                marginBottom: 4,
+                                minWidth: 0,
                               }}
-                            />
-                            {colorPickerMid === `${bi}-${mi}` && (
-                              <>
-                                <div
-                                  style={{ position: "fixed", inset: 0, zIndex: 199 }}
-                                  onClick={() => setColorPickerMid(null)}
-                                />
-                                <ColorPicker
-                                  value={mid.color}
-                                  onChange={(c) => updateMidColor(bi, mi, c)}
-                                  onClose={() => setColorPickerMid(null)}
-                                  palette={palette}
-                                  onPaletteChange={handlePaletteChange}
-                                />
-                              </>
-                            )}
-                          </div>
-                          <RenameInput
-                            value={mid.name}
-                            onCommit={(n) => updateMidName(bi, mi, n)}
-                            style={{ fontSize: 11, fontWeight: 600 }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setExpandedMid((e) => ({ ...e, [midKey(mi)]: !midOpen }))}
-                            style={btnSm}
-                          >
-                            {midOpen ? "▲" : "▼"}
-                          </button>
-                          <button type="button" onClick={() => deleteMid(bi, mi)} style={{ ...btnSm, color: TH.red }}>
-                            刪
-                          </button>
-                        </div>
-
-                        {midOpen && (
-                          <div style={{ paddingLeft: 4 }}>
-                            {mid.subs.map((sub, si) => (
-                              <div
-                                key={sub.id}
-                                style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}
+                            >
+                              <span
+                                {...midHandle}
+                                style={{
+                                  ...midHandle.style,
+                                  flexShrink: 0,
+                                  color: TH.muted,
+                                  fontSize: 13,
+                                  lineHeight: 1,
+                                  padding: "4px 2px",
+                                }}
+                                aria-label="拖曳排序"
                               >
+                                ⋮⋮
+                              </span>
+                              <div style={{ position: "relative", flexShrink: 0 }}>
                                 <button
                                   type="button"
-                                  onClick={() => moveSub(bi, mi, si, -1)}
-                                  disabled={si === 0}
-                                  style={btnSm}
-                                >
-                                  ↑
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => moveSub(bi, mi, si, 1)}
-                                  disabled={si === mid.subs.length - 1}
-                                  style={btnSm}
-                                >
-                                  ↓
-                                </button>
-                                <div
+                                  onClick={() =>
+                                    setColorPickerMid(colorPickerMid === mid.id ? null : mid.id)
+                                  }
                                   style={{
-                                    width: 8,
-                                    height: 8,
-                                    borderRadius: "50%",
-                                    background: cat3ColorFrom(mid.color, si),
+                                    width: 18,
+                                    height: 18,
+                                    borderRadius: 4,
+                                    border: "none",
+                                    background: mid.color,
+                                    cursor: "pointer",
                                     flexShrink: 0,
                                   }}
                                 />
-                                <RenameInput
-                                  value={sub.name}
-                                  onCommit={(n) => updateSubName(bi, mi, si, n)}
-                                  style={{ fontSize: 10, fontWeight: 500 }}
+                                {colorPickerMid === mid.id && (
+                                  <>
+                                    <div
+                                      style={{ position: "fixed", inset: 0, zIndex: 199 }}
+                                      onClick={() => setColorPickerMid(null)}
+                                    />
+                                    <ColorPicker
+                                      value={mid.color}
+                                      onChange={(c) => updateMidColor(bi, mi, c)}
+                                      onClose={() => setColorPickerMid(null)}
+                                      palette={palette}
+                                      onPaletteChange={handlePaletteChange}
+                                    />
+                                  </>
+                                )}
+                              </div>
+                              <RenameInput
+                                value={mid.name}
+                                onCommit={(n) => updateMidName(bi, mi, n)}
+                                style={{ fontSize: 11, fontWeight: 600 }}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setExpandedMid((e) => ({ ...e, [mid.id]: !midOpen }))}
+                                style={btnSm}
+                              >
+                                {midOpen ? "▲" : "▼"}
+                              </button>
+                              <button type="button" onClick={() => deleteMid(bi, mi)} style={{ ...btnSm, color: TH.red }}>
+                                刪
+                              </button>
+                            </div>
+
+                            {midOpen && (
+                              <div style={{ paddingLeft: 4, minWidth: 0 }}>
+                                <SortableList
+                                  items={mid.subs}
+                                  getId={(sub) => sub.id}
+                                  gap={4}
+                                  onReorder={(from, to) => {
+                                    const next = cloneData(categories);
+                                    next[bi].mids[mi].subs = moveItem(next[bi].mids[mi].subs, from, to);
+                                    persist(next);
+                                  }}
+                                  renderItem={(sub, si, subHandle) => (
+                                    <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                                      <span
+                                        {...subHandle}
+                                        style={{
+                                          ...subHandle.style,
+                                          flexShrink: 0,
+                                          color: TH.muted,
+                                          fontSize: 12,
+                                          lineHeight: 1,
+                                          padding: "4px 2px",
+                                        }}
+                                        aria-label="拖曳排序"
+                                      >
+                                        ⋮⋮
+                                      </span>
+                                      <div
+                                        style={{
+                                          width: 8,
+                                          height: 8,
+                                          borderRadius: "50%",
+                                          background: cat3ColorFrom(mid.color, si),
+                                          flexShrink: 0,
+                                        }}
+                                      />
+                                      <RenameInput
+                                        value={sub.name}
+                                        onCommit={(n) => updateSubName(bi, mi, si, n)}
+                                        style={{ fontSize: 10, fontWeight: 500 }}
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => deleteSub(bi, mi, si)}
+                                        style={{ ...btnSm, color: TH.red }}
+                                      >
+                                        刪
+                                      </button>
+                                    </div>
+                                  )}
                                 />
-                                <button
-                                  type="button"
-                                  onClick={() => deleteSub(bi, mi, si)}
-                                  style={{ ...btnSm, color: TH.red }}
-                                >
-                                  刪
+                                <button type="button" onClick={() => addSub(bi, mi)} style={{ ...btnSm, marginTop: 2 }}>
+                                  + 小分類
                                 </button>
                               </div>
-                            ))}
-                            <button type="button" onClick={() => addSub(bi, mi)} style={{ ...btnSm, marginTop: 2 }}>
-                              + 小分類
-                            </button>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                  <button type="button" onClick={() => addMid(bi)} style={btnSm}>
-                    + 中分類
-                  </button>
-                </div>
-              )}
-            </div>
-          );
-        })}
+                        );
+                      }}
+                    />
+                    <button type="button" onClick={() => addMid(bi)} style={{ ...btnSm, marginTop: 4 }}>
+                      + 中分類
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          }}
+        />
 
         <button
           type="button"

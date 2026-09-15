@@ -8,6 +8,18 @@ export function toM(t: string) {
   return h * 60 + m;
 }
 
+/** 把 arr[from] 搬到 to（不改原陣列、不改元素本體／id）。越界或 from===to 回淺拷貝。 */
+export function moveItem<T>(arr: T[], from: number, to: number): T[] {
+  if (!Array.isArray(arr) || arr.length === 0) return arr.slice();
+  if (!Number.isInteger(from) || !Number.isInteger(to)) return arr.slice();
+  if (from === to) return arr.slice();
+  if (from < 0 || to < 0 || from >= arr.length || to >= arr.length) return arr.slice();
+  const next = arr.slice();
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}
+
 export const DS = toM(CFG.DAY_START);
 export const DE = toM(CFG.DAY_END);
 export const DT = DE - DS;
