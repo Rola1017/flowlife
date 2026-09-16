@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { availableSegments } from "@/lib/idle";
+import { availableSegments, inAvailableWindow } from "@/lib/idle";
 import { LS_KEYS, saveJSON } from "@/lib/storage";
 import type { RoutineBlock } from "@/lib/schedule";
 
@@ -73,5 +73,19 @@ describe("idle.subtract via availableSegments", () => {
       expect(Math.max(0, Math.min(b, 8 * 60) - Math.max(a, 0))).toBe(0);
       expect(Math.max(0, Math.min(b, 13 * 60) - Math.max(a, 12 * 60))).toBe(0);
     }
+  });
+});
+
+describe("inAvailableWindow", () => {
+  it("落在作息內 → false；落在可用內 → true；邊界 end 不算內", () => {
+    saveJSON(LS_KEYS.routine, [
+      { start: "12:00", end: "13:00", emoji: "🍴", items: [{ name: "午餐" }], label: "🍴 午餐" },
+    ] satisfies RoutineBlock[]);
+    saveJSON(LS_KEYS.dayPlans, {});
+    saveJSON(LS_KEYS.dayOverrides, {});
+    saveJSON(LS_KEYS.workplaces, []);
+    expect(inAvailableWindow("2026-07-25", 12 * 60, {})).toBe(false);
+    expect(inAvailableWindow("2026-07-25", 11 * 60, {})).toBe(true);
+    expect(inAvailableWindow("2026-07-25", 13 * 60, {})).toBe(true);
   });
 });

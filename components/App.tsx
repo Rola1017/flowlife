@@ -27,7 +27,7 @@ import { subscribeSessions, syncSessionDiffToCloud } from "@/lib/sessionsCloud";
 import { APP_STATE_KEYS, pushAppState, subscribeAppState } from "@/lib/appStateCloud";
 import { ensureWorkplacesSeeded, ensureRoutineSeeded } from "@/lib/schedule";
 import { DS, DE } from "@/lib/utils";
-import { availableSegments } from "@/lib/idle";
+import { inAvailableWindow } from "@/lib/idle";
 import { Card } from "@/components/ui/Card";
 import { Header } from "@/components/Header";
 import { HomePage } from "@/components/home/HomePage";
@@ -136,6 +136,8 @@ function AppContent() {
   const [idleTrackStart, setIdleTrackStart] = useState<number | null>(null);
   const idleTrackStartRef = useRef<number | null>(null);
   const [pomoRunning, setPomoRunning] = useState(false);
+  const pomoRunningRef = useRef(false);
+  const restEndAtRef = useRef<number | null>(null);
   useReviewCloudSync();
   useSessionCloudSync();
   useAppStateCloudSync();
@@ -420,31 +422,39 @@ function AppContent() {
   useEffect(() => {
     idleTrackStartRef.current = idleTrackStart;
   }, [idleTrackStart]);
+  pomoRunningRef.current = pomoRunning;
+  restEndAtRef.current = restEndAt;
 
-  // 未利用規則制：落在可用時段且未在專注/娛樂 → 追蹤；否則清除
-  useEffect(() => {
-    const tick = () => {
-      const now = new Date();
-      const mins = now.getHours() * 60 + now.getMinutes();
-      const avail = availableSegments(CFG.TODAY_STR, DS, DE);
-      const inAvail = avail.some(([a, b]) => mins >= a && mins < b);
-      const shouldTrack = inAvail && !pomoRunning && !entRef.current;
-      const prev = idleTrackStartRef.current;
-      if (shouldTrack) {
-        if (prev == null) {
-          const t0 = Date.now();
-          idleTrackStartRef.current = t0;
-          setIdleTrackStart(t0);
-        }
-      } else if (prev != null) {
-        idleTrackStartRef.current = null;
-        setIdleTrackStart(null);
+  // 未利用規則制：落在可用時段且未在專注/休息/娛樂 → 追蹤；否則清除。
+  // 取消番茄必須立刻 sync（不等 60s tick）：onFocusEnd 同步呼叫。
+  const syncIdleTrack = (running: boolean) => {
+    const now = new Date();
+    const mins = now.getHours() * 60 + now.getMinutes();
+    const resting = !!(restEndAtRef.current && restEndAtRef.current > Date.now());
+    const shouldTrack =
+      inAvailableWindow(CFG.TODAY_STR, mins, undefined, DS, DE) &&
+      !running &&
+      !entRef.current &&
+      !resting;
+    const prev = idleTrackStartRef.current;
+    if (shouldTrack) {
+      if (prev == null) {
+        const t0 = Date.now();
+        idleTrackStartRef.current = t0;
+        setIdleTrackStart(t0);
       }
-    };
+    } else if (prev != null) {
+      idleTrackStartRef.current = null;
+      setIdleTrackStart(null);
+    }
+  };
+
+  useEffect(() => {
+    const tick = () => syncIdleTrack(pomoRunningRef.current);
     tick();
     const t = setInterval(tick, 60_000);
     return () => clearInterval(t);
-  }, [pomoRunning, ent]);
+  }, [pomoRunning, ent, restEndAt]);
 
   const push = (type: string, props: Record<string, unknown> = {}) => setSubPage({ type, props });
   const pop = () => setSubPage(null);
@@ -801,9 +811,14 @@ function AppContent() {
       resetVersion={resetVersion}
       onFocusStart={() => {
         setPomoRunning(true);
+        pomoRunningRef.current = true;
         endEntertainment();
       }}
-      onFocusEnd={() => setPomoRunning(false)}
+      onFocusEnd={() => {
+        setPomoRunning(false);
+        pomoRunningRef.current = false;
+        syncIdleTrack(false);
+      }}
       entName={ent?.name ?? null}
     />
   );

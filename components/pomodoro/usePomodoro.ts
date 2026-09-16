@@ -492,8 +492,11 @@ export function usePomodoro({
     setFocusOverrunSecs(0);
     setRestEndAt(null);
     setRestTotalSecs(0);
+    setRestSecs(0);
     setIdleSecs(0);
-    setIdleTrackStart(Date.now());
+    // 不在此點燃／熄滅 idle：App.onFocusEnd → syncIdleTrack(false) 立刻依可用時段判定。
+    // 舊路徑 setIdleTrackStart(now) 後，規則制 tick 若仍見 pomoRunning=true 會清掉，
+    // 再等到下一個 60s tick 才重開 → 取消後卡在「待機」。
     onFocusEnd?.();
   };
 

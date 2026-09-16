@@ -71,6 +71,7 @@ lib/
 ├── schedule.ts   ← 班別定義 + currentOrNextCourse 課程查找 + availableMinutesFor（單一來源）
 ├── types.ts      ← Session 等共用型別（含 intention／reflection／id）
 ├── sessions.ts   ← patchReflection（覆盤寫入單一來源）
+├── overlap.ts    ← 時段重疊共用檢查器（spansOverlap／findOverlaps；相鄰不算）
 ├── reviews.ts    ← upsertReview / addReview / removeReview / nextId（覆盤表寫入單一來源）
 ├── period.ts     ← mondayOf／weekKey／monthKey／quarterKey／isoWeek／daysOfWeek／weekKeysOfMonth／monthKeysOfQuarter／weekLabel／monthLabel／quarterLabel（期間 key 單一來源）
 ├── timelineActual.ts ← actSessionsFor / overridesFor / actIdleFor / buildActualSegments（VT＋迷你 bar 單一來源）
@@ -581,6 +582,10 @@ TH.gold    = "#FBBF24"   // 金幣
 - **番茄歷史頁兩項改善**：① 手動補番茄改用 `CategorySelector`（重用課表同一套大/中/小三層、選大才出中、選中才出小），`CategorySelector.onShowCategoryManager` 改可選（不傳則不顯示 ⚙️、不會跳離半填表單；PomodoroPage 仍傳故照常顯示），`buildManualSession` input／session 補 `cat2`/`cat3`、`App.handleAddManualSession` input 型別同步加 `cat2`/`cat3`；② 歷史每顆 `SessionRow` 改「分類為主」：最前顏色圓點（`CAT.deepColorFull`）＋小分類（最深層）大字、中/大分類小字在後（`catParts=[cat3,cat2,cat1].filter(Boolean)`），名稱/手動/時間降為次行小字；右側 mins/✏️/🗑 與編輯刪除區未動。
 - **S2-3 番茄並存 uuid 跨裝置主鍵**：`Session` 加可選 `uuid`（與 number `id` 並存，上雲主鍵用、`id` 不轉型）；`sessions.ensureSessionUuid`（`s.uuid ? s : 補 crypto.randomUUID()`，只補不覆蓋、冪等）＋`stampSession = stampSessionCatIds(ensureSessionUuid(s))` 合一入口；`App.updateSessions` 守衛改 `raw.some(s => !s.uuid || (s.cat1 && !s.cat1Id)) ? raw.map(stampSession) : raw`（啟動載入順手替舊番茄補 uuid）；本步無處讀 uuid＝純前置、行為零變化，未動計時/number id。
 - **S2-2a 番茄並存分類編號**：`Session` 加可選 `cat1Id/cat2Id/cat3Id`（與名字並存）；`categories.resolveCatIds(cat1,cat2?,cat3?)` 由名字查編號；`sessions.stampSessionCatIds`（`!cat1` 原樣回、`??` 只補不覆蓋、找不到名字不清舊編號）；`App.updateSessions` 存檔前 `raw.some(s=>s.cat1&&!s.cat1Id)` 才 `map(stampSessionCatIds)`（單一接縫覆蓋所有番茄產生路徑＋啟動順手補舊番茄）；本步無處讀編號＝純並存 groundwork、行為零變化，未動計時邏輯/`cascadeRename`。
+- **重疊檢測不變式（番茄手動補/改）**：`lib/overlap.ts`（`Span`／`spansOverlap` 相鄰不算／`findOverlaps`／`sessionToSpan`）；歷史頁新增與改時間若與同日既有番茄重疊 → ⚠️ 警告＋「仍要新增／仍要儲存」二次確認（不硬擋）。其餘寫入點（課格／班別／作息／便利貼／待辦／補登／健身）本批只盤點。
+- **取消番茄立刻進未利用**：根因＝`abandonFocus` 自行 `setIdleTrackStart` 後，App 60s 規則制 tick 若仍見 `pomoRunning` 會清掉、等到下一輪才重開。修法＝抽出 `syncIdleTrack`＋`inAvailableWindow`，`onFocusEnd` 立刻重算；放棄路徑不再自己點燃 idle。
+- **課表課格分類小字**：課名下方 7px `TH.muted` 中分類（無則大分類），單行省略；`ROW_H=26` 不變。週課表＋便利貼格子同步。
+- **直式行程表未完成／已完成 💡**：未完成＝今日未完成且有排定時間、疊在計畫時段；已完成＝今日已完成且有 `endAt`、疊在實際完成點；眼睛只改時間軸顯示。
 
 ---
 
@@ -630,6 +635,7 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ## 十一、待完成事項 ⬜
 
+- ⬜ **重疊檢測其餘寫入點**（本批只修番茄手動補/改）：課表課格同格覆蓋無警告、班別已擋、作息已警告、便利貼課↔班衝突／課↔課無、待辦只驗同日 end>start、時間軸 ACT 補登無、健身 stub、即時番茄/娛樂 session 無。待 Rola 決定是否接 `lib/overlap`。
 - ⬜ **Z2～Z8 分類標籤化尚未執行**，見 FlowLife_分類標籤化設計.md §4。
 - ⬜ 待辦提醒：依 `reminder` 觸發推播／系統通知（目前僅儲存設定）
 - ⬜ 健康模組
@@ -676,7 +682,8 @@ TH.gold    = "#FBBF24"   // 金幣
 ### 結構
 - `vitest.config.ts`：`environment: jsdom`、`globals: true`、`@` → 專案根
 - `tests/`（與 `lib/` 並列）：
-  - `idle.test.ts` — 未利用 subtract 夾窗（防延伸到不可用時段）
+  - `overlap.test.ts` — `spansOverlap`／`findOverlaps`：相鄰不重疊、包含、部分重疊、完全相同；datetime-local 與 `"24:00"`；日期字串鎖死、不用 new Date()
+  - `idle.test.ts` — 未利用 subtract 夾窗（防延伸到不可用時段）＋ `inAvailableWindow`
   - `schedule.test.ts` — 時段重疊／`currentScheduleBlock`／`hi` 保留
   - `categories.test.ts` — `catPath`／`matchesCatSelection` 不重複計、`CAT.cat1Emoji`／`cat1Display`
   - `sessions.test.ts` — 跨午夜切段／手動補番茄／`setSessionTimes`

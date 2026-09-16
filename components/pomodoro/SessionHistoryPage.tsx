@@ -8,7 +8,23 @@ import { CAT } from "@/lib/categories";
 import { loadScheduleCourses } from "@/lib/schedule";
 import { BackBtn } from "@/components/ui/BackBtn";
 import { CategorySelector } from "@/components/pomodoro/CategorySelector";
+import { findOverlaps, sessionToSpan, type Span } from "@/lib/overlap";
 import type { Session } from "@/lib/types";
+
+function overlapMsg(s: Session): string {
+  return `這個時段已有紀錄：${s.name || "番茄"} ${s.startTime}~${s.endTime}`;
+}
+
+function firstOverlapSession(target: Span, sessions: Session[], excludeId?: number): Session | undefined {
+  const packed = sessions.flatMap((s) => {
+    if (excludeId != null && s.id === excludeId) return [];
+    const sp = sessionToSpan(s);
+    return sp ? [{ s, sp }] : [];
+  });
+  const hit = findOverlaps(target, packed.map((x) => x.sp))[0];
+  if (!hit) return undefined;
+  return packed.find((x) => x.sp.start === hit.start && x.sp.end === hit.end)?.s;
+}
 
 type ManualInput = {
   startAt: string;
@@ -43,10 +59,12 @@ function dayStats(daySessions: Session[]) {
 
 function SessionRow({
   s,
+  peers,
   onEditTimes,
   onDelete,
 }: {
   s: Session;
+  peers: Session[];
   onEditTimes: (id: number, startTime: string, endTime: string) => void;
   onDelete: (id: number) => void;
 }) {
@@ -54,6 +72,7 @@ function SessionRow({
   const [draftStart, setDraftStart] = useState(s.startTime ?? "09:00");
   const [draftEnd, setDraftEnd] = useState(s.endTime ?? "10:00");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [overlapHit, setOverlapHit] = useState<Session | null>(null);
   const editable = s.id != null;
   const timeLabel = s.startTime && s.endTime ? `${s.startTime}~${s.endTime}` : "";
   const catParts = [s.cat3, s.cat2, s.cat1].filter(Boolean);
@@ -141,7 +160,10 @@ function SessionRow({
           <input
             type="time"
             value={draftStart}
-            onChange={(e) => setDraftStart(e.target.value)}
+            onChange={(e) => {
+              setDraftStart(e.target.value);
+              setOverlapHit(null);
+            }}
             style={{
               background: "#15151B",
               border: `1px solid ${TH.border}`,
@@ -156,7 +178,10 @@ function SessionRow({
           <input
             type="time"
             value={draftEnd}
-            onChange={(e) => setDraftEnd(e.target.value)}
+            onChange={(e) => {
+              setDraftEnd(e.target.value);
+              setOverlapHit(null);
+            }}
             style={{
               background: "#15151B",
               border: `1px solid ${TH.border}`,
@@ -174,7 +199,14 @@ function SessionRow({
               const st = Number(draftStart.split(":")[0]) * 60 + Number(draftStart.split(":")[1]);
               const en = Number(draftEnd.split(":")[0]) * 60 + Number(draftEnd.split(":")[1]);
               if (en <= st) return;
+              const target = sessionToSpan({ date: s.date, startTime: draftStart, endTime: draftEnd });
+              const hit = target ? firstOverlapSession(target, peers, s.id as number) : undefined;
+              if (hit) {
+                setOverlapHit(hit);
+                return;
+              }
               onEditTimes(s.id as number, draftStart, draftEnd);
+              setOverlapHit(null);
               setEditing(false);
             }}
             style={{
@@ -189,6 +221,32 @@ function SessionRow({
             }}
           >
             儲存
+          </button>
+        </div>
+      )}
+
+      {editing && editable && overlapHit && (
+        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+          <span style={{ fontSize: 11, color: TH.red, fontWeight: 700 }}>⚠️ {overlapMsg(overlapHit)}</span>
+          <button
+            type="button"
+            onClick={() => {
+              onEditTimes(s.id as number, draftStart, draftEnd);
+              setOverlapHit(null);
+              setEditing(false);
+            }}
+            style={{
+              border: `1px solid ${TH.yellow}66`,
+              borderRadius: 6,
+              padding: "4px 10px",
+              background: TH.yellow + "22",
+              color: TH.yellow,
+              fontSize: 10,
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            仍要儲存
           </button>
         </div>
       )}
@@ -250,7 +308,13 @@ const manualInputStyle = {
   boxSizing: "border-box",
 } as const;
 
-function ManualForm({ onAddManual }: { onAddManual: (input: ManualInput) => void }) {
+function ManualForm({
+  onAddManual,
+  sessions,
+}: {
+  onAddManual: (input: ManualInput) => void;
+  sessions: Session[];
+}) {
   const [open, setOpen] = useState(false);
   const cat1List = CAT.cat1List();
   const courses = useMemo(() => loadScheduleCourses(), []);
@@ -265,6 +329,7 @@ function ManualForm({ onAddManual }: { onAddManual: (input: ManualInput) => void
     rating: "",
   });
   const [error, setError] = useState("");
+  const [overlapHit, setOverlapHit] = useState<Session | null>(null);
   const nowLocal = (() => {
     const d = new Date();
     const p = (n: number) => String(n).padStart(2, "0");
@@ -282,9 +347,10 @@ function ManualForm({ onAddManual }: { onAddManual: (input: ManualInput) => void
       rating: "",
     });
     setError("");
+    setOverlapHit(null);
   };
 
-  const submit = () => {
+  const submit = (force = false) => {
     if (!draft.startAt || !draft.endAt) {
       setError("請填開始與結束");
       return;
@@ -296,6 +362,14 @@ function ManualForm({ onAddManual }: { onAddManual: (input: ManualInput) => void
     if (new Date(draft.endAt).getTime() > Date.now()) {
       setError("不能補未來的番茄（手動補登是記錄已完成的事）");
       return;
+    }
+    if (!force) {
+      const hit = firstOverlapSession({ start: draft.startAt, end: draft.endAt }, sessions);
+      if (hit) {
+        setOverlapHit(hit);
+        setError(overlapMsg(hit));
+        return;
+      }
     }
     onAddManual({ ...draft, name: draft.name.trim() });
     reset();
@@ -403,7 +477,10 @@ function ManualForm({ onAddManual }: { onAddManual: (input: ManualInput) => void
                 type="datetime-local"
                 value={draft.startAt}
                 max={nowLocal}
-                onChange={(e) => setDraft((v) => ({ ...v, startAt: e.target.value }))}
+                onChange={(e) => {
+                  setDraft((v) => ({ ...v, startAt: e.target.value }));
+                  setOverlapHit(null);
+                }}
                 style={manualInputStyle}
               />
             </div>
@@ -414,7 +491,10 @@ function ManualForm({ onAddManual }: { onAddManual: (input: ManualInput) => void
                 value={draft.endAt}
                 min={draft.startAt}
                 max={nowLocal}
-                onChange={(e) => setDraft((v) => ({ ...v, endAt: e.target.value }))}
+                onChange={(e) => {
+                  setDraft((v) => ({ ...v, endAt: e.target.value }));
+                  setOverlapHit(null);
+                }}
                 style={manualInputStyle}
               />
             </div>
@@ -460,7 +540,7 @@ function ManualForm({ onAddManual }: { onAddManual: (input: ManualInput) => void
           <div style={{ display: "flex", gap: 8 }}>
             <button
               type="button"
-              onClick={submit}
+              onClick={() => submit(false)}
               style={{
                 flex: 1,
                 padding: "9px",
@@ -475,6 +555,25 @@ function ManualForm({ onAddManual }: { onAddManual: (input: ManualInput) => void
             >
               新增番茄
             </button>
+            {overlapHit && (
+              <button
+                type="button"
+                onClick={() => submit(true)}
+                style={{
+                  flex: 1,
+                  padding: "9px",
+                  borderRadius: 10,
+                  border: `1px solid ${TH.yellow}66`,
+                  background: TH.yellow + "22",
+                  color: TH.yellow,
+                  fontSize: 12,
+                  fontWeight: 900,
+                  cursor: "pointer",
+                }}
+              >
+                仍要新增
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {
@@ -543,7 +642,7 @@ export function SessionHistoryPage({
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <BackBtn onBack={onBack} label="番茄鐘歷史" />
 
-      <ManualForm onAddManual={onAddManual} />
+      <ManualForm onAddManual={onAddManual} sessions={sessions} />
 
       <div
         style={{
@@ -780,6 +879,7 @@ export function SessionHistoryPage({
                       <SessionRow
                         key={s.id ?? `${date}-${i}`}
                         s={s}
+                        peers={grouped[date]}
                         onEditTimes={onEditTimes}
                         onDelete={onDelete}
                       />

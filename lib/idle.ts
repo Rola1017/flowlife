@@ -42,6 +42,19 @@ export function availableSegments(
   return subtract(winStart, winEnd, blockedRanges(date, dayPlans));
 }
 
+/** 當下分鐘是否落在可用時段（半開 [a,b)）。預設視窗整天；App 傳 DS/DE。 */
+export function inAvailableWindow(
+  dateStr: string,
+  nowMins: number,
+  dayPlans?: Record<string, DayPlan>,
+  winStart = 0,
+  winEnd = 1440,
+): boolean {
+  return availableSegments(dateStr, winStart, winEnd, dayPlans).some(
+    ([a, b]) => nowMins >= a && nowMins < b,
+  );
+}
+
 /**
  * 可注入版：視窗內扣 blockedRangesWith（作息∪班別∪課程）。
  * 不扣番茄紀錄。重用 subtract，不另寫一份。

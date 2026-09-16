@@ -722,28 +722,49 @@ export function SchedulePage({
           height: ROW_H,
           background: col ? col + "33" : "#1C1C24",
           borderRadius: 5,
-          padding: "3px 4px",
+          padding: "2px 4px",
           border: sel ? `2px solid ${TH.accent}` : `1px solid ${col ? col + "44" : TH.border}`,
           boxShadow: sel ? `0 0 0 2px ${TH.accent}55` : "none",
           cursor: "pointer",
           overflow: "hidden",
           boxSizing: "border-box",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          minHeight: 0,
         }}
       >
         {cell && (
-          <div
-            style={{
-              fontSize: 8,
-              fontWeight: 700,
-              color: col ? labelOnDark(col) : undefined,
-              whiteSpace: "nowrap",
-              textOverflow: "ellipsis",
-              overflow: "hidden",
-              lineHeight: 1.2,
-            }}
-          >
-            {cell.n || cell.cat3 || cell.cat2 || cell.cat1}
-          </div>
+          <>
+            <div
+              style={{
+                fontSize: 8,
+                fontWeight: 700,
+                color: col ? labelOnDark(col) : undefined,
+                whiteSpace: "nowrap",
+                textOverflow: "ellipsis",
+                overflow: "hidden",
+                lineHeight: 1.15,
+              }}
+            >
+              {cell.n || cell.cat3 || cell.cat2 || cell.cat1}
+            </div>
+            {(cell.cat2 || cell.cat1) && (
+              <div
+                style={{
+                  fontSize: 7,
+                  fontWeight: 600,
+                  color: TH.muted,
+                  whiteSpace: "nowrap",
+                  textOverflow: "ellipsis",
+                  overflow: "hidden",
+                  lineHeight: 1.1,
+                }}
+              >
+                {cell.cat2 || cell.cat1}
+              </div>
+            )}
+          </>
         )}
       </div>
     );
@@ -1167,7 +1188,7 @@ export function SchedulePage({
                             height: ROW_H,
                             background: conflict ? "#EF444433" : col ? col + "33" : "#1C1C24",
                             borderRadius: 5,
-                            padding: "3px 6px",
+                            padding: "2px 6px",
                             paddingRight: c && editable ? 22 : 6,
                             border: conflict
                               ? `1.5px solid ${TH.red}`
@@ -1176,16 +1197,50 @@ export function SchedulePage({
                                 : `1px solid ${col ? col + "44" : TH.border}`,
                             cursor: editable ? "pointer" : "default",
                             display: "flex",
-                            alignItems: "center",
+                            flexDirection: "column",
+                            justifyContent: "center",
                             fontSize: 9,
                             fontWeight: 700,
                             color: conflict ? TH.red : col ? labelOnDark(col) : TH.muted,
                             overflow: "hidden",
-                            whiteSpace: "nowrap",
                             boxSizing: "border-box",
+                            minHeight: 0,
                           }}
                         >
-                          {c ? courseLabelOf(c) : editable ? "＋" : ""}
+                          {c ? (
+                            <>
+                              <div
+                                style={{
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  lineHeight: 1.15,
+                                  fontSize: 8,
+                                }}
+                              >
+                                {courseLabelOf(c)}
+                              </div>
+                              {(c.cat2 || c.cat1) && (
+                                <div
+                                  style={{
+                                    fontSize: 7,
+                                    fontWeight: 600,
+                                    color: TH.muted,
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    lineHeight: 1.1,
+                                  }}
+                                >
+                                  {c.cat2 || c.cat1}
+                                </div>
+                              )}
+                            </>
+                          ) : editable ? (
+                            "＋"
+                          ) : (
+                            ""
+                          )}
                         </div>
                         {c && editable && (
                           <button

@@ -261,6 +261,9 @@ export function TimelinePage({
             </button>
           ))}
         </div>
+        <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4, textAlign: "right" }}>
+          💡 未完成＝今日還沒做完、且有排定時間的待辦，疊在計畫時段。已完成＝今日已打勾、且有實際結束時間，疊在完成點（不是計畫時間）。眼睛只改時間軸顯示。
+        </div>
         <div style={{ fontSize: 9, color: TH.muted, marginBottom: 4, lineHeight: 1.4 }}>
           💡 點右側「實際」欄空白，可直接補登做過的事（免跑番茄鐘）
           <br />
