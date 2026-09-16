@@ -14,6 +14,8 @@ export const LS_KEYS = {
   dailyOverride: `${STORAGE_PREFIX}daily_override_`,
   routineOverride: `${STORAGE_PREFIX}routine_override_`,
   categories: `${STORAGE_PREFIX}categories`,
+  tagGroups: `${STORAGE_PREFIX}tag_groups`,
+  tags: `${STORAGE_PREFIX}tags`,
   weekSchedule: `${STORAGE_PREFIX}week_schedule`,
   colorPalette: `${STORAGE_PREFIX}color_palette`,
   dayPlans: `${STORAGE_PREFIX}day_plans`,

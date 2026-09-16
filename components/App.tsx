@@ -16,6 +16,7 @@ import { TH } from "@/lib/theme";
 import { TABS } from "@/lib/tabs";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 import { migrateCategoryIds, saveCategories, DEFAULT_CATEGORIES } from "@/lib/categories";
+import { ensureTagsMigrated } from "@/lib/tagsMigrate";
 import { clearReviewsCloud } from "@/lib/reviews";
 import type { Session, ActiveEntertainment, ShopItem } from "@/lib/types";
 import { patchReflection, setSessionMins, setSessionTimes, buildManualSession, stampSession, ensureSessionUuid, splitSpanByDay } from "@/lib/sessions";
@@ -149,7 +150,9 @@ function AppContent() {
   const updateSessions = useCallback((updater: SetStateAction<Session[]>) => {
     setSessions((prev) => {
       const raw = typeof updater === "function" ? updater(prev) : updater;
-      const next = raw.some((s) => !s.uuid || (s.cat1 && !s.cat1Id)) ? raw.map(stampSession) : raw;
+      const next = raw.some((s) => !s.uuid || (s.cat1 && !s.cat1Id) || (s.cat1 && !s.tagIds?.length))
+        ? raw.map(stampSession)
+        : raw;
       saveJSON(LS_KEYS.sessions, next);
       void syncSessionDiffToCloud(prev, next);
       return next;
@@ -182,6 +185,7 @@ function AppContent() {
 
   useEffect(() => {
     migrateCategoryIds();
+    ensureTagsMigrated();
     ensureWorkplacesSeeded();
     ensureRoutineSeeded();
     updateSessions(loadJSON<Session[]>(LS_KEYS.sessions, []));
@@ -455,6 +459,7 @@ function AppContent() {
       localStorage.removeItem("flowlife_coin_ledger_migrated");
     }
     saveCategories(DEFAULT_CATEGORIES); // 分類重置為預設並推上雲，蓋掉雲端舊分類
+    ensureTagsMigrated(); // 清掉後重建領域標籤並推雲，避免舊 tags 被拉回
     void clearReviewsCloud(); // 清掉雲端覆盤，避免下次同步被拉回
     resetCoinLog();
     setFocused(DEFAULT_RATINGS.focused);

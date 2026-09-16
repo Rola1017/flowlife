@@ -1,5 +1,7 @@
 import { LS_KEYS, loadJSON, saveJSON, snapshotForS2 } from "@/lib/storage";
 import { APP_STATE_KEYS, pushAppState } from "@/lib/appStateCloud";
+import { TAG_GROUP_IDS, type Tag } from "@/lib/tags";
+import { loadTags, syncDomainTagsFromCategories } from "@/lib/tagsStore";
 
 export type SmallCat = { id: string; name: string };
 export type MidCat = { id: string; name: string; color: string; subs: SmallCat[] };
@@ -239,6 +241,40 @@ export function loadCategories(): CategoryData {
 export function saveCategories(data: CategoryData): void {
   saveJSON(LS_KEYS.categories, data);
   void pushAppState(APP_STATE_KEYS.categories, data);
+  syncDomainTagsFromCategories(data, new Date().toISOString());
+}
+
+function liveDomainTags(): Tag[] {
+  return loadTags().filter((t) => t.groupId === TAG_GROUP_IDS.domain && !t.deletedAt);
+}
+
+function byOrder(a: Tag, b: Tag): number {
+  return a.order - b.order;
+}
+
+/** 遷移後 CAT.* 讀領域標籤樹；尚未遷移則 fallback 舊分類（畫面零變化） */
+function cats(): CategoryData {
+  const tags = liveDomainTags();
+  const roots = tags.filter((t) => !t.parentId).sort(byOrder);
+  if (!roots.length) return loadCategories();
+  return roots.map((big) => ({
+    id: big.id,
+    name: big.name,
+    color: big.color ?? "#6B7280",
+    noCoin: big.noCoin,
+    mids: tags
+      .filter((t) => t.parentId === big.id)
+      .sort(byOrder)
+      .map((mid) => ({
+        id: mid.id,
+        name: mid.name,
+        color: mid.color ?? "#6B7280",
+        subs: tags
+          .filter((t) => t.parentId === mid.id)
+          .sort(byOrder)
+          .map((s) => ({ id: s.id, name: s.name })),
+      })),
+  }));
 }
 
 /** 由名字解析出分類穩定編號（找不到回 undefined） */
@@ -247,7 +283,7 @@ export function resolveCatIds(
   cat2?: string,
   cat3?: string,
 ): { cat1Id?: string; cat2Id?: string; cat3Id?: string } {
-  const data = loadCategories();
+  const data = cats();
   const big = data.find((c) => c.name === cat1);
   const mid = cat2 ? big?.mids.find((m) => m.name === cat2) : undefined;
   const sml = cat3 && mid ? mid.subs.find((s) => s.name === cat3) : undefined;
@@ -313,8 +349,8 @@ export function matchesCatSelection(sel: Set<string>, c1?: string, c2?: string, 
 }
 
 export const CAT = {
-  cat1List: () => loadCategories().map((c) => c.name),
-  cat1Color: (name: string) => loadCategories().find((c) => c.name === name)?.color ?? "#6B7280",
+  cat1List: () => cats().map((c) => c.name),
+  cat1Color: (name: string) => cats().find((c) => c.name === name)?.color ?? "#6B7280",
   /** 大分類顯示用 emoji；名稱字串本身永不含 emoji（比對鍵／雲端資料不變）。查無回 ""。 */
   cat1Emoji: (name: string) => CAT1_EMOJI[name] ?? "",
   /** 顯示層：有 emoji 則「emoji + 空白 + 名稱」，否則原名稱。 */
@@ -322,20 +358,20 @@ export const CAT = {
     const e = CAT1_EMOJI[name] ?? "";
     return e ? `${e} ${name}` : name || "";
   },
-  isNoCoin: (cat1: string) => loadCategories().find((c) => c.name === cat1)?.noCoin === true,
-  cat2List: (cat1: string) => loadCategories().find((c) => c.name === cat1)?.mids.map((m) => m.name) ?? [],
+  isNoCoin: (cat1: string) => cats().find((c) => c.name === cat1)?.noCoin === true,
+  cat2List: (cat1: string) => cats().find((c) => c.name === cat1)?.mids.map((m) => m.name) ?? [],
   cat2Color: (cat1: string, cat2: string) => {
-    const big = loadCategories().find((c) => c.name === cat1);
+    const big = cats().find((c) => c.name === cat1);
     const mid = big?.mids.find((m) => m.name === cat2);
     return mid?.color ?? "#6B7280";
   },
   cat3List: (cat1: string, cat2: string) =>
-    loadCategories()
+    cats()
       .find((c) => c.name === cat1)
       ?.mids.find((m) => m.name === cat2)
       ?.subs.map((s) => s.name) ?? [],
   cat3Color: (cat1: string, cat2: string, cat3: string) => {
-    const big = loadCategories().find((c) => c.name === cat1);
+    const big = cats().find((c) => c.name === cat1);
     const mid = big?.mids.find((m) => m.name === cat2);
     if (!mid) return "#6B7280";
     const idx = mid.subs.findIndex((s) => s.name === cat3);

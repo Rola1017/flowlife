@@ -16,6 +16,8 @@ export const APP_STATE_KEYS = {
   coins: "coins",
   coinLog: "coin_income_log",
   categories: "categories",
+  tagGroups: "tag_groups",
+  tags: "tags",
   workplaces: "workplaces",
   dayPlans: "day_plans",
   dayOverrides: "day_overrides",
@@ -35,6 +37,8 @@ const LS_FOR_KEY: Record<AppStateKey, string> = {
   [APP_STATE_KEYS.coins]: LS_KEYS.coins,
   [APP_STATE_KEYS.coinLog]: LS_KEYS.coinIncomeLog,
   [APP_STATE_KEYS.categories]: LS_KEYS.categories,
+  [APP_STATE_KEYS.tagGroups]: LS_KEYS.tagGroups,
+  [APP_STATE_KEYS.tags]: LS_KEYS.tags,
   [APP_STATE_KEYS.workplaces]: LS_KEYS.workplaces,
   [APP_STATE_KEYS.dayPlans]: LS_KEYS.dayPlans,
   [APP_STATE_KEYS.dayOverrides]: LS_KEYS.dayOverrides,
@@ -52,6 +56,8 @@ const DEFAULT_FOR_KEY: Record<AppStateKey, unknown> = {
   [APP_STATE_KEYS.coins]: 0,
   [APP_STATE_KEYS.coinLog]: [],
   [APP_STATE_KEYS.categories]: [],
+  [APP_STATE_KEYS.tagGroups]: [],
+  [APP_STATE_KEYS.tags]: [],
   [APP_STATE_KEYS.workplaces]: [], // 不 import DEFAULT_WORKPLACES 避循環；loadWorkplaces 已有 fail-safe 回退
   [APP_STATE_KEYS.dayPlans]: {}, // 空物件；loadDayPlans 讀取時會正規化/補預設
   [APP_STATE_KEYS.dayOverrides]: {}, // 空物件；loadDayOverrides 讀取時正規化

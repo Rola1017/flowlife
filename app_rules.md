@@ -537,6 +537,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **新增唯讀 /api/todos（Vercel, runtime=nodejs, force-dynamic）**：`x-roro-key` 認證＋service-role 只讀 `RORO_USER_ID` 的 app_state todos（含墓碑過濾）；參數 days(預設30)/from/to/includeDone；每筆附 scheduleType(scheduled|range)、catEmoji、daysUntilDeadline、hoursUntilDeadline、shouldAlert（門檻 max(24, estimateHours*1.5) 小時）；共用函式抽至 `lib/apiShared.ts` 供 `/api/today` 與 `/api/todos` 共用。
 - **新增唯讀 /api/free-slots**：參數 date/minMinutes/from/to，回傳空閒時段與 summary；重用 idle.ts 空檔演算法，新增可注入版本 blockedRangesWith / availableSegmentsWith（既有函式行為不變）；語意為『未被作息/班別/課程佔用的時段』，不扣番茄紀錄。
 - **CategoryManager 三層分類改用共用 SortableList 拖曳排序（穩定 id 為 key），移除 ⬆︎⬇︎。**
+- **Z1 標籤資料層**：tagGroups/tags 存 app_state（key: `tag_groups` / `tags`），分類樹遷移為「領域」群組三層標籤（id 沿用既有分類 id，冪等），新增難易度/重要性/精力需求三個群組；sessions 加 `tag_ids` 欄位與同步映射；相容層 `lib/tagsCompat.ts` 讓 CAT.* 對外簽名不變；時數分攤純函式 `lib/tagStats.ts`（同群組內平均、餘數依序補、總和恆等於總時數）。畫面零變化。
 - **app_state 加 service_role 唯讀 RLS policy**（`FOR SELECT TO service_role`，見 `supabase/rls_app_state_service_role_select.sql`），使 `/api/today` 的新版 `sb_secret_` key 能讀行程；僅唯讀、僅此表、僅 service_role，不影響前端 user-based 安全基線。第二階段寫入時另加精細化可寫 policy。
 - **app/layout.tsx 補 viewport**（`width=device-width, initialScale=1, maximumScale=1, userScalable=false`）修手機自動放大；metadata title→FlowLife、lang→zh-Hant；`fmtIdleHM` 顯示改精簡「N時M分／M分」（番茄鐘卡＋行事曆未利用統計；`fmtIdleTime` 不動）。
 - **待辦完成日記錄 doneDate（跨日待辦區分『當天完成』與『已於某日完成』，TodoCard 新增 viewDate prop）；某日詳情頁加左右箭頭連續切換日期；開放過去日期新增待辦（與 Agent 寫入能力一致），過去日期顯示提示。doneDate 補齊所有完成路徑、取消完成時清空、歷史資料無 doneDate 顯示『已完成』；DayViewPage 支援 Pointer Events 左右滑動切換日期（含垂直優先判定與橫捲區排除）；箭頭視覺強化＋滑動提示。完成日期改由檢視日決定（onEnd 帶 doneDateHint，預設 viewDate）＋ 新增 doneTime；doneTime 僅在 doneDate 等於今天時自動填入；補記過去/未來日期時時間留空，可於編輯面板手動補；完成資訊可點擊進編輯面板修改『✅ 完成於』日期與時間；大分類新增顯示層 emoji（CAT.cat1Emoji，學習✍️／事業💼／閱讀📖／健康🌱／娛樂🎀／未分類🌑），儲存值與比對鍵不變。**
@@ -627,6 +628,7 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ## 十一、待完成事項 ⬜
 
+- ⬜ **Z2～Z8 分類標籤化尚未執行**，見 FlowLife_分類標籤化設計.md §4。
 - ⬜ 待辦提醒：依 `reminder` 觸發推播／系統通知（目前僅儲存設定）
 - ⬜ 健康模組
 - ⬜ 閱讀模組
@@ -682,6 +684,8 @@ TH.gold    = "#FBBF24"   // 金幣
   - `todos.test.ts` — 待辦墓碑防復活、同名不同 id、normalize deadline／endDate／estimateHours／doneDate／doneTime、updatedAt LWW、todoShowsOn 跨日含首尾（不受 doneDate 影響）、挪 date 不改 deadline、applyTodoComplete／Uncomplete 完成日語意、resolveDoneDate（hint vs 今天）、resolveDoneTime（僅今天自動填）、doneLabel 三態＋時間（日期字串鎖死、不用 Date.now()）
   - `todosApi.test.ts` — `computeAlert` 門檻／過期／無期限、`todoInWindow` 跨日交集與僅 deadline 命中（nowIso 字串鎖死）
   - `freeSlots.test.ts` — `availableSegmentsWith`／`toFreeSlots`：全空整天、作息切段邊界、班別∪作息聯集、minMinutes 濾碎片、`"24:00"`=1440、空檔＋佔用＝視窗長不變式（日期字串鎖死、不用 Date.now()）
+  - `tags.test.ts` — 分類→標籤遷移（id 沿用／parentId／總數相等／冪等）、matchesTagSelection 祖先鏈、legacyPath 三層名稱、session tagIds↔tag_ids、todo 由 cat 推導 tagIds
+  - `tagStats.test.ts` — splitMinutesByGroup 50→[17,17,16]、40→[14,13,13]、總和恆等不變式、只分攤指定群組（含「難」不參與領域）、日期字串鎖死不用 new Date()
   - `utils.test.ts` — `fmtIdleHM` 精簡時分；`moveItem` from→to（含 from===to、頭尾互換、不改 id）
 - CI：`.github/workflows/ci.yml`（push／PR → main；`npm ci` → `tsc` → `npm test`）
 
@@ -694,5 +698,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/09/15（CategoryManager 三層 SortableList 拖曳排序）*
+*最後更新：2026/09/16（Z1 標籤資料層＋分類樹遷移＋相容層，畫面零變化）*
 *維護原則：每次完成重要功能，同步更新第十、十一、十二節*

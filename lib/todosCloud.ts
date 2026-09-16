@@ -1,5 +1,6 @@
 import type { Todo, TodoPhase, TodoTombstone } from "@/lib/types";
 import { formatMd } from "@/lib/dateStr";
+import { LS_KEYS, loadJSON } from "@/lib/storage";
 
 const PHASES: TodoPhase[] = ["pending", "started", "ending", "done"];
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -120,10 +121,18 @@ export function normalizeTodo(raw: unknown, today: string): Todo | null {
   const endTime = typeof r.endTime === "string" && r.endTime.trim() ? r.endTime : undefined;
   const updatedAt = typeof r.updatedAt === "string" && r.updatedAt ? r.updatedAt : undefined;
   const date = isDate(r.date) ? r.date : today;
+  const cat = typeof r.cat === "string" && r.cat ? r.cat : "未分類";
+  const rawTagIds = Array.isArray(r.tagIds)
+    ? r.tagIds.filter((x): x is string => typeof x === "string" && x.trim().length > 0)
+    : undefined;
+  const derivedCat1Id = loadJSON<{ id?: string; name: string }[]>(LS_KEYS.categories, []).find(
+    (c) => c.name === cat,
+  )?.id;
+  const tagIds = rawTagIds?.length ? rawTagIds : derivedCat1Id ? [derivedCat1Id] : undefined;
   return {
     id,
     text: typeof r.text === "string" ? r.text : "",
-    cat: typeof r.cat === "string" && r.cat ? r.cat : "未分類",
+    cat,
     date,
     startTime,
     endTime,
@@ -140,6 +149,7 @@ export function normalizeTodo(raw: unknown, today: string): Todo | null {
     startTs: typeof r.startTs === "number" ? r.startTs : null,
     elapsed: typeof r.elapsed === "number" ? r.elapsed : null,
     updatedAt,
+    tagIds,
   };
 }
 

@@ -1,0 +1,117 @@
+export type TagGroup = {
+  id: string;
+  name: string;
+  selectMode: "single" | "multi";
+  required: boolean;
+  order: number;
+  deletedAt?: string;
+};
+
+export type Tag = {
+  id: string;
+  groupId: string;
+  parentId?: string;
+  name: string;
+  color?: string;
+  emoji?: string;
+  noCoin?: boolean;
+  order: number;
+  deletedAt?: string;
+};
+
+export const TAG_GROUP_IDS = {
+  domain: "tg_domain",
+  difficulty: "tg_difficulty",
+  importance: "tg_importance",
+  energy: "tg_energy",
+} as const;
+
+export const DEFAULT_TAG_GROUPS: TagGroup[] = [
+  { id: TAG_GROUP_IDS.domain, name: "領域", selectMode: "multi", required: true, order: 0 },
+  { id: TAG_GROUP_IDS.difficulty, name: "難易度", selectMode: "single", required: false, order: 1 },
+  { id: TAG_GROUP_IDS.importance, name: "重要性", selectMode: "single", required: false, order: 2 },
+  { id: TAG_GROUP_IDS.energy, name: "精力需求", selectMode: "single", required: false, order: 3 },
+];
+
+export const DEFAULT_ATTR_TAGS: Tag[] = [
+  { id: "tg_diff_hard", groupId: TAG_GROUP_IDS.difficulty, name: "難", order: 0 },
+  { id: "tg_diff_normal", groupId: TAG_GROUP_IDS.difficulty, name: "普通", order: 1 },
+  { id: "tg_diff_easy", groupId: TAG_GROUP_IDS.difficulty, name: "易", order: 2 },
+  { id: "tg_imp_high", groupId: TAG_GROUP_IDS.importance, name: "重要", order: 0 },
+  { id: "tg_imp_low", groupId: TAG_GROUP_IDS.importance, name: "不重要", order: 1 },
+  { id: "tg_nrg_high", groupId: TAG_GROUP_IDS.energy, name: "高專注", order: 0 },
+  { id: "tg_nrg_normal", groupId: TAG_GROUP_IDS.energy, name: "普通", order: 1 },
+  { id: "tg_nrg_bits", groupId: TAG_GROUP_IDS.energy, name: "零碎時間可做", order: 2 },
+];
+
+/** 分類樹節點（與 CategoryData 結構對齊，避免 tags.ts 反向依賴 categories） */
+export type CategoryTreeNode = {
+  id: string;
+  name: string;
+  color?: string;
+  noCoin?: boolean;
+  mids: { id: string; name: string; color?: string; subs: { id: string; name: string }[] }[];
+};
+
+export function countCategoryNodes(data: CategoryTreeNode[]): number {
+  let n = 0;
+  for (const big of data) {
+    n += 1;
+    for (const mid of big.mids) {
+      n += 1;
+      n += mid.subs.length;
+    }
+  }
+  return n;
+}
+
+/** 三層分類樹 → 領域群組標籤（id 沿用、parentId 依層級） */
+export function buildDomainTagsFromCategories(data: CategoryTreeNode[], groupId: string): Tag[] {
+  const tags: Tag[] = [];
+  data.forEach((big, bi) => {
+    tags.push({
+      id: big.id,
+      groupId,
+      name: big.name,
+      color: big.color,
+      noCoin: big.noCoin,
+      order: bi,
+    });
+    big.mids.forEach((mid, mi) => {
+      tags.push({
+        id: mid.id,
+        groupId,
+        parentId: big.id,
+        name: mid.name,
+        color: mid.color,
+        order: mi,
+      });
+      mid.subs.forEach((sub, si) => {
+        tags.push({
+          id: sub.id,
+          groupId,
+          parentId: mid.id,
+          name: sub.name,
+          order: si,
+        });
+      });
+    });
+  });
+  return tags;
+}
+
+export type MigrateMapping = { path: string; oldId: string; newId: string };
+
+export function domainMigrateMappings(data: CategoryTreeNode[]): MigrateMapping[] {
+  const rows: MigrateMapping[] = [];
+  for (const big of data) {
+    rows.push({ path: big.name, oldId: big.id, newId: big.id });
+    for (const mid of big.mids) {
+      rows.push({ path: `${big.name} › ${mid.name}`, oldId: mid.id, newId: mid.id });
+      for (const sub of mid.subs) {
+        rows.push({ path: `${big.name} › ${mid.name} › ${sub.name}`, oldId: sub.id, newId: sub.id });
+      }
+    }
+  }
+  return rows;
+}

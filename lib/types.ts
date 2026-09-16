@@ -49,6 +49,8 @@ export type Session = {
   cat1Id?: string;
   cat2Id?: string;
   cat3Id?: string;
+  /** Z1 標籤 id 陣列（由最深 catNId 推導；與三層欄位並存） */
+  tagIds?: string[];
   /** 跨裝置唯一主鍵（上雲用；number id 仍保留給本地相容） */
   uuid?: string;
   /** 最後修改時間（ISO；雲端同步 last-write-wins 用） */
@@ -65,6 +67,8 @@ export type Todo = {
   id: number;
   text: string;
   cat: string;
+  /** Z1 標籤 id 陣列（待辦由單層 cat 推導對應大分類標籤 id） */
+  tagIds?: string[];
   /** 已排定執行日（打算哪天做；可改、可挪） */
   date: string; // YYYY-MM-DD
   startTime?: string; // HH:mm

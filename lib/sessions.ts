@@ -2,15 +2,21 @@ import type { Session } from "@/lib/types";
 import { coinsForSecs, toLocalDateStr, toM } from "@/lib/utils";
 import { resolveCatIds, CAT } from "@/lib/categories";
 
-/** 依名字補上分類穩定編號（只補不覆蓋；找不到名字絕不清掉舊編號） */
+/** 依名字補上分類穩定編號（只補不覆蓋；找不到名字絕不清掉舊編號）＋一併寫入 tagIds */
 export function stampSessionCatIds(s: Session): Session {
   if (!s.cat1) return s;
   const ids = resolveCatIds(s.cat1, s.cat2, s.cat3);
+  const cat1Id = ids.cat1Id ?? s.cat1Id;
+  const cat2Id = ids.cat2Id ?? s.cat2Id;
+  const cat3Id = ids.cat3Id ?? s.cat3Id;
+  const deepest = cat3Id || cat2Id || cat1Id;
+  const tagIds = s.tagIds?.length ? s.tagIds : deepest ? [deepest] : s.tagIds;
   return {
     ...s,
-    cat1Id: ids.cat1Id ?? s.cat1Id,
-    cat2Id: ids.cat2Id ?? s.cat2Id,
-    cat3Id: ids.cat3Id ?? s.cat3Id,
+    cat1Id,
+    cat2Id,
+    cat3Id,
+    tagIds,
   };
 }
 
@@ -149,22 +155,24 @@ export function buildManualSession(input: {
     cur.setTime(dayEnd.getTime());
   }
 
-  const sessions: Session[] = segs.map((seg, i) => ({
-    id: baseId + i,
-    uuid: crypto.randomUUID(),
-    date: seg.date,
-    name,
-    cat1: input.cat1,
-    cat2: input.cat2 ?? "",
-    cat3: input.cat3 ?? "",
-    mins: seg.mins,
-    rating: input.rating || "",
-    earnedCoins: isNoCoin ? 0 : coinsForSecs(seg.mins * 60),
-    counted: seg.mins > 1,
-    startTime: seg.startTime,
-    endTime: seg.endTime,
-    manual: true,
-    updatedAt: new Date().toISOString(),
-  }));
+  const sessions: Session[] = segs.map((seg, i) =>
+    stampSessionCatIds({
+      id: baseId + i,
+      uuid: crypto.randomUUID(),
+      date: seg.date,
+      name,
+      cat1: input.cat1,
+      cat2: input.cat2 ?? "",
+      cat3: input.cat3 ?? "",
+      mins: seg.mins,
+      rating: input.rating || "",
+      earnedCoins: isNoCoin ? 0 : coinsForSecs(seg.mins * 60),
+      counted: seg.mins > 1,
+      startTime: seg.startTime,
+      endTime: seg.endTime,
+      manual: true,
+      updatedAt: new Date().toISOString(),
+    }),
+  );
   return { sessions, coinGain: sessions.reduce((s, x) => s + (x.earnedCoins ?? 0), 0) };
 }

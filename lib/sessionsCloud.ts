@@ -38,6 +38,7 @@ type SessionRow = {
   cat1_id: string | null;
   cat2_id: string | null;
   cat3_id: string | null;
+  tag_ids?: string[] | null;
   mins: number;
   rating: string;
   earned_coins: number;
@@ -50,7 +51,7 @@ type SessionRow = {
   updated_at: string;
 };
 
-function toRow(uid: string, s: Session): SessionRow {
+export function sessionToRow(uid: string, s: Session): SessionRow {
   return {
     uuid: s.uuid as string,
     user_id: uid,
@@ -62,6 +63,7 @@ function toRow(uid: string, s: Session): SessionRow {
     cat1_id: s.cat1Id ?? null,
     cat2_id: s.cat2Id ?? null,
     cat3_id: s.cat3Id ?? null,
+    tag_ids: s.tagIds && s.tagIds.length ? [...s.tagIds] : null,
     mins: s.mins,
     rating: s.rating,
     earned_coins: s.earnedCoins,
@@ -75,7 +77,7 @@ function toRow(uid: string, s: Session): SessionRow {
   };
 }
 
-function fromRow(r: SessionRow, localId?: number): Session {
+export function sessionFromRow(r: SessionRow, localId?: number): Session {
   return {
     id: localId ?? Date.now() + Math.floor(Math.random() * 1000),
     uuid: r.uuid,
@@ -87,6 +89,7 @@ function fromRow(r: SessionRow, localId?: number): Session {
     cat1Id: r.cat1_id ?? undefined,
     cat2Id: r.cat2_id ?? undefined,
     cat3Id: r.cat3_id ?? undefined,
+    tagIds: Array.isArray(r.tag_ids) && r.tag_ids.length ? r.tag_ids : undefined,
     mins: r.mins,
     rating: r.rating,
     earnedCoins: r.earned_coins ?? 0,
@@ -98,6 +101,14 @@ function fromRow(r: SessionRow, localId?: number): Session {
     manual: r.manual ?? undefined,
     updatedAt: r.updated_at ?? undefined,
   };
+}
+
+function toRow(uid: string, s: Session): SessionRow {
+  return sessionToRow(uid, s);
+}
+
+function fromRow(r: SessionRow, localId?: number): Session {
+  return sessionFromRow(r, localId);
 }
 
 /** 推單顆番茄到雲端（uuid 為主鍵 upsert） */
