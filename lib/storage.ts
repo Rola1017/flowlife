@@ -32,7 +32,49 @@ export const LS_KEYS = {
   activeEnt: `${STORAGE_PREFIX}active_entertainment`,
   routine: `${STORAGE_PREFIX}routine`,
   scheduleNote: `${STORAGE_PREFIX}schedule_note`,
+  /** 本機資料歸屬帳號（不走 v1 前綴／assertVersionedKey，避免與應用資料鍵混用） */
+  ownerUserId: "flowlife_owner_user_id",
 } as const;
+
+/** 金幣帳本一次性遷移旗標（不在 LS_KEYS 內，清除時仍要刪） */
+export const COIN_LEDGER_MIGRATED_KEY = "flowlife_coin_ledger_migrated";
+
+/**
+ * 應用資料精確鍵（不含 ownerUserId、不含日期後綴前綴）。
+ * sessions 與 pomodoroSessions 同鍵，只列一次。
+ */
+export const APP_DATA_EXACT_KEYS: readonly string[] = [
+  LS_KEYS.todos,
+  LS_KEYS.deletedTodoIds,
+  LS_KEYS.coins,
+  LS_KEYS.pomodoroSessions,
+  LS_KEYS.ratingCounts,
+  LS_KEYS.coinIncomeLog,
+  LS_KEYS.categories,
+  LS_KEYS.tagGroups,
+  LS_KEYS.tags,
+  LS_KEYS.weekSchedule,
+  LS_KEYS.colorPalette,
+  LS_KEYS.dayPlans,
+  LS_KEYS.dayOverrides,
+  LS_KEYS.scheduleHistory,
+  LS_KEYS.timelineTodoView,
+  LS_KEYS.reviews,
+  LS_KEYS.s2Backup,
+  LS_KEYS.appStateMeta,
+  LS_KEYS.workplaces,
+  LS_KEYS.trashedSessions,
+  LS_KEYS.deletedSessionUuids,
+  LS_KEYS.shopItems,
+  LS_KEYS.activeEnt,
+  LS_KEYS.routine,
+  LS_KEYS.scheduleNote,
+];
+
+/** 帶日期後綴的鍵前綴：只掃這兩條，禁止泛用 flowlife_ 迴圈 */
+export const APP_DATA_PREFIXES: readonly string[] = [LS_KEYS.dailyOverride, LS_KEYS.routineOverride];
+
+export const EXTRA_APP_KEYS: readonly string[] = [COIN_LEDGER_MIGRATED_KEY];
 
 function assertVersionedKey(key: string): void {
   if (!key.startsWith(STORAGE_PREFIX)) {
@@ -168,4 +210,68 @@ export function restoreFromS2Backup(): boolean {
   } catch {
     return false;
   }
+}
+
+export function loadOwnerUserId(): string | null {
+  if (typeof window === "undefined") return null;
+  const v = localStorage.getItem(LS_KEYS.ownerUserId);
+  return v && v.trim() ? v : null;
+}
+
+export function saveOwnerUserId(uid: string): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(LS_KEYS.ownerUserId, uid);
+}
+
+export function clearOwnerUserId(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(LS_KEYS.ownerUserId);
+}
+
+function collectPrefixKeys(prefixes: readonly string[]): string[] {
+  if (typeof window === "undefined") return [];
+  const out: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && prefixes.some((p) => k.startsWith(p))) out.push(k);
+  }
+  return out;
+}
+
+export function hasLocalAppData(): boolean {
+  if (typeof window === "undefined") return false;
+  for (const key of APP_DATA_EXACT_KEYS) {
+    if (localStorage.getItem(key) != null) return true;
+    if (localStorage.getItem(legacyKeyFor(key)) != null) return true;
+  }
+  for (const key of EXTRA_APP_KEYS) {
+    if (localStorage.getItem(key) != null) return true;
+  }
+  const prefixes = [
+    ...APP_DATA_PREFIXES,
+    ...APP_DATA_PREFIXES.map((p) => p.replace(STORAGE_PREFIX, LEGACY_STORAGE_PREFIX)),
+  ];
+  return collectPrefixKeys(prefixes).length > 0;
+}
+
+/** 清除所有應用資料鍵。不含 ownerUserId。禁止泛用前綴亂刪。 */
+export function clearAllAppData(): void {
+  if (typeof window === "undefined") return;
+  let n = 0;
+  const drop = (key: string) => {
+    if (localStorage.getItem(key) == null) return;
+    localStorage.removeItem(key);
+    n += 1;
+  };
+  for (const key of APP_DATA_EXACT_KEYS) {
+    drop(key);
+    drop(legacyKeyFor(key));
+  }
+  for (const key of EXTRA_APP_KEYS) drop(key);
+  const prefixes = [
+    ...APP_DATA_PREFIXES,
+    ...APP_DATA_PREFIXES.map((p) => p.replace(STORAGE_PREFIX, LEGACY_STORAGE_PREFIX)),
+  ];
+  for (const key of collectPrefixKeys(prefixes)) drop(key);
+  console.info(`[FlowLife] clearAllAppData: 已清除 ${n} 個本機鍵`);
 }

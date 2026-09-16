@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { TH } from "@/lib/theme";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { clearAllAppData, clearOwnerUserId, loadOwnerUserId, saveOwnerUserId } from "@/lib/storage";
 
 const inputStyle = {
   background: "#15151B",
@@ -42,10 +43,18 @@ export function AuthPanel() {
       mode === "signup"
         ? supabase.auth.signUp({ email, password })
         : supabase.auth.signInWithPassword({ email, password });
-    const { error } = await fn;
+    const { data, error } = await fn;
     setLoading(false);
     if (error) {
       setMsg(error.message);
+      return;
+    }
+    const uid = data.user?.id ?? (await supabase.auth.getUser()).data.user?.id ?? null;
+    const stored = loadOwnerUserId();
+    if (uid && stored !== uid) {
+      clearAllAppData();
+      saveOwnerUserId(uid);
+      window.location.reload();
       return;
     }
     setMsg("✅ 已登入");
@@ -53,9 +62,11 @@ export function AuthPanel() {
   };
 
   const signOut = async () => {
+    if (!window.confirm("登出會清除這台裝置上的本機資料（雲端資料保留）。確定登出？")) return;
     await supabase.auth.signOut();
-    setUserEmail(null);
-    setMsg("");
+    clearAllAppData();
+    clearOwnerUserId();
+    window.location.reload();
   };
 
   if (userEmail) {

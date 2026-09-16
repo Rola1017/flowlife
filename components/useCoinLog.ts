@@ -2,12 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CFG } from "@/lib/config";
-import { LS_KEYS, loadJSON, loadNumber, saveJSON } from "@/lib/storage";
+import { LS_KEYS, loadJSON, loadNumber, saveJSON, COIN_LEDGER_MIGRATED_KEY } from "@/lib/storage";
 import { APP_STATE_KEYS, pushAppState, subscribeAppState } from "@/lib/appStateCloud";
 import type { CoinIncomeLogRow } from "@/components/pomodoro/usePomodoro";
 import type { Session } from "@/lib/types";
-
-const LEDGER_MIGRATED_KEY = "flowlife_coin_ledger_migrated";
 
 const stripZeroRows = (rows: CoinIncomeLogRow[]) =>
   rows.filter((r) => (r.amount ?? 0) !== 0);
@@ -23,7 +21,7 @@ export function useCoinLog() {
     const rows = stripZeroRows(Array.isArray(saved) ? (saved as CoinIncomeLogRow[]) : []);
     lastPushedRef.current = rows;
 
-    const migrated = localStorage.getItem(LEDGER_MIGRATED_KEY) === "1";
+    const migrated = localStorage.getItem(COIN_LEDGER_MIGRATED_KEY) === "1";
     if (!migrated) {
       const stored = loadNumber(LS_KEYS.coins, 0);
       const sum = rows.reduce((s, r) => s + (r.amount ?? 0), 0);
@@ -43,7 +41,7 @@ export function useCoinLog() {
               ...rows,
             ]
           : rows;
-      localStorage.setItem(LEDGER_MIGRATED_KEY, "1");
+      localStorage.setItem(COIN_LEDGER_MIGRATED_KEY, "1");
       lastPushedRef.current = next;
       setCoinIncomeLog(next);
     } else {

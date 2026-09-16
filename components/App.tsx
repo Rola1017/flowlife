@@ -43,6 +43,7 @@ import { CoinHistoryPage } from "@/components/pomodoro/CoinHistoryPage";
 import { SessionHistoryPage } from "@/components/pomodoro/SessionHistoryPage";
 import { useCoinLog } from "@/components/useCoinLog";
 import { useTodos } from "@/components/todo/useTodos";
+import { AccountGate } from "@/components/auth/AccountGate";
 import { TodoEditSheet } from "@/components/todo/TodoEditSheet";
 
 const DEFAULT_RATINGS = { focused: 0, neutral: 0, distracted: 0 };
@@ -92,7 +93,9 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
 export function App() {
   return (
     <ErrorBoundary>
-      <AppContent />
+      <AccountGate>
+        <AppContent />
+      </AccountGate>
     </ErrorBoundary>
   );
 }
