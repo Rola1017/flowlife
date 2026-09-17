@@ -522,7 +522,7 @@ function AppContent() {
     if (updated) upsertCoinRowForSession(updated, updated.earnedCoins ?? 0);
   };
   const handleReconcileCoins = () => {
-    const orphans = findOrphanCoinRows(sessions);
+    const orphans = findOrphanCoinRows(sessions, trashedSessions);
     if (orphans.length === 0) {
       setCoinToast("金幣紀錄與番茄一致，沒有需要清理的");
       return;

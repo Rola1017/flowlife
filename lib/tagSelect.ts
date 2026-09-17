@@ -1,5 +1,5 @@
 import type { Tag, TagGroup } from "@/lib/tags";
-import { DELETED_TAG_LABEL } from "@/lib/tags";
+import { DELETED_TAG_LABEL, TAG_GROUP_IDS } from "@/lib/tags";
 import { CAT } from "@/lib/categories";
 import { liveGroups } from "@/lib/tagTree";
 import { legacyPath, primaryTagId, tagChain } from "@/lib/tagsCompat";
@@ -125,9 +125,19 @@ export function removeTagFromSelection(tagIds: string[], id: string): string[] {
   return tagIds.filter((x) => x !== id);
 }
 
-export function toggleSingleTag(tagIds: string[], id: string, tags: Tag[], groups: TagGroup[]): string[] {
+/** 多選／單選共用：已選再點＝取消 */
+export function toggleTagInSelection(
+  tagIds: string[],
+  id: string,
+  tags: Tag[],
+  groups: TagGroup[],
+): string[] {
   if (tagIds.includes(id)) return removeTagFromSelection(tagIds, id);
   return addTagToSelection(tagIds, id, tags, groups);
+}
+
+export function toggleSingleTag(tagIds: string[], id: string, tags: Tag[], groups: TagGroup[]): string[] {
+  return toggleTagInSelection(tagIds, id, tags, groups);
 }
 
 export function promoteTagInSelection(tagIds: string[], id: string): string[] {
@@ -137,4 +147,23 @@ export function promoteTagInSelection(tagIds: string[], id: string): string[] {
 
 export function tagsOfGroup(tagIds: string[], groupId: string, tags: Tag[]): string[] {
   return tagIds.filter((id) => tags.find((t) => t.id === id)?.groupId === groupId);
+}
+
+/** 最近組合分層：領域（或 isTimeDestination） vs 其他維度 */
+export function splitComboLayers(
+  tagIds: string[],
+  tags: Tag[],
+  groups: TagGroup[],
+): { domain: string[]; rest: string[] } {
+  const domain: string[] = [];
+  const rest: string[] = [];
+  const gById = new Map(groups.map((g) => [g.id, g]));
+  for (const id of tagIds) {
+    const tag = tags.find((t) => t.id === id);
+    const g = tag ? gById.get(tag.groupId) : undefined;
+    const isDomain = g?.id === TAG_GROUP_IDS.domain || g?.isTimeDestination === true;
+    if (isDomain) domain.push(id);
+    else rest.push(id);
+  }
+  return { domain, rest };
 }

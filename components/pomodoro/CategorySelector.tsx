@@ -8,15 +8,14 @@ import { useTagsSnapshot } from "@/components/hooks/useTagsSnapshot";
 import type { Tag, TagGroup } from "@/lib/tags";
 import { childrenOf, liveGroups, liveTags } from "@/lib/tagTree";
 import {
-  addTagToSelection,
   loadTagCombos,
   primaryTagColor,
-  promoteTagInSelection,
   removeTagFromSelection,
   selFromTagIds,
+  splitComboLayers,
   tagPathLabel,
   tagsOfGroup,
-  toggleSingleTag,
+  toggleTagInSelection,
   type TagSel,
 } from "@/lib/tagSelect";
 
@@ -64,7 +63,6 @@ export function CategorySelector({
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
 
   const liveG = useMemo(() => liveGroups(groups), [groups]);
-  const byId = useMemo(() => new Map(tags.map((t) => [t.id, t])), [tags]);
 
   const selected = useMemo(() => {
     if (tagIds?.length) return tagIds;
@@ -126,21 +124,16 @@ export function CategorySelector({
             <div style={{ fontSize: 9, color: TH.muted }}>💡 開過番茄後，這裡會出現最近 5 組，一鍵套用</div>
           ) : (
             <div style={H_SCROLL}>
-              {combos.map((c) => {
-                const key = c.join("|");
-                const label = c.map((id) => byId.get(id)?.name || tagPathLabel(id, tags).split(" › ").pop()).join(" · ");
-                const active = selected.length === c.length && selected.every((id, i) => id === c[i]);
-                return (
-                  <Chip
-                    key={key}
-                    label={label || "（空）"}
-                    active={active}
-                    color={primaryTagColor(c, tags)}
-                    onClick={() => applyCombo(c)}
-                    style={{ fontSize: 10, maxWidth: "100%", ...TOUCH }}
-                  />
-                );
-              })}
+              {combos.map((c) => (
+                <ComboCard
+                  key={c.join("|")}
+                  tagIds={c}
+                  tags={tags}
+                  groups={groups}
+                  active={selected.length === c.length && selected.every((id, i) => id === c[i])}
+                  onApply={() => applyCombo(c)}
+                />
+              ))}
             </div>
           )}
         </div>
@@ -155,7 +148,6 @@ export function CategorySelector({
             selected={tagsOfGroup(selected, g.id, tags)}
             allSelected={selected}
             onRemove={(id) => emit(removeTagFromSelection(selected, id))}
-            onPromote={(id) => emit(promoteTagInSelection(selected, id))}
             onOpenPicker={() => {
               setSearch("");
               setPickerGroup(g.id);
@@ -169,7 +161,7 @@ export function CategorySelector({
             group={g}
             tags={tags}
             selectedId={tagsOfGroup(selected, g.id, tags)[0]}
-            onToggle={(id) => emit(toggleSingleTag(selected, id, tags, groups))}
+            onToggle={(id) => emit(toggleTagInSelection(selected, id, tags, groups))}
           />
         ),
       )}
@@ -190,11 +182,87 @@ export function CategorySelector({
               return next;
             })
           }
-          onPick={(id) => emit(addTagToSelection(selected, id, tags, groups))}
+          onPick={(id) => emit(toggleTagInSelection(selected, id, tags, groups))}
           onClose={() => setPickerGroup(null)}
         />
       )}
     </div>
+  );
+}
+
+function ComboCard({
+  tagIds,
+  tags,
+  groups,
+  active,
+  onApply,
+}: {
+  tagIds: string[];
+  tags: Tag[];
+  groups: TagGroup[];
+  active: boolean;
+  onApply: () => void;
+}) {
+  const { domain, rest } = splitComboLayers(tagIds, tags, groups);
+  const nameOf = (id: string) => tags.find((t) => t.id === id)?.name ?? tagPathLabel(id, tags).split(" › ").pop() ?? "";
+  return (
+    <button
+      type="button"
+      onClick={onApply}
+      style={{
+        ...TOUCH,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "flex-start",
+        justifyContent: "center",
+        gap: 2,
+        minHeight: 40,
+        minWidth: 0,
+        maxWidth: "100%",
+        padding: "6px 10px",
+        borderRadius: 12,
+        border: `1px solid ${active ? primaryTagColor(tagIds, tags) : TH.border}`,
+        background: active ? primaryTagColor(tagIds, tags) + "18" : TH.card,
+        cursor: "pointer",
+        boxSizing: "border-box",
+        flexShrink: 0,
+      }}
+    >
+      {domain.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, minWidth: 0, maxWidth: "100%" }}>
+          {domain.map((id) => (
+            <span
+              key={id}
+              style={{
+                fontSize: 12,
+                fontWeight: 800,
+                color: primaryTagColor([id], tags),
+                lineHeight: 1.2,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {nameOf(id)}
+            </span>
+          ))}
+        </div>
+      )}
+      {(domain.length ? rest : tagIds).length > 0 && (
+        <div
+          style={{
+            fontSize: domain.length ? 9 : 12,
+            fontWeight: domain.length ? 600 : 800,
+            color: domain.length ? TH.muted : primaryTagColor(tagIds, tags),
+            lineHeight: 1.3,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            maxWidth: 220,
+          }}
+        >
+          {(domain.length ? rest : tagIds).map(nameOf).join(" · ")}
+        </div>
+      )}
+    </button>
   );
 }
 
@@ -204,7 +272,6 @@ function MultiGroupBlock({
   selected,
   allSelected,
   onRemove,
-  onPromote,
   onOpenPicker,
 }: {
   group: TagGroup;
@@ -212,7 +279,6 @@ function MultiGroupBlock({
   selected: string[];
   allSelected: string[];
   onRemove: (id: string) => void;
-  onPromote: (id: string) => void;
   onOpenPicker: () => void;
 }) {
   return (
@@ -222,8 +288,11 @@ function MultiGroupBlock({
         {group.required && <span style={{ color: TH.red }}> 必填</span>}
         <span style={{ color: TH.muted }}> · 可多選</span>
       </div>
+      {group.required && selected.length === 0 && (
+        <div style={{ fontSize: 9, color: TH.red, marginBottom: 4 }}>{group.name} 為必填</div>
+      )}
       <div style={H_SCROLL}>
-        {selected.map((id, i) => {
+        {selected.map((id) => {
           const isPrimary = allSelected[0] === id;
           const color = primaryTagColor([id], tags);
           return (
@@ -245,7 +314,7 @@ function MultiGroupBlock({
             >
               <button
                 type="button"
-                onClick={() => onPromote(id)}
+                onClick={() => onRemove(id)}
                 style={{
                   ...TOUCH,
                   border: "none",
@@ -301,6 +370,7 @@ function MultiGroupBlock({
           ＋ 加標籤
         </button>
       </div>
+      <div style={{ fontSize: 9, color: TH.muted, marginTop: 4 }}>💡 再點已選的標籤即可取消</div>
     </div>
   );
 }
@@ -324,6 +394,9 @@ function SingleGroupBlock({
         {group.name}
         {group.required && <span style={{ color: TH.red }}> 必填</span>}
       </div>
+      {group.required && !selectedId && (
+        <div style={{ fontSize: 9, color: TH.red, marginBottom: 4 }}>{group.name} 為必填</div>
+      )}
       <div style={H_SCROLL}>
         {list.map((t) => (
           <Chip
@@ -431,7 +504,7 @@ function TagTreePicker({
             minHeight: 40,
           }}
         />
-        <div style={{ fontSize: 9, color: TH.muted }}>💡 選子標籤不會自動勾父層；路徑用 › 表示</div>
+        <div style={{ fontSize: 9, color: TH.muted }}>💡 再點已選的項目即可取消；選子標籤不會自動勾父層</div>
         <div style={{ overflowY: "auto", minHeight: 0, flex: 1, maxHeight: "52vh" }}>
           {matches ? (
             matches.length === 0 ? (
@@ -531,7 +604,6 @@ function PickerRow({ label, picked, onPick }: { label: string; picked: boolean; 
     <button
       type="button"
       onClick={onPick}
-      disabled={picked}
       style={{
         ...TOUCH,
         flex: 1,
@@ -542,7 +614,7 @@ function PickerRow({ label, picked, onPick }: { label: string; picked: boolean; 
         color: picked ? TH.accent : TH.text,
         fontSize: 13,
         fontWeight: picked ? 800 : 600,
-        cursor: picked ? "default" : "pointer",
+        cursor: "pointer",
         padding: "8px 10px",
         borderRadius: 8,
         whiteSpace: "nowrap",

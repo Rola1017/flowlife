@@ -490,7 +490,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **垃圾桶-1 番茄軟刪除（可復原）**：`Session.deletedAt?`＋`LS_KEYS.trashedSessions`；垃圾桶以 app_state `key="trashed_sessions"`（預設 `[]`）做本地＋雲端 LWW 備份。`App.handleDeleteSession` 用既有 `updateSessions` 把番茄移出 active，再寫入獨立 `trashedSessions`；**金幣在進垃圾桶當下結算**，退幣金額以金幣帳本為單一真相（`removeCoinRowsForSession`：先 uuid、找不到再用日期＋起訖補比對舊列；回傳實際入帳含里程碑/寶箱；帳本查無才退 `earnedCoins`）。垃圾桶記下 `refundedCoins`，復原時對稱加回同一數字＋`appendCoinRow`。永久刪除有 `window.confirm`，只移出垃圾桶（金幣已於進垃圾桶時處理，不重複扣）。hydrate 時清掉 `deletedAt` 超過 30 天者；重置全部／清除記錄同步清垃圾桶。`SessionHistoryPage` 在手動補番茄後加可折疊「🗑 垃圾桶 (N)」；進垃圾桶／復原有 `coinToast` 提示扣回／加回金額。
 - **手動補番茄禁止未來**：`ManualForm` 兩個 `datetime-local` 加 `max={nowLocal}`；submit 驗證 `endAt > Date.now()` 擋下並提示「不能補未來的番茄」；提示文案改為只能補到「現在」為止。
 - **垃圾桶退幣改帳本單一真相**：修「發幣＝基礎＋里程碑＋寶箱、退幣卻只看 `earnedCoins`」與「舊金幣列無 `sessionUuid` 斷鏈刪不掉」——`useCoinLog.removeCoinRowsForSession` 雙管道比對＋回傳實際入帳總額；`Session.refundedCoins?` 記實退金額供復原對稱；無入帳時 toast「沒有入帳金幣」、不動餘額。
-- **金幣孤兒對帳**：`useCoinLog.findOrphanCoinRows`／`removeCoinRowsByIds`——找出「番茄已不存在」（uuid 對不到，舊列再用日期＋起訖也對不到）的金幣帳列；金幣收支頁「🧾 對帳」先 confirm 筆數與金額，再清帳列並同步扣回金幣（修早期刪番茄遺留孤兒）。
+- **金幣孤兒對帳**：`lib/coinOrphans.findOrphanCoinRows`——孤兒＝永久消失的番茄之 session/bonus 帳列（略過 opening/spend）；**垃圾桶中的番茄不算孤兒**（可能復原）。金幣收支頁「🧾 對帳」先 confirm 再清帳列並扣回金幣。
 - **番茄改以時間區段為主**：`lib/sessions.setSessionTimes`（分鐘＝結束−開始，`24:00`→1440；金幣重算與 `setSessionMins` 同套，`noCoin` 仍 0）；歷史頁編輯鈕改「✏️時間」，改開始～結束即時顯示換算分鐘，儲存後時間軸定位同步更新。
 - **垃圾桶一鍵清空**：`handlePurgeAll` 先為垃圾桶內每顆補齊獨立墓碑再 `updateTrashed([])`；金幣已於進垃圾桶時結清，全清不動金幣。
 - **#6 跨日番茄各段各自計算金幣**：修「跨午夜切兩顆卻金幣全算第一段、第二段 earnedCoins=0」——與「一顆番茄一筆帳」對帳前提矛盾。即時番茄（`confirmRating`）與手動補（`buildManualSession`）皆改各段依自身分鐘＋同一套 `coinsForSecs` 計幣；跨午夜帳列各段一筆；刪任一段只退該段金額。

@@ -8,6 +8,7 @@ import {
   missingRequiredGroupNames,
   pushRecentCombo,
   tagPathLabel,
+  toggleTagInSelection,
 } from "@/lib/tagSelect";
 
 const G = TAG_GROUP_IDS.domain;
@@ -108,5 +109,32 @@ describe("tagPathLabel", () => {
     ];
     expect(tagPathLabel("b", tags)).toBe("事業 › 已刪除的標籤");
     expect(tagPathLabel("missing", tags)).toBe("已刪除的標籤");
+  });
+});
+
+describe("toggleTagInSelection", () => {
+  it("多選維度 toggle 兩次回到未選", () => {
+    const once = toggleTagInSelection([], "learn", TAGS, GROUPS);
+    expect(once).toEqual(["learn"]);
+    const twice = toggleTagInSelection(once, "learn", TAGS, GROUPS);
+    expect(twice).toEqual([]);
+    const two = toggleTagInSelection(["learn"], "listen", TAGS, GROUPS);
+    expect(two).toEqual(["learn", "listen"]);
+    expect(toggleTagInSelection(two, "listen", TAGS, GROUPS)).toEqual(["learn"]);
+  });
+
+  it("單選維度點已選即取消", () => {
+    const on = toggleTagInSelection(["learn"], "hard", TAGS, GROUPS);
+    expect(on).toEqual(["learn", "hard"]);
+    expect(toggleTagInSelection(on, "hard", TAGS, GROUPS)).toEqual(["learn"]);
+  });
+
+  it("required 維度取消後 canStart 為 false", () => {
+    const full = ["learn", "must"];
+    expect(canStartWithTags(full, GROUPS, TAGS)).toBe(true);
+    const droppedDomain = toggleTagInSelection(full, "learn", TAGS, GROUPS);
+    expect(canStartWithTags(droppedDomain, GROUPS, TAGS)).toBe(false);
+    const droppedMust = toggleTagInSelection(full, "must", TAGS, GROUPS);
+    expect(canStartWithTags(droppedMust, GROUPS, TAGS)).toBe(false);
   });
 });

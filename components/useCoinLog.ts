@@ -6,6 +6,7 @@ import { LS_KEYS, loadJSON, loadNumber, saveJSON, COIN_LEDGER_MIGRATED_KEY } fro
 import { APP_STATE_KEYS, pushAppState, subscribeAppState } from "@/lib/appStateCloud";
 import type { CoinIncomeLogRow } from "@/components/pomodoro/usePomodoro";
 import type { Session } from "@/lib/types";
+import { findOrphanCoinRows as findOrphanCoinRowsPure } from "@/lib/coinOrphans";
 
 const stripZeroRows = (rows: CoinIncomeLogRow[]) =>
   rows.filter((r) => (r.amount ?? 0) !== 0);
@@ -213,19 +214,9 @@ export function useCoinLog() {
     return total;
   };
 
-  /** 孤兒＝帳列對應的番茄已不存在（略過 opening/spend；uuid 對不到，且無 uuid 者以 日期＋起訖 也對不到） */
-  const findOrphanCoinRows = (sessions: Session[]) =>
-    coinIncomeLog.filter((r) => {
-      const kind = r.kind ?? "session";
-      if (kind === "opening" || kind === "spend") return false;
-      if (r.sessionUuid) return !sessions.some((s) => s.uuid === r.sessionUuid);
-      return !sessions.some(
-        (s) =>
-          s.date === r.date &&
-          (s.startTime ?? "") === (r.startTime ?? "") &&
-          (s.endTime ?? "") === (r.endTime ?? ""),
-      );
-    });
+  /** 孤兒＝永久消失的番茄之 session/bonus 帳列；垃圾桶中的不算 */
+  const findOrphanCoinRows = (sessions: Session[], trashedSessions: Session[] = []) =>
+    findOrphanCoinRowsPure(coinIncomeLog, sessions, trashedSessions);
 
   /** 清掉指定 id 的帳列，回傳被清總金額 */
   const removeCoinRowsByIds = (ids: number[]) => {

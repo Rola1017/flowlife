@@ -491,7 +491,7 @@ export function CoinHistoryPage({
           🧾 對帳：清理「番茄已不存在」的金幣紀錄
         </button>
         <div style={{ fontSize: 9, color: TH.muted, marginTop: 6, lineHeight: 1.5 }}>
-          💡 早期刪番茄時可能留下沒清乾淨的金幣紀錄；按這裡會找出來、一併扣回對應金幣
+          💡 會清掉：已永久刪除的番茄（不在列表、也不在垃圾桶）留下的收入／獎勵紀錄，並從餘額扣回。不會清：商店消費、期初開帳、還在垃圾桶裡（可能復原）的番茄金幣。
         </div>
         <div style={{ fontSize: 9, color: TH.muted, marginTop: 4, lineHeight: 1.5 }}>
           💡 金幣餘額＝這張明細的總和；刪番茄會連同該筆收入一起移除，餘額自動更新
