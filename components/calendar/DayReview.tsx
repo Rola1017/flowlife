@@ -14,14 +14,14 @@ import {
   upsertReview,
 } from "@/lib/reviews";
 import type { Session } from "@/lib/types";
+import { CatHeading } from "@/components/pomodoro/CatBadge";
+import { useTagsSnapshot } from "@/components/hooks/useTagsSnapshot";
+import { primaryTagColor, sessionCatLabels } from "@/lib/tagSelect";
 
 const WEEKDAY_TW = ["日", "一", "二", "三", "四", "五", "六"];
 
-function catPath(s: Session): string {
-  return [CAT.cat1Display(s.cat1), s.cat2, s.cat3].filter(Boolean).join(" › ");
-}
-
 export function DayReview({ sessions }: { sessions: Session[] }) {
+  const { tags } = useTagsSnapshot();
   const [dayOffset, setDayOffset] = useState(0); // 0=今天，負=過去
   const dayKey = useMemo(() => {
     const d = new Date(CFG.TODAY);
@@ -159,9 +159,9 @@ export function DayReview({ sessions }: { sessions: Session[] }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {material.map((s, i) => {
             const key = s.id ?? `${s.date}-${s.startTime ?? ""}-${i}`;
-            const col = CAT.cat1Color(s.cat1) || TH.muted;
+            const col = (s.tagIds?.length ? primaryTagColor(s.tagIds, tags) : CAT.cat1Color(s.cat1)) || TH.muted;
             const timeLabel = s.startTime && s.endTime ? `${s.startTime}–${s.endTime}` : "";
-            const path = catPath(s);
+            const { leaf } = sessionCatLabels(s, tags);
             return (
               <div
                 key={key}
@@ -190,13 +190,13 @@ export function DayReview({ sessions }: { sessions: Session[] }) {
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {s.name || path || "番茄"}
+                    <CatHeading tagIds={s.tagIds} cat1={s.cat1} cat2={s.cat2} cat3={s.cat3} titleSize={12} pathSize={9} />
                   </span>
                   <span style={{ fontSize: 10, fontWeight: 700, color: col }}>{fmt(s.mins)}</span>
                 </div>
                 <div style={{ fontSize: 8, color: TH.muted }}>
                   {timeLabel ? `${timeLabel}` : ""}
-                  {path ? ` · ${path}` : ""}
+                  {s.name && s.name !== leaf ? ` · ${s.name}` : ""}
                 </div>
                 <div style={{ fontSize: 11, color: TH.text, lineHeight: 1.5 }}>
                   <span style={{ color: TH.muted }}>🎯 </span>

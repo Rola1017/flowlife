@@ -15,6 +15,7 @@ import {
   rememberTagCombo,
   selFromTagIds,
   sessionNoCoin,
+  tagLeafLabel,
 } from "@/lib/tagSelect";
 
 export type PomodoroSessionRow = Session;
@@ -298,7 +299,8 @@ export function usePomodoro({
 
   const startFocus = () => {
     if (!canStart) return;
-    const label = taskName || catSel.cat3 || catSel.cat2 || catSel.cat1;
+    const leaf = catSel.tagIds.length ? tagLeafLabel(catSel.tagIds, tags) : catSel.cat3 || catSel.cat2 || catSel.cat1;
+    const label = taskName || (leaf !== "未分類" ? leaf : catSel.cat1);
     beginFocus({ name: label, ...catSel, intention });
   };
 
@@ -315,7 +317,12 @@ export function usePomodoro({
     setCatSel(path);
     setTaskName(sel.name || "");
     setIntention("");
-    beginFocus({ name: sel.name || path.cat1 || sel.cat1, ...path, intention: "" });
+    const leaf = tagLeafLabel(tagIds, tags);
+    beginFocus({
+      name: sel.name || (leaf !== "未分類" ? leaf : path.cat1 || sel.cat1),
+      ...path,
+      intention: "",
+    });
   };
 
   const endFocus = () => {

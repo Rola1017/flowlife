@@ -8,6 +8,8 @@ import { CAT } from "@/lib/categories";
 import { loadScheduleCourses } from "@/lib/schedule";
 import { BackBtn } from "@/components/ui/BackBtn";
 import { CategorySelector } from "@/components/pomodoro/CategorySelector";
+import { CatHeading } from "@/components/pomodoro/CatBadge";
+import { sessionCatLabels } from "@/lib/tagSelect";
 import { findOverlaps, sessionToSpan, type Span } from "@/lib/overlap";
 import type { Session } from "@/lib/types";
 
@@ -76,8 +78,6 @@ function SessionRow({
   const [overlapHit, setOverlapHit] = useState<Session | null>(null);
   const editable = s.id != null;
   const timeLabel = s.startTime && s.endTime ? `${s.startTime}~${s.endTime}` : "";
-  const catParts = [s.cat3, s.cat2, s.cat1].filter(Boolean);
-  const catColor = CAT.deepColorFull(s.cat1, s.cat2, s.cat3);
   const draftMinsPreview = Math.max(
     1,
     Number(draftEnd.split(":")[0]) * 60 +
@@ -99,17 +99,17 @@ function SessionRow({
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <span style={{ fontSize: 13 }}>{s.rating || "🍅"}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          {s.cat1 && (
+          {(s.tagIds?.length || s.cat1) && (
             <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: catColor, flexShrink: 0 }} />
-              <span style={{ fontSize: 12, fontWeight: 800, color: TH.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {catParts[0] === s.cat1 ? CAT.cat1Display(s.cat1) : catParts[0]}
-              </span>
-              {catParts.length > 1 && (
-                <span style={{ fontSize: 9, color: TH.muted, whiteSpace: "nowrap", flexShrink: 0 }}>
-                  {catParts.slice(1).map((p) => (p === s.cat1 ? CAT.cat1Display(s.cat1) : p)).join(" · ")}
-                </span>
-              )}
+              <CatHeading
+                tagIds={s.tagIds}
+                cat1={s.cat1}
+                cat2={s.cat2}
+                cat3={s.cat3}
+                titleSize={12}
+                pathSize={9}
+                showDot
+              />
             </div>
           )}
           <div style={{ fontSize: 9, color: TH.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -722,7 +722,7 @@ export function SessionHistoryPage({
               </div>
             ) : (
               trashedSessions?.map((s, i) => {
-                const category = [s.cat1 ? CAT.cat1Display(s.cat1) : "", s.cat2, s.cat3].filter(Boolean).join(" · ");
+                const { leaf, path } = sessionCatLabels(s);
                 const time =
                   s.startTime && s.endTime ? `${s.startTime}～${s.endTime}` : "";
                 return (
@@ -748,7 +748,7 @@ export function SessionHistoryPage({
                           whiteSpace: "nowrap",
                         }}
                       >
-                        {s.name || "番茄"}
+                        {leaf !== "未分類" ? leaf : s.name || "番茄"}
                       </div>
                       <div
                         style={{
@@ -759,7 +759,7 @@ export function SessionHistoryPage({
                           whiteSpace: "nowrap",
                         }}
                       >
-                        {[formatDateLabel(s.date), category, time].filter(Boolean).join(" · ")}
+                        {[formatDateLabel(s.date), path && path !== leaf ? path : "", s.name && s.name !== leaf ? s.name : "", time].filter(Boolean).join(" · ")}
                       </div>
                     </div>
                     <button

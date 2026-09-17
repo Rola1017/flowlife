@@ -8,7 +8,7 @@ import { ReviewNudgeCard } from "@/components/home/ReviewNudgeCard";
 import { CourseBanner } from "@/components/schedule/CourseBanner";
 import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
-import { CAT } from "@/lib/categories";
+import { CatHeading } from "@/components/pomodoro/CatBadge";
 import { todoShowsOn } from "@/lib/todosCloud";
 import { fmt, getPeriod } from "@/lib/utils";
 import type { Session, Todo } from "@/lib/types";
@@ -130,8 +130,10 @@ export function HomePage({
                   >
                     🎯 {s.intention}
                   </div>
-                  <div style={{ fontSize: 9, color: TH.muted }}>
-                    {[s.name, s.cat1 ? CAT.cat1Display(s.cat1) : ""].filter(Boolean).join(" · ")} · {fmt(s.mins)}
+                  <div style={{ fontSize: 9, color: TH.muted, display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
+                    {s.name ? <span>{s.name} ·</span> : null}
+                    <CatHeading tagIds={s.tagIds} cat1={s.cat1} cat2={s.cat2} cat3={s.cat3} titleSize={9} pathSize={8} />
+                    <span>· {fmt(s.mins)}</span>
                   </div>
                 </div>
               </div>

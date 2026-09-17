@@ -3,6 +3,7 @@
 import { useMemo, useState, type CSSProperties, type Dispatch, type SetStateAction } from "react";
 import { CFG } from "@/lib/config";
 import { CAT, catPath, CAT_PATH_SEP, matchesCatSelection } from "@/lib/categories";
+import { sessionCatLabels } from "@/lib/tagSelect";
 import { TH } from "@/lib/theme";
 import { BackBtn } from "@/components/ui/BackBtn";
 import { Chip } from "@/components/ui/Chip";
@@ -225,9 +226,12 @@ export function CoinHistoryPage({
     const cat2Options = editCat1 ? CAT.cat2List(editCat1) : [];
     const cat3Options =
       editCat1 && editCat2 ? CAT.cat3List(editCat1, editCat2) : [];
-    const displayName = row.taskName?.trim() || (row.cat1 ? CAT.cat1Display(row.cat1) : row.productCat) || "未命名";
+    const { leaf, path } = sessionCatLabels(row);
+    const displayName = row.taskName?.trim() || (leaf !== "未分類" ? leaf : row.productCat) || "未命名";
     const catLabel = row.cat1
-      ? [CAT.cat1Display(row.cat1), row.cat2, row.cat3].filter(Boolean).join(" › ")
+      ? path && path !== leaf
+        ? `${leaf} · ${path}`
+        : leaf
       : row.productCat;
     const timeLabel =
       row.startTime && row.endTime ? `${row.startTime}～${row.endTime}` : row.time;

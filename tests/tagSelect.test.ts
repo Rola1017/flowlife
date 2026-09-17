@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_TAG_GROUPS, TAG_GROUP_IDS, type Tag, type TagGroup } from "@/lib/tags";
+import { DEFAULT_TAG_GROUPS, DELETED_TAG_LABEL, TAG_GROUP_IDS, type Tag, type TagGroup } from "@/lib/tags";
 import { addChildTag } from "@/lib/tagTree";
 import { legacyPath } from "@/lib/tagsCompat";
 import {
   canStartWithTags,
+  demoGroupHints,
   isNoCoinByTagIds,
   isProjectGroup,
   latestComboContaining,
@@ -11,6 +12,7 @@ import {
   projectLeafTags,
   pushRecentCombo,
   tagIdsForProjectShortcut,
+  tagLeafLabel,
   tagPathLabel,
   toggleTagInSelection,
 } from "@/lib/tagSelect";
@@ -102,6 +104,36 @@ describe("pushRecentCombo", () => {
     expect(list[0]).toEqual(["f"]);
     expect(list.map((c) => c[0])).toEqual(["f", "e", "d", "a", "c"]);
     expect(pushRecentCombo([["a"]], [])).toEqual([["a"]]);
+  });
+});
+
+describe("tagLeafLabel", () => {
+  it("三層回最深名稱；單層回該名稱；空陣列回未分類；已刪回 DELETED_TAG_LABEL", () => {
+    expect(tagLeafLabel(["listen"], TAGS)).toBe("聽力");
+    expect(tagLeafLabel(["learn"], TAGS)).toBe("學習");
+    expect(tagLeafLabel([], TAGS)).toBe("未分類");
+    expect(tagLeafLabel(undefined, TAGS)).toBe("未分類");
+    const dead: Tag[] = TAGS.map((x) => (x.id === "listen" ? { ...x, deletedAt: "x" } : x));
+    expect(tagLeafLabel(["listen"], dead)).toBe(DELETED_TAG_LABEL);
+    expect(tagLeafLabel(["missing"], TAGS)).toBe(DELETED_TAG_LABEL);
+    const allDead: Tag[] = [
+      { id: "ghost", groupId: G, name: "鬼", order: 0, deletedAt: "x" },
+    ];
+    expect(tagLeafLabel(["ghost"], allDead)).toBe(DELETED_TAG_LABEL);
+  });
+});
+
+describe("demoGroupHints", () => {
+  it("依 required / selectMode / isTimeDestination 即時切換文案", () => {
+    const req = demoGroupHints({ required: true, selectMode: "multi", isTimeDestination: true });
+    expect(req.required).toContain("有打開『必填』");
+    expect(req.selectMode).toContain("可多選");
+    expect(req.timeDest).toContain("計時數");
+
+    const off = demoGroupHints({ required: false, selectMode: "single", isTimeDestination: false });
+    expect(off.required).toContain("沒有『必填』");
+    expect(off.selectMode).toContain("單選");
+    expect(off.timeDest).toContain("不會分給它");
   });
 });
 

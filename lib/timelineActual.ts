@@ -3,6 +3,8 @@ import { CAT } from "@/lib/categories";
 import { DS, DE, toM } from "@/lib/utils";
 import { availableSegments, idleGapsWithin, idleMinutes } from "@/lib/idle";
 import { LS_KEYS, loadJSON } from "@/lib/storage";
+import { loadTags } from "@/lib/tagsStore";
+import { primaryTagColor, sessionCatLabels } from "@/lib/tagSelect";
 
 export type ActSegment = { start: string; end: string; label: string; color: string };
 export type IdleSegment = { start: string; end: string };
@@ -16,22 +18,26 @@ export function actSessionsFor(date: string): ActSegment[] {
     cat1?: string;
     cat2?: string;
     cat3?: string;
+    tagIds?: string[];
     startTime?: string;
     endTime?: string;
   };
   const all = loadJSON<SRow[]>(LS_KEYS.sessions, []);
+  const tags = loadTags();
   return all
     .filter((s) => s.date === date && s.startTime && s.endTime)
     .map((s) => {
       const cat1 = s.cat1 ?? "";
-      const color =
-        CAT.deepColorFull(cat1, s.cat2 || undefined, s.cat3 || undefined) ||
-        CAT.cat1Color(cat1) ||
-        "#374151";
+      const { leaf } = sessionCatLabels(s, tags);
+      const color = s.tagIds?.length
+        ? primaryTagColor(s.tagIds, tags)
+        : CAT.deepColorFull(cat1, s.cat2 || undefined, s.cat3 || undefined) ||
+          CAT.cat1Color(cat1) ||
+          "#374151";
       return {
         start: s.startTime as string,
         end: s.endTime as string,
-        label: s.name || s.cat3 || s.cat2 || cat1 || "番茄",
+        label: leaf !== "未分類" ? leaf : s.name || "番茄",
         color,
       };
     });

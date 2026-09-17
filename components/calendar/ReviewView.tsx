@@ -6,12 +6,11 @@ import { CAT, matchesCatSelection } from "@/lib/categories";
 import { fmt } from "@/lib/utils";
 import { periodRange } from "@/lib/analytics";
 import type { Session } from "@/lib/types";
+import { CatHeading } from "@/components/pomodoro/CatBadge";
+import { useTagsSnapshot } from "@/components/hooks/useTagsSnapshot";
+import { primaryTagColor, sessionCatLabels } from "@/lib/tagSelect";
 
 const PERIODS = ["3天", "7天", "14天", "月", "季"] as const;
-
-function catPath(s: Session): string {
-  return [CAT.cat1Display(s.cat1), s.cat2, s.cat3].filter(Boolean).join(" › ");
-}
 
 export function ReviewView({
   sessions,
@@ -22,6 +21,7 @@ export function ReviewView({
   sel: Set<string>;
   onPatchReflection: (id: number, text: string) => void;
 }) {
+  const { tags } = useTagsSnapshot();
   const [period, setPeriod] = useState<string>("7天");
   const [editId, setEditId] = useState<number | null>(null);
   const [draft, setDraft] = useState("");
@@ -96,11 +96,11 @@ export function ReviewView({
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {pairs.map((s, i) => {
             const key = s.id ?? `${s.date}-${s.startTime ?? ""}-${i}`;
-            const col = CAT.cat1Color(s.cat1) || TH.muted;
+            const col = (s.tagIds?.length ? primaryTagColor(s.tagIds, tags) : CAT.cat1Color(s.cat1)) || TH.muted;
             const editable = s.id != null;
             const isEditing = editable && editId === s.id;
             const timeLabel = s.startTime && s.endTime ? `${s.startTime}–${s.endTime}` : "";
-            const path = catPath(s);
+            const { leaf } = sessionCatLabels(s, tags);
             return (
               <div
                 key={key}
@@ -129,7 +129,7 @@ export function ReviewView({
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {s.name || path || "番茄"}
+                    <CatHeading tagIds={s.tagIds} cat1={s.cat1} cat2={s.cat2} cat3={s.cat3} titleSize={12} pathSize={9} />
                   </span>
                   <span style={{ fontSize: 10, fontWeight: 700, color: col }}>{fmt(s.mins)}</span>
                 </div>
@@ -137,7 +137,7 @@ export function ReviewView({
                 <div style={{ fontSize: 8, color: TH.muted }}>
                   {s.date}
                   {timeLabel ? ` · ${timeLabel}` : ""}
-                  {path ? ` · ${path}` : ""}
+                  {s.name && s.name !== leaf ? ` · ${s.name}` : ""}
                 </div>
 
                 <div style={{ fontSize: 11, color: TH.text, lineHeight: 1.5 }}>

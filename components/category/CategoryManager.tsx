@@ -32,6 +32,8 @@ import {
   type CatRef,
 } from "@/lib/tagTree";
 import type { Session, Todo } from "@/lib/types";
+import { CategorySelector } from "@/components/pomodoro/CategorySelector";
+import { selFromTagIds, type TagSel } from "@/lib/tagSelect";
 
 const DEFAULT_PALETTE = [
   "#EA0000",
@@ -318,7 +320,7 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
   const live = useMemo(() => liveGroups(groups), [groups]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(() => liveGroups(loadTagGroups())[0]?.id ?? null);
   const [collapsedSelected, setCollapsedSelected] = useState(false);
-  const [helpOpen, setHelpOpen] = useState<boolean>(() => loadJSON<boolean>(LS_KEYS.tagManagerHelp, true));
+  const [demoSel, setDemoSel] = useState<TagSel>(() => selFromTagIds([]));
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [colorPickerId, setColorPickerId] = useState<string | null>(null);
   const [palette, setPalette] = useState<string[]>(() => loadJSON(LS_KEYS.colorPalette, DEFAULT_PALETTE));
@@ -329,14 +331,6 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
   const selectDimension = (id: string) => {
     setSelectedGroupId(id);
     setCollapsedSelected(false);
-  };
-
-  const toggleHelp = () => {
-    setHelpOpen((v) => {
-      const next = !v;
-      saveJSON(LS_KEYS.tagManagerHelp, next);
-      return next;
-    });
   };
 
   const selected = live.find((g) => g.id === selectedGroupId) ?? live[0] ?? null;
@@ -605,82 +599,6 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
       <BackBtn onBack={onBack} label="標籤管理" />
 
       <Card>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, minWidth: 0 }}>
-          <SL style={{ marginBottom: 0, minWidth: 0, flex: 1 }}>💡 這一頁怎麼用（三分鐘看懂）</SL>
-          <button type="button" onClick={toggleHelp} style={btnSm}>
-            {helpOpen ? "▲" : "▼"}
-          </button>
-        </div>
-        {helpOpen && (
-          <pre
-            style={{
-              fontSize: 10,
-              lineHeight: 1.6,
-              color: TH.text,
-              margin: "8px 0 0",
-              padding: 0,
-              minWidth: 0,
-              maxWidth: "100%",
-              boxSizing: "border-box",
-              whiteSpace: "pre-wrap",
-              overflowWrap: "anywhere",
-              wordBreak: "break-word",
-              fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
-              background: "transparent",
-              overflowX: "hidden",
-            }}
-          >
-            {`這裡管的東西只有兩種：
-  「分類維度」＝分類的角度（最外層，只有一層）
-  「標籤」＝那個角度底下的選項（可以一直往下分，層數不限）
-
-── 實際長這樣 ──
-
-第1層　分類維度
-    領域　　（必填・可多選・計時數）
-    專案　　（選填・單選・計時數）
-    難易度　（選填・單選・不計時數）
-    重要性　（選填・單選・不計時數）
-
-第2層　每個維度底下的標籤
-    領域　 → 學習、事業、閱讀、健康
-    專案　 → Roro開發、網站開發
-    難易度 → 困難、還好、容易
-    重要性 → 重要、不重要
-
-第3層　標籤還能再往下分
-    學習 → 法律、英文
-
-第4層　還能再分（層數不限）
-    英文 → 寫作、聽力
-
-── 開番茄時你會這樣選 ──
-
-  領域　 → 勾「事業」＋「學習」（可以勾兩個）
-  專案　 → 選「Roro開發」
-  難易度 → 選「困難」
-  重要性 → 選「不重要」
-
-── 跑了 2 小時之後 ──
-
-  按領域看 → 事業 60 分、學習 60 分（加起來 120 分）
-  按專案看 → Roro開發 120 分
-  「困難」「不重要」不佔時數，但可以篩選
-  （例：這個月「困難又不重要」的事花了幾小時？可以考慮砍掉）
-
-── 三個開關 ──
-
-  必填　　 → 沒選這個維度就不能開始番茄
-  可多選　 → 同一個維度裡能勾好幾個
-             （領域可「事業＋學習」；難易度不會又困難又容易）
-  計時數　 → 時間要不要分給它
-             （時間花在「事業」「Roro開發」上 → 打開
-               時間不是花在「困難」上面 → 關閉）`}
-          </pre>
-        )}
-      </Card>
-
-      <Card>
         <SL>分類維度</SL>
         <p style={{ fontSize: 10, color: TH.muted, margin: "0 0 10px", lineHeight: 1.5 }}>
           💡 按住左邊的 ⋮⋮ 可以拖曳調整順序（手機用手指長按拖動）。點卡片空白處即可切換要編輯的維度。
@@ -717,10 +635,11 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
                   {active && (
                     <span style={{ fontSize: 10, color: TH.accent, fontWeight: 800, flexShrink: 0 }}>✓ 目前編輯中</span>
                   )}
-                  <div onClick={(e) => e.stopPropagation()} style={{ flex: 1, minWidth: 0, display: "flex" }}>
+                  <div onClick={(e) => e.stopPropagation()} style={{ flex: "1 1 96px", minWidth: 96, display: "flex" }}>
                     <RenameInput
                       value={g.name}
                       onCommit={(n) => persistGroups(patchGroup(groups, g.id, { name: n }))}
+                      style={{ minWidth: 80 }}
                     />
                   </div>
                   {g.selectMode === "multi" && (
@@ -749,28 +668,33 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
                   >
                     {open ? "▲" : "▼"}
                   </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteGroup(g);
+                    }}
+                    aria-disabled={g.required}
+                    style={{
+                      ...btnSm,
+                      color: TH.red,
+                      opacity: g.required ? 0.35 : 1,
+                      cursor: g.required ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    刪
+                  </button>
+                  {g.required && (
+                    <span onClick={(e) => e.stopPropagation()}>
+                      <HintDot text={HINT.requiredDelete} />
+                    </span>
+                  )}
                 </div>
                 {open && (
                   <div
                     onClick={(e) => e.stopPropagation()}
                     style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8, minWidth: 0 }}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                      <button
-                        type="button"
-                        onClick={() => deleteGroup(g)}
-                        aria-disabled={g.required}
-                        style={{
-                          ...btnSm,
-                          color: TH.red,
-                          opacity: g.required ? 0.35 : 1,
-                          cursor: g.required ? "not-allowed" : "pointer",
-                        }}
-                      >
-                        刪
-                      </button>
-                      {g.required && <HintDot text={HINT.requiredDelete} />}
-                    </div>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "flex-start", gap: 6, flexWrap: "wrap" }}>
                         <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: TH.text, cursor: "pointer" }}>
@@ -836,6 +760,22 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
         >
           + 新增分類維度
         </button>
+      </Card>
+
+      <Card>
+        <SL>👀 番茄面板預覽（改上面的開關，這裡會立刻變）</SL>
+        <CategorySelector
+          tagIds={demoSel.tagIds}
+          cat1={demoSel.cat1}
+          cat2={demoSel.cat2}
+          cat3={demoSel.cat3}
+          onChange={setDemoSel}
+          showQuickLane={false}
+          demoMode
+        />
+        <div style={{ fontSize: 9, color: TH.muted, marginTop: 8, lineHeight: 1.4 }}>
+          💡 這只是預覽，不會真的開始番茄，也不影響你的紀錄
+        </div>
       </Card>
 
       <Card>

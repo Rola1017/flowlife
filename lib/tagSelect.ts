@@ -100,6 +100,53 @@ export function tagPathLabel(tagId: string, allTags: Tag[]): string {
   return chain.map((t) => (t.deletedAt ? DELETED_TAG_LABEL : t.name)).join(" › ");
 }
 
+/** 主標籤鏈的最深一層名稱（例：學習›法律›勞健保 → 勞健保）。無標籤回「未分類」。 */
+export function tagLeafLabel(tagIds?: string[], allTags?: Tag[]): string {
+  const pid = primaryTagId(tagIds);
+  if (!pid) return "未分類";
+  const chain = tagChain(pid, allTags);
+  if (!chain.length) return DELETED_TAG_LABEL;
+  const last = chain[chain.length - 1];
+  return last.deletedAt ? DELETED_TAG_LABEL : last.name;
+}
+
+/** 主標題（葉）＋完整路徑；無 tagIds 時 fallback cat1/2/3 */
+export function sessionCatLabels(
+  s: { tagIds?: string[]; cat1?: string; cat2?: string; cat3?: string },
+  allTags?: Tag[],
+): { leaf: string; path: string } {
+  if (s.tagIds?.length) {
+    const pid = primaryTagId(s.tagIds);
+    const tags = allTags ?? [];
+    return {
+      leaf: tagLeafLabel(s.tagIds, tags),
+      path: pid ? tagPathLabel(pid, tags) : "",
+    };
+  }
+  const parts = [s.cat1, s.cat2, s.cat3].filter((x): x is string => !!x && !!x.trim());
+  if (!parts.length) return { leaf: "未分類", path: "" };
+  return { leaf: parts[parts.length - 1], path: parts.join(" › ") };
+}
+
+export function demoGroupHints(g: Pick<TagGroup, "required" | "selectMode" | "isTimeDestination">): {
+  required: string;
+  selectMode: string;
+  timeDest: string;
+} {
+  return {
+    required: g.required
+      ? "💡 這個維度有打開『必填』，所以沒選就不能開始番茄"
+      : "💡 這個維度沒有『必填』，可以不選",
+    selectMode:
+      g.selectMode === "multi"
+        ? "💡 這個維度打開了『可多選』，所以能勾好幾個"
+        : "💡 這個維度是單選，點另一個會換掉原本的",
+    timeDest: g.isTimeDestination
+      ? "💡 打開了『計時數』，時間會分攤給這個維度的標籤"
+      : "💡 沒有『計時數』，時間不會分給它，但可以用來篩選",
+  };
+}
+
 /** 多選：不自動選父。單選：同維度只留一個。領域（isTimeDestination）優先當主標籤以免 cat1 寫成屬性名。 */
 export function addTagToSelection(
   tagIds: string[],

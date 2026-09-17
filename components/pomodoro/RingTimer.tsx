@@ -5,7 +5,7 @@ import { TH } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { fmtIdleTime, fmtMs } from "@/lib/utils";
 import { useTagsSnapshot } from "@/components/hooks/useTagsSnapshot";
-import { primaryTagColor, tagPathLabel } from "@/lib/tagSelect";
+import { primaryTagColor, tagLeafLabel, tagPathLabel } from "@/lib/tagSelect";
 
 export function RingTimer({
   mode,
@@ -125,13 +125,38 @@ export function RingTimer({
                   maxWidth: 90,
                   textAlign: "center",
                   overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
+                  lineHeight: 1.2,
                 }}
               >
-                {confirmed.tagIds?.length
-                  ? tagPathLabel(confirmed.tagIds[0], tags)
-                  : [CAT.cat1Display(confirmed.cat1), confirmed.cat2].filter(Boolean).join(" › ")}
+                {confirmed.tagIds?.length ? (
+                  <>
+                    <div
+                      style={{
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {tagLeafLabel(confirmed.tagIds, tags)}
+                    </div>
+                    {tagPathLabel(confirmed.tagIds[0], tags) !== tagLeafLabel(confirmed.tagIds, tags) && (
+                      <div
+                        style={{
+                          fontSize: 6,
+                          fontWeight: 600,
+                          color: TH.muted,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {tagPathLabel(confirmed.tagIds[0], tags)}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  [confirmed.cat2, CAT.cat1Display(confirmed.cat1)].filter(Boolean)[0]
+                )}
               </div>
             )}
           </>

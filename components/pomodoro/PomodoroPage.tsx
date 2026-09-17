@@ -14,7 +14,7 @@ import { ProjectShortcuts } from "@/components/pomodoro/ProjectShortcuts";
 import { CatBadge } from "@/components/pomodoro/CatBadge";
 import { RingTimer } from "@/components/pomodoro/RingTimer";
 import { usePomodoro, type CoinIncomeLogRow } from "@/components/pomodoro/usePomodoro";
-import { selFromTagIds } from "@/lib/tagSelect";
+import { selFromTagIds, sessionCatLabels } from "@/lib/tagSelect";
 import { CourseBanner } from "@/components/schedule/CourseBanner";
 import type { Session } from "@/lib/types";
 import { WeekHeat } from "@/components/charts/WeekHeat";
@@ -316,7 +316,8 @@ export function PomodoroPage({
     const cat2Options = editCat1 ? CAT.cat2List(editCat1) : [];
     const cat3Options =
       editCat1 && editCat2 ? CAT.cat3List(editCat1, editCat2) : [];
-    const displayName = row.taskName?.trim() || row.cat1 || "未命名";
+    const { leaf, path } = sessionCatLabels(row);
+    const displayName = row.taskName?.trim() || (leaf !== "未分類" ? leaf : "") || "未命名";
     const timeLabel =
       row.startTime && row.endTime ? `${row.startTime}～${row.endTime}` : row.time;
     return (
@@ -355,7 +356,7 @@ export function PomodoroPage({
                     flexShrink: 0,
                   }}
                 />
-                {[row.cat1, row.cat2, row.cat3].filter(Boolean).join(" › ")}
+                {[leaf, path && path !== leaf ? path : ""].filter(Boolean).join(" › ")}
               </div>
             )}
             <div style={{ fontSize: 9, color: TH.muted }}>{timeLabel}</div>
