@@ -1,4 +1,5 @@
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
+import { reportCloudWriteResult } from "@/lib/cloudWrite";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export type ReviewScope = "day" | "week" | "month" | "quarter" | "free";
@@ -38,7 +39,8 @@ async function getUid(): Promise<string | null> {
 export async function clearReviewsCloud(): Promise<void> {
   const uid = await getUid();
   if (!uid) return;
-  await sb().from("reviews").delete().eq("user_id", uid);
+  const { error } = await sb().from("reviews").delete().eq("user_id", uid);
+  reportCloudWriteResult("reviews", "delete", { error });
 }
 
 /** 推單筆到雲端（手動 upsert，避開 partial-index onConflict） */
@@ -58,8 +60,13 @@ async function pushSingletonCloud(uid: string, r: ReviewEntry) {
     text: r.text,
     updated_at: r.updatedAt ?? r.createdAt,
   };
-  if (ex) await sb().from("reviews").update(payload).eq("id", ex.id);
-  else await sb().from("reviews").insert(payload);
+  if (ex) {
+    const { error } = await sb().from("reviews").update(payload).eq("id", ex.id);
+    reportCloudWriteResult("reviews", "update", { error }, String(ex.id));
+  } else {
+    const { error } = await sb().from("reviews").insert(payload);
+    reportCloudWriteResult("reviews", "insert", { error }, `${r.scope}:${r.periodKey}`);
+  }
 }
 
 /** 對 free 且無 uuid 者補上 uuid（冪等） */
@@ -80,7 +87,7 @@ async function pushFreeCloud(entry: ReviewEntry) {
   if (!entry.uuid) return;
   const uid = await getUid();
   if (!uid) return;
-  await sb()
+  const { error } = await sb()
     .from("reviews")
     .upsert(
       {
@@ -93,23 +100,26 @@ async function pushFreeCloud(entry: ReviewEntry) {
       },
       { onConflict: "id" },
     );
+  reportCloudWriteResult("reviews", "upsert", { error }, entry.uuid);
 }
 
 /** 從雲端刪除一則 free */
 async function deleteFreeCloud(uuid: string) {
   const uid = await getUid();
   if (!uid) return;
-  await sb().from("reviews").delete().eq("user_id", uid).eq("id", uuid);
+  const { error } = await sb().from("reviews").delete().eq("user_id", uid).eq("id", uuid);
+  reportCloudWriteResult("reviews", "delete", { error }, uuid);
 }
 
 async function deleteSingletonCloud(uid: string, scope: ReviewScope, periodKey: string) {
   if (scope === "free") return;
-  await sb()
+  const { error } = await sb()
     .from("reviews")
     .delete()
     .eq("user_id", uid)
     .eq("scope", scope)
     .eq("period_key", periodKey);
+  reportCloudWriteResult("reviews", "delete", { error }, `${scope}:${periodKey}`);
 }
 
 /** 拉＋合併（last-write-wins）＋自動遷移本地較新者上雲 */
@@ -194,6 +204,16 @@ export async function syncReviewsFromCloud() {
   const merged = [...Array.from(map.values()), ...mergedFree];
   saveJSON(LS_KEYS.reviews, merged);
   emitReviews();
+}
+
+export async function pushAllReviewsToCloud(): Promise<void> {
+  const uid = await getUid();
+  if (!uid) return;
+  const list = loadReviews();
+  for (const r of list) {
+    if (r.scope === "free") await pushFreeCloud(r);
+    else await pushSingletonCloud(uid, r);
+  }
 }
 
 export function loadReviews(): ReviewEntry[] {

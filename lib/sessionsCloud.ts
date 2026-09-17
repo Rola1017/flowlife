@@ -1,3 +1,4 @@
+import { getCloudWriteFailures, reportCloudWriteResult, uuidsOnlyInLocal } from "@/lib/cloudWrite";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Session } from "@/lib/types";
@@ -112,19 +113,21 @@ function fromRow(r: SessionRow, localId?: number): Session {
 }
 
 /** 推單顆番茄到雲端（uuid 為主鍵 upsert） */
-export async function pushSessionCloud(uuid: string) {
+export async function pushSessionCloud(uuid: string): Promise<boolean> {
   const uid = await getUid();
-  if (!uid) return;
+  if (!uid) return false;
   const s = loadLocal().find((x) => x.uuid === uuid);
-  if (!s) return;
-  await sb().from("sessions").upsert(toRow(uid, s), { onConflict: "uuid" });
+  if (!s) return false;
+  const { error } = await sb().from("sessions").upsert(toRow(uid, s), { onConflict: "uuid" });
+  return reportCloudWriteResult("sessions", "upsert", { error }, uuid);
 }
 
 /** 從雲端刪除某顆番茄 */
-export async function deleteSessionCloud(uuid: string) {
+export async function deleteSessionCloud(uuid: string): Promise<boolean> {
   const uid = await getUid();
-  if (!uid) return;
-  await sb().from("sessions").delete().eq("user_id", uid).eq("uuid", uuid);
+  if (!uid) return false;
+  const { error } = await sb().from("sessions").delete().eq("user_id", uid).eq("uuid", uuid);
+  return reportCloudWriteResult("sessions", "delete", { error }, uuid);
 }
 
 /** 墓碑集合：本機＋雲端 trashed_sessions／deleted_session_uuids（自給自足，不依賴 app_state sync 先跑） */
@@ -230,4 +233,59 @@ export async function syncSessionDiffToCloud(prev: Session[], next: Session[]) {
       void deleteSessionCloud(s.uuid);
     }
   }
+}
+
+export async function fetchCloudSessionUuids(): Promise<string[] | null> {
+  const uid = await getUid();
+  if (!uid) return [];
+  const { data, error } = await sb().from("sessions").select("uuid").eq("user_id", uid);
+  if (error || !data) return null;
+  return (data as { uuid?: string }[]).map((r) => r.uuid).filter((u): u is string => Boolean(u));
+}
+
+export async function pushAllLocalSessionsToCloud(): Promise<void> {
+  for (const s of loadLocal()) {
+    if (s.uuid) await pushSessionCloud(s.uuid);
+  }
+}
+
+export type SessionCloudStatus = {
+  localCount: number;
+  cloudCount: number | null;
+  onlyLocalCount: number;
+  onlyLocalSample: string[];
+  lastError: string | null;
+  failCount: number;
+  cloudUnreachable: boolean;
+  loggedIn: boolean;
+};
+
+export async function inspectSessionCloudStatus(): Promise<SessionCloudStatus> {
+  const localUuids = loadLocal().map((s) => s.uuid).filter((u): u is string => Boolean(u));
+  const uid = await getUid();
+  const fails = getCloudWriteFailures();
+  if (!uid) {
+    return {
+      localCount: localUuids.length,
+      cloudCount: null,
+      onlyLocalCount: 0,
+      onlyLocalSample: [],
+      lastError: fails.lastError,
+      failCount: fails.count,
+      cloudUnreachable: false,
+      loggedIn: false,
+    };
+  }
+  const cloud = await fetchCloudSessionUuids();
+  const onlyLocal = uuidsOnlyInLocal(localUuids, cloud ?? []);
+  return {
+    localCount: localUuids.length,
+    cloudCount: cloud == null ? null : cloud.length,
+    onlyLocalCount: onlyLocal.length,
+    onlyLocalSample: onlyLocal.slice(0, 10),
+    lastError: fails.lastError,
+    failCount: fails.count,
+    cloudUnreachable: cloud == null,
+    loggedIn: true,
+  };
 }

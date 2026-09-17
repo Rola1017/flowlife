@@ -1,3 +1,4 @@
+import { reportCloudWriteResult } from "@/lib/cloudWrite";
 import { CFG } from "@/lib/config";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -104,14 +105,21 @@ export function notifyAppState(key: string) {
 }
 
 /** 推單包到雲端（(user_id,key) 為主鍵 upsert） */
-export async function pushAppState(key: string, value: unknown) {
+export async function pushAppState(key: string, value: unknown): Promise<boolean> {
   const uid = await getUid();
-  if (!uid) return;
+  if (!uid) return false;
   const iso = new Date().toISOString();
   setMetaTs(key, iso);
-  await sb()
+  const { error } = await sb()
     .from("app_state")
     .upsert({ user_id: uid, key, value, updated_at: iso }, { onConflict: "user_id,key" });
+  return reportCloudWriteResult("app_state", "upsert", { error }, key);
+}
+
+export async function pushAllAppStateToCloud(): Promise<void> {
+  for (const key of Object.values(APP_STATE_KEYS)) {
+    await pushAppState(key, loadJSON(LS_FOR_KEY[key], DEFAULT_FOR_KEY[key]));
+  }
 }
 
 type AppStateRow = { key: string; value: unknown; updated_at: string };

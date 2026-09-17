@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { CloudSyncBadge } from "@/components/ui/CloudSyncBadge";
 import { TH } from "@/lib/theme";
 
 const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
@@ -72,6 +73,7 @@ export function Header({
           ⚙️ 設定
         </button>
       </div>
+      <CloudSyncBadge />
       <div style={{ marginTop: 6, borderTop: `1px solid ${TH.border}`, paddingTop: 6 }}>
         {editing ? (
           <div style={{ display: "flex", gap: 6 }}>

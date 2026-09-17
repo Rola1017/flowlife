@@ -4,7 +4,9 @@ import { useState } from "react";
 import { BackBtn } from "@/components/ui/BackBtn";
 import { Card, SL } from "@/components/ui/Card";
 import { AuthPanel } from "@/components/auth/AuthPanel";
+import { CloudSyncBadge } from "@/components/ui/CloudSyncBadge";
 import { TH } from "@/lib/theme";
+import { inspectSessionCloudStatus, type SessionCloudStatus } from "@/lib/sessionsCloud";
 import type { Todo } from "@/lib/types";
 
 export function SettingsPage({
@@ -20,6 +22,8 @@ export function SettingsPage({
 }) {
   const [confirming, setConfirming] = useState(false);
   const [clearingRecords, setClearingRecords] = useState(false);
+  const [inspect, setInspect] = useState<SessionCloudStatus | null>(null);
+  const [inspecting, setInspecting] = useState(false);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -27,7 +31,56 @@ export function SettingsPage({
 
       <Card>
         <SL>雲端同步（測試中）</SL>
+        <CloudSyncBadge />
         <AuthPanel />
+        <button
+          type="button"
+          disabled={inspecting}
+          onClick={() => {
+            setInspecting(true);
+            void inspectSessionCloudStatus()
+              .then(setInspect)
+              .finally(() => setInspecting(false));
+          }}
+          style={{
+            marginTop: 10,
+            width: "100%",
+            padding: "8px 12px",
+            borderRadius: 10,
+            border: `1px solid ${TH.border}`,
+            background: "transparent",
+            color: TH.text,
+            fontSize: 12,
+            fontWeight: 800,
+            cursor: inspecting ? "not-allowed" : "pointer",
+          }}
+        >
+          {inspecting ? "檢查中…" : "檢查雲端同步狀態"}
+        </button>
+        {inspect && (
+          <div style={{ marginTop: 8, fontSize: 11, color: TH.muted, lineHeight: 1.6 }}>
+            <div>本機 sessions：{inspect.localCount} 筆</div>
+            <div>
+              雲端 sessions：
+              {!inspect.loggedIn
+                ? "未登入"
+                : inspect.cloudCount == null
+                  ? "讀取失敗"
+                  : `${inspect.cloudCount} 筆`}
+            </div>
+            <div>只在本機：{inspect.onlyLocalCount} 筆</div>
+            {inspect.onlyLocalSample.length > 0 && (
+              <div style={{ wordBreak: "break-all" }}>
+                uuid 前 {inspect.onlyLocalSample.length} 筆：{inspect.onlyLocalSample.join("、")}
+              </div>
+            )}
+            <div>最後寫入錯誤：{inspect.lastError ?? "無"}</div>
+            <div>失敗計數：{inspect.failCount}</div>
+          </div>
+        )}
+        <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4, marginTop: 8 }}>
+          💡 登出會清本機；若有未上雲資料會先警告。紅色標記＝寫入失敗，點開看最後錯誤。
+        </div>
       </Card>
 
       <Card>

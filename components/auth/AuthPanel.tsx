@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { TH } from "@/lib/theme";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { clearAllAppData, clearOwnerUserId, loadOwnerUserId, saveOwnerUserId } from "@/lib/storage";
+import { flushLocalToCloud } from "@/lib/cloudFlush";
+import { inspectSessionCloudStatus } from "@/lib/sessionsCloud";
 
 const inputStyle = {
   background: "#15151B",
@@ -17,6 +19,14 @@ const inputStyle = {
   boxSizing: "border-box",
 } as const;
 
+const btnBase = {
+  padding: "8px 14px",
+  borderRadius: 10,
+  fontSize: 12,
+  fontWeight: 800,
+  cursor: "pointer",
+} as const;
+
 export function AuthPanel() {
   const [supabase] = useState(() => createSupabaseBrowserClient());
   const [email, setEmail] = useState("");
@@ -25,6 +35,7 @@ export function AuthPanel() {
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [logoutWarn, setLogoutWarn] = useState<{ n: number; detail: string } | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -61,12 +72,56 @@ export function AuthPanel() {
     setPassword("");
   };
 
-  const signOut = async () => {
-    if (!window.confirm("登出會清除這台裝置上的本機資料（雲端資料保留）。確定登出？")) return;
+  const finishSignOut = async () => {
+    setLoading(true);
+    const flushed = await flushLocalToCloud(5000);
+    if (flushed.timedOut) {
+      setMsg("同步逾時（5秒）。若仍登出，本機未上雲的資料會消失。");
+    }
     await supabase.auth.signOut();
     clearAllAppData();
     clearOwnerUserId();
     window.location.reload();
+  };
+
+  const signOut = async () => {
+    setLoading(true);
+    setMsg("");
+    const status = await inspectSessionCloudStatus();
+    const n = status.onlyLocalCount + status.failCount;
+    const unsynced = n > 0 || status.cloudUnreachable;
+    setLoading(false);
+    if (unsynced) {
+      const bits = [
+        status.onlyLocalCount > 0 ? `${status.onlyLocalCount} 筆番茄只在本機` : "",
+        status.failCount > 0 ? `${status.failCount} 筆寫入失敗` : "",
+        status.cloudUnreachable ? "雲端讀取失敗" : "",
+      ].filter(Boolean);
+      setLogoutWarn({ n: Math.max(n, 1), detail: bits.join("、") });
+      return;
+    }
+    if (!window.confirm("登出會清除這台裝置上的本機資料（雲端資料保留）。確定登出？")) return;
+    await finishSignOut();
+  };
+
+  const retryThenRecheck = async () => {
+    setLoading(true);
+    setMsg("");
+    const flushed = await flushLocalToCloud(5000);
+    if (flushed.timedOut) {
+      setLoading(false);
+      setMsg("同步逾時（5秒），請檢查網路後再試，或仍要登出。");
+      return;
+    }
+    const status = await inspectSessionCloudStatus();
+    setLoading(false);
+    const n = status.onlyLocalCount + status.failCount;
+    if (n > 0 || status.cloudUnreachable) {
+      setMsg("仍有資料未上雲，請再試或仍要登出。");
+      return;
+    }
+    setLogoutWarn(null);
+    setMsg("✅ 已同步到雲端，可以登出");
   };
 
   if (userEmail) {
@@ -75,23 +130,90 @@ export function AuthPanel() {
         <div style={{ fontSize: 12, color: TH.text }}>
           已登入：<span style={{ fontWeight: 800 }}>{userEmail}</span>
         </div>
-        <button
-          type="button"
-          onClick={signOut}
-          style={{
-            padding: "8px 14px",
-            borderRadius: 10,
-            border: `1px solid ${TH.border}`,
-            background: "transparent",
-            color: TH.muted,
-            fontSize: 12,
-            fontWeight: 800,
-            cursor: "pointer",
-            alignSelf: "flex-start",
-          }}
-        >
-          登出
-        </button>
+        {logoutWarn ? (
+          <div
+            style={{
+              border: `1px solid ${TH.red}66`,
+              background: TH.red + "14",
+              borderRadius: 10,
+              padding: 10,
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+            }}
+          >
+            <div style={{ fontSize: 11, color: TH.red, fontWeight: 800, lineHeight: 1.5 }}>
+              ⚠️ 有 {logoutWarn.n} 筆資料還沒同步到雲端（{logoutWarn.detail}），現在登出會遺失。建議先確認網路後重試，或仍要登出？
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => void retryThenRecheck()}
+                style={{
+                  ...btnBase,
+                  border: "none",
+                  background: TH.accent,
+                  color: "#fff",
+                  cursor: loading ? "not-allowed" : "pointer",
+                }}
+              >
+                {loading ? "同步中…" : "重試同步"}
+              </button>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => void finishSignOut()}
+                style={{
+                  ...btnBase,
+                  border: `1px solid ${TH.red}66`,
+                  background: "transparent",
+                  color: TH.red,
+                  cursor: loading ? "not-allowed" : "pointer",
+                }}
+              >
+                仍要登出
+              </button>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => {
+                  setLogoutWarn(null);
+                  setMsg("");
+                }}
+                style={{
+                  ...btnBase,
+                  border: `1px solid ${TH.border}`,
+                  background: "transparent",
+                  color: TH.muted,
+                }}
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => void signOut()}
+            style={{
+              ...btnBase,
+              border: `1px solid ${TH.border}`,
+              background: "transparent",
+              color: TH.muted,
+              alignSelf: "flex-start",
+              cursor: loading ? "not-allowed" : "pointer",
+            }}
+          >
+            {loading ? "檢查同步…" : "登出"}
+          </button>
+        )}
+        {msg && (
+          <div style={{ fontSize: 11, color: msg.startsWith("✅") ? TH.green : TH.red, lineHeight: 1.4 }}>
+            {msg}
+          </div>
+        )}
       </div>
     );
   }
@@ -127,7 +249,7 @@ export function AuthPanel() {
       )}
       <button
         type="button"
-        onClick={submit}
+        onClick={() => void submit()}
         disabled={loading || !email || !password}
         style={{
           padding: "10px",

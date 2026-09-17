@@ -72,6 +72,8 @@ lib/
 ├── types.ts      ← Session 等共用型別（含 intention／reflection／id）
 ├── sessions.ts   ← patchReflection（覆盤寫入單一來源）
 ├── overlap.ts    ← 時段重疊共用檢查器（spansOverlap／findOverlaps；相鄰不算）
+├── cloudWrite.ts ← 雲端寫入錯誤單一入口（reportCloudWriteResult／getCloudWriteFailures／uuidsOnlyInLocal）
+├── cloudFlush.ts ← 登出前完整推送（5s 逾時）
 ├── reviews.ts    ← upsertReview / addReview / removeReview / nextId（覆盤表寫入單一來源）
 ├── period.ts     ← mondayOf／weekKey／monthKey／quarterKey／isoWeek／daysOfWeek／weekKeysOfMonth／monthKeysOfQuarter／weekLabel／monthLabel／quarterLabel（期間 key 單一來源）
 ├── timelineActual.ts ← actSessionsFor / overridesFor / actIdleFor / buildActualSegments（VT＋迷你 bar 單一來源）
@@ -586,6 +588,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **取消番茄立刻進未利用**：根因＝`abandonFocus` 自行 `setIdleTrackStart` 後，App 60s 規則制 tick 若仍見 `pomoRunning` 會清掉、等到下一輪才重開。修法＝抽出 `syncIdleTrack`＋`inAvailableWindow`，`onFocusEnd` 立刻重算；放棄路徑不再自己點燃 idle。
 - **課表課格分類小字**：課名下方 7px `TH.muted` 中分類（無則大分類），單行省略；`ROW_H=26` 不變。週課表＋便利貼格子同步。
 - **直式行程表未完成／已完成 💡**：未完成＝今日未完成且有排定時間、疊在計畫時段；已完成＝今日已完成且有 `endAt`、疊在實際完成點；眼睛只改時間軸顯示。
+- **雲端寫入必須被發現**：所有 supabase upsert/insert/update/delete 走 `reportCloudWriteResult`；失敗 `console.error` + 計數；Header／設定紅標「⚠️ 有 N 筆未能同步」點開看最後錯誤。登出前比對 sessions uuid＋失敗計數，未同步則警告「重試同步／仍要登出」；登出必 `flushLocalToCloud`（5s 逾時）再清本機。設定頁「檢查雲端同步狀態」。
 
 ---
 
@@ -682,6 +685,7 @@ TH.gold    = "#FBBF24"   // 金幣
 ### 結構
 - `vitest.config.ts`：`environment: jsdom`、`globals: true`、`@` → 專案根
 - `tests/`（與 `lib/` 並列）：
+  - `cloudWrite.test.ts` — 寫入失敗計數累加／成功不累加（mock `{ error }`）；`uuidsOnlyInLocal` 只在本機
   - `overlap.test.ts` — `spansOverlap`／`findOverlaps`：相鄰不重疊、包含、部分重疊、完全相同；datetime-local 與 `"24:00"`；日期字串鎖死、不用 new Date()
   - `idle.test.ts` — 未利用 subtract 夾窗（防延伸到不可用時段）＋ `inAvailableWindow`
   - `schedule.test.ts` — 時段重疊／`currentScheduleBlock`／`hi` 保留
@@ -708,5 +712,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/09/16（帳號資料歸屬隔離，擋跨帳號本機汙染）*
+*最後更新：2026/09/17（雲端寫入失敗必須被發現；登出前 flush）*
 *維護原則：每次完成重要功能，同步更新第十、十一、十二節*
