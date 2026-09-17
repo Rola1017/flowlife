@@ -4,15 +4,23 @@ import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateActio
 import { CFG } from "@/lib/config";
 import { buildLineSeries } from "@/lib/analytics";
 import { coinsForSecs, playRestEnd, toLocalDateStr, toM } from "@/lib/utils";
-import { patchReflection } from "@/lib/sessions";
-import { CAT } from "@/lib/categories";
+import { patchReflection, stampSession } from "@/lib/sessions";
+import { resolveCatIds } from "@/lib/categories";
 import { idleMinutesForDate } from "@/lib/timelineActual";
 import type { Session } from "@/lib/types";
+import { useTagsSnapshot } from "@/components/hooks/useTagsSnapshot";
+import {
+  canStartWithTags,
+  missingRequiredGroupNames,
+  rememberTagCombo,
+  selFromTagIds,
+  sessionNoCoin,
+} from "@/lib/tagSelect";
 
 export type PomodoroSessionRow = Session;
 
-type CatSelection = { cat1: string; cat2: string; cat3: string };
-type ConfirmedPomodoro = { name: string; cat1: string; cat2: string; cat3: string; intention: string };
+export type CatSelection = { tagIds: string[]; cat1: string; cat2: string; cat3: string };
+type ConfirmedPomodoro = { name: string; cat1: string; cat2: string; cat3: string; tagIds: string[]; intention: string };
 type RewardFx = { id: number; amount: number; big?: boolean; treasure?: boolean };
 export type CoinIncomeLogRow = {
   id: number;
@@ -75,6 +83,7 @@ export function usePomodoro({
 }) {
   const REWARD_FX_MS = 3700;
 
+  const { tags, groups } = useTagsSnapshot();
   const [dur, setDur] = useState(1);
   const [secs, setSecs] = useState(1 * 60);
   const [mode, setMode] = useState("idle");
@@ -85,7 +94,7 @@ export function usePomodoro({
   const [linePeriod, setLinePeriod] = useState("7天");
   const [taskName, setTaskName] = useState("");
   const [intention, setIntention] = useState("");
-  const [catSel, setCatSel] = useState<CatSelection>({ cat1: "", cat2: "", cat3: "" });
+  const [catSel, setCatSel] = useState<CatSelection>({ tagIds: [], cat1: "", cat2: "", cat3: "" });
   const [confirmed, setConfirmed] = useState<ConfirmedPomodoro | null>(null);
   const [idleSecs, setIdleSecs] = useState(0);
   const [rewardFx, setRewardFx] = useState<RewardFx | null>(null);
@@ -101,7 +110,12 @@ export function usePomodoro({
   const restWasActiveRef = useRef(false);
   const focusReadyToBreakRef = useRef(false);
   const lastHandledResetVersionRef = useRef(resetVersion);
-  const canStart = catSel.cat1 !== "";
+  const missingRequired = useMemo(
+    () => missingRequiredGroupNames(catSel.tagIds, groups, tags),
+    [catSel.tagIds, groups, tags],
+  );
+  const canStart = canStartWithTags(catSel.tagIds, groups, tags);
+  const canStartHint = canStart ? "開始專注 🍅" : `請先選擇：${missingRequired.join("、")}`;
 
   const stopFocusClock = () => {
     if (intRef.current !== null) {
@@ -132,12 +146,12 @@ export function usePomodoro({
 
   useEffect(() => {
     const tot = sessions
-      .filter((x) => x.counted !== false && x.mins > 1 && !CAT.isNoCoin(x.cat1))
+      .filter((x) => x.counted !== false && x.mins > 1 && !sessionNoCoin(x, tags))
       .reduce((s, x) => s + x.mins, 0);
     CFG.MILESTONES.forEach((m) => {
       if (tot >= m.mins) hitRef.current.add(m.mins);
     });
-  }, [sessions]);
+  }, [sessions, tags]);
 
   useEffect(() => {
     if (resetVersion === lastHandledResetVersionRef.current) return;
@@ -148,7 +162,7 @@ export function usePomodoro({
     setCoinIncomeLog([]);
     setTaskName("");
     setIntention("");
-    setCatSel({ cat1: "", cat2: "", cat3: "" });
+    setCatSel({ tagIds: [], cat1: "", cat2: "", cat3: "" });
     setConfirmed(null);
     setIdleSecs(0);
     setRewardFx(null);
@@ -255,11 +269,20 @@ export function usePomodoro({
     }
   }, [mode, restSecs, idleTrackStart, setIdleTrackStart]);
 
-  const beginFocus = (sel: { name: string; cat1: string; cat2: string; cat3: string; intention?: string }) => {
+  const beginFocus = (sel: {
+    name: string;
+    cat1: string;
+    cat2: string;
+    cat3: string;
+    tagIds?: string[];
+    intention?: string;
+  }) => {
+    const tagIds = sel.tagIds?.length ? sel.tagIds : catSel.tagIds;
+    if (tagIds.length) rememberTagCombo(tagIds);
     onFocusStart?.();
     focusStartRef.current = Date.now();
     focusStartClockRef.current = localDateParts().time;
-    setConfirmed({ ...sel, intention: sel.intention ?? "" });
+    setConfirmed({ ...sel, tagIds, intention: sel.intention ?? "" });
     setIntention("");
     setSecs(dur * 60);
     elRef.current = 0;
@@ -275,16 +298,24 @@ export function usePomodoro({
 
   const startFocus = () => {
     if (!canStart) return;
-    beginFocus({ name: taskName || catSel.cat1, ...catSel, intention });
+    const label = taskName || catSel.cat3 || catSel.cat2 || catSel.cat1;
+    beginFocus({ name: label, ...catSel, intention });
   };
 
-  const quickStart = (sel: { cat1: string; cat2?: string; cat3?: string; name?: string }) => {
-    if (!sel.cat1) return;
-    const norm = { cat1: sel.cat1, cat2: sel.cat2 || "", cat3: sel.cat3 || "" };
-    setCatSel(norm);
+  const quickStart = (sel: { cat1: string; cat2?: string; cat3?: string; name?: string; tagIds?: string[] }) => {
+    let tagIds = sel.tagIds?.length ? sel.tagIds : [];
+    if (!tagIds.length && sel.cat1) {
+      const ids = resolveCatIds(sel.cat1, sel.cat2, sel.cat3);
+      const deepest = ids.cat3Id || ids.cat2Id || ids.cat1Id;
+      if (deepest) tagIds = [deepest];
+    }
+    if (!canStartWithTags(tagIds, groups, tags) && !sel.cat1) return;
+    const next = selFromTagIds(tagIds, tags);
+    const path = next.cat1 ? next : { ...next, cat1: sel.cat1, cat2: sel.cat2 || "", cat3: sel.cat3 || "" };
+    setCatSel(path);
     setTaskName(sel.name || "");
     setIntention("");
-    beginFocus({ name: sel.name || sel.cat1, ...norm, intention: "" });
+    beginFocus({ name: sel.name || path.cat1 || sel.cat1, ...path, intention: "" });
   };
 
   const endFocus = () => {
@@ -317,7 +348,7 @@ export function usePomodoro({
     setRated(true);
 
     const el = elRef.current;
-    const isNoCoin = CAT.isNoCoin(confirmed!.cat1);
+    const isNoCoin = sessionNoCoin(confirmed!, tags);
     const earned = isNoCoin ? 0 : coinsForSecs(el);
     const now = localDateParts();
     const startClock = focusStartClockRef.current ?? undefined;
@@ -329,6 +360,7 @@ export function usePomodoro({
       cat1: confirmed!.cat1,
       cat2: confirmed!.cat2,
       cat3: confirmed!.cat3,
+      tagIds: confirmed!.tagIds?.length ? confirmed!.tagIds : undefined,
       rating: r,
       intention: confirmed!.intention?.trim() || undefined,
       updatedAt: new Date().toISOString(),
@@ -381,12 +413,12 @@ export function usePomodoro({
         },
       ];
     }
-    const ns = [...sessions, ...newRows];
+    const ns = [...sessions, ...newRows.map(stampSession)];
     setSessions(ns);
     setLastSessionId(sessionId);
 
     const tot = ns
-      .filter((p) => p.counted && !CAT.isNoCoin(p.cat1))
+      .filter((p) => p.counted && !sessionNoCoin(p, tags))
       .reduce((s, p) => s + p.mins, 0);
     let milestoneBonus = 0;
     CFG.MILESTONES.forEach((m) => {
@@ -595,6 +627,7 @@ export function usePomodoro({
     focusReadyToBreak,
     focusOverrunSecs,
     canStart,
+    canStartHint,
     countedSessions,
     tot,
     min1Count,

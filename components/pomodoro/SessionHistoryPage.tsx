@@ -33,6 +33,7 @@ type ManualInput = {
   cat1: string;
   cat2: string;
   cat3: string;
+  tagIds?: string[];
   rating?: string;
 };
 
@@ -506,7 +507,8 @@ function ManualForm({
             cat1={draft.cat1}
             cat2={draft.cat2}
             cat3={draft.cat3}
-            onChange={(n) => setDraft((v) => ({ ...v, ...n }))}
+            tagIds={draft.tagIds}
+            onChange={(n) => setDraft((v) => ({ ...v, cat1: n.cat1, cat2: n.cat2, cat3: n.cat3, tagIds: n.tagIds }))}
           />
           <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4 }}>
             💡 補番茄也能選到中／小分類，跟課表用同一套分類

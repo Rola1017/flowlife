@@ -13,6 +13,7 @@ import { CategorySelector } from "@/components/pomodoro/CategorySelector";
 import { CatBadge } from "@/components/pomodoro/CatBadge";
 import { RingTimer } from "@/components/pomodoro/RingTimer";
 import { usePomodoro, type CoinIncomeLogRow } from "@/components/pomodoro/usePomodoro";
+import { selFromTagIds } from "@/lib/tagSelect";
 import { CourseBanner } from "@/components/schedule/CourseBanner";
 import type { Session } from "@/lib/types";
 import { WeekHeat } from "@/components/charts/WeekHeat";
@@ -117,6 +118,7 @@ export function PomodoroPage({
     focusReadyToBreak,
     focusOverrunSecs,
     canStart,
+    canStartHint,
     countedSessions,
     tot,
     min1Count,
@@ -1061,7 +1063,7 @@ export function PomodoroPage({
         {mode !== "focus" && recentEventNames.length > 0 && (
           <>
             <div style={{ fontSize: 9, color: TH.muted, alignSelf: "flex-start" }}>
-              💡 點下面的標籤可快速填入：今天課表科目、最近做過的活動
+              💡 點下面可快速填入活動名稱；若那次有標籤會一併套用
             </div>
             <div style={{ ...H_SCROLL, paddingBottom: 2 }}>
               {recentEventNames.slice(0, 8).map((name) => {
@@ -1070,7 +1072,11 @@ export function PomodoroPage({
                   <button
                     key={name}
                     type="button"
-                    onClick={() => setTaskName(name)}
+                    onClick={() => {
+                      setTaskName(name);
+                      const hit = [...sessions].reverse().find((s) => s.name?.trim() === name && s.tagIds?.length);
+                      if (hit?.tagIds?.length) setCatSel(selFromTagIds(hit.tagIds));
+                    }}
                     style={{
                       padding: "7px 11px",
                       borderRadius: 16,
@@ -1137,13 +1143,14 @@ export function PomodoroPage({
       {mode !== "focus" && (
         <Card style={{ width: "100%", padding: 10, minWidth: 0, boxSizing: "border-box" }}>
           <CategorySelector
+            tagIds={catSel.tagIds}
             cat1={catSel.cat1}
             cat2={catSel.cat2}
             cat3={catSel.cat3}
             onChange={setCatSel}
             onShowCategoryManager={onShowCategoryManager}
           />
-          {catSel.cat1 && (
+          {catSel.tagIds.length > 0 && (
             <div
               style={{
                 marginTop: 8,
@@ -1156,7 +1163,7 @@ export function PomodoroPage({
               }}
             >
               已選：
-              <CatBadge cat1={catSel.cat1} cat2={catSel.cat2} cat3={catSel.cat3} />
+              <CatBadge tagIds={catSel.tagIds} cat1={catSel.cat1} cat2={catSel.cat2} cat3={catSel.cat3} />
             </div>
           )}
         </Card>
@@ -1204,7 +1211,7 @@ export function PomodoroPage({
             transition: "all .2s, transform .12s, filter .12s",
           }}
         >
-          {canStart ? "開始專注 🍅" : "請先選擇大分類"}
+          {canStartHint}
         </button>
       )}
       {mode === "focus" && (

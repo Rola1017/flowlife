@@ -8,10 +8,9 @@ export function primaryTagId(tagIds?: string[]): string | undefined {
   return first || undefined;
 }
 
-/** 祖先鏈（由根到該標籤，含自己） */
-export function tagAncestors(tagId: string, allTags: Tag[] = loadTags()): Tag[] {
-  const live = allTags.filter((t) => !t.deletedAt);
-  const byId = new Map(live.map((t) => [t.id, t]));
+/** 祖先鏈（由根到該標籤，含自己）。含已刪，供顯示／noCoin；比對請用 tagAncestors */
+export function tagChain(tagId: string, allTags: Tag[] = loadTags()): Tag[] {
+  const byId = new Map(allTags.map((t) => [t.id, t]));
   const chain: Tag[] = [];
   const seen = new Set<string>();
   let cur = byId.get(tagId);
@@ -22,6 +21,11 @@ export function tagAncestors(tagId: string, allTags: Tag[] = loadTags()): Tag[] 
     cur = byId.get(cur.parentId);
   }
   return chain.reverse();
+}
+
+/** 祖先鏈（由根到該標籤，含自己；只走活著的節點） */
+export function tagAncestors(tagId: string, allTags: Tag[] = loadTags()): Tag[] {
+  return tagChain(tagId, allTags.filter((t) => !t.deletedAt));
 }
 
 /** 由主標籤祖先鏈推導三層名稱（供未改造頁面使用） */

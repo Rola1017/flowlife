@@ -261,7 +261,7 @@ export function ShopPage({
                 cat1={draft.cat1}
                 cat2={draft.cat2}
                 cat3={draft.cat3}
-                onChange={(n) => setDraft({ ...draft, ...n })}
+                onChange={(n) => setDraft({ ...draft, cat1: n.cat1, cat2: n.cat2, cat3: n.cat3 })}
               />
             </>
           )}

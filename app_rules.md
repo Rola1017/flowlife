@@ -590,6 +590,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **課表課格分類小字**：課名下方 7px `TH.muted` 中分類（無則大分類），單行省略；`ROW_H=26` 不變。週課表＋便利貼格子同步。
 - **直式行程表未完成／已完成 💡**：未完成＝今日未完成且有排定時間、疊在計畫時段；已完成＝今日已完成且有 `endAt`、疊在實際完成點；眼睛只改時間軸顯示。
 - **雲端寫入必須被發現**：所有 supabase upsert/insert/update/delete 走 `reportCloudWriteResult`；失敗 `console.error` + 計數；Header／設定紅標「⚠️ 有 N 筆未能同步」點開看最後錯誤。登出前比對 sessions uuid＋失敗計數，未同步則警告「重試同步／仍要登出」；登出必 `flushLocalToCloud`（5s 逾時）再清本機。設定頁「檢查雲端同步狀態」。
+- **Z3 番茄區標籤化**：CategorySelector 改為依分類維度分區（多選維度用 chips＋樹狀彈出面板、單選維度用 chips），新增最近組合與沿用上次；canStart 改為所有 required 維度皆已選；寫入 tagIds 並雙寫 cat1/2/3（Z8 前不得停止）；noCoin 改走標籤祖先鏈；顏色/emoji 取主標籤 tagIds[0]。
 
 ---
 
@@ -640,8 +641,8 @@ TH.gold    = "#FBBF24"   // 金幣
 ## 十一、待完成事項 ⬜
 
 - ⬜ **重疊檢測其餘寫入點**（本批只修番茄手動補/改）：課表課格同格覆蓋無警告、班別已擋、作息已警告、便利貼課↔班衝突／課↔課無、待辦只驗同日 end>start、時間軸 ACT 補登無、健身 stub、即時番茄/娛樂 session 無。待 Rola 決定是否接 `lib/overlap`。
-- ✅ **Z2 標籤管理頁**（群組＋無限層樹編輯器、`isTimeDestination`、軟刪除＋影響範圍）。⬜ **Z3～Z7 未執行**。超過三層的降級位置（本批只顯示前三層，供 Z3～Z7 改走標籤樹）：`CAT.cats()`／`categoriesFromDomainTags`（只投影 root→mid→sub）；`CategorySelector`；`PomodoroPage` 分類列；`SchedulePage` 編輯卡片 cat1/2/3；`SessionHistoryPage`／`CoinHistoryPage` cat1/2/3；`CalendarPage`／`lib/analytics`／`ReviewView`／`DayReview` `matchesCatSelection`；待辦 `TodoFormFields` 單層 cat；商店／娛樂 `cat1/2/3`；`legacyPath` 只取祖先前三層；`stampSessionCatIds`／`resolveCatIds` 只認三層。
-- ⬜ **Z3～Z8 其餘分類標籤化**，見 FlowLife_分類標籤化設計.md §4。
+- ✅ **Z2 標籤管理頁**（群組＋無限層樹編輯器、`isTimeDestination`、軟刪除＋影響範圍）。✅ **Z3 番茄區標籤化**：CategorySelector 改為依分類維度分區（多選維度用 chips＋樹狀彈出面板、單選維度用 chips），新增最近組合與沿用上次；canStart 改為所有 required 維度皆已選；寫入 tagIds 並雙寫 cat1/2/3（Z8 前不得停止）；noCoin 改走標籤祖先鏈；顏色/emoji 取主標籤 tagIds[0]。⬜ **Z4～Z7 未執行**。超過三層的降級位置（本批只顯示前三層，供 Z4～Z7 改走標籤樹）：`CAT.cats()`／`categoriesFromDomainTags`（只投影 root→mid→sub）；`SchedulePage` 編輯卡片 cat1/2/3；`SessionHistoryPage`／`CoinHistoryPage` 篩選仍 cat1/2/3；`CalendarPage`／`lib/analytics`／`ReviewView`／`DayReview` `matchesCatSelection`；待辦 `TodoFormFields` 單層 cat；商店／娛樂 `cat1/2/3`；`legacyPath` 只取祖先前三層；`stampSessionCatIds`／`resolveCatIds` 三層名稱仍雙寫。
+- ⬜ **Z4～Z8 其餘分類標籤化**，見 FlowLife_分類標籤化設計.md §4。
 - ⬜ 待辦提醒：依 `reminder` 觸發推播／系統通知（目前僅儲存設定）
 - ⬜ 健康模組
 - ⬜ 閱讀模組

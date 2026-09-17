@@ -4,6 +4,8 @@ import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { fmtIdleTime, fmtMs } from "@/lib/utils";
+import { useTagsSnapshot } from "@/components/hooks/useTagsSnapshot";
+import { primaryTagColor, tagPathLabel } from "@/lib/tagSelect";
 
 export function RingTimer({
   mode,
@@ -23,9 +25,10 @@ export function RingTimer({
   restTotalSecs?: number;
   idleTrackStart: number | null;
   idleSecs: number;
-  confirmed: { cat1: string; cat2?: string; name?: string } | null;
+  confirmed: { cat1: string; cat2?: string; tagIds?: string[]; name?: string } | null;
   focusOverrunSecs?: number;
 }) {
+  const { tags } = useTagsSnapshot();
   const m = Math.floor(secs / 60),
     s = secs % 60;
   const rm = Math.floor(restSecs / 60),
@@ -113,9 +116,22 @@ export function RingTimer({
             <div style={{ fontSize: 9, color: TH.muted }}>{mode === "focus" ? "🔥 專注中" : "⏸ 待機"}</div>
             {mode === "focus" && <div style={{ fontSize: 8, color: ringColor, fontWeight: 800 }}>第 {focusCycle} 圈</div>}
             {mode === "focus" && confirmed && (
-              <div style={{ fontSize: 8, color: CAT.cat1Color(confirmed.cat1), marginTop: 3 }}>
-                {CAT.cat1Display(confirmed.cat1)}
-                {confirmed.cat2 && " › " + confirmed.cat2}
+              <div
+                style={{
+                  fontSize: 8,
+                  color: confirmed.tagIds?.length ? primaryTagColor(confirmed.tagIds, tags) : CAT.cat1Color(confirmed.cat1),
+                  fontWeight: 800,
+                  marginTop: 3,
+                  maxWidth: 90,
+                  textAlign: "center",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {confirmed.tagIds?.length
+                  ? tagPathLabel(confirmed.tagIds[0], tags)
+                  : [CAT.cat1Display(confirmed.cat1), confirmed.cat2].filter(Boolean).join(" › ")}
               </div>
             )}
           </>

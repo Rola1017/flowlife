@@ -1,16 +1,34 @@
 import type { Session } from "@/lib/types";
 import { coinsForSecs, toLocalDateStr, toM } from "@/lib/utils";
-import { resolveCatIds, CAT } from "@/lib/categories";
+import { resolveCatIds } from "@/lib/categories";
+import { legacyPath, primaryTagId, tagAncestors } from "@/lib/tagsCompat";
+import { sessionNoCoin } from "@/lib/tagSelect";
 
-/** 依名字補上分類穩定編號（只補不覆蓋；找不到名字絕不清掉舊編號）＋一併寫入 tagIds */
+/** 有 tagIds → 雙寫 cat1/2/3＋id（Z8 前不得停）；否則依名字只補不覆蓋 */
 export function stampSessionCatIds(s: Session): Session {
+  if (s.tagIds?.length) {
+    const path = legacyPath(s.tagIds);
+    const pid = primaryTagId(s.tagIds);
+    const anc = pid ? tagAncestors(pid) : [];
+    const names = resolveCatIds(path.cat1 || s.cat1, path.cat1 ? path.cat2 : s.cat2, path.cat1 ? path.cat3 : s.cat3);
+    return {
+      ...s,
+      cat1: path.cat1 || s.cat1,
+      cat2: path.cat1 ? path.cat2 : s.cat2,
+      cat3: path.cat1 ? path.cat3 : s.cat3,
+      cat1Id: anc[0]?.id ?? names.cat1Id ?? s.cat1Id,
+      cat2Id: anc[1]?.id ?? names.cat2Id ?? s.cat2Id,
+      cat3Id: anc[2]?.id ?? names.cat3Id ?? s.cat3Id,
+      tagIds: s.tagIds,
+    };
+  }
   if (!s.cat1) return s;
   const ids = resolveCatIds(s.cat1, s.cat2, s.cat3);
   const cat1Id = ids.cat1Id ?? s.cat1Id;
   const cat2Id = ids.cat2Id ?? s.cat2Id;
   const cat3Id = ids.cat3Id ?? s.cat3Id;
   const deepest = cat3Id || cat2Id || cat1Id;
-  const tagIds = s.tagIds?.length ? s.tagIds : deepest ? [deepest] : s.tagIds;
+  const tagIds = deepest ? [deepest] : s.tagIds;
   return {
     ...s,
     cat1Id,
@@ -44,7 +62,7 @@ export function setSessionMins(sessions: Session[], id: number, newMins: number)
   const next = sessions.map((s) => {
     if (s.id !== id) return s;
     const safe = Math.max(1, Math.round(newMins));
-    const newBase = CAT.isNoCoin(s.cat1) ? 0 : coinsForSecs(safe * 60);
+    const newBase = sessionNoCoin(s) ? 0 : coinsForSecs(safe * 60);
     const oldBase = s.earnedCoins ?? 0;
     coinDelta = newBase - oldBase;
     return { ...s, mins: safe, earnedCoins: newBase, counted: safe > 1, updatedAt: new Date().toISOString() };
@@ -64,8 +82,8 @@ export function setSessionTimes(
   const st = toM(startTime);
   const en = endTime === "24:00" ? 1440 : toM(endTime);
   const mins = Math.max(1, en - st);
-  const oldBase = CAT.isNoCoin(s.cat1) ? 0 : coinsForSecs((s.mins ?? 0) * 60);
-  const newBase = CAT.isNoCoin(s.cat1) ? 0 : coinsForSecs(mins * 60);
+  const oldBase = sessionNoCoin(s) ? 0 : coinsForSecs((s.mins ?? 0) * 60);
+  const newBase = sessionNoCoin(s) ? 0 : coinsForSecs(mins * 60);
   const coinDelta = newBase - oldBase;
   const next = sessions.map((x) =>
     x.id === id
@@ -127,13 +145,14 @@ export function buildManualSession(input: {
   cat1: string;
   cat2?: string;
   cat3?: string;
+  tagIds?: string[];
   rating?: string;
 }): { sessions: Session[]; coinGain: number } {
   const pad = (n: number) => String(n).padStart(2, "0");
   const hm = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   const start = new Date(input.startAt);
   const end = new Date(input.endAt);
-  const isNoCoin = CAT.isNoCoin(input.cat1);
+  const isNoCoin = sessionNoCoin({ tagIds: input.tagIds, cat1: input.cat1 });
   const name = input.name.trim() || input.cat3 || input.cat2 || input.cat1 || "手動番茄";
   const baseId = Date.now();
 
@@ -164,6 +183,7 @@ export function buildManualSession(input: {
       cat1: input.cat1,
       cat2: input.cat2 ?? "",
       cat3: input.cat3 ?? "",
+      tagIds: input.tagIds,
       mins: seg.mins,
       rating: input.rating || "",
       earnedCoins: isNoCoin ? 0 : coinsForSecs(seg.mins * 60),

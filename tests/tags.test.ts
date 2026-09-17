@@ -147,6 +147,18 @@ describe("session / todo tagIds", () => {
     };
   }
 
+  it("stampSessionCatIds 有 tagIds 時雙寫 cat1/2/3 與 id", () => {
+    persistMigration();
+    const stamped = stampSessionCatIds(sess({ cat1: "x", cat2: "", cat3: "", tagIds: [LISTEN.id] }));
+    expect(stamped.cat1).toBe("學習");
+    expect(stamped.cat2).toBe("英文");
+    expect(stamped.cat3).toBe("聽力");
+    expect(stamped.cat1Id).toBe(LEARN.id);
+    expect(stamped.cat2Id).toBe(EN.id);
+    expect(stamped.cat3Id).toBe(LISTEN.id);
+    expect(stamped.tagIds).toEqual([LISTEN.id]);
+  });
+
   it("stampSessionCatIds 取最深 catNId 寫入 tagIds；toRow/fromRow 對應 tag_ids", () => {
     const deep = stampSessionCatIds(sess({ cat2: "法律", cat3: LAW_SUB.name }));
     expect(deep.cat3Id).toBe(LAW_SUB.id);
@@ -185,7 +197,7 @@ describe("CAT 三層降級", () => {
     saveJSON(LS_KEYS.tags, next);
     expect(CAT.cat3List("學習", "英文")).toEqual(EN.subs.map((s) => s.name));
     expect(CAT.cat3List("學習", "英文")).not.toContain("第四層");
-    expect(next.some((t) => t.id === "layer4" && t.parentId === LISTEN.id)).toBe(true);
+    expect(legacyPath(["layer4"], next)).toEqual({ cat1: "學習", cat2: "英文", cat3: "聽力" });
   });
 });
 

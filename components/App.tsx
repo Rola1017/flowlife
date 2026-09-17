@@ -624,6 +624,7 @@ function AppContent() {
     cat1: string;
     cat2: string;
     cat3: string;
+    tagIds?: string[];
     rating?: string;
   }) => {
     const { sessions: newRows } = buildManualSession(input);

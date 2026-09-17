@@ -23,6 +23,8 @@ export const LS_KEYS = {
   scheduleHistory: `${STORAGE_PREFIX}schedule_history`,
   timelineTodoView: `${STORAGE_PREFIX}timeline_todo_view`,
   tagManagerHelp: `${STORAGE_PREFIX}tag_manager_help`,
+  /** 番茄最近標籤組合（本機快捷，不上雲） */
+  tagCombos: `${STORAGE_PREFIX}tag_combos`,
   reviews: `${STORAGE_PREFIX}reviews`,
   s2Backup: `${STORAGE_PREFIX}s2_backup`,
   appStateMeta: `${STORAGE_PREFIX}_appstate_meta`,
@@ -61,6 +63,7 @@ export const APP_DATA_EXACT_KEYS: readonly string[] = [
   LS_KEYS.scheduleHistory,
   LS_KEYS.timelineTodoView,
   LS_KEYS.tagManagerHelp,
+  LS_KEYS.tagCombos,
   LS_KEYS.reviews,
   LS_KEYS.s2Backup,
   LS_KEYS.appStateMeta,
