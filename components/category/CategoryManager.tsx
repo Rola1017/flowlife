@@ -606,22 +606,64 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
 
       <Card>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, minWidth: 0 }}>
-          <SL style={{ marginBottom: 0 }}>💡 這一頁怎麼用</SL>
+          <SL style={{ marginBottom: 0, minWidth: 0, flex: 1 }}>💡 這一頁怎麼用（看一個例子就懂）</SL>
           <button type="button" onClick={toggleHelp} style={btnSm}>
             {helpOpen ? "▲" : "▼"}
           </button>
         </div>
         {helpOpen && (
-          <div style={{ fontSize: 11, color: TH.text, lineHeight: 1.55, marginTop: 8, minWidth: 0 }}>
-            <div>
-              ・<b>分類維度</b>＝一種分類角度。例：領域、專案、難易度
-            </div>
-            <div>
-              ・<b>標籤</b>＝維度底下的選項。例：領域底下有 學習、事業、閱讀
-            </div>
-            <div>・標籤可以有階層。例：學習 › 法律 › 勞健保</div>
-            <div>・一筆番茄可以同時掛好幾個維度的標籤</div>
-          </div>
+          <pre
+            style={{
+              fontSize: 10,
+              lineHeight: 1.6,
+              color: TH.text,
+              margin: "8px 0 0",
+              padding: 0,
+              minWidth: 0,
+              maxWidth: "100%",
+              boxSizing: "border-box",
+              whiteSpace: "pre-wrap",
+              overflowWrap: "anywhere",
+              wordBreak: "break-word",
+              fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+              background: "transparent",
+              overflowX: "hidden",
+            }}
+          >
+            {`「分類維度」＝一種分類角度；「標籤」＝那個角度底下的選項。
+
+例子：你要記錄「開發 Roro」這件事
+
+  分類維度①「領域」
+    可多選✅ 必填✅ 參與時數分攤✅
+      學習
+        └ 法律
+            └ 勞健保
+      事業
+        └ 開發
+            └ Roro
+
+  分類維度②「難易度」
+    可多選❌ 必填❌ 參與時數分攤❌
+      難 / 普通 / 易
+
+開番茄時你會勾：
+  領域 → 同時勾「事業›開發›Roro」和「學習」
+        （因為你真的兩件事都在做）
+  難易度 → 選「難」
+
+跑了 2 小時之後：
+  按領域看 → 事業 60 分、學習 60 分
+              （加起來剛好 120 分）
+  「難」不佔時數，但可以用來篩選
+  「這個月難的事情花了幾小時」
+
+三個開關一句話：
+  可多選        → 一次能勾好幾個嗎？
+  必填          → 不選就不能開始嗎？
+  參與時數分攤  → 時間要不要分給它？
+                  （時間不是花在「難」上面，所以關閉）`}
+          </pre>
         )}
       </Card>
 
