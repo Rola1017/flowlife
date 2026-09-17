@@ -5,8 +5,12 @@ import { legacyPath } from "@/lib/tagsCompat";
 import {
   canStartWithTags,
   isNoCoinByTagIds,
+  isProjectGroup,
+  latestComboContaining,
   missingRequiredGroupNames,
+  projectLeafTags,
   pushRecentCombo,
+  tagIdsForProjectShortcut,
   tagPathLabel,
   toggleTagInSelection,
 } from "@/lib/tagSelect";
@@ -136,5 +140,78 @@ describe("toggleTagInSelection", () => {
     expect(canStartWithTags(droppedDomain, GROUPS, TAGS)).toBe(false);
     const droppedMust = toggleTagInSelection(full, "must", TAGS, GROUPS);
     expect(canStartWithTags(droppedMust, GROUPS, TAGS)).toBe(false);
+  });
+});
+
+describe("latestComboContaining", () => {
+  it("依專案標籤找出最近一次包含它的組合；找不到回 null", () => {
+    const combos = [
+      ["learn", "roro", "hard"],
+      ["biz", "site"],
+      ["learn", "roro"],
+    ];
+    expect(latestComboContaining(combos, "roro")).toEqual(["learn", "roro", "hard"]);
+    expect(latestComboContaining(combos, "site")).toEqual(["biz", "site"]);
+    expect(latestComboContaining(combos, "never")).toBeNull();
+    expect(latestComboContaining([], "roro")).toBeNull();
+  });
+});
+
+describe("tagIdsForProjectShortcut", () => {
+  it("找不到組合時只帶入該專案標籤", () => {
+    expect(tagIdsForProjectShortcut([], "roro")).toEqual(["roro"]);
+    expect(tagIdsForProjectShortcut([["learn", "site"]], "roro")).toEqual(["roro"]);
+    expect(tagIdsForProjectShortcut([["learn", "roro", "hard"]], "roro")).toEqual(["learn", "roro", "hard"]);
+  });
+});
+
+describe("isProjectGroup", () => {
+  it("以 isTimeDestination && !required 判斷，不寫死名稱", () => {
+    expect(isProjectGroup(GROUPS[0])).toBe(false);
+    expect(isProjectGroup(DEFAULT_TAG_GROUPS[1])).toBe(false);
+    expect(
+      isProjectGroup({
+        id: "tg_proj",
+        name: "隨便叫什麼",
+        selectMode: "single",
+        required: false,
+        isTimeDestination: true,
+        order: 9,
+      }),
+    ).toBe(true);
+    expect(
+      isProjectGroup({
+        id: "tg_dead",
+        name: "專案",
+        selectMode: "single",
+        required: false,
+        isTimeDestination: true,
+        order: 9,
+        deletedAt: "x",
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("projectLeafTags", () => {
+  it("只回專案維度未刪葉標籤", () => {
+    const groups: TagGroup[] = [
+      ...GROUPS,
+      {
+        id: "tg_proj",
+        name: "隨便叫什麼",
+        selectMode: "single",
+        required: false,
+        isTimeDestination: true,
+        order: 9,
+      },
+    ];
+    const tags: Tag[] = [
+      ...TAGS,
+      { id: "parent", groupId: "tg_proj", name: "Roro開發", order: 0 },
+      { id: "leaf", groupId: "tg_proj", name: "FlowLife開發", parentId: "parent", order: 0 },
+      { id: "gone", groupId: "tg_proj", name: "已刪", order: 1, deletedAt: "x" },
+    ];
+    expect(projectLeafTags(tags, groups).map((x) => x.id)).toEqual(["leaf"]);
   });
 });

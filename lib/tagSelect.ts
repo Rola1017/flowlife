@@ -1,7 +1,7 @@
 import type { Tag, TagGroup } from "@/lib/tags";
 import { DELETED_TAG_LABEL, TAG_GROUP_IDS } from "@/lib/tags";
 import { CAT } from "@/lib/categories";
-import { liveGroups } from "@/lib/tagTree";
+import { liveGroups, childrenOf } from "@/lib/tagTree";
 import { legacyPath, primaryTagId, tagChain } from "@/lib/tagsCompat";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 
@@ -166,4 +166,43 @@ export function splitComboLayers(
     else rest.push(id);
   }
   return { domain, rest };
+}
+
+/** 專案維度＝計時數打開、且非必填（領域是必填＋計時數；不寫死名稱「專案」） */
+export function isProjectGroup(g: TagGroup): boolean {
+  return !g.deletedAt && g.isTimeDestination === true && g.required !== true;
+}
+
+export function projectGroups(groups: TagGroup[]): TagGroup[] {
+  return liveGroups(groups).filter(isProjectGroup);
+}
+
+/** 專案維度底下未刪除的葉標籤（有子層的只顯示葉子） */
+export function projectLeafTags(tags: Tag[], groups: TagGroup[]): Tag[] {
+  const out: Tag[] = [];
+  for (const g of projectGroups(groups)) {
+    const walk = (parentId: string | undefined) => {
+      const kids = childrenOf(tags, parentId, g.id);
+      for (const k of kids) {
+        const nested = childrenOf(tags, k.id, g.id);
+        if (nested.length === 0) out.push(k);
+        else walk(k.id);
+      }
+    };
+    walk(undefined);
+  }
+  return out;
+}
+
+/** 最近組合裡最新一筆包含該標籤者；找不到回 null */
+export function latestComboContaining(combos: string[][], tagId: string): string[] | null {
+  for (const c of combos) {
+    if (c.includes(tagId)) return [...c];
+  }
+  return null;
+}
+
+/** 有組合用整組；從未用過則只帶該專案標籤 */
+export function tagIdsForProjectShortcut(combos: string[][], tagId: string): string[] {
+  return latestComboContaining(combos, tagId) ?? [tagId];
 }

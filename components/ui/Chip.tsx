@@ -46,6 +46,7 @@ export function Chip({
       onPointerDown={start}
       onPointerUp={clear}
       onPointerLeave={clear}
+      onPointerCancel={clear}
       onContextMenu={(e) => {
         if (onLongPress) e.preventDefault();
       }}
