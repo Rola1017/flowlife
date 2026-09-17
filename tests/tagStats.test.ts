@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { TAG_GROUP_IDS, type Tag } from "@/lib/tags";
+import { describe, expect, it, vi } from "vitest";
+import { DEFAULT_TAG_GROUPS, TAG_GROUP_IDS, type Tag, type TagGroup } from "@/lib/tags";
 import { splitMinutesByGroup } from "@/lib/tagStats";
 
 const DOMAIN = TAG_GROUP_IDS.domain;
@@ -36,7 +36,6 @@ describe("splitMinutesByGroup", () => {
         expect(sum).toBe(minutes);
       }
     }
-    // 固定組合（禁止 Date.now / new Date；用寫死的分鐘與標籤數）
     const fixtures: [number, string[]][] = [
       [1, ["d1"]],
       [7, ["d1", "d2"]],
@@ -53,7 +52,20 @@ describe("splitMinutesByGroup", () => {
     const out = splitMinutesByGroup(50, ["d1", "hard", "d2"], DOMAIN, tags);
     expect(out.map((x) => x.tagId)).toEqual(["d1", "d2"]);
     expect(out.reduce((a, x) => a + x.minutes, 0)).toBe(50);
-    const diff = splitMinutesByGroup(50, ["d1", "hard", "d2"], DIFF, tags);
+  });
+
+  it("isTimeDestination=false 的群組回空陣列並 warn", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(splitMinutesByGroup(50, ["d1", "hard", "d2"], DIFF, tags)).toEqual([]);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("同一群組若顯式設 isTimeDestination=true 仍可分攤", () => {
+    const groups: TagGroup[] = DEFAULT_TAG_GROUPS.map((g) =>
+      g.id === DIFF ? { ...g, isTimeDestination: true } : g,
+    );
+    const diff = splitMinutesByGroup(50, ["d1", "hard", "d2"], DIFF, tags, groups);
     expect(diff).toEqual([{ tagId: "hard", minutes: 50 }]);
   });
 });

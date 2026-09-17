@@ -42,7 +42,7 @@ export function CategorySelector({
                 flexShrink: 0,
               }}
             >
-              <span style={{ fontSize: 9, color: TH.muted }}>分類管理</span>
+              <span style={{ fontSize: 9, color: TH.muted }}>標籤管理</span>
               <span style={{ fontSize: 13 }}>⚙️</span>
             </button>
           )}

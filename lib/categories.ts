@@ -244,19 +244,20 @@ export function saveCategories(data: CategoryData): void {
   syncDomainTagsFromCategories(data, new Date().toISOString());
 }
 
-function liveDomainTags(): Tag[] {
-  return loadTags().filter((t) => t.groupId === TAG_GROUP_IDS.domain && !t.deletedAt);
+/** 只寫 categories 快照、不回寫標籤（避免三層投影抹掉第四層以上） */
+export function saveCategoriesOnly(data: CategoryData): void {
+  saveJSON(LS_KEYS.categories, data);
+  void pushAppState(APP_STATE_KEYS.categories, data);
 }
 
 function byOrder(a: Tag, b: Tag): number {
   return a.order - b.order;
 }
 
-/** 遷移後 CAT.* 讀領域標籤樹；尚未遷移則 fallback 舊分類（畫面零變化） */
-function cats(): CategoryData {
-  const tags = liveDomainTags();
+/** 領域標籤 → 三層 CategoryData（第四層以上捨棄，供 CAT.* 降級顯示） */
+export function categoriesFromDomainTags(allTags: Tag[]): CategoryData {
+  const tags = allTags.filter((t) => t.groupId === TAG_GROUP_IDS.domain && !t.deletedAt);
   const roots = tags.filter((t) => !t.parentId).sort(byOrder);
-  if (!roots.length) return loadCategories();
   return roots.map((big) => ({
     id: big.id,
     name: big.name,
@@ -275,6 +276,13 @@ function cats(): CategoryData {
           .map((s) => ({ id: s.id, name: s.name })),
       })),
   }));
+}
+
+/** 遷移後 CAT.* 讀領域標籤樹（只投影前三層）；尚未遷移則 fallback 舊分類 */
+function cats(): CategoryData {
+  const projected = categoriesFromDomainTags(loadTags());
+  if (!projected.length) return loadCategories();
+  return projected;
 }
 
 /** 由名字解析出分類穩定編號（找不到回 undefined） */

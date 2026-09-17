@@ -6,6 +6,7 @@ import {
   buildDomainTagsFromCategories,
   countCategoryNodes,
   domainMigrateMappings,
+  patchTagGroupFlags,
   type MigrateMapping,
   type Tag,
   type TagGroup,
@@ -59,24 +60,31 @@ export function applyTagsMigration(
   };
 }
 
+function persistGroupFlags(groups: TagGroup[]): TagGroup[] {
+  const patched = patchTagGroupFlags(groups);
+  if (patched.changed) saveTagGroups(patched.groups);
+  return patched.groups;
+}
+
 /** 一次性、冪等：分類樹 → 領域標籤＋四個預設群組（寫入走 tagsStore／pushAppState） */
 export function ensureTagsMigrated(): TagsMigrateResult {
   const result = applyTagsMigration(loadCategories(), loadTagGroups(), loadTags());
-  if (result.skipped) return result;
+  if (!result.skipped) {
+    saveTagGroups(result.groups);
+    saveTags(result.tags);
 
-  saveTagGroups(result.groups);
-  saveTags(result.tags);
-
-  console.info("[FlowLife tags migrate] 分類 → 標籤對照");
-  for (const row of result.mappings) {
-    console.info(`  ${row.path}  (${row.oldId}) → ${row.newId}`);
+    console.info("[FlowLife tags migrate] 分類 → 標籤對照");
+    for (const row of result.mappings) {
+      console.info(`  ${row.path}  (${row.oldId}) → ${row.newId}`);
+    }
+    console.info(`[FlowLife tags migrate] 舊分類 ${result.oldCount} 筆 → 新標籤 ${result.newCount} 筆`);
+    if (result.oldCount !== result.newCount) {
+      console.warn(
+        `[FlowLife tags migrate] 警告：舊分類總數 (${result.oldCount}) 與新標籤總數 (${result.newCount}) 不相等`,
+      );
+    }
   }
-  console.info(`[FlowLife tags migrate] 舊分類 ${result.oldCount} 筆 → 新標籤 ${result.newCount} 筆`);
-  if (result.oldCount !== result.newCount) {
-    console.warn(
-      `[FlowLife tags migrate] 警告：舊分類總數 (${result.oldCount}) 與新標籤總數 (${result.newCount}) 不相等`,
-    );
-  }
 
-  return result;
+  const groups = persistGroupFlags(loadTagGroups());
+  return { ...result, groups, tags: result.skipped ? loadTags() : result.tags };
 }

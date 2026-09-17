@@ -1,15 +1,24 @@
-import type { Tag } from "@/lib/tags";
+import { DEFAULT_TAG_GROUPS, resolveIsTimeDestination, type Tag, type TagGroup } from "@/lib/tags";
 
 /**
  * 同群組內平均分攤。只分攤指定群組內的標籤；餘數依 tagIds 順序補給前面幾個各 +1。
  * nowIso 等時間相關一律由呼叫端傳入，禁止在此使用 new Date()。
+ * isTimeDestination=false 的群組拒絕對其分攤（回空陣列）。
  */
 export function splitMinutesByGroup(
   minutes: number,
   tagIds: string[],
   groupId: string,
   allTags: Tag[],
+  groups: TagGroup[] = DEFAULT_TAG_GROUPS,
 ): { tagId: string; minutes: number }[] {
+  const group = groups.find((g) => g.id === groupId);
+  if (group && !resolveIsTimeDestination(group)) {
+    if (typeof process !== "undefined" && process.env.NODE_ENV !== "production") {
+      console.warn(`[tagStats] splitMinutesByGroup: group ${groupId} isTimeDestination=false, skip`);
+    }
+    return [];
+  }
   const inGroup = new Set(
     allTags.filter((t) => t.groupId === groupId && !t.deletedAt).map((t) => t.id),
   );

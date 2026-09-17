@@ -1614,7 +1614,7 @@ export function SchedulePage({
                 padding: 0,
               }}
             >
-              <span style={{ fontSize: 9, color: TH.muted }}>新增/管理分類</span>
+              <span style={{ fontSize: 9, color: TH.muted }}>新增/管理標籤</span>
               <span style={{ fontSize: 13 }}>⚙️</span>
             </button>
           </div>

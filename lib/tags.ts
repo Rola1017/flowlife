@@ -3,6 +3,8 @@ export type TagGroup = {
   name: string;
   selectMode: "single" | "multi";
   required: boolean;
+  /** 是否參與時數分攤（領域預設 true；難易度／重要性／精力需求預設 false） */
+  isTimeDestination: boolean;
   order: number;
   deletedAt?: string;
 };
@@ -27,11 +29,34 @@ export const TAG_GROUP_IDS = {
 } as const;
 
 export const DEFAULT_TAG_GROUPS: TagGroup[] = [
-  { id: TAG_GROUP_IDS.domain, name: "領域", selectMode: "multi", required: true, order: 0 },
-  { id: TAG_GROUP_IDS.difficulty, name: "難易度", selectMode: "single", required: false, order: 1 },
-  { id: TAG_GROUP_IDS.importance, name: "重要性", selectMode: "single", required: false, order: 2 },
-  { id: TAG_GROUP_IDS.energy, name: "精力需求", selectMode: "single", required: false, order: 3 },
+  { id: TAG_GROUP_IDS.domain, name: "領域", selectMode: "multi", required: true, isTimeDestination: true, order: 0 },
+  { id: TAG_GROUP_IDS.difficulty, name: "難易度", selectMode: "single", required: false, isTimeDestination: false, order: 1 },
+  { id: TAG_GROUP_IDS.importance, name: "重要性", selectMode: "single", required: false, isTimeDestination: false, order: 2 },
+  { id: TAG_GROUP_IDS.energy, name: "精力需求", selectMode: "single", required: false, isTimeDestination: false, order: 3 },
 ];
+
+/** 缺欄時依群組 id 給預設；已有 boolean 不覆寫（遷移冪等） */
+export function withIsTimeDestination(g: TagGroup): TagGroup {
+  if (typeof g.isTimeDestination === "boolean") return g;
+  return { ...g, isTimeDestination: g.id === TAG_GROUP_IDS.domain };
+}
+
+export function patchTagGroupFlags(groups: TagGroup[]): { groups: TagGroup[]; changed: boolean } {
+  let changed = false;
+  const next = groups.map((g) => {
+    if (typeof g.isTimeDestination === "boolean") return g;
+    changed = true;
+    return withIsTimeDestination(g);
+  });
+  return { groups: next, changed };
+}
+
+export function resolveIsTimeDestination(g: Pick<TagGroup, "id" | "isTimeDestination">): boolean {
+  if (typeof g.isTimeDestination === "boolean") return g.isTimeDestination;
+  return g.id === TAG_GROUP_IDS.domain;
+}
+
+export const DELETED_TAG_LABEL = "已刪除的標籤";
 
 export const DEFAULT_ATTR_TAGS: Tag[] = [
   { id: "tg_diff_hard", groupId: TAG_GROUP_IDS.difficulty, name: "難", order: 0 },

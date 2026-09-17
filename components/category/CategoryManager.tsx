@@ -1,20 +1,35 @@
 "use client";
 
-import { useCallback, useState, type CSSProperties } from "react";
+import { useCallback, useMemo, useState, type CSSProperties } from "react";
 import { BackBtn } from "@/components/ui/BackBtn";
 import { Card, SL } from "@/components/ui/Card";
 import { SortableList } from "@/components/ui/SortableList";
 import { TH } from "@/lib/theme";
-import {
-  CAT,
-  type CategoryData,
-  cat3ColorFrom,
-  loadCategories,
-  saveCategories,
-} from "@/lib/categories";
+import { CAT, categoriesFromDomainTags, saveCategoriesOnly } from "@/lib/categories";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
-import { countCategoryRefs, purgeCategoryRefs } from "@/lib/schedule";
-import { moveItem } from "@/lib/utils";
+import { ensureTagsMigrated } from "@/lib/tagsMigrate";
+import { loadTagGroups, loadTags, saveTagGroups, saveTags } from "@/lib/tagsStore";
+import type { Tag, TagGroup } from "@/lib/tags";
+import { DELETED_TAG_LABEL, TAG_GROUP_IDS } from "@/lib/tags";
+import {
+  addChildTag,
+  addGroup,
+  childrenOf,
+  countTagsUsage,
+  demoteTag,
+  flattenScheduleCells,
+  liveGroups,
+  patchGroup,
+  patchTag,
+  promoteTag,
+  reorderGroups,
+  reorderSiblings,
+  softDeleteGroup,
+  softDeleteTagAndDescendants,
+  tagDepth,
+  type CatRef,
+} from "@/lib/tagTree";
+import type { Session, Todo } from "@/lib/types";
 
 const DEFAULT_PALETTE = [
   "#EA0000",
@@ -39,11 +54,13 @@ const DEFAULT_PALETTE = [
   "#9D9D9D",
 ];
 
-function cloneData(data: CategoryData): CategoryData {
-  return JSON.parse(JSON.stringify(data)) as CategoryData;
-}
+const HINT = {
+  selectMode: "💡 可多選＝一筆資料能同時掛好幾個（例如同時是事業和學習）",
+  required: "💡 必填＝新增番茄或待辦時一定要選一個",
+  isTimeDestination:
+    "💡 打開＝這個維度會參與時數分攤（例如「領域」「專案」）。判準：這個維度所有標籤的時數加起來，會不會剛好等於總時數？像「難易度」「來源」這種只是註記的，不要打開。",
+};
 
-// 將所有記錄中，符合 (level, 舊名) 的欄位改成新名（階段一止血版，階段二接 Supabase 時改用穩定 ID）
 function cascadeRename(level: "cat1" | "cat2" | "cat3", oldName: string, newName: string) {
   if (oldName === newName) return;
 
@@ -67,7 +84,6 @@ function cascadeRename(level: "cat1" | "cat2" | "cat3", oldName: string, newName
   }
   if (cChanged) saveJSON(LS_KEYS.coinIncomeLog, coinLog);
 
-  // week_schedule：{ [day]: SchedRow[] }，每列有 cat1/cat2/cat3
   const week = loadJSON<Record<string, Record<string, unknown>[]>>(LS_KEYS.weekSchedule, {});
   let wChanged = false;
   for (const day of Object.keys(week)) {
@@ -81,6 +97,22 @@ function cascadeRename(level: "cat1" | "cat2" | "cat3", oldName: string, newName
     }
   }
   if (wChanged) saveJSON(LS_KEYS.weekSchedule, week);
+}
+
+function loadUsageData() {
+  const sessions = loadJSON<Session[]>(LS_KEYS.sessions, []);
+  const todos = loadJSON<Todo[]>(LS_KEYS.todos, []);
+  const week = loadJSON<Record<string, CatRef[]>>(LS_KEYS.weekSchedule, {});
+  const ovs = loadJSON<Record<string, { courses?: CatRef[] }>>(LS_KEYS.dayOverrides, {});
+  return {
+    sessions,
+    todos,
+    scheduleCells: flattenScheduleCells(week, ovs),
+  };
+}
+
+function usageConfirm(name: string, counts: { sessions: number; todos: number; schedule: number }, extra: string) {
+  return `${extra}這個標籤有 ${counts.sessions} 筆番茄、${counts.todos} 筆待辦、${counts.schedule} 個課表格子在使用，刪除後它們會顯示為「${DELETED_TAG_LABEL}」。確定刪除「${name}」？`;
 }
 
 function ColorPicker({
@@ -227,15 +259,62 @@ function RenameInput({
   );
 }
 
-export function CategoryManager({ onBack }: { onBack: () => void }) {
-  const [categories, setCategories] = useState<CategoryData>(() => loadCategories());
-  const [expandedBig, setExpandedBig] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(loadCategories().map((c) => [c.id, true])),
+function HintDot({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ flexShrink: 0, minWidth: 0, maxWidth: "100%" }}>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+        aria-label="說明"
+        style={{
+          background: "none",
+          border: "none",
+          padding: 0,
+          cursor: "pointer",
+          fontSize: 12,
+          lineHeight: 1,
+        }}
+      >
+        💡
+      </button>
+      {open && (
+        <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.45, marginTop: 4, minWidth: 0 }}>
+          {text}
+        </div>
+      )}
+    </div>
   );
-  const [expandedMid, setExpandedMid] = useState<Record<string, boolean>>({});
-  const [colorPickerBig, setColorPickerBig] = useState<string | null>(null);
-  const [colorPickerMid, setColorPickerMid] = useState<string | null>(null);
+}
+
+const btnSm: CSSProperties = {
+  background: "none",
+  border: `1px solid ${TH.border}`,
+  borderRadius: 6,
+  color: TH.muted,
+  fontSize: 10,
+  padding: "2px 6px",
+  cursor: "pointer",
+  flexShrink: 0,
+};
+
+export function CategoryManager({ onBack }: { onBack: () => void }) {
+  const [groups, setGroups] = useState<TagGroup[]>(() => {
+    ensureTagsMigrated();
+    return loadTagGroups();
+  });
+  const [tags, setTags] = useState<Tag[]>(() => loadTags());
+  const live = useMemo(() => liveGroups(groups), [groups]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(() => liveGroups(loadTagGroups())[0]?.id ?? null);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [colorPickerId, setColorPickerId] = useState<string | null>(null);
   const [palette, setPalette] = useState<string[]>(() => loadJSON(LS_KEYS.colorPalette, DEFAULT_PALETTE));
+
+  const selected = live.find((g) => g.id === selectedGroupId) ?? live[0] ?? null;
 
   const handlePaletteChange = (index: number, hex: string) => {
     const next = [...palette];
@@ -244,187 +323,267 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
     saveJSON(LS_KEYS.colorPalette, next);
   };
 
-  const persist = useCallback((next: CategoryData) => {
-    setCategories(next);
-    saveCategories(next);
+  const persistGroups = useCallback((next: TagGroup[]) => {
+    setGroups(next);
+    saveTagGroups(next);
   }, []);
 
-  const updateBigName = (bi: number, name: string) => {
-    const oldName = categories[bi].name;
-    const next = cloneData(categories);
-    next[bi].name = name;
-    persist(next);
-    cascadeRename("cat1", oldName, name);
-  };
+  const persistTags = useCallback((next: Tag[]) => {
+    setTags(next);
+    saveTags(next);
+    saveCategoriesOnly(categoriesFromDomainTags(next));
+  }, []);
 
-  const updateBigColor = (bi: number, color: string) => {
-    const next = cloneData(categories);
-    next[bi].color = color;
-    persist(next);
-  };
-
-  const updateBigNoCoin = (bi: number, val: boolean) => {
-    const next = cloneData(categories);
-    next[bi].noCoin = val;
-    persist(next);
-  };
-
-  const updateMidColor = (bi: number, mi: number, color: string) => {
-    const next = cloneData(categories);
-    next[bi].mids[mi].color = color;
-    persist(next);
-  };
-
-  const deleteBig = (bi: number) => {
-    if (categories[bi].name === "未分類") return;
-    const name = categories[bi].name;
-    const n = countCategoryRefs(1, name);
-    const msg =
-      n > 0
-        ? `刪除「${name}」？課表／便利貼中有 ${n} 格使用此分類，將自動改為未分類（課名與時段保留）。\n已完成的番茄紀錄不受影響。`
-        : `刪除「${name}」？`;
-    if (!window.confirm(msg)) return;
-    const next = categories.filter((_, i) => i !== bi);
-    persist(next);
-    purgeCategoryRefs(1, name);
-  };
-
-  const addBig = () => {
-    const name = window.prompt("新大分類名稱");
+  const addNewGroup = () => {
+    const name = window.prompt("新群組名稱");
     if (!name?.trim()) return;
-    if (categories.some((c) => c.name === name.trim())) {
-      window.alert("名稱已存在");
-      return;
-    }
-    persist([...cloneData(categories), { id: crypto.randomUUID(), name: name.trim(), color: "#3B82F6", mids: [] }]);
+    const next = addGroup(groups, { name: name.trim() });
+    persistGroups(next);
+    const created = liveGroups(next).at(-1);
+    if (created) setSelectedGroupId(created.id);
   };
 
-  const addMid = (bi: number) => {
-    const name = window.prompt("新中分類名稱");
-    if (!name?.trim()) return;
-    const next = cloneData(categories);
-    if (next[bi].mids.some((m) => m.name === name.trim())) {
-      window.alert("名稱已存在");
-      return;
-    }
-    next[bi].mids.push({ id: crypto.randomUUID(), name: name.trim(), color: next[bi].color, subs: [] });
-    persist(next);
-    setExpandedBig((e) => ({ ...e, [next[bi].id]: true }));
-  };
-
-  const updateMidName = (bi: number, mi: number, name: string) => {
-    const oldName = categories[bi].mids[mi].name;
-    const next = cloneData(categories);
-    next[bi].mids[mi].name = name;
-    persist(next);
-    cascadeRename("cat2", oldName, name);
-  };
-
-  const deleteMid = (bi: number, mi: number) => {
-    const cat1 = categories[bi].name;
-    const cat2 = categories[bi].mids[mi].name;
-    const n = countCategoryRefs(2, cat1, cat2);
-    const msg =
-      n > 0
-        ? `刪除「${cat2}」？課表／便利貼中有 ${n} 格使用此分類，將自動改為未分類（課名與時段保留）。\n已完成的番茄紀錄不受影響。`
-        : `刪除「${cat2}」？`;
+  const deleteGroup = (g: TagGroup) => {
+    const seed = tags.filter((t) => t.groupId === g.id && !t.deletedAt).map((t) => t.id);
+    const counts = countTagsUsage(seed, tags, loadUsageData());
+    const nTags = seed.length;
+    const msg = `刪除群組「${g.name}」會一併軟刪除其下 ${nTags} 個標籤。這個群組有 ${counts.sessions} 筆番茄、${counts.todos} 筆待辦、${counts.schedule} 個課表格子在使用，刪除後它們會顯示為「${DELETED_TAG_LABEL}」。確定刪除？`;
     if (!window.confirm(msg)) return;
-    const next = cloneData(categories);
-    next[bi].mids.splice(mi, 1);
-    persist(next);
-    purgeCategoryRefs(2, cat1, cat2);
+    const out = softDeleteGroup(groups, tags, g.id, new Date().toISOString());
+    persistGroups(out.groups);
+    persistTags(out.tags);
+    const remain = liveGroups(out.groups);
+    setSelectedGroupId(remain[0]?.id ?? null);
   };
 
-  const addSub = (bi: number, mi: number) => {
-    const name = window.prompt("新小分類名稱");
-    if (!name?.trim()) return;
-    const next = cloneData(categories);
-    if (next[bi].mids[mi].subs.some((s) => s.name === name.trim())) {
-      window.alert("名稱已存在");
-      return;
+  const renameTag = (tag: Tag, name: string) => {
+    const next = patchTag(tags, tag.id, { name });
+    persistTags(next);
+    if (tag.groupId === TAG_GROUP_IDS.domain) {
+      const depth = tagDepth(tags, tag.id);
+      if (depth === 0) cascadeRename("cat1", tag.name, name);
+      else if (depth === 1) cascadeRename("cat2", tag.name, name);
+      else if (depth === 2) cascadeRename("cat3", tag.name, name);
     }
-    next[bi].mids[mi].subs.push({ id: crypto.randomUUID(), name: name.trim() });
-    persist(next);
-    setExpandedMid((e) => ({ ...e, [next[bi].mids[mi].id]: true }));
   };
 
-  const updateSubName = (bi: number, mi: number, si: number, name: string) => {
-    const oldName = categories[bi].mids[mi].subs[si].name;
-    const next = cloneData(categories);
-    next[bi].mids[mi].subs[si].name = name;
-    persist(next);
-    cascadeRename("cat3", oldName, name);
+  const deleteTag = (tag: Tag) => {
+    if (tag.name === "未分類" && !tag.parentId) return;
+    const counts = countTagsUsage([tag.id], tags, loadUsageData());
+    const kids = tags.filter((t) => t.parentId === tag.id && !t.deletedAt).length;
+    const extra = kids > 0 ? `刪除後其所有子孫也會一併軟刪除。` : "";
+    if (!window.confirm(usageConfirm(tag.name, counts, extra))) return;
+    persistTags(softDeleteTagAndDescendants(tags, tag.id, new Date().toISOString()));
   };
 
-  const deleteSub = (bi: number, mi: number, si: number) => {
-    const cat1 = categories[bi].name;
-    const cat2 = categories[bi].mids[mi].name;
-    const cat3 = categories[bi].mids[mi].subs[si].name;
-    const n = countCategoryRefs(3, cat1, cat2, cat3);
-    const msg =
-      n > 0
-        ? `刪除「${cat3}」？課表／便利貼中有 ${n} 格使用此分類，將自動改為未分類（課名與時段保留）。\n已完成的番茄紀錄不受影響。`
-        : `刪除「${cat3}」？`;
-    if (!window.confirm(msg)) return;
-    const next = cloneData(categories);
-    next[bi].mids[mi].subs.splice(si, 1);
-    persist(next);
-    purgeCategoryRefs(3, cat1, cat2, cat3);
+  const addTagUnder = (groupId: string, parentId: string | undefined, parentColor?: string) => {
+    const name = window.prompt(parentId ? "新子標籤名稱" : "新標籤名稱");
+    if (!name?.trim()) return;
+    const next = addChildTag(tags, {
+      groupId,
+      parentId,
+      name: name.trim(),
+      color: parentColor ?? "#3B82F6",
+    });
+    persistTags(next);
+    if (parentId) setExpanded((e) => ({ ...e, [parentId]: true }));
   };
 
-  const btnSm: CSSProperties = {
-    background: "none",
-    border: `1px solid ${TH.border}`,
-    borderRadius: 6,
-    color: TH.muted,
-    fontSize: 10,
-    padding: "2px 6px",
-    cursor: "pointer",
-    flexShrink: 0,
+  const applyPromote = (id: string) => {
+    const next = promoteTag(tags, id);
+    if (!next) return;
+    persistTags(next);
   };
 
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <BackBtn onBack={onBack} label="分類管理" />
+  const applyDemote = (id: string) => {
+    const next = demoteTag(tags, id);
+    if (!next) return;
+    persistTags(next);
+  };
 
-      <Card>
-        <SL>大分類</SL>
-        <p style={{ fontSize: 10, color: TH.muted, margin: "0 0 10px", lineHeight: 1.5 }}>
-          中分類顏色可自訂（點色塊修改）；小分類繼承中分類顏色，依序漸淺。
-        </p>
-        <p style={{ fontSize: 10, color: TH.muted, margin: "0 0 10px", lineHeight: 1.5 }}>
-          💡 按住左邊的 ⋮⋮ 可以拖曳調整順序（手機用手指長按拖動）
-        </p>
-        <p style={{ fontSize: 10, color: TH.muted, margin: "0 0 10px", lineHeight: 1.5 }}>
-          💡 刪分類時，課表中使用它的格子會自動改為未分類，不會消失
-        </p>
+  const isExpanded = (id: string, depth: number) => expanded[id] ?? depth < 2;
 
-        <SortableList
-          items={categories}
-          getId={(big) => big.id}
-          gap={8}
-          onReorder={(from, to) => persist(moveItem(cloneData(categories), from, to))}
-          renderItem={(big, bi, handle) => {
-            const isOpen = expandedBig[big.id] ?? false;
-            return (
+  const renderTree = (groupId: string, parentId: string | undefined, depth: number) => {
+    const items = childrenOf(tags, parentId, groupId);
+    if (items.length === 0 && depth > 0) return null;
+    return (
+      <SortableList
+        items={items}
+        getId={(t) => t.id}
+        gap={depth === 0 ? 8 : 6}
+        onReorder={(from, to) => persistTags(reorderSiblings(tags, groupId, parentId, from, to))}
+        renderItem={(tag, _i, handle) => {
+          const color = tag.color ?? "#6B7280";
+          const open = isExpanded(tag.id, depth);
+          const canPromote = !!tag.parentId;
+          const sibs = childrenOf(tags, tag.parentId, groupId);
+          const canDemote = sibs.findIndex((t) => t.id === tag.id) > 0;
+          return (
+            <div
+              style={{
+                border: depth === 0 ? `1px solid ${TH.border}` : undefined,
+                borderLeft: depth > 0 ? `3px solid ${color}` : undefined,
+                borderRadius: depth === 0 ? 10 : 0,
+                overflow: "hidden",
+                minWidth: 0,
+                paddingLeft: depth > 0 ? 8 : 0,
+              }}
+            >
               <div
                 style={{
-                  border: `1px solid ${TH.border}`,
-                  borderRadius: 10,
-                  overflow: "hidden",
+                  display: "flex",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: 6,
+                  padding: depth === 0 ? "8px 10px" : "4px 0",
+                  background: depth === 0 ? color + "18" : undefined,
                   minWidth: 0,
                 }}
               >
-                <div
+                <span
+                  {...handle}
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "8px 10px",
-                    background: big.color + "18",
-                    minWidth: 0,
+                    ...handle.style,
+                    flexShrink: 0,
+                    color: TH.muted,
+                    fontSize: 14,
+                    lineHeight: 1,
+                    padding: "4px 2px",
                   }}
+                  aria-label="拖曳排序"
                 >
+                  ⋮⋮
+                </span>
+                <div style={{ position: "relative", flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    onClick={() => setColorPickerId(colorPickerId === tag.id ? null : tag.id)}
+                    style={{
+                      width: depth === 0 ? 22 : 18,
+                      height: depth === 0 ? 22 : 18,
+                      borderRadius: 6,
+                      border: `1px solid ${TH.border}`,
+                      background: color,
+                      cursor: "pointer",
+                      flexShrink: 0,
+                    }}
+                  />
+                  {colorPickerId === tag.id && (
+                    <>
+                      <div style={{ position: "fixed", inset: 0, zIndex: 199 }} onClick={() => setColorPickerId(null)} />
+                      <ColorPicker
+                        value={color}
+                        onChange={(c) => persistTags(patchTag(tags, tag.id, { color: c }))}
+                        onClose={() => setColorPickerId(null)}
+                        palette={palette}
+                        onPaletteChange={handlePaletteChange}
+                      />
+                    </>
+                  )}
+                </div>
+                {depth === 0 && CAT.cat1Emoji(tag.name) ? (
+                  <span style={{ flexShrink: 0, fontSize: 14, lineHeight: 1 }} aria-hidden>
+                    {CAT.cat1Emoji(tag.name)}
+                  </span>
+                ) : null}
+                <RenameInput
+                  value={tag.name}
+                  onCommit={(n) => renameTag(tag, n)}
+                  style={{ fontSize: depth === 0 ? 12 : 11, fontWeight: depth === 0 ? 700 : 600 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => applyPromote(tag.id)}
+                  disabled={!canPromote}
+                  style={{ ...btnSm, opacity: canPromote ? 1 : 0.35 }}
+                  aria-label="升一層"
+                  title="升一層"
+                >
+                  ⇤
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyDemote(tag.id)}
+                  disabled={!canDemote}
+                  style={{ ...btnSm, opacity: canDemote ? 1 : 0.35 }}
+                  aria-label="降一層"
+                  title="降一層"
+                >
+                  ⇥
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExpanded((e) => ({ ...e, [tag.id]: !open }))}
+                  style={btnSm}
+                >
+                  {open ? "▲" : "▼"}
+                </button>
+                <button type="button" onClick={() => addTagUnder(groupId, tag.id, color)} style={btnSm}>
+                  +子
+                </button>
+                {!(tag.name === "未分類" && !tag.parentId) && (
+                  <button type="button" onClick={() => deleteTag(tag)} style={{ ...btnSm, color: TH.red }}>
+                    刪
+                  </button>
+                )}
+              </div>
+              {open && (
+                <div style={{ padding: depth === 0 ? "8px 10px 10px" : "2px 0 6px", background: depth === 0 ? TH.bg : undefined, minWidth: 0 }}>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      fontSize: 11,
+                      color: TH.text,
+                      cursor: "pointer",
+                      marginBottom: 6,
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={tag.noCoin === true}
+                      onChange={(e) => persistTags(patchTag(tags, tag.id, { noCoin: e.target.checked }))}
+                    />
+                    ⌛ 只計時（不發金幣 ❌）
+                  </label>
+                  {renderTree(groupId, tag.id, depth + 1)}
+                </div>
+              )}
+            </div>
+          );
+        }}
+      />
+    );
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0, boxSizing: "border-box" }}>
+      <BackBtn onBack={onBack} label="標籤管理" />
+
+      <Card>
+        <SL>群組</SL>
+        <p style={{ fontSize: 10, color: TH.muted, margin: "0 0 10px", lineHeight: 1.5 }}>
+          💡 按住左邊的 ⋮⋮ 可以拖曳調整群組順序（手機用手指長按拖動）
+        </p>
+        <SortableList
+          items={live}
+          getId={(g) => g.id}
+          gap={8}
+          onReorder={(from, to) => persistGroups(reorderGroups(groups, from, to))}
+          renderItem={(g, _i, handle) => {
+            const active = selected?.id === g.id;
+            return (
+              <div
+                style={{
+                  border: `1px solid ${active ? TH.accent : TH.border}`,
+                  borderRadius: 10,
+                  padding: 10,
+                  minWidth: 0,
+                  background: active ? TH.accent + "14" : TH.bg,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flexWrap: "wrap" }}>
                   <span
                     {...handle}
                     style={{ ...handle.style, flexShrink: 0, color: TH.muted, fontSize: 14, lineHeight: 1, padding: "4px 2px" }}
@@ -432,250 +591,78 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
                   >
                     ⋮⋮
                   </span>
-                  <div style={{ position: "relative", flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
-                    <button
-                      type="button"
-                      onClick={() => setColorPickerBig(colorPickerBig === big.id ? null : big.id)}
-                      style={{
-                        width: 22,
-                        height: 22,
-                        borderRadius: 6,
-                        border: `1px solid ${TH.border}`,
-                        background: big.color,
-                        cursor: "pointer",
-                        flexShrink: 0,
-                      }}
-                    />
-                    {colorPickerBig === big.id && (
-                      <>
-                        <div
-                          style={{
-                            position: "fixed",
-                            inset: 0,
-                            zIndex: 199,
-                          }}
-                          onClick={() => setColorPickerBig(null)}
-                        />
-                        <ColorPicker
-                          value={big.color}
-                          onChange={(c) => updateBigColor(bi, c)}
-                          onClose={() => setColorPickerBig(null)}
-                          palette={palette}
-                          onPaletteChange={handlePaletteChange}
-                        />
-                      </>
-                    )}
-                  </div>
-                  {CAT.cat1Emoji(big.name) ? (
-                    <span style={{ flexShrink: 0, fontSize: 14, lineHeight: 1 }} aria-hidden>
-                      {CAT.cat1Emoji(big.name)}
-                    </span>
-                  ) : null}
-                  <RenameInput value={big.name} onCommit={(n) => updateBigName(bi, n)} />
                   <button
                     type="button"
-                    onClick={() => setExpandedBig((e) => ({ ...e, [big.id]: !isOpen }))}
-                    style={btnSm}
+                    onClick={() => setSelectedGroupId(g.id)}
+                    style={{
+                      ...btnSm,
+                      color: active ? TH.accent : TH.muted,
+                      fontWeight: 800,
+                    }}
                   >
-                    {isOpen ? "▲" : "▼"}
+                    {active ? "已選" : "選取"}
                   </button>
-                  {big.name !== "未分類" && (
-                    <button type="button" onClick={() => deleteBig(bi)} style={{ ...btnSm, color: TH.red }}>
-                      刪
-                    </button>
-                  )}
+                  <RenameInput
+                    value={g.name}
+                    onCommit={(n) => persistGroups(patchGroup(groups, g.id, { name: n }))}
+                  />
+                  <button type="button" onClick={() => deleteGroup(g)} style={{ ...btnSm, color: TH.red }}>
+                    刪
+                  </button>
                 </div>
-
-                {isOpen && (
-                  <div style={{ padding: "8px 10px 10px", background: TH.bg, minWidth: 0 }}>
-                    <div style={{ marginBottom: 8 }}>
-                      <label
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 6,
-                          fontSize: 11,
-                          color: TH.text,
-                          cursor: "pointer",
-                        }}
-                      >
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8, minWidth: 0 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 6, flexWrap: "wrap" }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: TH.text, cursor: "pointer" }}>
                         <input
                           type="checkbox"
-                          checked={big.noCoin === true}
-                          onChange={(e) => updateBigNoCoin(bi, e.target.checked)}
+                          checked={g.selectMode === "multi"}
+                          onChange={(e) =>
+                            persistGroups(patchGroup(groups, g.id, { selectMode: e.target.checked ? "multi" : "single" }))
+                          }
                         />
-                        ⌛ 只計時（不發金幣 ❌）
+                        可多選
                       </label>
-                      <div style={{ fontSize: 9, color: TH.muted, marginTop: 2, marginLeft: 22 }}>
-                        💡 娛樂／獎勵用；仍會記錄、顯示在時間軸，也不算未利用時間
-                      </div>
+                      <HintDot text={HINT.selectMode} />
                     </div>
-                    <SortableList
-                      items={big.mids}
-                      getId={(mid) => mid.id}
-                      gap={8}
-                      onReorder={(from, to) => {
-                        const next = cloneData(categories);
-                        next[bi].mids = moveItem(next[bi].mids, from, to);
-                        persist(next);
-                      }}
-                      renderItem={(mid, mi, midHandle) => {
-                        const midOpen = expandedMid[mid.id] ?? false;
-                        return (
-                          <div
-                            style={{
-                              borderLeft: `3px solid ${mid.color}`,
-                              paddingLeft: 8,
-                              minWidth: 0,
-                            }}
-                          >
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 6,
-                                marginBottom: 4,
-                                minWidth: 0,
-                              }}
-                            >
-                              <span
-                                {...midHandle}
-                                style={{
-                                  ...midHandle.style,
-                                  flexShrink: 0,
-                                  color: TH.muted,
-                                  fontSize: 13,
-                                  lineHeight: 1,
-                                  padding: "4px 2px",
-                                }}
-                                aria-label="拖曳排序"
-                              >
-                                ⋮⋮
-                              </span>
-                              <div style={{ position: "relative", flexShrink: 0 }}>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setColorPickerMid(colorPickerMid === mid.id ? null : mid.id)
-                                  }
-                                  style={{
-                                    width: 18,
-                                    height: 18,
-                                    borderRadius: 4,
-                                    border: "none",
-                                    background: mid.color,
-                                    cursor: "pointer",
-                                    flexShrink: 0,
-                                  }}
-                                />
-                                {colorPickerMid === mid.id && (
-                                  <>
-                                    <div
-                                      style={{ position: "fixed", inset: 0, zIndex: 199 }}
-                                      onClick={() => setColorPickerMid(null)}
-                                    />
-                                    <ColorPicker
-                                      value={mid.color}
-                                      onChange={(c) => updateMidColor(bi, mi, c)}
-                                      onClose={() => setColorPickerMid(null)}
-                                      palette={palette}
-                                      onPaletteChange={handlePaletteChange}
-                                    />
-                                  </>
-                                )}
-                              </div>
-                              <RenameInput
-                                value={mid.name}
-                                onCommit={(n) => updateMidName(bi, mi, n)}
-                                style={{ fontSize: 11, fontWeight: 600 }}
-                              />
-                              <button
-                                type="button"
-                                onClick={() => setExpandedMid((e) => ({ ...e, [mid.id]: !midOpen }))}
-                                style={btnSm}
-                              >
-                                {midOpen ? "▲" : "▼"}
-                              </button>
-                              <button type="button" onClick={() => deleteMid(bi, mi)} style={{ ...btnSm, color: TH.red }}>
-                                刪
-                              </button>
-                            </div>
-
-                            {midOpen && (
-                              <div style={{ paddingLeft: 4, minWidth: 0 }}>
-                                <SortableList
-                                  items={mid.subs}
-                                  getId={(sub) => sub.id}
-                                  gap={4}
-                                  onReorder={(from, to) => {
-                                    const next = cloneData(categories);
-                                    next[bi].mids[mi].subs = moveItem(next[bi].mids[mi].subs, from, to);
-                                    persist(next);
-                                  }}
-                                  renderItem={(sub, si, subHandle) => (
-                                    <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                                      <span
-                                        {...subHandle}
-                                        style={{
-                                          ...subHandle.style,
-                                          flexShrink: 0,
-                                          color: TH.muted,
-                                          fontSize: 12,
-                                          lineHeight: 1,
-                                          padding: "4px 2px",
-                                        }}
-                                        aria-label="拖曳排序"
-                                      >
-                                        ⋮⋮
-                                      </span>
-                                      <div
-                                        style={{
-                                          width: 8,
-                                          height: 8,
-                                          borderRadius: "50%",
-                                          background: cat3ColorFrom(mid.color, si),
-                                          flexShrink: 0,
-                                        }}
-                                      />
-                                      <RenameInput
-                                        value={sub.name}
-                                        onCommit={(n) => updateSubName(bi, mi, si, n)}
-                                        style={{ fontSize: 10, fontWeight: 500 }}
-                                      />
-                                      <button
-                                        type="button"
-                                        onClick={() => deleteSub(bi, mi, si)}
-                                        style={{ ...btnSm, color: TH.red }}
-                                      >
-                                        刪
-                                      </button>
-                                    </div>
-                                  )}
-                                />
-                                <button type="button" onClick={() => addSub(bi, mi)} style={{ ...btnSm, marginTop: 2 }}>
-                                  + 小分類
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      }}
-                    />
-                    <button type="button" onClick={() => addMid(bi)} style={{ ...btnSm, marginTop: 4 }}>
-                      + 中分類
-                    </button>
                   </div>
-                )}
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 6, flexWrap: "wrap" }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: TH.text, cursor: "pointer" }}>
+                        <input
+                          type="checkbox"
+                          checked={g.required}
+                          onChange={(e) => persistGroups(patchGroup(groups, g.id, { required: e.target.checked }))}
+                        />
+                        必填
+                      </label>
+                      <HintDot text={HINT.required} />
+                    </div>
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 6, flexWrap: "wrap" }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: TH.text, cursor: "pointer" }}>
+                        <input
+                          type="checkbox"
+                          checked={g.isTimeDestination}
+                          onChange={(e) => persistGroups(patchGroup(groups, g.id, { isTimeDestination: e.target.checked }))}
+                        />
+                        參與時數分攤
+                      </label>
+                      <HintDot text={HINT.isTimeDestination} />
+                    </div>
+                  </div>
+                </div>
               </div>
             );
           }}
         />
-
         <button
           type="button"
-          onClick={addBig}
+          onClick={addNewGroup}
           style={{
             width: "100%",
+            marginTop: 8,
             padding: "10px",
             borderRadius: 10,
             border: `1px dashed ${TH.border}`,
@@ -686,8 +673,40 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
             cursor: "pointer",
           }}
         >
-          + 新增大分類
+          + 新增群組
         </button>
+      </Card>
+
+      <Card>
+        <SL>標籤樹{selected ? ` · ${selected.name}` : ""}</SL>
+        {!selected ? (
+          <p style={{ fontSize: 11, color: TH.muted, margin: 0 }}>請先新增或選取一個群組</p>
+        ) : (
+          <>
+            <p style={{ fontSize: 10, color: TH.muted, margin: "0 0 10px", lineHeight: 1.5 }}>
+              💡 ⋮⋮ 拖曳調整同層順序。層級用 ⇤ 升一層／⇥ 降一層（SortableList 只支援同層排序，不支援拖到別的標籤底下）。預設展開兩層。
+            </p>
+            {renderTree(selected.id, undefined, 0)}
+            <button
+              type="button"
+              onClick={() => addTagUnder(selected.id, undefined)}
+              style={{
+                width: "100%",
+                marginTop: 8,
+                padding: "10px",
+                borderRadius: 10,
+                border: `1px dashed ${TH.border}`,
+                background: "transparent",
+                color: TH.accent,
+                fontSize: 12,
+                fontWeight: 800,
+                cursor: "pointer",
+              }}
+            >
+              + 新增頂層標籤
+            </button>
+          </>
+        )}
       </Card>
     </div>
   );

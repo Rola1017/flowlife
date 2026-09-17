@@ -6,11 +6,13 @@ import {
   type CategoryTreeNode,
   type Tag,
   type TagGroup,
+  withIsTimeDestination,
 } from "@/lib/tags";
 
 export function loadTagGroups(): TagGroup[] {
   const data = loadJSON<TagGroup[]>(LS_KEYS.tagGroups, []);
-  return Array.isArray(data) ? data : [];
+  if (!Array.isArray(data)) return [];
+  return data.map(withIsTimeDestination);
 }
 
 export function loadTags(): Tag[] {

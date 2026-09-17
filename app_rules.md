@@ -541,6 +541,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **新增唯讀 /api/free-slots**：參數 date/minMinutes/from/to，回傳空閒時段與 summary；重用 idle.ts 空檔演算法，新增可注入版本 blockedRangesWith / availableSegmentsWith（既有函式行為不變）；語意為『未被作息/班別/課程佔用的時段』，不扣番茄紀錄。
 - **CategoryManager 三層分類改用共用 SortableList 拖曳排序（穩定 id 為 key），移除 ⬆︎⬇︎。**
 - **Z1 標籤資料層**：tagGroups/tags 存 app_state（key: `tag_groups` / `tags`），分類樹遷移為「領域」群組三層標籤（id 沿用既有分類 id，冪等），新增難易度/重要性/精力需求三個群組；sessions 加 `tag_ids` 欄位與同步映射；相容層 `lib/tagsCompat.ts` 讓 CAT.* 對外簽名不變；時數分攤純函式 `lib/tagStats.ts`（同群組內平均、餘數依序補、總和恆等於總時數）。畫面零變化。
+- **Z2 標籤管理頁**：TagGroup 新增 `isTimeDestination`；分類管理改為群組＋樹狀無限層標籤編輯器，拖曳用 SortableList（穩定 id），支援跨層級調整；標籤軟刪除並顯示影響範圍；其餘頁面續走相容層（超過三層先降級顯示）。
 - **帳號資料歸屬隔離**：新增 `LS_KEYS.ownerUserId` 與 `clearAllAppData()`；App 啟動與登入/登出時比對 uid，不符即清除本機資料後再從雲端同步；登出需確認並 reload；所有 sync hook 由 ready 旗標把關，確保不搶在清除前推雲。
 - **app_state 加 service_role 唯讀 RLS policy**（`FOR SELECT TO service_role`，見 `supabase/rls_app_state_service_role_select.sql`），使 `/api/today` 的新版 `sb_secret_` key 能讀行程；僅唯讀、僅此表、僅 service_role，不影響前端 user-based 安全基線。第二階段寫入時另加精細化可寫 policy。
 - **app/layout.tsx 補 viewport**（`width=device-width, initialScale=1, maximumScale=1, userScalable=false`）修手機自動放大；metadata title→FlowLife、lang→zh-Hant；`fmtIdleHM` 顯示改精簡「N時M分／M分」（番茄鐘卡＋行事曆未利用統計；`fmtIdleTime` 不動）。
@@ -639,7 +640,8 @@ TH.gold    = "#FBBF24"   // 金幣
 ## 十一、待完成事項 ⬜
 
 - ⬜ **重疊檢測其餘寫入點**（本批只修番茄手動補/改）：課表課格同格覆蓋無警告、班別已擋、作息已警告、便利貼課↔班衝突／課↔課無、待辦只驗同日 end>start、時間軸 ACT 補登無、健身 stub、即時番茄/娛樂 session 無。待 Rola 決定是否接 `lib/overlap`。
-- ⬜ **Z2～Z8 分類標籤化尚未執行**，見 FlowLife_分類標籤化設計.md §4。
+- ✅ **Z2 標籤管理頁**（群組＋無限層樹編輯器、`isTimeDestination`、軟刪除＋影響範圍）。⬜ **Z3～Z7 未執行**。超過三層的降級位置（本批只顯示前三層，供 Z3～Z7 改走標籤樹）：`CAT.cats()`／`categoriesFromDomainTags`（只投影 root→mid→sub）；`CategorySelector`；`PomodoroPage` 分類列；`SchedulePage` 編輯卡片 cat1/2/3；`SessionHistoryPage`／`CoinHistoryPage` cat1/2/3；`CalendarPage`／`lib/analytics`／`ReviewView`／`DayReview` `matchesCatSelection`；待辦 `TodoFormFields` 單層 cat；商店／娛樂 `cat1/2/3`；`legacyPath` 只取祖先前三層；`stampSessionCatIds`／`resolveCatIds` 只認三層。
+- ⬜ **Z3～Z8 其餘分類標籤化**，見 FlowLife_分類標籤化設計.md §4。
 - ⬜ 待辦提醒：依 `reminder` 觸發推播／系統通知（目前僅儲存設定）
 - ⬜ 健康模組
 - ⬜ 閱讀模組

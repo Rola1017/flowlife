@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { CAT, DEFAULT_CATEGORIES } from "@/lib/categories";
 import { LS_KEYS, saveJSON } from "@/lib/storage";
-import { TAG_GROUP_IDS, countCategoryNodes, type Tag } from "@/lib/tags";
+import { TAG_GROUP_IDS, countCategoryNodes, patchTagGroupFlags, type Tag, type TagGroup } from "@/lib/tags";
 import { applyTagsMigration } from "@/lib/tagsMigrate";
 import { loadTagGroups, loadTags } from "@/lib/tagsStore";
+import { addChildTag } from "@/lib/tagTree";
 import { legacyPath, matchesTagSelection, tagAncestors } from "@/lib/tagsCompat";
 import { stampSessionCatIds } from "@/lib/sessions";
 import { sessionFromRow, sessionToRow } from "@/lib/sessionsCloud";
@@ -48,6 +49,10 @@ describe("tags migrate", () => {
 
     const groups = loadTagGroups();
     expect(groups.map((g) => g.name)).toEqual(["領域", "難易度", "重要性", "精力需求"]);
+    expect(groups.find((g) => g.id === TAG_GROUP_IDS.domain)?.isTimeDestination).toBe(true);
+    expect(groups.find((g) => g.id === TAG_GROUP_IDS.difficulty)?.isTimeDestination).toBe(false);
+    expect(groups.find((g) => g.id === TAG_GROUP_IDS.importance)?.isTimeDestination).toBe(false);
+    expect(groups.find((g) => g.id === TAG_GROUP_IDS.energy)?.isTimeDestination).toBe(false);
     expect(CAT.cat1List()).toEqual(DEFAULT_CATEGORIES.map((c) => c.name));
     expect(CAT.cat2List("學習")).toEqual(LEARN.mids.map((m) => m.name));
     expect(CAT.cat3List("學習", "英文")).toEqual(EN.subs.map((s) => s.name));
@@ -66,6 +71,33 @@ describe("tags migrate", () => {
     expect(second.tags).toEqual(t1);
     const domain = t1.filter((t) => t.groupId === TAG_GROUP_IDS.domain);
     expect(domain.length).toBe(countCategoryNodes(DEFAULT_CATEGORIES));
+  });
+
+  it("isTimeDestination 缺欄時補上且不覆寫既有值", () => {
+    const missing = [
+      {
+        id: TAG_GROUP_IDS.domain,
+        name: "領域",
+        selectMode: "multi",
+        required: true,
+        order: 0,
+      },
+      {
+        id: TAG_GROUP_IDS.difficulty,
+        name: "難易度",
+        selectMode: "single",
+        required: false,
+        order: 1,
+        isTimeDestination: true,
+      },
+    ] as TagGroup[];
+    const first = patchTagGroupFlags(missing);
+    expect(first.changed).toBe(true);
+    expect(first.groups[0].isTimeDestination).toBe(true);
+    expect(first.groups[1].isTimeDestination).toBe(true);
+    const second = patchTagGroupFlags(first.groups);
+    expect(second.changed).toBe(false);
+    expect(second.groups).toEqual(first.groups);
   });
 });
 
@@ -136,5 +168,22 @@ describe("session / todo tagIds", () => {
     const t = normalizeTodo({ id: 7, text: "取件", cat: "學習" }, "2026-09-13");
     expect(t).not.toBeNull();
     expect(t!.tagIds).toEqual([LEARN.id]);
+  });
+});
+
+describe("CAT 三層降級", () => {
+  it("第四層標籤不進入 CAT.cat3List（其餘頁面先只顯示前三層）", () => {
+    persistMigration();
+    const tags = loadTags();
+    const next = addChildTag(tags, {
+      id: "layer4",
+      groupId: TAG_GROUP_IDS.domain,
+      parentId: LISTEN.id,
+      name: "第四層",
+    });
+    saveJSON(LS_KEYS.tags, next);
+    expect(CAT.cat3List("學習", "英文")).toEqual(EN.subs.map((s) => s.name));
+    expect(CAT.cat3List("學習", "英文")).not.toContain("第四層");
+    expect(next.some((t) => t.id === "layer4" && t.parentId === LISTEN.id)).toBe(true);
   });
 });
