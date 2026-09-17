@@ -1,5 +1,5 @@
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
-import { APP_STATE_KEYS, pushAppState } from "@/lib/appStateCloud";
+import { APP_STATE_KEYS, notifyAppState, pushAppState } from "@/lib/appStateCloud";
 import {
   TAG_GROUP_IDS,
   buildDomainTagsFromCategories,
@@ -22,11 +22,13 @@ export function loadTags(): Tag[] {
 
 export function saveTagGroups(data: TagGroup[]): void {
   saveJSON(LS_KEYS.tagGroups, data);
+  notifyAppState(APP_STATE_KEYS.tagGroups);
   void pushAppState(APP_STATE_KEYS.tagGroups, data);
 }
 
 export function saveTags(data: Tag[]): void {
   saveJSON(LS_KEYS.tags, data);
+  notifyAppState(APP_STATE_KEYS.tags);
   void pushAppState(APP_STATE_KEYS.tags, data);
 }
 

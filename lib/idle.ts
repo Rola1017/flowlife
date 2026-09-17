@@ -56,6 +56,22 @@ export function inAvailableWindow(
 }
 
 /**
+ * 圓環「距上次休息」是否點燃。now 一律由呼叫端傳入。
+ * 不看作息／班別（那是日合計 idleMinutes 的事）；專注／休息／娛樂中必關。
+ */
+export function nextIdleTrackStart(input: {
+  running: boolean;
+  resting: boolean;
+  entActive: boolean;
+  prev: number | null;
+  now: number;
+}): number | null {
+  const should = !input.running && !input.resting && !input.entActive;
+  if (!should) return null;
+  return input.prev ?? input.now;
+}
+
+/**
  * 可注入版：視窗內扣 blockedRangesWith（作息∪班別∪課程）。
  * 不扣番茄紀錄。重用 subtract，不另寫一份。
  */

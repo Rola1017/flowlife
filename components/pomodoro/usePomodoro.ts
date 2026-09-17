@@ -71,7 +71,7 @@ export function usePomodoro({
   coinIncomeLog: CoinIncomeLogRow[];
   setCoinIncomeLog: Dispatch<SetStateAction<CoinIncomeLogRow[]>>;
   onFocusStart?: () => void;
-  onFocusEnd?: () => void;
+  onFocusEnd?: (opts?: { forceIdle?: boolean }) => void;
 }) {
   const REWARD_FX_MS = 3700;
 
@@ -103,10 +103,31 @@ export function usePomodoro({
   const lastHandledResetVersionRef = useRef(resetVersion);
   const canStart = catSel.cat1 !== "";
 
+  const stopFocusClock = () => {
+    if (intRef.current !== null) {
+      clearInterval(intRef.current);
+      intRef.current = null;
+    }
+    focusStartRef.current = null;
+  };
+
   const stopIdleAndAccumulate = () => {
     if (!idleTrackStart) return;
     setIdleTrackStart(null);
     setIdleSecs(0);
+  };
+
+  /** 結束專注進入可閒置：放棄／重置的唯一收尾。App.onFocusEnd → syncIdleTrack */
+  const releaseToIdle = () => {
+    stopFocusClock();
+    setMode("idle");
+    setShowRating(false);
+    setFocusReadyToBreak(false);
+    setFocusOverrunSecs(0);
+    setRestEndAt(null);
+    setRestTotalSecs(0);
+    setRestSecs(0);
+    onFocusEnd?.({ forceIdle: true });
   };
 
   useEffect(() => {
@@ -121,14 +142,9 @@ export function usePomodoro({
   useEffect(() => {
     if (resetVersion === lastHandledResetVersionRef.current) return;
     lastHandledResetVersionRef.current = resetVersion;
-    if (intRef.current) clearInterval(intRef.current);
     setDur(1);
     setSecs(60);
-    setMode("idle");
-    setShowRating(false);
     setRated(false);
-    setRestSecs(0);
-    setRestTotalSecs(0);
     setCoinIncomeLog([]);
     setTaskName("");
     setIntention("");
@@ -136,14 +152,12 @@ export function usePomodoro({
     setConfirmed(null);
     setIdleSecs(0);
     setRewardFx(null);
-    setFocusReadyToBreak(false);
-    setFocusOverrunSecs(0);
     elRef.current = 0;
     hitRef.current.clear();
     restWasActiveRef.current = false;
     focusReadyToBreakRef.current = false;
     setLastSessionId(null);
-    onFocusEnd?.();
+    releaseToIdle();
   }, [resetVersion]);
 
   useEffect(() => {
@@ -209,9 +223,8 @@ export function usePomodoro({
 
       const isActive = s > 0;
       if (restWasActiveRef.current && !isActive) {
-        // 休息剛結束：啟動未利用時間（跨頁面）
         playRestEnd();
-        queueMicrotask(() => setIdleTrackStart(Date.now()));
+        queueMicrotask(() => onFocusEnd?.({ forceIdle: true }));
       }
       restWasActiveRef.current = isActive;
       if (!isActive) setRestEndAt(null);
@@ -275,11 +288,7 @@ export function usePomodoro({
   };
 
   const endFocus = () => {
-    if (intRef.current !== null) {
-      clearInterval(intRef.current);
-      intRef.current = null;
-    }
-    focusStartRef.current = null;
+    stopFocusClock();
     setMode("rest");
     setShowRating(true);
     setFocusReadyToBreak(false);
@@ -480,25 +489,7 @@ export function usePomodoro({
     }
   };
 
-  const abandonFocus = () => {
-    if (intRef.current !== null) {
-      clearInterval(intRef.current);
-      intRef.current = null;
-    }
-    focusStartRef.current = null;
-    setMode("idle");
-    setShowRating(false);
-    setFocusReadyToBreak(false);
-    setFocusOverrunSecs(0);
-    setRestEndAt(null);
-    setRestTotalSecs(0);
-    setRestSecs(0);
-    setIdleSecs(0);
-    // 不在此點燃／熄滅 idle：App.onFocusEnd → syncIdleTrack(false) 立刻依可用時段判定。
-    // 舊路徑 setIdleTrackStart(now) 後，規則制 tick 若仍見 pomoRunning=true 會清掉，
-    // 再等到下一個 60s tick 才重開 → 取消後卡在「待機」。
-    onFocusEnd?.();
-  };
+  const abandonFocus = () => releaseToIdle();
 
   const todayDate = localDateParts().date;
   const todaySessions = sessions.filter((s) => s.date === todayDate);

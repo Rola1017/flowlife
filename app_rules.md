@@ -541,7 +541,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **新增唯讀 /api/free-slots**：參數 date/minMinutes/from/to，回傳空閒時段與 summary；重用 idle.ts 空檔演算法，新增可注入版本 blockedRangesWith / availableSegmentsWith（既有函式行為不變）；語意為『未被作息/班別/課程佔用的時段』，不扣番茄紀錄。
 - **CategoryManager 三層分類改用共用 SortableList 拖曳排序（穩定 id 為 key），移除 ⬆︎⬇︎。**
 - **Z1 標籤資料層**：tagGroups/tags 存 app_state（key: `tag_groups` / `tags`），分類樹遷移為「領域」群組三層標籤（id 沿用既有分類 id，冪等），新增難易度/重要性/精力需求三個群組；sessions 加 `tag_ids` 欄位與同步映射；相容層 `lib/tagsCompat.ts` 讓 CAT.* 對外簽名不變；時數分攤純函式 `lib/tagStats.ts`（同群組內平均、餘數依序補、總和恆等於總時數）。畫面零變化。
-- **Z2 標籤管理頁**：TagGroup 新增 `isTimeDestination`；分類管理改為群組＋樹狀無限層標籤編輯器，拖曳用 SortableList（穩定 id），支援跨層級調整；標籤軟刪除並顯示影響範圍；其餘頁面續走相容層（超過三層先降級顯示）。必填群組不可刪（需先關必填）；領域即使關必填刪除確認仍有系統維度警告；樹狀顯示深度上限 20。
+- **Z2 標籤管理頁**：TagGroup 新增 `isTimeDestination`；分類管理改為群組＋樹狀無限層標籤編輯器，拖曳用 SortableList（穩定 id），支援跨層級調整；標籤軟刪除並顯示影響範圍；其餘頁面續走相容層（超過三層先降級顯示）。必填群組不可刪（需先關必填）；領域即使關必填刪除確認仍有系統維度警告；樹狀顯示深度上限 20。分類維度文案＋說明卡＋收折；`subscribeAppState(tags/tag_groups)`；放棄番茄走 `releaseToIdle` → `syncIdleTrack`（圓環不看班別窗口）。
 - **帳號資料歸屬隔離**：新增 `LS_KEYS.ownerUserId` 與 `clearAllAppData()`；App 啟動與登入/登出時比對 uid，不符即清除本機資料後再從雲端同步；登出需確認並 reload；所有 sync hook 由 ready 旗標把關，確保不搶在清除前推雲。
 - **app_state 加 service_role 唯讀 RLS policy**（`FOR SELECT TO service_role`，見 `supabase/rls_app_state_service_role_select.sql`），使 `/api/today` 的新版 `sb_secret_` key 能讀行程；僅唯讀、僅此表、僅 service_role，不影響前端 user-based 安全基線。第二階段寫入時另加精細化可寫 policy。
 - **app/layout.tsx 補 viewport**（`width=device-width, initialScale=1, maximumScale=1, userScalable=false`）修手機自動放大；metadata title→FlowLife、lang→zh-Hant；`fmtIdleHM` 顯示改精簡「N時M分／M分」（番茄鐘卡＋行事曆未利用統計；`fmtIdleTime` 不動）。

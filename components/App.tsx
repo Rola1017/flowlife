@@ -26,8 +26,7 @@ import { useAppStateCloudSync } from "@/components/hooks/useAppStateCloudSync";
 import { subscribeSessions, syncSessionDiffToCloud } from "@/lib/sessionsCloud";
 import { APP_STATE_KEYS, pushAppState, subscribeAppState } from "@/lib/appStateCloud";
 import { ensureWorkplacesSeeded, ensureRoutineSeeded } from "@/lib/schedule";
-import { DS, DE } from "@/lib/utils";
-import { inAvailableWindow } from "@/lib/idle";
+import { nextIdleTrackStart } from "@/lib/idle";
 import { Card } from "@/components/ui/Card";
 import { Header } from "@/components/Header";
 import { HomePage } from "@/components/home/HomePage";
@@ -360,10 +359,18 @@ function AppContent() {
     [],
   );
 
-  // 分類雲端同步回來 → 觸發重畫，讓所有讀分類的子元件拿到最新
+  // 分類／標籤雲端同步回來 → 觸發重畫，讓所有讀 CAT.*／loadTags() 的子元件拿到最新
   const [, bumpCat] = useState(0);
   useEffect(
     () => subscribeAppState(APP_STATE_KEYS.categories, () => bumpCat((v) => v + 1)),
+    [],
+  );
+  useEffect(
+    () => subscribeAppState(APP_STATE_KEYS.tags, () => bumpCat((v) => v + 1)),
+    [],
+  );
+  useEffect(
+    () => subscribeAppState(APP_STATE_KEYS.tagGroups, () => bumpCat((v) => v + 1)),
     [],
   );
 
@@ -425,28 +432,18 @@ function AppContent() {
   pomoRunningRef.current = pomoRunning;
   restEndAtRef.current = restEndAt;
 
-  // 未利用規則制：落在可用時段且未在專注/休息/娛樂 → 追蹤；否則清除。
-  // 取消番茄必須立刻 sync（不等 60s tick）：onFocusEnd 同步呼叫。
+  // 專注結束立刻重算圓環 idle（不等 60s tick）。作息／班別不擋圓環，那是日合計的事。
   const syncIdleTrack = (running: boolean) => {
-    const now = new Date();
-    const mins = now.getHours() * 60 + now.getMinutes();
-    const resting = !!(restEndAtRef.current && restEndAtRef.current > Date.now());
-    const shouldTrack =
-      inAvailableWindow(CFG.TODAY_STR, mins, undefined, DS, DE) &&
-      !running &&
-      !entRef.current &&
-      !resting;
-    const prev = idleTrackStartRef.current;
-    if (shouldTrack) {
-      if (prev == null) {
-        const t0 = Date.now();
-        idleTrackStartRef.current = t0;
-        setIdleTrackStart(t0);
-      }
-    } else if (prev != null) {
-      idleTrackStartRef.current = null;
-      setIdleTrackStart(null);
-    }
+    const next = nextIdleTrackStart({
+      running,
+      resting: !!(restEndAtRef.current && restEndAtRef.current > Date.now()),
+      entActive: !!entRef.current,
+      prev: idleTrackStartRef.current,
+      now: Date.now(),
+    });
+    if (next === idleTrackStartRef.current) return;
+    idleTrackStartRef.current = next;
+    setIdleTrackStart(next);
   };
 
   useEffect(() => {
@@ -814,9 +811,10 @@ function AppContent() {
         pomoRunningRef.current = true;
         endEntertainment();
       }}
-      onFocusEnd={() => {
+      onFocusEnd={(opts) => {
         setPomoRunning(false);
         pomoRunningRef.current = false;
+        if (opts?.forceIdle) restEndAtRef.current = null;
         syncIdleTrack(false);
       }}
       entName={ent?.name ?? null}

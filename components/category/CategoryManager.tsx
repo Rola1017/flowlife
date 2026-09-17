@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { BackBtn } from "@/components/ui/BackBtn";
 import { Card, SL } from "@/components/ui/Card";
 import { SortableList } from "@/components/ui/SortableList";
 import { TH } from "@/lib/theme";
 import { CAT, categoriesFromDomainTags, saveCategoriesOnly } from "@/lib/categories";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
+import { APP_STATE_KEYS, subscribeAppState } from "@/lib/appStateCloud";
 import { ensureTagsMigrated } from "@/lib/tagsMigrate";
 import { loadTagGroups, loadTags, saveTagGroups, saveTags } from "@/lib/tagsStore";
 import type { Tag, TagGroup } from "@/lib/tags";
@@ -56,11 +57,14 @@ const DEFAULT_PALETTE = [
 ];
 
 const HINT = {
-  selectMode: "💡 可多選＝一筆資料能同時掛好幾個（例如同時是事業和學習）",
-  required: "💡 必填＝新增番茄或待辦時一定要選一個",
+  selectMode:
+    "💡 例：一顆番茄可以同時是「事業」又是「學習」→ 打開。難易度只能是難或易，不會同時 → 關閉",
+  required: "💡 例：每顆番茄一定要選「領域」→ 打開。難易度可以不選 → 關閉",
   isTimeDestination:
-    "💡 打開＝這個維度會參與時數分攤（例如「領域」「專案」）。判準：這個維度所有標籤的時數加起來，會不會剛好等於總時數？像「難易度」「來源」這種只是註記的，不要打開。",
-  requiredDelete: "💡 必填群組不能直接刪除，需先關閉『必填』",
+    "💡 例：2 小時的番茄掛了「事業」+「學習」→ 各算 1 小時（打開）。掛了「難」不代表你花 2 小時在「難」上面 → 關閉",
+  requiredDelete: "💡 必填分類維度不能直接刪除，需先關閉『必填』",
+  addChild:
+    "💡 在這個標籤底下再分一層。例：「法律」底下加「勞健保」「勞基法」，之後統計可以只看勞健保花了多少時間",
 };
 
 function cascadeRename(level: "cat1" | "cat2" | "cat3", oldName: string, newName: string) {
@@ -235,6 +239,7 @@ function RenameInput({
   return (
     <input
       value={draft}
+      onClick={(e) => e.stopPropagation()}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={() => {
         const t = draft.trim();
@@ -312,9 +317,27 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
   const [tags, setTags] = useState<Tag[]>(() => loadTags());
   const live = useMemo(() => liveGroups(groups), [groups]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(() => liveGroups(loadTagGroups())[0]?.id ?? null);
+  const [collapsedSelected, setCollapsedSelected] = useState(false);
+  const [helpOpen, setHelpOpen] = useState<boolean>(() => loadJSON<boolean>(LS_KEYS.tagManagerHelp, true));
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [colorPickerId, setColorPickerId] = useState<string | null>(null);
   const [palette, setPalette] = useState<string[]>(() => loadJSON(LS_KEYS.colorPalette, DEFAULT_PALETTE));
+
+  useEffect(() => subscribeAppState(APP_STATE_KEYS.tags, () => setTags(loadTags())), []);
+  useEffect(() => subscribeAppState(APP_STATE_KEYS.tagGroups, () => setGroups(loadTagGroups())), []);
+
+  const selectDimension = (id: string) => {
+    setSelectedGroupId(id);
+    setCollapsedSelected(false);
+  };
+
+  const toggleHelp = () => {
+    setHelpOpen((v) => {
+      const next = !v;
+      saveJSON(LS_KEYS.tagManagerHelp, next);
+      return next;
+    });
+  };
 
   const selected = live.find((g) => g.id === selectedGroupId) ?? live[0] ?? null;
 
@@ -337,17 +360,17 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
   }, []);
 
   const addNewGroup = () => {
-    const name = window.prompt("新群組名稱");
+    const name = window.prompt("新分類維度名稱");
     if (!name?.trim()) return;
     const next = addGroup(groups, { name: name.trim() });
     persistGroups(next);
     const created = liveGroups(next).at(-1);
-    if (created) setSelectedGroupId(created.id);
+    if (created) selectDimension(created.id);
   };
 
   const deleteGroup = (g: TagGroup) => {
     if (g.required) {
-      window.alert(`「${g.name}」是必填群組，刪除會讓所有資料失去歸屬。如果真的要刪，請先關閉「必填」。`);
+      window.alert(`「${g.name}」是必填分類維度，刪除會讓所有資料失去歸屬。如果真的要刪，請先關閉「必填」。`);
       return;
     }
     const seed = tags.filter((t) => t.groupId === g.id && !t.deletedAt).map((t) => t.id);
@@ -357,14 +380,15 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
       g.id === TAG_GROUP_IDS.domain
         ? "這是系統預設的主要分類維度，刪除後番茄、待辦、課表都會失去分類。\n\n"
         : "";
-    const msg = `${domainWarn}刪除群組「${g.name}」會一併軟刪除其下 ${nTags} 個標籤。這個群組有 ${counts.sessions} 筆番茄、${counts.todos} 筆待辦、${counts.schedule} 個課表格子在使用，刪除後它們會顯示為「${DELETED_TAG_LABEL}」。確定刪除？`;
+    const msg = `${domainWarn}刪除分類維度「${g.name}」會一併軟刪除其下 ${nTags} 個標籤。這個分類維度有 ${counts.sessions} 筆番茄、${counts.todos} 筆待辦、${counts.schedule} 個課表格子在使用，刪除後它們會顯示為「${DELETED_TAG_LABEL}」。確定刪除？`;
     if (!window.confirm(msg)) return;
     const out = guardedSoftDeleteGroup(groups, tags, g.id, new Date().toISOString());
     if (!out) return;
     persistGroups(out.groups);
     persistTags(out.tags);
     const remain = liveGroups(out.groups);
-    setSelectedGroupId(remain[0]?.id ?? null);
+    if (remain[0]) selectDimension(remain[0].id);
+    else setSelectedGroupId(null);
   };
 
   const renameTag = (tag: Tag, name: string) => {
@@ -539,6 +563,7 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
                 <button type="button" onClick={() => addTagUnder(groupId, tag.id, color)} style={btnSm}>
                   +子
                 </button>
+                <HintDot text={HINT.addChild} />
                 {!(tag.name === "未分類" && !tag.parentId) && (
                   <button type="button" onClick={() => deleteTag(tag)} style={{ ...btnSm, color: TH.red }}>
                     刪
@@ -580,9 +605,30 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
       <BackBtn onBack={onBack} label="標籤管理" />
 
       <Card>
-        <SL>群組</SL>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, minWidth: 0 }}>
+          <SL style={{ marginBottom: 0 }}>💡 這一頁怎麼用</SL>
+          <button type="button" onClick={toggleHelp} style={btnSm}>
+            {helpOpen ? "▲" : "▼"}
+          </button>
+        </div>
+        {helpOpen && (
+          <div style={{ fontSize: 11, color: TH.text, lineHeight: 1.55, marginTop: 8, minWidth: 0 }}>
+            <div>
+              ・<b>分類維度</b>＝一種分類角度。例：領域、專案、難易度
+            </div>
+            <div>
+              ・<b>標籤</b>＝維度底下的選項。例：領域底下有 學習、事業、閱讀
+            </div>
+            <div>・標籤可以有階層。例：學習 › 法律 › 勞健保</div>
+            <div>・一筆番茄可以同時掛好幾個維度的標籤</div>
+          </div>
+        )}
+      </Card>
+
+      <Card>
+        <SL>分類維度</SL>
         <p style={{ fontSize: 10, color: TH.muted, margin: "0 0 10px", lineHeight: 1.5 }}>
-          💡 按住左邊的 ⋮⋮ 可以拖曳調整群組順序（手機用手指長按拖動）
+          💡 按住左邊的 ⋮⋮ 可以拖曳調整順序（手機用手指長按拖動）。點卡片空白處即可切換要編輯的維度。
         </p>
         <SortableList
           items={live}
@@ -591,97 +637,128 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
           onReorder={(from, to) => persistGroups(reorderGroups(groups, from, to))}
           renderItem={(g, _i, handle) => {
             const active = selected?.id === g.id;
+            const open = active && !collapsedSelected;
             return (
               <div
+                onClick={() => selectDimension(g.id)}
                 style={{
                   border: `1px solid ${active ? TH.accent : TH.border}`,
                   borderRadius: 10,
                   padding: 10,
                   minWidth: 0,
                   background: active ? TH.accent + "14" : TH.bg,
+                  cursor: "pointer",
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flexWrap: "wrap" }}>
                   <span
                     {...handle}
+                    onClick={(e) => e.stopPropagation()}
                     style={{ ...handle.style, flexShrink: 0, color: TH.muted, fontSize: 14, lineHeight: 1, padding: "4px 2px" }}
                     aria-label="拖曳排序"
                   >
                     ⋮⋮
                   </span>
+                  {active && (
+                    <span style={{ fontSize: 10, color: TH.accent, fontWeight: 800, flexShrink: 0 }}>✓ 目前編輯中</span>
+                  )}
+                  <div onClick={(e) => e.stopPropagation()} style={{ flex: 1, minWidth: 0, display: "flex" }}>
+                    <RenameInput
+                      value={g.name}
+                      onCommit={(n) => persistGroups(patchGroup(groups, g.id, { name: n }))}
+                    />
+                  </div>
+                  {g.selectMode === "multi" && (
+                    <span style={{ fontSize: 9, color: TH.muted, border: `1px solid ${TH.border}`, borderRadius: 8, padding: "1px 6px", flexShrink: 0 }}>
+                      可多選
+                    </span>
+                  )}
+                  {g.required && (
+                    <span style={{ fontSize: 9, color: TH.muted, border: `1px solid ${TH.border}`, borderRadius: 8, padding: "1px 6px", flexShrink: 0 }}>
+                      必填
+                    </span>
+                  )}
+                  {g.isTimeDestination && (
+                    <span style={{ fontSize: 9, color: TH.muted, border: `1px solid ${TH.border}`, borderRadius: 8, padding: "1px 6px", flexShrink: 0 }}>
+                      計時數
+                    </span>
+                  )}
                   <button
                     type="button"
-                    onClick={() => setSelectedGroupId(g.id)}
-                    style={{
-                      ...btnSm,
-                      color: active ? TH.accent : TH.muted,
-                      fontWeight: 800,
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (active) setCollapsedSelected((v) => !v);
+                      else selectDimension(g.id);
                     }}
+                    style={btnSm}
                   >
-                    {active ? "已選" : "選取"}
+                    {open ? "▲" : "▼"}
                   </button>
-                  <RenameInput
-                    value={g.name}
-                    onCommit={(n) => persistGroups(patchGroup(groups, g.id, { name: n }))}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => deleteGroup(g)}
-                    aria-disabled={g.required}
-                    style={{
-                      ...btnSm,
-                      color: TH.red,
-                      opacity: g.required ? 0.35 : 1,
-                      cursor: g.required ? "not-allowed" : "pointer",
-                    }}
+                </div>
+                {open && (
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8, minWidth: 0 }}
                   >
-                    刪
-                  </button>
-                  {g.required && <HintDot text={HINT.requiredDelete} />}
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8, minWidth: 0 }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: 6, flexWrap: "wrap" }}>
-                      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: TH.text, cursor: "pointer" }}>
-                        <input
-                          type="checkbox"
-                          checked={g.selectMode === "multi"}
-                          onChange={(e) =>
-                            persistGroups(patchGroup(groups, g.id, { selectMode: e.target.checked ? "multi" : "single" }))
-                          }
-                        />
-                        可多選
-                      </label>
-                      <HintDot text={HINT.selectMode} />
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        onClick={() => deleteGroup(g)}
+                        aria-disabled={g.required}
+                        style={{
+                          ...btnSm,
+                          color: TH.red,
+                          opacity: g.required ? 0.35 : 1,
+                          cursor: g.required ? "not-allowed" : "pointer",
+                        }}
+                      >
+                        刪
+                      </button>
+                      {g.required && <HintDot text={HINT.requiredDelete} />}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 6, flexWrap: "wrap" }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: TH.text, cursor: "pointer" }}>
+                          <input
+                            type="checkbox"
+                            checked={g.selectMode === "multi"}
+                            onChange={(e) =>
+                              persistGroups(patchGroup(groups, g.id, { selectMode: e.target.checked ? "multi" : "single" }))
+                            }
+                          />
+                          可多選
+                        </label>
+                        <HintDot text={HINT.selectMode} />
+                      </div>
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 6, flexWrap: "wrap" }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: TH.text, cursor: "pointer" }}>
+                          <input
+                            type="checkbox"
+                            checked={g.required}
+                            onChange={(e) => persistGroups(patchGroup(groups, g.id, { required: e.target.checked }))}
+                          />
+                          必填
+                        </label>
+                        <HintDot text={HINT.required} />
+                      </div>
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 6, flexWrap: "wrap" }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: TH.text, cursor: "pointer" }}>
+                          <input
+                            type="checkbox"
+                            checked={g.isTimeDestination}
+                            onChange={(e) => persistGroups(patchGroup(groups, g.id, { isTimeDestination: e.target.checked }))}
+                          />
+                          參與時數分攤
+                        </label>
+                        <HintDot text={HINT.isTimeDestination} />
+                      </div>
                     </div>
                   </div>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: 6, flexWrap: "wrap" }}>
-                      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: TH.text, cursor: "pointer" }}>
-                        <input
-                          type="checkbox"
-                          checked={g.required}
-                          onChange={(e) => persistGroups(patchGroup(groups, g.id, { required: e.target.checked }))}
-                        />
-                        必填
-                      </label>
-                      <HintDot text={HINT.required} />
-                    </div>
-                  </div>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: 6, flexWrap: "wrap" }}>
-                      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: TH.text, cursor: "pointer" }}>
-                        <input
-                          type="checkbox"
-                          checked={g.isTimeDestination}
-                          onChange={(e) => persistGroups(patchGroup(groups, g.id, { isTimeDestination: e.target.checked }))}
-                        />
-                        參與時數分攤
-                      </label>
-                      <HintDot text={HINT.isTimeDestination} />
-                    </div>
-                  </div>
-                </div>
+                )}
               </div>
             );
           }}
@@ -702,14 +779,14 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
             cursor: "pointer",
           }}
         >
-          + 新增群組
+          + 新增分類維度
         </button>
       </Card>
 
       <Card>
-        <SL>標籤樹{selected ? ` · ${selected.name}` : ""}</SL>
+        <SL>{selected ? `${selected.name} 的標籤` : "標籤"}</SL>
         {!selected ? (
-          <p style={{ fontSize: 11, color: TH.muted, margin: 0 }}>請先新增或選取一個群組</p>
+          <p style={{ fontSize: 11, color: TH.muted, margin: 0 }}>請先新增或點選一個分類維度</p>
         ) : (
           <>
             <p style={{ fontSize: 10, color: TH.muted, margin: "0 0 10px", lineHeight: 1.5 }}>

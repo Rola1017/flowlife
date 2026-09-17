@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { CAT, DEFAULT_CATEGORIES } from "@/lib/categories";
 import { LS_KEYS, saveJSON } from "@/lib/storage";
 import { TAG_GROUP_IDS, countCategoryNodes, patchTagGroupFlags, type Tag, type TagGroup } from "@/lib/tags";
+import { APP_STATE_KEYS, notifyAppState, subscribeAppState } from "@/lib/appStateCloud";
 import { applyTagsMigration } from "@/lib/tagsMigrate";
 import { loadTagGroups, loadTags } from "@/lib/tagsStore";
 import { addChildTag } from "@/lib/tagTree";
@@ -185,5 +186,21 @@ describe("CAT 三層降級", () => {
     expect(CAT.cat3List("學習", "英文")).toEqual(EN.subs.map((s) => s.name));
     expect(CAT.cat3List("學習", "英文")).not.toContain("第四層");
     expect(next.some((t) => t.id === "layer4" && t.parentId === LISTEN.id)).toBe(true);
+  });
+});
+
+describe("tags 雲端訂閱", () => {
+  it("sync 清單含 tags／tag_groups；emit 後 state 重讀", () => {
+    expect(Object.values(APP_STATE_KEYS)).toEqual(expect.arrayContaining(["tags", "tag_groups"]));
+    persistMigration();
+    let latest = loadTags();
+    const unsub = subscribeAppState(APP_STATE_KEYS.tags, () => {
+      latest = loadTags();
+    });
+    const next = [...loadTags(), { id: "sub-new", groupId: TAG_GROUP_IDS.domain, name: "訂閱新標籤", order: 99 }];
+    saveJSON(LS_KEYS.tags, next);
+    notifyAppState(APP_STATE_KEYS.tags);
+    expect(latest.some((t) => t.id === "sub-new")).toBe(true);
+    unsub();
   });
 });

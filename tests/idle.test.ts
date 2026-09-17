@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { availableSegments, inAvailableWindow } from "@/lib/idle";
+import { availableSegments, inAvailableWindow, nextIdleTrackStart } from "@/lib/idle";
 import { LS_KEYS, saveJSON } from "@/lib/storage";
 import type { RoutineBlock } from "@/lib/schedule";
 
@@ -87,5 +87,30 @@ describe("inAvailableWindow", () => {
     expect(inAvailableWindow("2026-07-25", 12 * 60, {})).toBe(false);
     expect(inAvailableWindow("2026-07-25", 11 * 60, {})).toBe(true);
     expect(inAvailableWindow("2026-07-25", 13 * 60, {})).toBe(true);
+  });
+});
+
+describe("nextIdleTrackStart（結束專注收尾）", () => {
+  const now = 1_700_000_000_000;
+
+  it("正常結束仍在休息 → 不點燃；休息結束／放棄／取消 → 點燃", () => {
+    expect(
+      nextIdleTrackStart({ running: false, resting: true, entActive: false, prev: null, now }),
+    ).toBeNull();
+    expect(
+      nextIdleTrackStart({ running: false, resting: false, entActive: false, prev: null, now }),
+    ).toBe(now);
+    expect(
+      nextIdleTrackStart({ running: false, resting: false, entActive: false, prev: null, now }),
+    ).toBe(now);
+    expect(
+      nextIdleTrackStart({ running: true, resting: false, entActive: false, prev: now, now: now + 1 }),
+    ).toBeNull();
+  });
+
+  it("已在追蹤則保留 prev，不重設", () => {
+    expect(
+      nextIdleTrackStart({ running: false, resting: false, entActive: false, prev: 123, now }),
+    ).toBe(123);
   });
 });

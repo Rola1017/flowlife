@@ -92,7 +92,7 @@ export function PomodoroPage({
   coinIncomeLog: CoinIncomeLogRow[];
   setCoinIncomeLog: Dispatch<SetStateAction<CoinIncomeLogRow[]>>;
   onFocusStart?: () => void;
-  onFocusEnd?: () => void;
+  onFocusEnd?: (opts?: { forceIdle?: boolean }) => void;
   entName?: string | null;
 }) {
   const {
