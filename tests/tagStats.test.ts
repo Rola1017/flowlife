@@ -15,6 +15,12 @@ const tags: Tag[] = [
 ];
 
 describe("splitMinutesByGroup", () => {
+  it("60 分掛 2 個領域標籤 → 各 30", () => {
+    const out = splitMinutesByGroup(60, ["d1", "d2"], DOMAIN, tags);
+    expect(out.map((x) => x.minutes)).toEqual([30, 30]);
+    expect(out.map((x) => x.tagId)).toEqual(["d1", "d2"]);
+  });
+
   it("50 分 3 標籤 → [17,17,16]", () => {
     const out = splitMinutesByGroup(50, ["d1", "d2", "d3"], DOMAIN, tags);
     expect(out.map((x) => x.minutes)).toEqual([17, 17, 16]);
@@ -67,5 +73,11 @@ describe("splitMinutesByGroup", () => {
     );
     const diff = splitMinutesByGroup(50, ["d1", "hard", "d2"], DIFF, tags, groups);
     expect(diff).toEqual([{ tagId: "hard", minutes: 50 }]);
+  });
+
+  it("已刪除標籤仍參與分攤", () => {
+    const dead: Tag[] = tags.map((t) => (t.id === "d1" ? { ...t, deletedAt: "x" } : t));
+    const out = splitMinutesByGroup(60, ["d1", "d2"], DOMAIN, dead);
+    expect(out.map((x) => x.minutes)).toEqual([30, 30]);
   });
 });

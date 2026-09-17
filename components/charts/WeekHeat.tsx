@@ -1,7 +1,12 @@
-import { CAT } from "@/lib/categories";
 import { TH } from "@/lib/theme";
-import { toLocalDateStr } from "@/lib/utils";
+import { CFG } from "@/lib/config";
+import { shiftDateStr } from "@/lib/dateStr";
+import { formatMd } from "@/lib/utils";
 import type { Session } from "@/lib/types";
+import type { Tag, TagGroup } from "@/lib/tags";
+import { resolveSessionTagIds } from "@/lib/analytics";
+import { splitMinutesByGroup } from "@/lib/tagStats";
+import { primaryTagColor, tagPathLabel, UNCATEGORIZED_COLOR } from "@/lib/tagSelect";
 
 const AXIS_START = 6;
 const AXIS_LEN = 17;
@@ -12,17 +17,25 @@ function toHour(t?: string): number | null {
   return h + m / 60;
 }
 
-export function WeekHeat({ sessions, days = 7 }: { sessions: Session[]; days?: number }) {
-  const today = new Date();
+export function WeekHeat({
+  sessions,
+  days = 7,
+  tags,
+  groups,
+  groupId,
+  todayStr = CFG.TODAY_STR,
+}: {
+  sessions: Session[];
+  days?: number;
+  tags: Tag[];
+  groups: TagGroup[];
+  groupId: string;
+  todayStr?: string;
+}) {
   const dayList: { key: string; label: string }[] = [];
   for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const key = toLocalDateStr(d);
-    const label =
-      i === 0
-        ? "今天"
-        : `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
+    const key = shiftDateStr(todayStr, -i);
+    const label = i === 0 ? "今天" : formatMd(key);
     dayList.push({ key, label });
   }
 
@@ -59,23 +72,38 @@ export function WeekHeat({ sessions, days = 7 }: { sessions: Session[]; days?: n
                 const sh = toHour(s.startTime);
                 const eh = toHour(s.endTime);
                 if (sh == null || eh == null) return null;
-                const left = ((sh - AXIS_START) / AXIS_LEN) * 100;
-                const width = Math.max(((eh - sh) / AXIS_LEN) * 100, 1.5);
-                const col = CAT.deepColorFull(s.cat1, s.cat2 || undefined, s.cat3 || undefined);
-                return (
-                  <div
-                    key={`${day.key}-${si}`}
-                    style={{
-                      position: "absolute",
-                      left: `${left}%`,
-                      width: `${width}%`,
-                      top: 2,
-                      bottom: 2,
-                      borderRadius: 3,
-                      background: col || TH.muted,
-                    }}
-                  />
-                );
+                const leftPct = ((sh - AXIS_START) / AXIS_LEN) * 100;
+                const widthPct = Math.max(((eh - sh) / AXIS_LEN) * 100, 1.5);
+                const ids = resolveSessionTagIds(s, tags);
+                const pieces = splitMinutesByGroup(s.mins ?? 0, ids, groupId, tags, groups);
+                const parts =
+                  pieces.length > 0
+                    ? pieces
+                    : [{ tagId: "", minutes: s.mins ?? 0 }];
+                const total = parts.reduce((a, p) => a + p.minutes, 0) || 1;
+                let acc = 0;
+                return parts.map((p, pi) => {
+                  const frac = p.minutes / total;
+                  const segLeft = leftPct + widthPct * acc;
+                  acc += frac;
+                  const col = p.tagId ? primaryTagColor([p.tagId], tags) : UNCATEGORIZED_COLOR;
+                  const path = p.tagId ? tagPathLabel(p.tagId, tags) : "未分類";
+                  return (
+                    <div
+                      key={`${day.key}-${si}-${pi}`}
+                      title={path}
+                      style={{
+                        position: "absolute",
+                        left: `${segLeft}%`,
+                        width: `${Math.max(widthPct * frac, 0.4)}%`,
+                        top: 2,
+                        bottom: 2,
+                        borderRadius: 3,
+                        background: col || TH.muted,
+                      }}
+                    />
+                  );
+                });
               })}
             </div>
           </div>

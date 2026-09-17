@@ -1,5 +1,10 @@
 import { toM } from "@/lib/utils";
 import { blockedRanges, blockedRangesWith, type Interval, type DayPlan, type ScheduleData } from "@/lib/schedule";
+import type { Tag, TagGroup } from "@/lib/tags";
+import { resolveSessionTagIds } from "@/lib/analytics";
+import { splitMinutesByGroup } from "@/lib/tagStats";
+import { primaryTagColor, UNCATEGORIZED_COLOR } from "@/lib/tagSelect";
+import { tagChain } from "@/lib/tagsCompat";
 
 export type IdleGap = { start: string; end: string };
 
@@ -129,37 +134,80 @@ function overlapMins(s: number, e: number, segs: Interval[]): number {
   return sum;
 }
 
-type SLite = { mins?: number; cat1?: string; startTime?: string; endTime?: string };
+type SLite = {
+  mins?: number;
+  cat1?: string;
+  cat2?: string;
+  cat3?: string;
+  tagIds?: string[];
+  startTime?: string;
+  endTime?: string;
+};
 
 /**
- * 某日 sessions 拆成「可用內」與「不可用(加碼)」分鐘，並回傳可用內依大分類加總（週曆三段線用）。
- * 無 startTime/endTime 的舊資料 → 全算可用內（保守：不灌加碼、不假裝有空檔）。
+ * 某日 sessions 拆成「可用內」與「不可用(加碼)」分鐘。
+ * 有 tagCtx 時，可用內依統計維度分攤後加總（週曆分類色）。
+ * 無 startTime/endTime 的舊資料 → 全算可用內。
  */
 export function splitSessionsByAvailability(
   sessions: SLite[],
   availFullDay: Interval[],
-): { within: number; off: number; withinByCat1: Record<string, number> } {
+  tagCtx?: { tags: Tag[]; groups: TagGroup[]; groupId: string },
+): {
+  within: number;
+  off: number;
+  withinByCat1: Record<string, number>;
+  withinSlices: { id: string; minutes: number; color: string }[];
+} {
   let within = 0,
     off = 0;
   const withinByCat1: Record<string, number> = {};
+  const sliceMins = new Map<string, number>();
   const addCat = (c: string, m: number) => {
     withinByCat1[c] = (withinByCat1[c] ?? 0) + m;
+  };
+  const addSlice = (id: string, m: number) => {
+    if (m <= 0) return;
+    sliceMins.set(id, (sliceMins.get(id) ?? 0) + m);
+  };
+  const rootOf = (tagId: string) => {
+    if (!tagCtx) return tagId;
+    const inGroup = tagChain(tagId, tagCtx.tags).filter((t) => t.groupId === tagCtx.groupId);
+    return inGroup[0]?.id ?? "__uncat__";
   };
   for (const s of sessions) {
     const cat1 = s.cat1 || "未分類";
     const dur = s.mins ?? 0;
+    const applyWithin = (m: number) => {
+      within += m;
+      addCat(cat1, m);
+      if (!tagCtx) return;
+      const ids = resolveSessionTagIds(s, tagCtx.tags);
+      const pieces = splitMinutesByGroup(m, ids, tagCtx.groupId, tagCtx.tags, tagCtx.groups);
+      if (!pieces.length) {
+        addSlice("__uncat__", m);
+        return;
+      }
+      for (const p of pieces) addSlice(rootOf(p.tagId), p.minutes);
+    };
     if (!s.startTime || !s.endTime) {
-      within += dur;
-      addCat(cat1, dur);
+      applyWithin(dur);
       continue;
     }
     const a = toM(s.startTime),
       b = toM(s.endTime);
     const span = Math.max(0, b - a);
     const w = span > 0 ? overlapMins(a, b, availFullDay) : 0;
-    within += w;
+    applyWithin(w);
     off += span - w;
-    addCat(cat1, w);
   }
-  return { within, off, withinByCat1 };
+  const withinSlices = [...sliceMins.entries()]
+    .filter(([, m]) => m > 0)
+    .map(([id, minutes]) => ({
+      id,
+      minutes,
+      color:
+        id === "__uncat__" || !tagCtx ? UNCATEGORIZED_COLOR : primaryTagColor([id], tagCtx.tags),
+    }));
+  return { within, off, withinByCat1, withinSlices };
 }

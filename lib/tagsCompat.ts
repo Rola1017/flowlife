@@ -40,15 +40,32 @@ export function legacyPath(tagIds?: string[], allTags?: Tag[]): { cat1: string; 
   };
 }
 
-/** 祖先鏈比對：選父命中子孫；選子不命中父的其他子。空選取＝全通過 */
+/** 祖先鏈比對：選父命中子孫；選子不命中父的其他子。空選取＝全通過。
+ * 同維度多選＝聯集；跨維度＝交集。
+ */
 export function matchesTagSelection(sel: Set<string>, tagIds?: string[], allTags?: Tag[]): boolean {
   if (sel.size === 0) return true;
   const tags = allTags ?? loadTags();
-  for (const id of tagIds ?? []) {
-    const ancIds = new Set(tagAncestors(id, tags).map((t) => t.id));
-    for (const s of sel) {
-      if (ancIds.has(s)) return true;
-    }
+  const byId = new Map(tags.map((t) => [t.id, t]));
+  const byGroup = new Map<string, string[]>();
+  for (const sid of sel) {
+    const g = byId.get(sid)?.groupId ?? `__missing:${sid}`;
+    const list = byGroup.get(g);
+    if (list) list.push(sid);
+    else byGroup.set(g, [sid]);
   }
-  return false;
+
+  const sessionIds = (tagIds ?? []).filter((id) => typeof id === "string" && id.trim());
+  for (const selectedInGroup of byGroup.values()) {
+    let hit = false;
+    for (const id of sessionIds) {
+      const ancIds = new Set(tagChain(id, tags).map((t) => t.id));
+      if (selectedInGroup.some((s) => ancIds.has(s))) {
+        hit = true;
+        break;
+      }
+    }
+    if (!hit) return false;
+  }
+  return true;
 }

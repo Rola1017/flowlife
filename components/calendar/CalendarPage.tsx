@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
-import { buildCalendarStats, datesInPeriod, periodRange } from "@/lib/analytics";
-import { CAT, CAT_PATH_SEP, matchesCatSelection } from "@/lib/categories";
+import { CAT } from "@/lib/categories";
+import { buildCalendarStats, datesInPeriod, periodRange, sessionMatches } from "@/lib/analytics";
+import { TAG_GROUP_IDS } from "@/lib/tags";
 import { availableMinutesFor, loadDayPlans, planForDate } from "@/lib/schedule";
 import { availableSegments, splitSessionsByAvailability } from "@/lib/idle";
 import { idleSeries } from "@/lib/timelineActual";
@@ -15,6 +16,8 @@ import type { Session, Todo } from "@/lib/types";
 import { fmt, fmtIdleHM, getDaysInMonth, getFirstDow } from "@/lib/utils";
 import { MultiCategoryFilter } from "@/components/ui/MultiCategoryFilter";
 import { TriCharts } from "@/components/charts/TriCharts";
+import { useTagsSnapshot } from "@/components/hooks/useTagsSnapshot";
+import { primaryTagColor, tagLeafLabel } from "@/lib/tagSelect";
 import { ReviewView } from "./ReviewView";
 import { DayReview } from "./DayReview";
 import { PeriodReview } from "./PeriodReview";
@@ -174,7 +177,9 @@ export function CalendarPage({
     onIntentConsumed?.();
   }, [intent, onIntentConsumed]);
   const [calView, setCalView] = useState("month");
-  const [selPaths, setSelPaths] = useState<Set<string>>(new Set());
+  const [selTags, setSelTags] = useState<Set<string>>(new Set());
+  const [statsGroupId, setStatsGroupId] = useState<string>(TAG_GROUP_IDS.domain);
+  const { tags, groups } = useTagsSnapshot();
   const [filterOpen, setFilterOpen] = useState(false);
   const [monthOffset, setMonthOffset] = useState(0);
   const [weekOffset, setWeekOffset] = useState(0);
@@ -204,34 +209,29 @@ export function CalendarPage({
     fdow = getFirstDow(curY, curM);
   const prevM = curM === 1 ? 12 : curM - 1;
   const prevY = curM === 1 ? curY - 1 : curY;
-  const selArr = [...selPaths];
+  const selArr = [...selTags];
   const singleColor =
-    selPaths.size === 1
-      ? (() => {
-          const [c1, c2, c3] = selArr[0].split(CAT_PATH_SEP);
-          return CAT.deepColorFull(c1, c2 || undefined, c3 || undefined);
-        })()
-      : "";
+    selTags.size === 1 ? primaryTagColor(selArr, tags) : "";
   const activeColor = singleColor || TH.red;
   const chartLabel =
-    selPaths.size === 0
-      ? "全部分類"
-      : selPaths.size === 1
-        ? (() => {
-            const [c1, c2, c3] = selArr[0].split(CAT_PATH_SEP);
-            return c3 || c2 || c1;
-          })()
-        : `已選 ${selPaths.size} 項`;
+    selTags.size === 0
+      ? "全部標籤"
+      : selTags.size === 1
+        ? tagLeafLabel(selArr, tags)
+        : `已選 ${selTags.size} 項`;
   const { chartData, lineD } = useMemo(
     () =>
       buildCalendarStats({
         sessions,
-        sel: selPaths,
+        sel: selTags,
+        groupId: statsGroupId,
+        tags,
+        groups,
         period,
         anchorY: curY,
         anchorM: curM,
       }),
-    [sessions, selPaths, period, curY, curM],
+    [sessions, selTags, statsGroupId, tags, groups, period, curY, curM],
   );
   const [dayPlans] = useState(loadDayPlans);
 
@@ -239,30 +239,30 @@ export function CalendarPage({
     const map: Record<string, number> = {};
     for (const s of sessions) {
       if (!s.date) continue;
-      if (!matchesCatSelection(selPaths, s.cat1, s.cat2, s.cat3)) continue;
+      if (!sessionMatches(s, selTags, tags)) continue;
       map[s.date] = (map[s.date] ?? 0) + (s.mins ?? 0);
     }
     return map;
-  }, [sessions, selPaths]);
+  }, [sessions, selTags, tags]);
 
   const sessionsByDate = useMemo(() => {
     const map: Record<string, Session[]> = {};
     for (const s of sessions) {
-      if (!s.date || !matchesCatSelection(selPaths, s.cat1, s.cat2, s.cat3)) continue;
+      if (!s.date || !sessionMatches(s, selTags, tags)) continue;
       (map[s.date] ??= []).push(s);
     }
     return map;
-  }, [sessions, selPaths]);
+  }, [sessions, selTags, tags]);
 
   const countByDate = useMemo(() => {
     const map: Record<string, number> = {};
     for (const s of sessions) {
       if (!s.date) continue;
-      if (!matchesCatSelection(selPaths, s.cat1, s.cat2, s.cat3)) continue;
+      if (!sessionMatches(s, selTags, tags)) continue;
       map[s.date] = (map[s.date] ?? 0) + 1;
     }
     return map;
-  }, [sessions, selPaths]);
+  }, [sessions, selTags, tags]);
 
   const mData = useMemo(
     () =>
@@ -276,9 +276,9 @@ export function CalendarPage({
   const monthSessions = useMemo(
     () =>
       sessionsInMonth(sessions, curY, curM).filter((s) =>
-        matchesCatSelection(selPaths, s.cat1, s.cat2, s.cat3),
+        sessionMatches(s, selTags, tags),
       ),
-    [sessions, curY, curM, selPaths],
+    [sessions, curY, curM, selTags, tags],
   );
   const mTot = useMemo(() => monthSessions.reduce((s, x) => s + (x.mins ?? 0), 0), [monthSessions]);
   const dayCount = useMemo(() => new Set(monthSessions.map((s) => s.date).filter(Boolean)).size, [monthSessions]);
@@ -287,9 +287,9 @@ export function CalendarPage({
   const pomo25 = useMemo(() => monthSessions.filter((s) => (s.mins ?? 0) >= 25).length, [monthSessions]);
   const prevTot = useMemo(() => {
     return sessionsInMonth(sessions, prevY, prevM)
-      .filter((s) => matchesCatSelection(selPaths, s.cat1, s.cat2, s.cat3))
+      .filter((s) => sessionMatches(s, selTags, tags))
       .reduce((s, x) => s + (x.mins ?? 0), 0);
-  }, [sessions, prevY, prevM, selPaths]);
+  }, [sessions, prevY, prevM, selTags, tags]);
   const pctVsLast = prevTot ? Math.round(((mTot - prevTot) / prevTot) * 100) : 0;
 
   const periodDates = useMemo(() => datesInPeriod(period, curY, curM), [period, curY, curM]);
@@ -376,9 +376,9 @@ export function CalendarPage({
             style={{
               padding: "6px 10px",
               borderRadius: 10,
-              border: `1px solid ${filterOpen || selPaths.size > 0 ? TH.accent : TH.border}`,
-              background: filterOpen || selPaths.size > 0 ? TH.accent + "22" : "transparent",
-              color: filterOpen || selPaths.size > 0 ? TH.accent : TH.muted,
+              border: `1px solid ${filterOpen || selTags.size > 0 ? TH.accent : TH.border}`,
+              background: filterOpen || selTags.size > 0 ? TH.accent + "22" : "transparent",
+              color: filterOpen || selTags.size > 0 ? TH.accent : TH.muted,
               fontSize: 11,
               fontWeight: 800,
               cursor: "pointer",
@@ -387,10 +387,10 @@ export function CalendarPage({
             🔎 分類篩選
           </button>
           <span style={{ fontSize: 11, color: TH.text, fontWeight: 700 }}>{chartLabel}</span>
-          {selPaths.size > 0 && (
+          {selTags.size > 0 && (
             <button
               type="button"
-              onClick={() => setSelPaths(new Set())}
+              onClick={() => setSelTags(new Set())}
               style={{
                 padding: "4px 8px",
                 borderRadius: 8,
@@ -407,7 +407,7 @@ export function CalendarPage({
           )}
         </div>
         <div style={{ fontSize: 9, color: TH.muted, paddingLeft: 2 }}>
-          💡 可跨大分類複選中／小分類做加總；不選＝看全部
+          💡 同一個維度裡選多個＝其中之一就算；不同維度都選＝兩個都要符合。不選＝看全部
         </div>
         {filterOpen && (
           <div
@@ -418,7 +418,7 @@ export function CalendarPage({
               padding: 10,
             }}
           >
-            <MultiCategoryFilter selected={selPaths} onChange={setSelPaths} />
+            <MultiCategoryFilter selected={selTags} onChange={setSelTags} />
           </div>
         )}
       </div>
@@ -457,7 +457,7 @@ export function CalendarPage({
           {reviewSubMode === "detail" && (
             <ReviewView
               sessions={sessions}
-              sel={selPaths}
+              sel={selTags}
               onPatchReflection={onPatchReflection}
             />
           )}
@@ -702,9 +702,10 @@ export function CalendarPage({
               const dayFocus = focusByDate[dateStr] ?? 0;
               const availMins = availableMinutesFor(dateStr, dayPlans);
               const availSegs = availableSegments(dateStr, 0, 1440, dayPlans);
-              const { within, off, withinByCat1 } = splitSessionsByAvailability(
+              const { within, off, withinSlices } = splitSessionsByAvailability(
                 sessionsByDate[dateStr] ?? [],
                 availSegs,
+                { tags, groups, groupId: statsGroupId },
               );
               const totalPct = availMins > 0 ? Math.round(((within + off) / availMins) * 100) : 0;
               const dayPlan = planForDate(dateStr, dayPlans);
@@ -714,15 +715,15 @@ export function CalendarPage({
                   : "";
               const dayPomos = countByDate[dateStr] ?? 0;
 
-              // 第一圈：可用內讀書（依分類上色）→ 接「未利用」灰色，剛好一圈
+              // 第一圈：可用內讀書（依統計維度分攤上色）→ 接「未利用」灰色，剛好一圈
               const catSegs: { lines: ProgressLine[]; color: string }[] = [];
               let segAcc = 0;
-              for (const c1 of CAT.cat1List()) {
-                const m = withinByCat1[c1];
+              for (const sl of withinSlices) {
+                const m = sl.minutes;
                 if (!m) continue;
                 const segLen = availMins > 0 ? (m / availMins) * WEEK_BORDER_PERIM : 0;
                 const end = Math.min(segAcc + segLen, WEEK_BORDER_PERIM);
-                if (end > segAcc) catSegs.push({ lines: calcRangeOn(WEEK_BORDER_SEG, segAcc, end), color: CAT.cat1Color(c1) });
+                if (end > segAcc) catSegs.push({ lines: calcRangeOn(WEEK_BORDER_SEG, segAcc, end), color: sl.color });
                 segAcc += segLen;
                 if (segAcc >= WEEK_BORDER_PERIM) break;
               }
@@ -962,9 +963,12 @@ export function CalendarPage({
               const dateStr = `${curY}-${String(curM).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
               const availMins = availableMinutesFor(dateStr, dayPlans);
               const availSegs = availableSegments(dateStr, 0, 1440, dayPlans);
-              const { within, off } = splitSessionsByAvailability(sessionsByDate[dateStr] ?? [], availSegs);
+              const { off, withinSlices } = splitSessionsByAvailability(
+                sessionsByDate[dateStr] ?? [],
+                availSegs,
+                { tags, groups, groupId: statsGroupId },
+              );
               const circOuter = 2 * Math.PI * 15;
-              const withinDash = availMins > 0 ? circ * Math.min(within / availMins, 1) : 0;
               const offDash = availMins > 0 ? circOuter * Math.min(off / availMins, 1) : 0;
               return (
                 <div
@@ -980,18 +984,31 @@ export function CalendarPage({
                   <div style={{ position: "relative", width: 32, height: 32 }}>
                     <svg width={32} height={32} style={{ transform: "rotate(-90deg)" }}>
                       <circle cx={16} cy={16} r={13} fill="none" stroke={TH.border} strokeWidth={2.5} />
-                      {withinDash > 0 && (
-                        <circle
-                          cx={16}
-                          cy={16}
-                          r={13}
-                          fill="none"
-                          stroke={activeColor}
-                          strokeWidth={2.5}
-                          strokeLinecap="round"
-                          strokeDasharray={`${withinDash} ${circ}`}
-                        />
-                      )}
+                      {(() => {
+                        let acc = 0;
+                        return withinSlices.map((sl, si) => {
+                          if (!sl.minutes || availMins <= 0) return null;
+                          const dash = circ * Math.min(sl.minutes / availMins, 1);
+                          const use = Math.min(dash, Math.max(0, circ - acc));
+                          if (use <= 0) return null;
+                          const offset = acc;
+                          acc += use;
+                          return (
+                            <circle
+                              key={si}
+                              cx={16}
+                              cy={16}
+                              r={13}
+                              fill="none"
+                              stroke={sl.color}
+                              strokeWidth={2.5}
+                              strokeLinecap="butt"
+                              strokeDasharray={`${use} ${circ}`}
+                              strokeDashoffset={-offset}
+                            />
+                          );
+                        });
+                      })()}
                       {offDash > 0 && (
                         <circle
                           cx={16}
@@ -1054,6 +1071,9 @@ export function CalendarPage({
           onPeriodChange={setPeriod}
           label={chartLabel}
           idleLine={idleLine}
+          groups={groups}
+          statsGroupId={statsGroupId}
+          onStatsGroupChange={setStatsGroupId}
         />
       )}
         </>

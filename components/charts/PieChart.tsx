@@ -6,7 +6,7 @@ export function PieChart({
   size = 160,
   title = "",
 }: {
-  data: { label: string; value: number; color: string }[];
+  data: { label: string; value: number; color: string; path?: string }[];
   size?: number;
   title?: string;
 }) {
@@ -27,12 +27,12 @@ export function PieChart({
     const [x2, y2] = [cx + r * Math.cos(ea), cy + r * Math.sin(ea)];
     const [ix1, iy1] = [cx + inner * Math.cos(sa), cy + inner * Math.sin(sa)];
     const [ix2, iy2] = [cx + inner * Math.cos(ea), cy + inner * Math.sin(ea)];
-    const path = `M ${ix1} ${iy1} A ${inner} ${inner} 0 ${large} 1 ${ix2} ${iy2} L ${x2} ${y2} A ${r} ${r} 0 ${large} 0 ${x1} ${y1} Z`;
+    const arc = `M ${ix1} ${iy1} A ${inner} ${inner} 0 ${large} 1 ${ix2} ${iy2} L ${x2} ${y2} A ${r} ${r} 0 ${large} 0 ${x1} ${y1} Z`;
     const pct = Math.round((d.value / total) * 100);
     const lr = r + size * 0.12;
     return {
       ...d,
-      path,
+      arc,
       pct,
       lx: cx + lr * Math.cos(mid),
       ly: cy + lr * Math.sin(mid),
@@ -40,11 +40,12 @@ export function PieChart({
     };
   });
   return (
-    <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+    <div style={{ display: "flex", gap: 12, alignItems: "center", minWidth: 0, width: "100%", boxSizing: "border-box" }}>
       <svg width={size} height={size} style={{ flexShrink: 0 }}>
         {slices.map((s, i) => (
           <g key={i}>
-            <path d={s.path} fill={s.color} stroke={TH.card} strokeWidth={2} />
+            <title>{s.path || s.label}</title>
+            <path d={s.arc} fill={s.color} stroke={TH.card} strokeWidth={2} />
             {!s.skip && (
               <text
                 x={s.lx}
@@ -67,11 +68,12 @@ export function PieChart({
           {title}
         </text>
       </svg>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 5 }}>
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 5 }}>
         {slices.map((s, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 5 }}>
             <div style={{ width: 8, height: 8, borderRadius: 2, background: s.color, flexShrink: 0 }} />
             <span
+              title={s.path || s.label}
               style={{
                 fontSize: 10,
                 color: TH.muted,

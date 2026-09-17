@@ -18,6 +18,9 @@ import { CourseBanner } from "@/components/schedule/CourseBanner";
 import type { Session } from "@/lib/types";
 import { WeekHeat } from "@/components/charts/WeekHeat";
 import { LineChart } from "@/components/charts/LineChart";
+import { StatsGroupSwitcher } from "@/components/charts/TriCharts";
+import { useTagsSnapshot } from "@/components/hooks/useTagsSnapshot";
+import { TAG_GROUP_IDS } from "@/lib/tags";
 
 const COIN_CRACKERS = Array.from({ length: 16 }, (_, idx) => ({
   id: idx + 1,
@@ -187,6 +190,8 @@ export function PomodoroPage({
   const [editCat1, setEditCat1] = useState("");
   const [editCat2, setEditCat2] = useState("");
   const [editCat3, setEditCat3] = useState("");
+  const { tags, groups } = useTagsSnapshot();
+  const [statsGroupId, setStatsGroupId] = useState<string>(TAG_GROUP_IDS.domain);
 
   const showIntentionInput = intentionOpen || !!intention.trim();
 
@@ -1456,7 +1461,10 @@ export function PomodoroPage({
       </Card>
       <Card style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }}>
         <SL>番茄鐘分佈</SL>
-        <WeekHeat sessions={sessions} days={7} />
+        <div style={{ marginBottom: 8 }}>
+          <StatsGroupSwitcher groups={groups} groupId={statsGroupId} onChange={setStatsGroupId} />
+        </div>
+        <WeekHeat sessions={sessions} days={7} tags={tags} groups={groups} groupId={statsGroupId} />
       </Card>
       <Card style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, minWidth: 0, gap: 8 }}>

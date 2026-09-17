@@ -2,12 +2,15 @@
 
 import { useMemo, useState, type CSSProperties, type Dispatch, type SetStateAction } from "react";
 import { CFG } from "@/lib/config";
-import { CAT, catPath, CAT_PATH_SEP, matchesCatSelection } from "@/lib/categories";
-import { sessionCatLabels } from "@/lib/tagSelect";
+import { CAT } from "@/lib/categories";
+import { sessionCatLabels, tagPathLabel } from "@/lib/tagSelect";
 import { TH } from "@/lib/theme";
 import { BackBtn } from "@/components/ui/BackBtn";
 import { Chip } from "@/components/ui/Chip";
 import { MultiCategoryFilter } from "@/components/ui/MultiCategoryFilter";
+import { matchesTagSelection } from "@/lib/tagsCompat";
+import { resolveSessionTagIds } from "@/lib/analytics";
+import { useTagsSnapshot } from "@/components/hooks/useTagsSnapshot";
 import type { CoinIncomeLogRow } from "@/components/pomodoro/usePomodoro";
 
 type PeriodFilter = "all" | "today" | "week" | "month" | "custom";
@@ -66,6 +69,7 @@ export function CoinHistoryPage({
   const [editCat2, setEditCat2] = useState("");
   const [editCat3, setEditCat3] = useState("");
   const [expandedProductCat, setExpandedProductCat] = useState<string | null>(null);
+  const { tags } = useTagsSnapshot();
 
   const today = CFG.TODAY_STR;
   const weekStart = useMemo(() => getWeekStartMonday(today), [today]);
@@ -144,9 +148,15 @@ export function CoinHistoryPage({
   const catFiltered = useMemo(
     () =>
       filteredLog
-        .filter((r) => matchesCatSelection(catSel, r.cat1, r.cat2?.trim(), r.cat3?.trim()))
+        .filter((r) =>
+          matchesTagSelection(
+            catSel,
+            resolveSessionTagIds({ cat1: r.cat1 ?? "", cat2: r.cat2?.trim() ?? "", cat3: r.cat3?.trim() ?? "" }, tags),
+            tags,
+          ),
+        )
         .sort((a, b) => b.at.localeCompare(a.at)),
-    [filteredLog, catSel],
+    [filteredLog, catSel, tags],
   );
 
   const catFilteredTotal = useMemo(
@@ -663,7 +673,7 @@ export function CoinHistoryPage({
                 <span style={{ color: TH.text, fontWeight: 700 }}>
                   {catSel.size === 0
                     ? "（未選＝全部）"
-                    : [...catSel].map((p) => p.split(CAT_PATH_SEP).join(" › ")).join("　＋　")}
+                    : [...catSel].map((id) => tagPathLabel(id, tags)).join("　＋　")}
                 </span>
               </span>
               {catSel.size > 0 && (
@@ -677,7 +687,7 @@ export function CoinHistoryPage({
               )}
             </div>
             <div style={{ fontSize: 9, color: TH.muted, marginTop: 6 }}>
-              💡 可同時選多個分類一起加總；也能跨不同大分類選中分類（例：學習›金融 ＋ 閱讀›金融）
+              💡 同一個維度裡選多個＝其中之一就算；不同維度都選＝兩個都要符合
             </div>
           </div>
 

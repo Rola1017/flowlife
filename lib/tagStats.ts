@@ -20,7 +20,7 @@ export function splitMinutesByGroup(
     return [];
   }
   const inGroup = new Set(
-    allTags.filter((t) => t.groupId === groupId && !t.deletedAt).map((t) => t.id),
+    allTags.filter((t) => t.groupId === groupId).map((t) => t.id),
   );
   const seen = new Set<string>();
   const ids: string[] = [];

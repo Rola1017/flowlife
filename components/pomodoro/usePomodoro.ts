@@ -577,7 +577,7 @@ export function usePomodoro({
 
   const lineD = useMemo(() => {
     const now = new Date();
-    return buildLineSeries(sessions, linePeriod, now.getFullYear(), now.getMonth() + 1);
+    return buildLineSeries(sessions, linePeriod, now.getFullYear(), now.getMonth() + 1, CFG.TODAY_STR);
   }, [sessions, linePeriod]);
 
   const isRestActive = restSecs > 0;

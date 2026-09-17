@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { TH, readableTextOn } from "@/lib/theme";
-import { CAT, matchesCatSelection } from "@/lib/categories";
 import { fmt } from "@/lib/utils";
-import { periodRange } from "@/lib/analytics";
+import { CFG } from "@/lib/config";
+import { periodRange, resolveSessionTagIds, sessionMatches } from "@/lib/analytics";
 import type { Session } from "@/lib/types";
 import { CatHeading } from "@/components/pomodoro/CatBadge";
 import { useTagsSnapshot } from "@/components/hooks/useTagsSnapshot";
@@ -27,20 +27,20 @@ export function ReviewView({
   const [draft, setDraft] = useState("");
 
   const { start, end } = useMemo(() => {
-    const now = new Date();
-    return periodRange(period, now.getFullYear(), now.getMonth() + 1);
+    const [y, m] = CFG.TODAY_STR.split("-").map(Number);
+    return periodRange(period, y, m, CFG.TODAY_STR);
   }, [period]);
 
   const pairs = useMemo(() => {
     return sessions
-      .filter((s) => matchesCatSelection(sel, s.cat1, s.cat2, s.cat3))
+      .filter((s) => sessionMatches(s, sel, tags))
       .filter((s) => s.date && s.date >= start && s.date <= end)
       .filter((s) => s.intention?.trim() || s.reflection?.trim())
       .sort((a, b) => {
         if (a.date !== b.date) return b.date.localeCompare(a.date);
         return (b.startTime ?? "").localeCompare(a.startTime ?? "");
       });
-  }, [sessions, sel, start, end]);
+  }, [sessions, sel, start, end, tags]);
 
   const startEdit = (s: Session) => {
     if (s.id == null) return;
@@ -96,7 +96,7 @@ export function ReviewView({
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {pairs.map((s, i) => {
             const key = s.id ?? `${s.date}-${s.startTime ?? ""}-${i}`;
-            const col = (s.tagIds?.length ? primaryTagColor(s.tagIds, tags) : CAT.cat1Color(s.cat1)) || TH.muted;
+            const col = primaryTagColor(resolveSessionTagIds(s, tags), tags) || TH.muted;
             const editable = s.id != null;
             const isEditing = editable && editId === s.id;
             const timeLabel = s.startTime && s.endTime ? `${s.startTime}–${s.endTime}` : "";

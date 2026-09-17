@@ -127,6 +127,16 @@ describe("tagsCompat", () => {
     expect(matchesTagSelection(new Set([LISTEN.id]), [WRITE.id], tags)).toBe(false);
   });
 
+  it("matchesTagSelection：同維度多選＝聯集；跨維度＝交集", () => {
+    const hard = tags.find((t) => t.groupId === TAG_GROUP_IDS.difficulty && t.name === "難");
+    const biz = tags.find((t) => t.groupId === TAG_GROUP_IDS.domain && t.name === "事業" && !t.parentId);
+    expect(hard && biz).toBeTruthy();
+    expect(matchesTagSelection(new Set([LEARN.id, biz!.id]), [LISTEN.id], tags)).toBe(true);
+    expect(matchesTagSelection(new Set([biz!.id]), [LISTEN.id], tags)).toBe(false);
+    expect(matchesTagSelection(new Set([LEARN.id, hard!.id]), [LISTEN.id, hard!.id], tags)).toBe(true);
+    expect(matchesTagSelection(new Set([LEARN.id, hard!.id]), [LISTEN.id], tags)).toBe(false);
+  });
+
   it("legacyPath：由主標籤祖先鏈正確推導三層名稱；主標籤為頂層時 cat2/cat3 為空", () => {
     expect(legacyPath([LISTEN.id], tags)).toEqual({ cat1: "學習", cat2: "英文", cat3: "聽力" });
     expect(legacyPath([EN.id], tags)).toEqual({ cat1: "學習", cat2: "英文", cat3: "" });

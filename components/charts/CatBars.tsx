@@ -1,12 +1,12 @@
 import { TH } from "@/lib/theme";
 import { fmt } from "@/lib/utils";
 
-export function CatBars({ data }: { data: { label: string; value: number; color: string }[] }) {
+export function CatBars({ data }: { data: { label: string; value: number; color: string; path?: string }[] }) {
   const max = Math.max(...data.map((d) => d.value || 0), 1);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       {data.map((d, i) => (
-        <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }} title={d.path || d.label}>
           <div
             style={{
               width: 72,
