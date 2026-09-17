@@ -162,7 +162,7 @@ describe("影響範圍計算", () => {
 });
 
 describe("isLockedGroup / patchGroup", () => {
-  it("領域三個開關鎖定，patch 不接受變更；快捷仍可改", () => {
+  it("領域三個開關鎖定，patch 不接受變更；其他維度可改", () => {
     expect(isLockedGroup({ id: TAG_GROUP_IDS.domain })).toBe(true);
     expect(isLockedGroup({ id: TAG_GROUP_IDS.difficulty })).toBe(false);
     const groups: TagGroup[] = DEFAULT_TAG_GROUPS.map((g) => ({ ...g }));
@@ -171,18 +171,15 @@ describe("isLockedGroup / patchGroup", () => {
       required: false,
       isTimeDestination: false,
       name: "主分類",
-      quickStart: true,
     });
     const domain = blocked.find((g) => g.id === TAG_GROUP_IDS.domain)!;
     expect(domain.selectMode).toBe("multi");
     expect(domain.required).toBe(true);
     expect(domain.isTimeDestination).toBe(true);
     expect(domain.name).toBe("主分類");
-    expect(domain.quickStart).toBe(true);
 
-    const other = patchGroup(groups, TAG_GROUP_IDS.difficulty, { required: true, quickStart: true });
+    const other = patchGroup(groups, TAG_GROUP_IDS.difficulty, { required: true });
     const diff = other.find((g) => g.id === TAG_GROUP_IDS.difficulty)!;
     expect(diff.required).toBe(true);
-    expect(diff.quickStart).toBe(true);
   });
 });

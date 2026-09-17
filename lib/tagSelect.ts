@@ -1,7 +1,7 @@
 import type { Tag, TagGroup } from "@/lib/tags";
 import { DELETED_TAG_LABEL, TAG_GROUP_IDS } from "@/lib/tags";
 import { CAT } from "@/lib/categories";
-import { liveGroups, childrenOf } from "@/lib/tagTree";
+import { liveGroups } from "@/lib/tagTree";
 import { legacyPath, primaryTagId, tagChain } from "@/lib/tagsCompat";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 
@@ -128,18 +128,6 @@ export function sessionCatLabels(
   return { leaf: parts[parts.length - 1], path: parts.join(" › ") };
 }
 
-export function demoGroupHints(g: Pick<TagGroup, "required" | "selectMode" | "isTimeDestination">): {
-  required: string;
-  selectMode: string;
-  timeDest: string;
-} {
-  return {
-    required: g.required ? "💡 這個維度有打開『必填』，所以沒選就不能開始番茄" : "",
-    selectMode: g.selectMode === "multi" ? "💡 這個維度打開了『可多選』，所以能勾好幾個" : "",
-    timeDest: g.isTimeDestination ? "💡 打開了『計時數』，時間會分攤給這個維度的標籤" : "",
-  };
-}
-
 /** 多選：不自動選父。單選：同維度只留一個。領域（isTimeDestination）優先當主標籤以免 cat1 寫成屬性名。 */
 export function addTagToSelection(
   tagIds: string[],
@@ -206,43 +194,4 @@ export function splitComboLayers(
     else rest.push(id);
   }
   return { domain, rest };
-}
-
-/** 快捷維度＝明確打開 quickStart（不再用計時數／必填推斷） */
-export function isQuickStartGroup(g: TagGroup): boolean {
-  return !g.deletedAt && g.quickStart === true;
-}
-
-export function quickStartGroups(groups: TagGroup[]): TagGroup[] {
-  return liveGroups(groups).filter(isQuickStartGroup);
-}
-
-/** 快捷維度底下未刪除的葉標籤（有子層的只顯示葉子） */
-export function quickStartLeafTags(tags: Tag[], groups: TagGroup[]): Tag[] {
-  const out: Tag[] = [];
-  for (const g of quickStartGroups(groups)) {
-    const walk = (parentId: string | undefined) => {
-      const kids = childrenOf(tags, parentId, g.id);
-      for (const k of kids) {
-        const nested = childrenOf(tags, k.id, g.id);
-        if (nested.length === 0) out.push(k);
-        else walk(k.id);
-      }
-    };
-    walk(undefined);
-  }
-  return out;
-}
-
-/** 最近組合裡最新一筆包含該標籤者；找不到回 null */
-export function latestComboContaining(combos: string[][], tagId: string): string[] | null {
-  for (const c of combos) {
-    if (c.includes(tagId)) return [...c];
-  }
-  return null;
-}
-
-/** 有組合用整組；從未用過則只帶該專案標籤 */
-export function tagIdsForProjectShortcut(combos: string[][], tagId: string): string[] {
-  return latestComboContaining(combos, tagId) ?? [tagId];
 }

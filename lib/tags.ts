@@ -5,8 +5,6 @@ export type TagGroup = {
   required: boolean;
   /** 是否參與時數分攤（領域預設 true；難易度／重要性／精力需求預設 false） */
   isTimeDestination: boolean;
-  /** 在番茄頁顯示為一鍵啟動的快捷按鈕 */
-  quickStart?: boolean;
   order: number;
   deletedAt?: string;
 };
@@ -31,10 +29,10 @@ export const TAG_GROUP_IDS = {
 } as const;
 
 export const DEFAULT_TAG_GROUPS: TagGroup[] = [
-  { id: TAG_GROUP_IDS.domain, name: "領域", selectMode: "multi", required: true, isTimeDestination: true, quickStart: false, order: 0 },
-  { id: TAG_GROUP_IDS.difficulty, name: "難易度", selectMode: "single", required: false, isTimeDestination: false, quickStart: false, order: 1 },
-  { id: TAG_GROUP_IDS.importance, name: "重要性", selectMode: "single", required: false, isTimeDestination: false, quickStart: false, order: 2 },
-  { id: TAG_GROUP_IDS.energy, name: "精力需求", selectMode: "single", required: false, isTimeDestination: false, quickStart: false, order: 3 },
+  { id: TAG_GROUP_IDS.domain, name: "領域", selectMode: "multi", required: true, isTimeDestination: true, order: 0 },
+  { id: TAG_GROUP_IDS.difficulty, name: "難易度", selectMode: "single", required: false, isTimeDestination: false, order: 1 },
+  { id: TAG_GROUP_IDS.importance, name: "重要性", selectMode: "single", required: false, isTimeDestination: false, order: 2 },
+  { id: TAG_GROUP_IDS.energy, name: "精力需求", selectMode: "single", required: false, isTimeDestination: false, order: 3 },
 ];
 
 /** 領域＝主維度，三個開關鎖定（不看名稱） */
@@ -51,16 +49,9 @@ export function withIsTimeDestination(g: TagGroup): TagGroup {
 export function patchTagGroupFlags(groups: TagGroup[]): { groups: TagGroup[]; changed: boolean } {
   let changed = false;
   const next = groups.map((g) => {
-    let cur = g;
-    if (typeof cur.isTimeDestination !== "boolean") {
-      changed = true;
-      cur = { ...cur, isTimeDestination: cur.id === TAG_GROUP_IDS.domain };
-    }
-    if (typeof cur.quickStart !== "boolean") {
-      changed = true;
-      cur = { ...cur, quickStart: false };
-    }
-    return cur;
+    if (typeof g.isTimeDestination === "boolean") return g;
+    changed = true;
+    return withIsTimeDestination(g);
   });
   return { groups: next, changed };
 }

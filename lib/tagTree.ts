@@ -199,7 +199,6 @@ export function addGroup(
     selectMode?: TagGroup["selectMode"];
     required?: boolean;
     isTimeDestination?: boolean;
-    quickStart?: boolean;
   },
 ): TagGroup[] {
   const live = liveGroups(groups);
@@ -209,7 +208,6 @@ export function addGroup(
     selectMode: input.selectMode ?? "single",
     required: input.required ?? false,
     isTimeDestination: input.isTimeDestination ?? false,
-    quickStart: input.quickStart ?? false,
     order: live.length,
   };
   return [...groups, g];
@@ -218,7 +216,7 @@ export function addGroup(
 export function patchGroup(
   groups: TagGroup[],
   id: string,
-  patch: Partial<Pick<TagGroup, "name" | "selectMode" | "required" | "isTimeDestination" | "quickStart">>,
+  patch: Partial<Pick<TagGroup, "name" | "selectMode" | "required" | "isTimeDestination">>,
 ): TagGroup[] {
   return groups.map((g) => {
     if (g.id !== id) return g;

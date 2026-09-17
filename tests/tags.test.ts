@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { CAT, DEFAULT_CATEGORIES } from "@/lib/categories";
 import { LS_KEYS, saveJSON } from "@/lib/storage";
-import { TAG_GROUP_IDS, countCategoryNodes, patchTagGroupFlags, type Tag, type TagGroup } from "@/lib/tags";
+import { DEFAULT_TAG_GROUPS, TAG_GROUP_IDS, countCategoryNodes, patchTagGroupFlags, type Tag, type TagGroup } from "@/lib/tags";
 import { APP_STATE_KEYS, notifyAppState, subscribeAppState } from "@/lib/appStateCloud";
 import { applyTagsMigration } from "@/lib/tagsMigrate";
 import { loadTagGroups, loadTags } from "@/lib/tagsStore";
@@ -101,33 +101,12 @@ describe("tags migrate", () => {
     expect(second.groups).toEqual(first.groups);
   });
 
-  it("quickStart 缺欄時補 false 且不覆寫既有值", () => {
-    const missing = [
-      {
-        id: TAG_GROUP_IDS.domain,
-        name: "領域",
-        selectMode: "multi" as const,
-        required: true,
-        isTimeDestination: true,
-        order: 0,
-      },
-      {
-        id: "tg_proj",
-        name: "專案",
-        selectMode: "single" as const,
-        required: false,
-        isTimeDestination: true,
-        quickStart: true,
-        order: 9,
-      },
-    ] as TagGroup[];
-    const first = patchTagGroupFlags(missing);
-    expect(first.changed).toBe(true);
-    expect(first.groups[0].quickStart).toBe(false);
-    expect(first.groups[1].quickStart).toBe(true);
-    const second = patchTagGroupFlags(first.groups);
-    expect(second.changed).toBe(false);
-    expect(second.groups).toEqual(first.groups);
+  it("不再補 quickStart；預設維度沒有該欄", () => {
+    expect("quickStart" in DEFAULT_TAG_GROUPS[0]).toBe(false);
+    const leftover = [{ ...DEFAULT_TAG_GROUPS[0] }, { ...DEFAULT_TAG_GROUPS[1] }] as TagGroup[];
+    const r = patchTagGroupFlags(leftover);
+    expect(r.changed).toBe(false);
+    expect(r.groups.every((g) => !("quickStart" in g))).toBe(true);
   });
 });
 

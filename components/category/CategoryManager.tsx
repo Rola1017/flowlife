@@ -68,8 +68,7 @@ const SWITCH_HINT = {
   required: "💡 勾選後，這個項目一定要選，才能開始番茄",
   selectMode: "💡 領域標籤，可以同時選取「學習、事業」",
   isTimeDestination: "💡 選了 2 個領域標籤，番茄鐘 60 分鐘分成「學習 30 分、事業 30 分」",
-  quickStart: "💡 打開後，番茄頁上方會出現這個維度的標籤按鈕，點一下就能用上次的設定直接開始",
-  domainLocked: "💡 領域是主維度，這三項固定開啟，不能更改",
+  domainLocked: "💡 領域是主維度，這些功能固定開啟，也不能刪除。只能改名稱。",
 };
 
 const SWITCH_HINT_STYLE: CSSProperties = {
@@ -82,6 +81,15 @@ const SWITCH_HINT_STYLE: CSSProperties = {
   boxSizing: "border-box",
   overflowWrap: "anywhere",
   wordBreak: "break-word",
+};
+
+const LOCKED_FLAG_BADGE: CSSProperties = {
+  fontSize: 9,
+  color: TH.muted,
+  border: `1px solid ${TH.border}`,
+  borderRadius: 8,
+  padding: "2px 8px",
+  flexShrink: 0,
 };
 
 function SwitchRow({
@@ -653,6 +661,19 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
       <BackBtn onBack={onBack} label="標籤管理" />
 
       <Card>
+        <SL>👀 番茄面板預覽（改下面的開關，這裡會立刻變）</SL>
+        <CategorySelector
+          tagIds={demoSel.tagIds}
+          cat1={demoSel.cat1}
+          cat2={demoSel.cat2}
+          cat3={demoSel.cat3}
+          onChange={setDemoSel}
+          showQuickLane={false}
+          demoMode
+        />
+      </Card>
+
+      <Card>
         <SL>分類維度</SL>
         <p style={{ fontSize: 10, color: TH.muted, margin: "0 0 10px", lineHeight: 1.5 }}>
           💡 按住左邊的 ⋮⋮ 可以拖曳調整順序（手機用手指長按拖動）。點卡片空白處即可切換要編輯的維度。
@@ -728,26 +749,30 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
                   >
                     {open ? "▲" : "▼"}
                   </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteGroup(g);
-                    }}
-                    aria-disabled={g.required}
-                    style={{
-                      ...btnSm,
-                      color: TH.red,
-                      opacity: g.required ? 0.35 : 1,
-                      cursor: g.required ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    刪
-                  </button>
-                  {g.required && (
-                    <span onClick={(e) => e.stopPropagation()}>
-                      <HintDot text={HINT.requiredDelete} />
-                    </span>
+                  {!locked && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteGroup(g);
+                        }}
+                        aria-disabled={g.required}
+                        style={{
+                          ...btnSm,
+                          color: TH.red,
+                          opacity: g.required ? 0.35 : 1,
+                          cursor: g.required ? "not-allowed" : "pointer",
+                        }}
+                      >
+                        刪
+                      </button>
+                      {g.required && (
+                        <span onClick={(e) => e.stopPropagation()}>
+                          <HintDot text={HINT.requiredDelete} />
+                        </span>
+                      )}
+                    </>
                   )}
                 </div>
                 {open && (
@@ -757,9 +782,12 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
                   >
                     {locked ? (
                       <>
-                        <SwitchRow label="可多選" checked disabled />
-                        <SwitchRow label="必填" checked disabled />
-                        <SwitchRow label="參與時數分攤" checked disabled hint={SWITCH_HINT.domainLocked} />
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                          <span style={LOCKED_FLAG_BADGE}>✓ 必填</span>
+                          <span style={LOCKED_FLAG_BADGE}>✓ 可多選</span>
+                          <span style={LOCKED_FLAG_BADGE}>✓ 計時數</span>
+                        </div>
+                        <div style={SWITCH_HINT_STYLE}>{SWITCH_HINT.domainLocked}</div>
                       </>
                     ) : (
                       <>
@@ -783,12 +811,6 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
                         />
                       </>
                     )}
-                    <SwitchRow
-                      label="在番茄頁顯示快捷按鈕"
-                      checked={g.quickStart === true}
-                      onChange={(v) => persistGroups(patchGroup(groups, g.id, { quickStart: v }))}
-                      hint={SWITCH_HINT.quickStart}
-                    />
                   </div>
                 )}
               </div>
@@ -813,19 +835,6 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
         >
           + 新增分類維度
         </button>
-      </Card>
-
-      <Card>
-        <SL>👀 番茄面板預覽（改上面的開關，這裡會立刻變）</SL>
-        <CategorySelector
-          tagIds={demoSel.tagIds}
-          cat1={demoSel.cat1}
-          cat2={demoSel.cat2}
-          cat3={demoSel.cat3}
-          onChange={setDemoSel}
-          showQuickLane={false}
-          demoMode
-        />
       </Card>
 
       <Card

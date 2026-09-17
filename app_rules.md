@@ -591,9 +591,8 @@ TH.gold    = "#FBBF24"   // 金幣
 - **直式行程表未完成／已完成 💡**：未完成＝今日未完成且有排定時間、疊在計畫時段；已完成＝今日已完成且有 `endAt`、疊在實際完成點；眼睛只改時間軸顯示。
 - **雲端寫入必須被發現**：所有 supabase upsert/insert/update/delete 走 `reportCloudWriteResult`；失敗 `console.error` + 計數；Header／設定紅標「⚠️ 有 N 筆未能同步」點開看最後錯誤。登出前比對 sessions uuid＋失敗計數，未同步則警告「重試同步／仍要登出」；登出必 `flushLocalToCloud`（5s 逾時）再清本機。設定頁「檢查雲端同步狀態」。
 - **Z3 番茄區標籤化**：CategorySelector 改為依分類維度分區（多選維度用 chips＋樹狀彈出面板、單選維度用 chips），新增最近組合與沿用上次；canStart 改為所有 required 維度皆已選；寫入 tagIds 並雙寫 cat1/2/3（Z8 前不得停止）；noCoin 改走標籤祖先鏈；顏色/emoji 取主標籤 tagIds[0]。
-- **說明卡層級寫法＋專案一鍵啟動**：CategoryManager 說明卡改 Rola 層級描述（三分鐘看懂、pre-wrap 不橫滑）；番茄頁「專案快捷」＝`isTimeDestination && !required` 維度的葉標籤（不寫死名稱「專案」）；點一下套用最近包含該標籤的組合並 `quickStart`（`canStart` 才啟動），從未用過只帶入該標籤不開始；長按／› 只套用（Pointer Events）。組合走 `selFromTagIds`／`applyCombo` 同源，啟動走既有 `quickStart`。
-- **TagGroup 新增 quickStart**（番茄頁快捷按鈕，取代原隱式判斷）；領域維度（`TAG_GROUP_IDS.domain`）三個開關鎖定不可改、視覺特殊化、僅可改名；四個開關說明改為直接顯示；互動面板移除關閉態說明。
-- **互動式番茄面板預覽＋刪除鍵防誤按＋葉標籤標題**：標籤管理改重用 `<CategorySelector demoMode showQuickLane={false} />` 即時預覽（獨立 demo state、不寫 combo）；維度「刪」移到標題列最後；番茄主標題改 `tagLeafLabel`（最深層），完整路徑小字 `tagPathLabel`。
+- **說明卡層級寫法＋互動預覽＋葉標籤標題**：CategoryManager 說明卡改 Rola 層級描述（三分鐘看懂、pre-wrap 不橫滑）；標籤管理重用 `<CategorySelector demoMode showQuickLane={false} />` 即時預覽（獨立 demo state、不寫 combo）；番茄主標題改 `tagLeafLabel`（最深層），完整路徑小字 `tagPathLabel`。
+- **移除專案快捷（quickStart 欄位與相關函式）；領域維度展開區改為唯讀徽章（無 checkbox、無刪除鍵，僅可改名）；標籤管理排版改為 預覽→維度→標籤；demoMode 移除文字說明改純視覺示範；真實番茄頁移除『· 可多選』後綴、保留必填標記。**
 
 ---
 
@@ -644,7 +643,7 @@ TH.gold    = "#FBBF24"   // 金幣
 ## 十一、待完成事項 ⬜
 
 - ⬜ **重疊檢測其餘寫入點**（本批只修番茄手動補/改）：課表課格同格覆蓋無警告、班別已擋、作息已警告、便利貼課↔班衝突／課↔課無、待辦只驗同日 end>start、時間軸 ACT 補登無、健身 stub、即時番茄/娛樂 session 無。待 Rola 決定是否接 `lib/overlap`。
-- ✅ **Z2 標籤管理頁**（群組＋無限層樹編輯器、`isTimeDestination`、軟刪除＋影響範圍）。✅ **Z3 番茄區標籤化**。✅ **說明卡層級寫法＋專案快捷**。✅ **互動預覽＋葉標籤標題**。✅ **quickStart 明確開關＋領域主維度鎖定**。⬜ **Z4～Z7 未執行**。超過三層的降級位置（本批只顯示前三層，供 Z4～Z7 改走標籤樹）：`CAT.cats()`／`categoriesFromDomainTags`（只投影 root→mid→sub）；`SchedulePage` 編輯卡片 cat1/2/3；`SessionHistoryPage`／`CoinHistoryPage` 篩選仍 cat1/2/3；`CalendarPage`／`lib/analytics`／`ReviewView`／`DayReview` `matchesCatSelection`；待辦 `TodoFormFields` 單層 cat；商店／娛樂 `cat1/2/3`；`legacyPath` 只取祖先前三層；`stampSessionCatIds`／`resolveCatIds` 三層名稱仍雙寫。
+- ✅ **Z2 標籤管理頁**（群組＋無限層樹編輯器、`isTimeDestination`、軟刪除＋影響範圍）。✅ **Z3 番茄區標籤化**。✅ **說明卡層級寫法＋互動預覽＋葉標籤標題**。✅ **移除專案快捷＋領域唯讀徽章＋預覽最上＋精簡文字**。⬜ **Z4～Z7 未執行**。超過三層的降級位置（本批只顯示前三層，供 Z4～Z7 改走標籤樹）：`CAT.cats()`／`categoriesFromDomainTags`（只投影 root→mid→sub）；`SchedulePage` 編輯卡片 cat1/2/3；`SessionHistoryPage`／`CoinHistoryPage` 篩選仍 cat1/2/3；`CalendarPage`／`lib/analytics`／`ReviewView`／`DayReview` `matchesCatSelection`；待辦 `TodoFormFields` 單層 cat；商店／娛樂 `cat1/2/3`；`legacyPath` 只取祖先前三層；`stampSessionCatIds`／`resolveCatIds` 三層名稱仍雙寫。
 - ⬜ **Z4～Z8 其餘分類標籤化**，見 FlowLife_分類標籤化設計.md §4。
 - ⬜ 待辦提醒：依 `reminder` 觸發推播／系統通知（目前僅儲存設定）
 - ⬜ 健康模組
@@ -703,7 +702,7 @@ TH.gold    = "#FBBF24"   // 金幣
   - `todos.test.ts` — 待辦墓碑防復活、同名不同 id、normalize deadline／endDate／estimateHours／doneDate／doneTime、updatedAt LWW、todoShowsOn 跨日含首尾（不受 doneDate 影響）、挪 date 不改 deadline、applyTodoComplete／Uncomplete 完成日語意、resolveDoneDate（hint vs 今天）、resolveDoneTime（僅今天自動填）、doneLabel 三態＋時間（日期字串鎖死、不用 Date.now()）
   - `todosApi.test.ts` — `computeAlert` 門檻／過期／無期限、`todoInWindow` 跨日交集與僅 deadline 命中（nowIso 字串鎖死）
   - `freeSlots.test.ts` — `availableSegmentsWith`／`toFreeSlots`：全空整天、作息切段邊界、班別∪作息聯集、minMinutes 濾碎片、`"24:00"`=1440、空檔＋佔用＝視窗長不變式（日期字串鎖死、不用 Date.now()）
-  - `tagSelect.test.ts` — canStart／missingRequired、combo 去重上限 5、toggle 取消、`latestComboContaining` 找不到回 null、未用過專案只帶 `[tagId]`、`isQuickStartGroup`＝`quickStart===true`、`tagLeafLabel` 最深層／空＝未分類／已刪、`demoGroupHints` 只在打開時有文案
+  - `tagSelect.test.ts` — canStart／missingRequired、combo 去重上限 5、toggle 取消、`tagLeafLabel` 最深層／空＝未分類／已刪
   - `tagStats.test.ts` — splitMinutesByGroup 50→[17,17,16]、40→[14,13,13]、總和恆等不變式、只分攤指定群組（含「難」不參與領域）、日期字串鎖死不用 new Date()
   - `accountOwner.test.ts` — `clearAllAppData` 列舉鍵皆刪、非 FlowLife 鍵保留；`shouldWipe` 四組合（相同／不同有資料／未登入／首次無資料）
   - `utils.test.ts` — `fmtIdleHM` 精簡時分；`moveItem` from→to（含 from===to、頭尾互換、不改 id）
@@ -718,5 +717,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/09/17（quickStart 明確開關＋領域主維度鎖定）*
+*最後更新：2026/09/17（移除專案快捷＋領域唯讀徽章＋預覽最上＋精簡文字）*
 *維護原則：每次完成重要功能，同步更新第十、十一、十二節*

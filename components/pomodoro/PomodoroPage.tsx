@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type Dispatch, type SetStateAction } from "react";
 import { CFG } from "@/lib/config";
 import { CAT } from "@/lib/categories";
 import { TH } from "@/lib/theme";
@@ -10,7 +10,6 @@ import { APP_STATE_KEYS, subscribeAppState } from "@/lib/appStateCloud";
 import { Card, SL } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { CategorySelector } from "@/components/pomodoro/CategorySelector";
-import { ProjectShortcuts } from "@/components/pomodoro/ProjectShortcuts";
 import { CatBadge } from "@/components/pomodoro/CatBadge";
 import { RingTimer } from "@/components/pomodoro/RingTimer";
 import { usePomodoro, type CoinIncomeLogRow } from "@/components/pomodoro/usePomodoro";
@@ -190,7 +189,6 @@ export function PomodoroPage({
   const [editCat3, setEditCat3] = useState("");
 
   const showIntentionInput = intentionOpen || !!intention.trim();
-  const selectorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!rated) {
@@ -1144,16 +1142,6 @@ export function PomodoroPage({
           </button>
         ))}
       {mode !== "focus" && (
-        <ProjectShortcuts
-          onApply={(sel) => {
-            setCatSel(sel);
-            selectorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-          }}
-          onQuickStart={(sel) => quickStart({ ...sel, tagIds: sel.tagIds, name: sel.name })}
-        />
-      )}
-      {mode !== "focus" && (
-        <div ref={selectorRef} style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }}>
         <Card style={{ width: "100%", padding: 10, minWidth: 0, boxSizing: "border-box" }}>
           <CategorySelector
             tagIds={catSel.tagIds}
@@ -1180,7 +1168,6 @@ export function PomodoroPage({
             </div>
           )}
         </Card>
-        </div>
       )}
       {mode !== "focus" && (
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center", width: "100%", minWidth: 0, boxSizing: "border-box" }}>

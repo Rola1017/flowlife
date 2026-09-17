@@ -8,7 +8,6 @@ import { useTagsSnapshot } from "@/components/hooks/useTagsSnapshot";
 import type { Tag, TagGroup } from "@/lib/tags";
 import { childrenOf, liveGroups, liveTags } from "@/lib/tagTree";
 import {
-  demoGroupHints,
   loadTagCombos,
   primaryTagColor,
   removeTagFromSelection,
@@ -278,19 +277,6 @@ function ComboCard({
   );
 }
 
-function GroupDemoHints({ group }: { group: TagGroup }) {
-  const h = demoGroupHints(group);
-  const lines = [h.required, h.selectMode, h.timeDest].filter(Boolean);
-  if (!lines.length) return null;
-  return (
-    <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.45, margin: "2px 0 4px", minWidth: 0 }}>
-      {lines.map((line) => (
-        <div key={line}>{line}</div>
-      ))}
-    </div>
-  );
-}
-
 function MultiGroupBlock({
   group,
   tags,
@@ -312,10 +298,8 @@ function MultiGroupBlock({
     <div style={{ minWidth: 0, boxSizing: "border-box" }}>
       <div style={{ fontSize: 9, color: TH.muted, marginBottom: 4 }}>
         {group.name}
-        {group.required && <span style={{ color: TH.red }}> 必填</span>}
-        <span style={{ color: TH.muted }}> · 可多選</span>
+        {!demoMode && group.required && <span style={{ color: TH.red }}> 必填</span>}
       </div>
-      {demoMode && <GroupDemoHints group={group} />}
       {group.required && selected.length === 0 && (
         <div style={{ fontSize: 9, color: TH.red, marginBottom: 4 }}>{group.name} 為必填</div>
       )}
@@ -422,9 +406,8 @@ function SingleGroupBlock({
     <div style={{ minWidth: 0, boxSizing: "border-box" }}>
       <div style={{ fontSize: 9, color: TH.muted, marginBottom: 4 }}>
         {group.name}
-        {group.required && <span style={{ color: TH.red }}> 必填</span>}
+        {!demoMode && group.required && <span style={{ color: TH.red }}> 必填</span>}
       </div>
-      {demoMode && <GroupDemoHints group={group} />}
       {group.required && !selectedId && (
         <div style={{ fontSize: 9, color: TH.red, marginBottom: 4 }}>{group.name} 為必填</div>
       )}
