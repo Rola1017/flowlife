@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { TAG_GROUP_IDS, type Tag } from "@/lib/tags";
+import { DEFAULT_TAG_GROUPS, TAG_GROUP_IDS, type Tag, type TagGroup } from "@/lib/tags";
 import {
   addChildTag,
   countTagUsage,
   demoteTag,
+  guardedSoftDeleteGroup,
   promoteTag,
   reorderSiblings,
   setParent,
@@ -84,6 +85,47 @@ describe("不得成環", () => {
     expect(setParent(TREE, "a", "d")).toBeNull();
     expect(setParent(TREE, "a", "c")).toBeNull();
     expect(setParent(TREE, "e", "a")).not.toBeNull();
+  });
+
+  it("把 A 降級到自己的子孫底下必須被拒絕（demote／setParent 同一守衛）", () => {
+    expect(setParent(TREE, "a", "b")).toBeNull();
+    expect(setParent(TREE, "b", "d")).toBeNull();
+    expect(wouldCreateCycle(TREE, "b", "c")).toBe(true);
+    expect(demoteTag(TREE, "a")).toBeNull();
+    const demoted = demoteTag(TREE, "e");
+    expect(demoted).not.toBeNull();
+    expect(demoted!.find((x) => x.id === "e")?.parentId).toBe("a");
+  });
+});
+
+describe("必填群組守衛", () => {
+  it("required 群組呼叫刪除時資料不變", () => {
+    const groups: TagGroup[] = DEFAULT_TAG_GROUPS.map((g) => ({ ...g }));
+    const tags: Tag[] = [
+      t({ id: "learn", name: "學習", order: 0 }),
+      t({ id: "hard", name: "難", order: 0, groupId: TAG_GROUP_IDS.difficulty }),
+    ];
+    const domain = groups.find((g) => g.id === TAG_GROUP_IDS.domain)!;
+    expect(domain.required).toBe(true);
+    const frozenGroups = JSON.stringify(groups);
+    const frozenTags = JSON.stringify(tags);
+    expect(guardedSoftDeleteGroup(groups, tags, domain.id, "2026-09-17T00:00:00.000Z")).toBeNull();
+    expect(JSON.stringify(groups)).toBe(frozenGroups);
+    expect(JSON.stringify(tags)).toBe(frozenTags);
+    expect(groups.every((g) => !g.deletedAt)).toBe(true);
+    expect(tags.every((x) => !x.deletedAt)).toBe(true);
+  });
+
+  it("關閉必填後可以軟刪", () => {
+    const groups: TagGroup[] = DEFAULT_TAG_GROUPS.map((g) =>
+      g.id === TAG_GROUP_IDS.difficulty ? { ...g, required: false } : { ...g },
+    );
+    const tags: Tag[] = [t({ id: "hard", name: "難", order: 0, groupId: TAG_GROUP_IDS.difficulty })];
+    const out = guardedSoftDeleteGroup(groups, tags, TAG_GROUP_IDS.difficulty, "2026-09-17T00:00:00.000Z");
+    expect(out).not.toBeNull();
+    expect(out!.groups.find((g) => g.id === TAG_GROUP_IDS.difficulty)?.deletedAt).toBe("2026-09-17T00:00:00.000Z");
+    expect(out!.tags.find((x) => x.id === "hard")?.deletedAt).toBe("2026-09-17T00:00:00.000Z");
+    expect(groups.find((g) => g.id === TAG_GROUP_IDS.difficulty)?.deletedAt).toBeUndefined();
   });
 });
 

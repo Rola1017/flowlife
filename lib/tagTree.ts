@@ -9,6 +9,9 @@ import { moveItem } from "@/lib/utils";
 /** 走訪深度上限，防止成環時無限迴圈 */
 export const TAG_WALK_MAX_DEPTH = 64;
 
+/** UI 樹遞迴顯示上限（超過即停，避免成環把畫面卡死） */
+export const TAG_TREE_RENDER_MAX_DEPTH = 20;
+
 export { DELETED_TAG_LABEL };
 
 export type CatRef = { cat1?: string; cat2?: string; cat3?: string; cat1Id?: string; cat2Id?: string; cat3Id?: string };
@@ -234,6 +237,18 @@ export function softDeleteGroup(
     groups: groups.map((g) => (g.id === groupId && !g.deletedAt ? { ...g, deletedAt } : g)),
     tags: tags.map((t) => (t.groupId === groupId && !t.deletedAt ? { ...t, deletedAt } : t)),
   };
+}
+
+/** 必填群組不可刪。回 null＝拒絕，呼叫端不得改資料。 */
+export function guardedSoftDeleteGroup(
+  groups: TagGroup[],
+  tags: Tag[],
+  groupId: string,
+  deletedAt: string,
+): { groups: TagGroup[]; tags: Tag[] } | null {
+  const g = groups.find((x) => x.id === groupId);
+  if (!g || g.required) return null;
+  return softDeleteGroup(groups, tags, groupId, deletedAt);
 }
 
 export function flattenScheduleCells(

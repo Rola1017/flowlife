@@ -18,15 +18,16 @@ import {
   countTagsUsage,
   demoteTag,
   flattenScheduleCells,
+  guardedSoftDeleteGroup,
   liveGroups,
   patchGroup,
   patchTag,
   promoteTag,
   reorderGroups,
   reorderSiblings,
-  softDeleteGroup,
   softDeleteTagAndDescendants,
   tagDepth,
+  TAG_TREE_RENDER_MAX_DEPTH,
   type CatRef,
 } from "@/lib/tagTree";
 import type { Session, Todo } from "@/lib/types";
@@ -59,6 +60,7 @@ const HINT = {
   required: "💡 必填＝新增番茄或待辦時一定要選一個",
   isTimeDestination:
     "💡 打開＝這個維度會參與時數分攤（例如「領域」「專案」）。判準：這個維度所有標籤的時數加起來，會不會剛好等於總時數？像「難易度」「來源」這種只是註記的，不要打開。",
+  requiredDelete: "💡 必填群組不能直接刪除，需先關閉『必填』",
 };
 
 function cascadeRename(level: "cat1" | "cat2" | "cat3", oldName: string, newName: string) {
@@ -344,12 +346,21 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
   };
 
   const deleteGroup = (g: TagGroup) => {
+    if (g.required) {
+      window.alert(`「${g.name}」是必填群組，刪除會讓所有資料失去歸屬。如果真的要刪，請先關閉「必填」。`);
+      return;
+    }
     const seed = tags.filter((t) => t.groupId === g.id && !t.deletedAt).map((t) => t.id);
     const counts = countTagsUsage(seed, tags, loadUsageData());
     const nTags = seed.length;
-    const msg = `刪除群組「${g.name}」會一併軟刪除其下 ${nTags} 個標籤。這個群組有 ${counts.sessions} 筆番茄、${counts.todos} 筆待辦、${counts.schedule} 個課表格子在使用，刪除後它們會顯示為「${DELETED_TAG_LABEL}」。確定刪除？`;
+    const domainWarn =
+      g.id === TAG_GROUP_IDS.domain
+        ? "這是系統預設的主要分類維度，刪除後番茄、待辦、課表都會失去分類。\n\n"
+        : "";
+    const msg = `${domainWarn}刪除群組「${g.name}」會一併軟刪除其下 ${nTags} 個標籤。這個群組有 ${counts.sessions} 筆番茄、${counts.todos} 筆待辦、${counts.schedule} 個課表格子在使用，刪除後它們會顯示為「${DELETED_TAG_LABEL}」。確定刪除？`;
     if (!window.confirm(msg)) return;
-    const out = softDeleteGroup(groups, tags, g.id, new Date().toISOString());
+    const out = guardedSoftDeleteGroup(groups, tags, g.id, new Date().toISOString());
+    if (!out) return;
     persistGroups(out.groups);
     persistTags(out.tags);
     const remain = liveGroups(out.groups);
@@ -404,6 +415,13 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
   const isExpanded = (id: string, depth: number) => expanded[id] ?? depth < 2;
 
   const renderTree = (groupId: string, parentId: string | undefined, depth: number) => {
+    if (depth >= TAG_TREE_RENDER_MAX_DEPTH) {
+      return (
+        <div style={{ fontSize: 10, color: TH.yellow, margin: "4px 0", minWidth: 0 }}>
+          ⚠️ 層級過深，已停止顯示
+        </div>
+      );
+    }
     const items = childrenOf(tags, parentId, groupId);
     if (items.length === 0 && depth > 0) return null;
     return (
@@ -606,9 +624,20 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
                     value={g.name}
                     onCommit={(n) => persistGroups(patchGroup(groups, g.id, { name: n }))}
                   />
-                  <button type="button" onClick={() => deleteGroup(g)} style={{ ...btnSm, color: TH.red }}>
+                  <button
+                    type="button"
+                    onClick={() => deleteGroup(g)}
+                    aria-disabled={g.required}
+                    style={{
+                      ...btnSm,
+                      color: TH.red,
+                      opacity: g.required ? 0.35 : 1,
+                      cursor: g.required ? "not-allowed" : "pointer",
+                    }}
+                  >
                     刪
                   </button>
+                  {g.required && <HintDot text={HINT.requiredDelete} />}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8, minWidth: 0 }}>
                   <div style={{ minWidth: 0 }}>
