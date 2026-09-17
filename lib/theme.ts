@@ -5,6 +5,8 @@ export const TH = {
   text: "#F4F4F5",
   muted: "#52525B",
   accent: "#F97316",
+  /** 主維度（領域）強調色，與其他維度的橘色 accent 區隔 */
+  primaryDim: "#38BDF8",
   green: "#22C55E",
   red: "#EF4444",
   yellow: "#F59E0B",

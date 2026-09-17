@@ -47,7 +47,6 @@ export function CategorySelector({
   onChange,
   onShowCategoryManager,
   showQuickLane = true,
-  demoMode = false,
 }: {
   tagIds?: string[];
   cat1?: string;
@@ -56,7 +55,6 @@ export function CategorySelector({
   onChange: (next: TagSel) => void;
   onShowCategoryManager?: () => void;
   showQuickLane?: boolean;
-  demoMode?: boolean;
 }) {
   const { tags, groups } = useTagsSnapshot();
   const [combos, setCombos] = useState<string[][]>(() => loadTagCombos());
@@ -85,9 +83,9 @@ export function CategorySelector({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", minWidth: 0, boxSizing: "border-box" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", minWidth: 0, gap: 8 }}>
-        <div style={{ fontSize: 9, color: TH.muted, minWidth: 0 }}>分類標籤</div>
-        {onShowCategoryManager && (
+      {onShowCategoryManager && (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", minWidth: 0, gap: 8 }}>
+          <div style={{ fontSize: 9, color: TH.muted, minWidth: 0 }}>分類標籤</div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", minWidth: 0, maxWidth: "72%", flexShrink: 0 }}>
             <button
               type="button"
@@ -97,14 +95,12 @@ export function CategorySelector({
               <span style={{ fontSize: 9, color: TH.muted }}>標籤管理</span>
               <span style={{ fontSize: 13 }}>⚙️</span>
             </button>
-            {!demoMode && (
-              <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.35, textAlign: "right", marginTop: 2 }}>
-                💡 點這裡看如何設定 ⬆️
-              </div>
-            )}
+            <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.35, textAlign: "right", marginTop: 2 }}>
+              💡 點這裡看如何設定 ⬆️
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {showQuickLane && (
         <div style={{ minWidth: 0, boxSizing: "border-box" }}>
@@ -156,7 +152,6 @@ export function CategorySelector({
             tags={tags}
             selected={tagsOfGroup(selected, g.id, tags)}
             allSelected={selected}
-            demoMode={demoMode}
             onRemove={(id) => emit(removeTagFromSelection(selected, id))}
             onOpenPicker={() => {
               setSearch("");
@@ -171,7 +166,6 @@ export function CategorySelector({
             group={g}
             tags={tags}
             selectedId={tagsOfGroup(selected, g.id, tags)[0]}
-            demoMode={demoMode}
             onToggle={(id) => emit(toggleTagInSelection(selected, id, tags, groups))}
           />
         ),
@@ -277,12 +271,34 @@ function ComboCard({
   );
 }
 
+function GroupTitle({ group, missing }: { group: TagGroup; missing: boolean }) {
+  return (
+    <div
+      style={{
+        fontSize: 9,
+        color: TH.muted,
+        marginBottom: 4,
+        minWidth: 0,
+        maxWidth: "100%",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {group.name}標籤
+      {group.required && (
+        <span style={{ color: TH.red, fontWeight: missing ? 800 : undefined }}> 必填</span>
+      )}
+      {group.selectMode === "multi" ? " · 可多選" : null}
+    </div>
+  );
+}
+
 function MultiGroupBlock({
   group,
   tags,
   selected,
   allSelected,
-  demoMode,
   onRemove,
   onOpenPicker,
 }: {
@@ -290,19 +306,12 @@ function MultiGroupBlock({
   tags: Tag[];
   selected: string[];
   allSelected: string[];
-  demoMode?: boolean;
   onRemove: (id: string) => void;
   onOpenPicker: () => void;
 }) {
   return (
     <div style={{ minWidth: 0, boxSizing: "border-box" }}>
-      <div style={{ fontSize: 9, color: TH.muted, marginBottom: 4 }}>
-        {group.name}
-        {!demoMode && group.required && <span style={{ color: TH.red }}> 必填</span>}
-      </div>
-      {group.required && selected.length === 0 && (
-        <div style={{ fontSize: 9, color: TH.red, marginBottom: 4 }}>{group.name} 為必填</div>
-      )}
+      <GroupTitle group={group} missing={group.required && selected.length === 0} />
       <div style={H_SCROLL}>
         {selected.map((id) => {
           const isPrimary = allSelected[0] === id;
@@ -391,26 +400,18 @@ function SingleGroupBlock({
   group,
   tags,
   selectedId,
-  demoMode,
   onToggle,
 }: {
   group: TagGroup;
   tags: Tag[];
   selectedId?: string;
-  demoMode?: boolean;
   onToggle: (id: string) => void;
 }) {
   const list = liveTags(tags).filter((t) => t.groupId === group.id);
   if (!list.length) return null;
   return (
     <div style={{ minWidth: 0, boxSizing: "border-box" }}>
-      <div style={{ fontSize: 9, color: TH.muted, marginBottom: 4 }}>
-        {group.name}
-        {!demoMode && group.required && <span style={{ color: TH.red }}> 必填</span>}
-      </div>
-      {group.required && !selectedId && (
-        <div style={{ fontSize: 9, color: TH.red, marginBottom: 4 }}>{group.name} 為必填</div>
-      )}
+      <GroupTitle group={group} missing={group.required && !selectedId} />
       <div style={H_SCROLL}>
         {list.map((t) => (
           <Chip

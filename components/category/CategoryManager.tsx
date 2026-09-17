@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { BackBtn } from "@/components/ui/BackBtn";
 import { Card, SL } from "@/components/ui/Card";
 import { SortableList } from "@/components/ui/SortableList";
@@ -68,7 +68,6 @@ const SWITCH_HINT = {
   required: "💡 勾選後，這個項目一定要選，才能開始番茄",
   selectMode: "💡 領域標籤，可以同時選取「學習、事業」",
   isTimeDestination: "💡 選了 2 個領域標籤，番茄鐘 60 分鐘分成「學習 30 分、事業 30 分」",
-  domainLocked: "💡 領域是主維度，這些功能固定開啟，也不能刪除。只能改名稱。",
 };
 
 const SWITCH_HINT_STYLE: CSSProperties = {
@@ -83,13 +82,26 @@ const SWITCH_HINT_STYLE: CSSProperties = {
   wordBreak: "break-word",
 };
 
-const LOCKED_FLAG_BADGE: CSSProperties = {
+const H_SCROLL: CSSProperties = {
+  display: "flex",
+  gap: 6,
+  overflowX: "auto",
+  width: "100%",
+  minWidth: 0,
+  maxWidth: "100%",
+  boxSizing: "border-box",
+  WebkitOverflowScrolling: "touch",
+  paddingBottom: 2,
+};
+
+const STATUS_TAG: CSSProperties = {
   fontSize: 9,
   color: TH.muted,
   border: `1px solid ${TH.border}`,
   borderRadius: 8,
-  padding: "2px 8px",
+  padding: "1px 6px",
   flexShrink: 0,
+  whiteSpace: "nowrap",
 };
 
 function SwitchRow({
@@ -383,6 +395,8 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(() => liveGroups(loadTagGroups())[0]?.id ?? null);
   const [collapsedSelected, setCollapsedSelected] = useState(false);
   const [demoSel, setDemoSel] = useState<TagSel>(() => selFromTagIds([]));
+  const [previewOpen, setPreviewOpen] = useState(() => loadJSON<boolean>(LS_KEYS.tagPanelPreview, false));
+  const previewRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [colorPickerId, setColorPickerId] = useState<string | null>(null);
   const [palette, setPalette] = useState<string[]>(() => loadJSON(LS_KEYS.colorPalette, DEFAULT_PALETTE));
@@ -393,6 +407,18 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
   const selectDimension = (id: string) => {
     setSelectedGroupId(id);
     setCollapsedSelected(false);
+  };
+
+  const persistPreviewOpen = (v: boolean) => {
+    setPreviewOpen(v);
+    saveJSON(LS_KEYS.tagPanelPreview, v);
+  };
+
+  const openPreviewAndScroll = () => {
+    persistPreviewOpen(true);
+    requestAnimationFrame(() => {
+      previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   };
 
   const selected = live.find((g) => g.id === selectedGroupId) ?? live[0] ?? null;
@@ -660,20 +686,71 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0, boxSizing: "border-box" }}>
       <BackBtn onBack={onBack} label="標籤管理" />
 
-      <Card>
-        <SL>👀 番茄面板預覽（改下面的開關，這裡會立刻變）</SL>
-        <CategorySelector
-          tagIds={demoSel.tagIds}
-          cat1={demoSel.cat1}
-          cat2={demoSel.cat2}
-          cat3={demoSel.cat3}
-          onChange={setDemoSel}
-          showQuickLane={false}
-          demoMode
-        />
-      </Card>
+      <div ref={previewRef} style={{ minWidth: 0, boxSizing: "border-box" }}>
+        <Card>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+            <button
+              type="button"
+              onClick={() => persistPreviewOpen(!previewOpen)}
+              style={{
+                flex: 1,
+                minWidth: 0,
+                display: "flex",
+                alignItems: "center",
+                background: "none",
+                border: "none",
+                padding: 0,
+                cursor: "pointer",
+                color: TH.text,
+                fontSize: 13,
+                fontWeight: 800,
+                textAlign: "left",
+              }}
+            >
+              👀 番茄面板預覽
+            </button>
+            <button
+              type="button"
+              onClick={() => persistPreviewOpen(!previewOpen)}
+              style={btnSm}
+              aria-label={previewOpen ? "收合預覽" : "展開預覽"}
+            >
+              {previewOpen ? "▲" : "▼"}
+            </button>
+          </div>
+          {previewOpen && (
+            <div style={{ marginTop: 8, minWidth: 0 }}>
+              <CategorySelector
+                tagIds={demoSel.tagIds}
+                cat1={demoSel.cat1}
+                cat2={demoSel.cat2}
+                cat3={demoSel.cat3}
+                onChange={setDemoSel}
+                showQuickLane={false}
+              />
+            </div>
+          )}
+        </Card>
+      </div>
 
       <Card>
+        <button
+          type="button"
+          onClick={openPreviewAndScroll}
+          style={{
+            display: "block",
+            background: "none",
+            border: "none",
+            padding: 0,
+            margin: "0 0 8px",
+            cursor: "pointer",
+            fontSize: 10,
+            color: TH.muted,
+            lineHeight: 1.4,
+          }}
+        >
+          ⬆️ 預覽設定
+        </button>
         <SL>分類維度</SL>
         <p style={{ fontSize: 10, color: TH.muted, margin: "0 0 10px", lineHeight: 1.5 }}>
           💡 按住左邊的 ⋮⋮ 可以拖曳調整順序（手機用手指長按拖動）。點卡片空白處即可切換要編輯的維度。
@@ -687,19 +764,20 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
             const active = selected?.id === g.id;
             const open = active && !collapsedSelected;
             const locked = isLockedGroup(g);
+            const dimColor = locked ? TH.primaryDim : TH.accent;
             return (
               <div
                 onClick={() => selectDimension(g.id)}
                 style={{
-                  border: locked ? `2px solid ${TH.accent}` : `1px solid ${active ? TH.accent : TH.border}`,
+                  border: locked ? `2px solid ${TH.primaryDim}` : `1px solid ${active ? TH.accent : TH.border}`,
                   borderRadius: 10,
                   padding: 10,
                   minWidth: 0,
-                  background: locked ? TH.accent + (active ? "28" : "14") : active ? TH.accent + "14" : TH.bg,
+                  background: locked ? TH.primaryDim + (active ? "28" : "14") : active ? TH.accent + "14" : TH.bg,
                   cursor: "pointer",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
                   <span
                     {...handle}
                     onClick={(e) => e.stopPropagation()}
@@ -709,35 +787,39 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
                     ⋮⋮
                   </span>
                   {locked && (
-                    <span style={{ fontSize: 9, color: TH.accent, fontWeight: 800, flexShrink: 0, border: `1px solid ${TH.accent}`, borderRadius: 8, padding: "1px 6px" }}>
+                    <span
+                      style={{
+                        fontSize: 9,
+                        color: TH.primaryDim,
+                        fontWeight: 800,
+                        flexShrink: 0,
+                        border: `1px solid ${TH.primaryDim}`,
+                        borderRadius: 8,
+                        padding: "1px 6px",
+                      }}
+                    >
                       ⭐ 主維度
                     </span>
                   )}
                   {active && (
-                    <span style={{ fontSize: 10, color: TH.accent, fontWeight: 800, flexShrink: 0 }}>✓ 目前編輯中</span>
+                    <span style={{ fontSize: 10, color: dimColor, fontWeight: 800, flexShrink: 0 }}>✓ 目前編輯中</span>
                   )}
-                  <div onClick={(e) => e.stopPropagation()} style={{ flex: "1 1 96px", minWidth: 96, display: "flex" }}>
+                  <div onClick={(e) => e.stopPropagation()} style={{ flex: 1, minWidth: 0, display: "flex" }}>
                     <RenameInput
                       value={g.name}
                       onCommit={(n) => persistGroups(patchGroup(groups, g.id, { name: n }))}
                       style={{ minWidth: 80 }}
                     />
                   </div>
-                  {g.selectMode === "multi" && (
-                    <span style={{ fontSize: 9, color: TH.muted, border: `1px solid ${TH.border}`, borderRadius: 8, padding: "1px 6px", flexShrink: 0 }}>
-                      可多選
-                    </span>
-                  )}
-                  {g.required && (
-                    <span style={{ fontSize: 9, color: TH.muted, border: `1px solid ${TH.border}`, borderRadius: 8, padding: "1px 6px", flexShrink: 0 }}>
-                      必填
-                    </span>
-                  )}
-                  {g.isTimeDestination && (
-                    <span style={{ fontSize: 9, color: TH.muted, border: `1px solid ${TH.border}`, borderRadius: 8, padding: "1px 6px", flexShrink: 0 }}>
-                      計時數
-                    </span>
-                  )}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, minWidth: 0 }}>
+                  <div style={H_SCROLL}>
+                    <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                      {g.required && <span style={STATUS_TAG}>必填</span>}
+                      {g.selectMode === "multi" && <span style={STATUS_TAG}>可多選</span>}
+                      {g.isTimeDestination && <span style={STATUS_TAG}>計時數</span>}
+                    </div>
+                  </div>
                   <button
                     type="button"
                     onClick={(e) => {
@@ -775,42 +857,29 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
                     </>
                   )}
                 </div>
-                {open && (
+                {open && !locked && (
                   <div
                     onClick={(e) => e.stopPropagation()}
                     style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8, minWidth: 0 }}
                   >
-                    {locked ? (
-                      <>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                          <span style={LOCKED_FLAG_BADGE}>✓ 必填</span>
-                          <span style={LOCKED_FLAG_BADGE}>✓ 可多選</span>
-                          <span style={LOCKED_FLAG_BADGE}>✓ 計時數</span>
-                        </div>
-                        <div style={SWITCH_HINT_STYLE}>{SWITCH_HINT.domainLocked}</div>
-                      </>
-                    ) : (
-                      <>
-                        <SwitchRow
-                          label="可多選"
-                          checked={g.selectMode === "multi"}
-                          onChange={(v) => persistGroups(patchGroup(groups, g.id, { selectMode: v ? "multi" : "single" }))}
-                          hint={SWITCH_HINT.selectMode}
-                        />
-                        <SwitchRow
-                          label="必填"
-                          checked={g.required}
-                          onChange={(v) => persistGroups(patchGroup(groups, g.id, { required: v }))}
-                          hint={SWITCH_HINT.required}
-                        />
-                        <SwitchRow
-                          label="參與時數分攤"
-                          checked={g.isTimeDestination}
-                          onChange={(v) => persistGroups(patchGroup(groups, g.id, { isTimeDestination: v }))}
-                          hint={SWITCH_HINT.isTimeDestination}
-                        />
-                      </>
-                    )}
+                    <SwitchRow
+                      label="可多選"
+                      checked={g.selectMode === "multi"}
+                      onChange={(v) => persistGroups(patchGroup(groups, g.id, { selectMode: v ? "multi" : "single" }))}
+                      hint={SWITCH_HINT.selectMode}
+                    />
+                    <SwitchRow
+                      label="必填"
+                      checked={g.required}
+                      onChange={(v) => persistGroups(patchGroup(groups, g.id, { required: v }))}
+                      hint={SWITCH_HINT.required}
+                    />
+                    <SwitchRow
+                      label="參與時數分攤"
+                      checked={g.isTimeDestination}
+                      onChange={(v) => persistGroups(patchGroup(groups, g.id, { isTimeDestination: v }))}
+                      hint={SWITCH_HINT.isTimeDestination}
+                    />
                   </div>
                 )}
               </div>
@@ -840,7 +909,7 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
       <Card
         style={
           selected && isLockedGroup(selected)
-            ? { border: `2px solid ${TH.accent}`, background: TH.accent + "14" }
+            ? { border: `2px solid ${TH.primaryDim}`, background: TH.primaryDim + "14" }
             : {}
         }
       >

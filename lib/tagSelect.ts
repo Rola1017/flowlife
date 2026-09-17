@@ -10,6 +10,14 @@ export const TAG_COMBO_MAX = 5;
 
 export type TagSel = { tagIds: string[]; cat1: string; cat2: string; cat3: string };
 
+/** 維度標題單行：`{名}標籤` ＋必填 ＋· 可多選。預覽與真實頁共用。 */
+export function groupTitleLabel(g: Pick<TagGroup, "name" | "required" | "selectMode">): string {
+  let s = `${g.name}標籤`;
+  if (g.required) s += " 必填";
+  if (g.selectMode === "multi") s += " · 可多選";
+  return s;
+}
+
 export function selFromTagIds(tagIds: string[], allTags?: Tag[]): TagSel {
   const ids = tagIds.filter((id) => typeof id === "string" && id.trim());
   return { tagIds: ids, ...legacyPath(ids, allTags) };

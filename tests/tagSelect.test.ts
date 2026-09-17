@@ -10,6 +10,7 @@ import {
   tagLeafLabel,
   tagPathLabel,
   toggleTagInSelection,
+  groupTitleLabel,
 } from "@/lib/tagSelect";
 
 const G = TAG_GROUP_IDS.domain;
@@ -153,5 +154,25 @@ describe("toggleTagInSelection", () => {
     expect(canStartWithTags(droppedDomain, GROUPS, TAGS)).toBe(false);
     const droppedMust = toggleTagInSelection(full, "must", TAGS, GROUPS);
     expect(canStartWithTags(droppedMust, GROUPS, TAGS)).toBe(false);
+  });
+});
+
+describe("groupTitleLabel", () => {
+  it("required+multi → 「領域標籤 必填 · 可多選」；皆否 → 「難度標籤」", () => {
+    expect(
+      groupTitleLabel({ name: "領域", required: true, selectMode: "multi" }),
+    ).toBe("領域標籤 必填 · 可多選");
+    expect(
+      groupTitleLabel({ name: "難度", required: false, selectMode: "single" }),
+    ).toBe("難度標籤");
+  });
+
+  it("只必填或只可多選不互相汙染", () => {
+    expect(
+      groupTitleLabel({ name: "必填單選", required: true, selectMode: "single" }),
+    ).toBe("必填單選標籤 必填");
+    expect(
+      groupTitleLabel({ name: "選填多選", required: false, selectMode: "multi" }),
+    ).toBe("選填多選標籤 · 可多選");
   });
 });
