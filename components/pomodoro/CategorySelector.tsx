@@ -100,7 +100,7 @@ export function CategorySelector({
             </button>
             {!demoMode && (
               <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.35, textAlign: "right", marginTop: 2 }}>
-                💡 不懂這些設定？點這裡看互動說明
+                💡 點這裡看如何設定 ⬆️
               </div>
             )}
           </div>
@@ -280,11 +280,13 @@ function ComboCard({
 
 function GroupDemoHints({ group }: { group: TagGroup }) {
   const h = demoGroupHints(group);
+  const lines = [h.required, h.selectMode, h.timeDest].filter(Boolean);
+  if (!lines.length) return null;
   return (
     <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.45, margin: "2px 0 4px", minWidth: 0 }}>
-      <div>{h.required}</div>
-      <div>{h.selectMode}</div>
-      <div>{h.timeDest}</div>
+      {lines.map((line) => (
+        <div key={line}>{line}</div>
+      ))}
     </div>
   );
 }

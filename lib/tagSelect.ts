@@ -134,16 +134,9 @@ export function demoGroupHints(g: Pick<TagGroup, "required" | "selectMode" | "is
   timeDest: string;
 } {
   return {
-    required: g.required
-      ? "💡 這個維度有打開『必填』，所以沒選就不能開始番茄"
-      : "💡 這個維度沒有『必填』，可以不選",
-    selectMode:
-      g.selectMode === "multi"
-        ? "💡 這個維度打開了『可多選』，所以能勾好幾個"
-        : "💡 這個維度是單選，點另一個會換掉原本的",
-    timeDest: g.isTimeDestination
-      ? "💡 打開了『計時數』，時間會分攤給這個維度的標籤"
-      : "💡 沒有『計時數』，時間不會分給它，但可以用來篩選",
+    required: g.required ? "💡 這個維度有打開『必填』，所以沒選就不能開始番茄" : "",
+    selectMode: g.selectMode === "multi" ? "💡 這個維度打開了『可多選』，所以能勾好幾個" : "",
+    timeDest: g.isTimeDestination ? "💡 打開了『計時數』，時間會分攤給這個維度的標籤" : "",
   };
 }
 
@@ -215,19 +208,19 @@ export function splitComboLayers(
   return { domain, rest };
 }
 
-/** 專案維度＝計時數打開、且非必填（領域是必填＋計時數；不寫死名稱「專案」） */
-export function isProjectGroup(g: TagGroup): boolean {
-  return !g.deletedAt && g.isTimeDestination === true && g.required !== true;
+/** 快捷維度＝明確打開 quickStart（不再用計時數／必填推斷） */
+export function isQuickStartGroup(g: TagGroup): boolean {
+  return !g.deletedAt && g.quickStart === true;
 }
 
-export function projectGroups(groups: TagGroup[]): TagGroup[] {
-  return liveGroups(groups).filter(isProjectGroup);
+export function quickStartGroups(groups: TagGroup[]): TagGroup[] {
+  return liveGroups(groups).filter(isQuickStartGroup);
 }
 
-/** 專案維度底下未刪除的葉標籤（有子層的只顯示葉子） */
-export function projectLeafTags(tags: Tag[], groups: TagGroup[]): Tag[] {
+/** 快捷維度底下未刪除的葉標籤（有子層的只顯示葉子） */
+export function quickStartLeafTags(tags: Tag[], groups: TagGroup[]): Tag[] {
   const out: Tag[] = [];
-  for (const g of projectGroups(groups)) {
+  for (const g of quickStartGroups(groups)) {
     const walk = (parentId: string | undefined) => {
       const kids = childrenOf(tags, parentId, g.id);
       for (const k of kids) {

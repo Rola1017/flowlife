@@ -9,7 +9,7 @@ import {
   latestComboContaining,
   loadTagCombos,
   primaryTagColor,
-  projectLeafTags,
+  quickStartLeafTags,
   selFromTagIds,
   tagIdsForProjectShortcut,
   type TagSel,
@@ -36,7 +36,7 @@ export function ProjectShortcuts({
   onQuickStart: (sel: TagSel & { name: string }) => void;
 }) {
   const { tags, groups } = useTagsSnapshot();
-  const leaves = projectLeafTags(tags, groups);
+  const leaves = quickStartLeafTags(tags, groups);
   if (!leaves.length) return null;
 
   const applyOnly = (tag: Tag) => {

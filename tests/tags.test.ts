@@ -100,6 +100,35 @@ describe("tags migrate", () => {
     expect(second.changed).toBe(false);
     expect(second.groups).toEqual(first.groups);
   });
+
+  it("quickStart 缺欄時補 false 且不覆寫既有值", () => {
+    const missing = [
+      {
+        id: TAG_GROUP_IDS.domain,
+        name: "領域",
+        selectMode: "multi" as const,
+        required: true,
+        isTimeDestination: true,
+        order: 0,
+      },
+      {
+        id: "tg_proj",
+        name: "專案",
+        selectMode: "single" as const,
+        required: false,
+        isTimeDestination: true,
+        quickStart: true,
+        order: 9,
+      },
+    ] as TagGroup[];
+    const first = patchTagGroupFlags(missing);
+    expect(first.changed).toBe(true);
+    expect(first.groups[0].quickStart).toBe(false);
+    expect(first.groups[1].quickStart).toBe(true);
+    const second = patchTagGroupFlags(first.groups);
+    expect(second.changed).toBe(false);
+    expect(second.groups).toEqual(first.groups);
+  });
 });
 
 describe("tagsCompat", () => {

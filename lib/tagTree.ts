@@ -1,6 +1,7 @@
 import {
   DELETED_TAG_LABEL,
   TAG_GROUP_IDS,
+  isLockedGroup,
   type Tag,
   type TagGroup,
 } from "@/lib/tags";
@@ -198,6 +199,7 @@ export function addGroup(
     selectMode?: TagGroup["selectMode"];
     required?: boolean;
     isTimeDestination?: boolean;
+    quickStart?: boolean;
   },
 ): TagGroup[] {
   const live = liveGroups(groups);
@@ -207,6 +209,7 @@ export function addGroup(
     selectMode: input.selectMode ?? "single",
     required: input.required ?? false,
     isTimeDestination: input.isTimeDestination ?? false,
+    quickStart: input.quickStart ?? false,
     order: live.length,
   };
   return [...groups, g];
@@ -215,9 +218,18 @@ export function addGroup(
 export function patchGroup(
   groups: TagGroup[],
   id: string,
-  patch: Partial<Pick<TagGroup, "name" | "selectMode" | "required" | "isTimeDestination">>,
+  patch: Partial<Pick<TagGroup, "name" | "selectMode" | "required" | "isTimeDestination" | "quickStart">>,
 ): TagGroup[] {
-  return groups.map((g) => (g.id === id ? { ...g, ...patch } : g));
+  return groups.map((g) => {
+    if (g.id !== id) return g;
+    const next = { ...patch };
+    if (isLockedGroup(g)) {
+      delete next.selectMode;
+      delete next.required;
+      delete next.isTimeDestination;
+    }
+    return { ...g, ...next };
+  });
 }
 
 export function reorderGroups(groups: TagGroup[], from: number, to: number): TagGroup[] {

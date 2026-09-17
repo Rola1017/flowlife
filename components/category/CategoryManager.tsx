@@ -11,7 +11,7 @@ import { APP_STATE_KEYS, subscribeAppState } from "@/lib/appStateCloud";
 import { ensureTagsMigrated } from "@/lib/tagsMigrate";
 import { loadTagGroups, loadTags, saveTagGroups, saveTags } from "@/lib/tagsStore";
 import type { Tag, TagGroup } from "@/lib/tags";
-import { DELETED_TAG_LABEL, TAG_GROUP_IDS } from "@/lib/tags";
+import { DELETED_TAG_LABEL, TAG_GROUP_IDS, isLockedGroup } from "@/lib/tags";
 import {
   addChildTag,
   addGroup,
@@ -59,15 +59,69 @@ const DEFAULT_PALETTE = [
 ];
 
 const HINT = {
-  selectMode:
-    "💡 例：一顆番茄可以同時是「事業」又是「學習」→ 打開。難易度只能是難或易，不會同時 → 關閉",
-  required: "💡 例：每顆番茄一定要選「領域」→ 打開。難易度可以不選 → 關閉",
-  isTimeDestination:
-    "💡 例：2 小時的番茄掛了「事業」+「學習」→ 各算 1 小時（打開）。掛了「難」不代表你花 2 小時在「難」上面 → 關閉",
   requiredDelete: "💡 必填分類維度不能直接刪除，需先關閉『必填』",
   addChild:
     "💡 在這個標籤底下再分一層。例：「法律」底下加「勞健保」「勞基法」，之後統計可以只看勞健保花了多少時間",
 };
+
+const SWITCH_HINT = {
+  required: "💡 勾選後，這個項目一定要選，才能開始番茄",
+  selectMode: "💡 領域標籤，可以同時選取「學習、事業」",
+  isTimeDestination: "💡 選了 2 個領域標籤，番茄鐘 60 分鐘分成「學習 30 分、事業 30 分」",
+  quickStart: "💡 打開後，番茄頁上方會出現這個維度的標籤按鈕，點一下就能用上次的設定直接開始",
+  domainLocked: "💡 領域是主維度，這三項固定開啟，不能更改",
+};
+
+const SWITCH_HINT_STYLE: CSSProperties = {
+  fontSize: 9,
+  color: TH.muted,
+  lineHeight: 1.45,
+  marginTop: 2,
+  minWidth: 0,
+  maxWidth: "100%",
+  boxSizing: "border-box",
+  overflowWrap: "anywhere",
+  wordBreak: "break-word",
+};
+
+function SwitchRow({
+  label,
+  checked,
+  disabled,
+  onChange,
+  hint,
+}: {
+  label: string;
+  checked: boolean;
+  disabled?: boolean;
+  onChange?: (v: boolean) => void;
+  hint?: string;
+}) {
+  return (
+    <div style={{ minWidth: 0 }}>
+      <label
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          fontSize: 11,
+          color: TH.text,
+          cursor: disabled ? "not-allowed" : "pointer",
+          opacity: disabled ? 0.5 : 1,
+        }}
+      >
+        <input
+          type="checkbox"
+          checked={checked}
+          disabled={disabled}
+          onChange={(e) => onChange?.(e.target.checked)}
+        />
+        {label}
+      </label>
+      {hint && <div style={SWITCH_HINT_STYLE}>{hint}</div>}
+    </div>
+  );
+}
 
 function cascadeRename(level: "cat1" | "cat2" | "cat3", oldName: string, newName: string) {
   if (oldName === newName) return;
@@ -611,15 +665,16 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
           renderItem={(g, _i, handle) => {
             const active = selected?.id === g.id;
             const open = active && !collapsedSelected;
+            const locked = isLockedGroup(g);
             return (
               <div
                 onClick={() => selectDimension(g.id)}
                 style={{
-                  border: `1px solid ${active ? TH.accent : TH.border}`,
+                  border: locked ? `2px solid ${TH.accent}` : `1px solid ${active ? TH.accent : TH.border}`,
                   borderRadius: 10,
                   padding: 10,
                   minWidth: 0,
-                  background: active ? TH.accent + "14" : TH.bg,
+                  background: locked ? TH.accent + (active ? "28" : "14") : active ? TH.accent + "14" : TH.bg,
                   cursor: "pointer",
                 }}
               >
@@ -632,6 +687,11 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
                   >
                     ⋮⋮
                   </span>
+                  {locked && (
+                    <span style={{ fontSize: 9, color: TH.accent, fontWeight: 800, flexShrink: 0, border: `1px solid ${TH.accent}`, borderRadius: 8, padding: "1px 6px" }}>
+                      ⭐ 主維度
+                    </span>
+                  )}
                   {active && (
                     <span style={{ fontSize: 10, color: TH.accent, fontWeight: 800, flexShrink: 0 }}>✓ 目前編輯中</span>
                   )}
@@ -693,49 +753,42 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
                 {open && (
                   <div
                     onClick={(e) => e.stopPropagation()}
-                    style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8, minWidth: 0 }}
+                    style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8, minWidth: 0 }}
                   >
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "flex-start", gap: 6, flexWrap: "wrap" }}>
-                        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: TH.text, cursor: "pointer" }}>
-                          <input
-                            type="checkbox"
-                            checked={g.selectMode === "multi"}
-                            onChange={(e) =>
-                              persistGroups(patchGroup(groups, g.id, { selectMode: e.target.checked ? "multi" : "single" }))
-                            }
-                          />
-                          可多選
-                        </label>
-                        <HintDot text={HINT.selectMode} />
-                      </div>
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "flex-start", gap: 6, flexWrap: "wrap" }}>
-                        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: TH.text, cursor: "pointer" }}>
-                          <input
-                            type="checkbox"
-                            checked={g.required}
-                            onChange={(e) => persistGroups(patchGroup(groups, g.id, { required: e.target.checked }))}
-                          />
-                          必填
-                        </label>
-                        <HintDot text={HINT.required} />
-                      </div>
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "flex-start", gap: 6, flexWrap: "wrap" }}>
-                        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: TH.text, cursor: "pointer" }}>
-                          <input
-                            type="checkbox"
-                            checked={g.isTimeDestination}
-                            onChange={(e) => persistGroups(patchGroup(groups, g.id, { isTimeDestination: e.target.checked }))}
-                          />
-                          參與時數分攤
-                        </label>
-                        <HintDot text={HINT.isTimeDestination} />
-                      </div>
-                    </div>
+                    {locked ? (
+                      <>
+                        <SwitchRow label="可多選" checked disabled />
+                        <SwitchRow label="必填" checked disabled />
+                        <SwitchRow label="參與時數分攤" checked disabled hint={SWITCH_HINT.domainLocked} />
+                      </>
+                    ) : (
+                      <>
+                        <SwitchRow
+                          label="可多選"
+                          checked={g.selectMode === "multi"}
+                          onChange={(v) => persistGroups(patchGroup(groups, g.id, { selectMode: v ? "multi" : "single" }))}
+                          hint={SWITCH_HINT.selectMode}
+                        />
+                        <SwitchRow
+                          label="必填"
+                          checked={g.required}
+                          onChange={(v) => persistGroups(patchGroup(groups, g.id, { required: v }))}
+                          hint={SWITCH_HINT.required}
+                        />
+                        <SwitchRow
+                          label="參與時數分攤"
+                          checked={g.isTimeDestination}
+                          onChange={(v) => persistGroups(patchGroup(groups, g.id, { isTimeDestination: v }))}
+                          hint={SWITCH_HINT.isTimeDestination}
+                        />
+                      </>
+                    )}
+                    <SwitchRow
+                      label="在番茄頁顯示快捷按鈕"
+                      checked={g.quickStart === true}
+                      onChange={(v) => persistGroups(patchGroup(groups, g.id, { quickStart: v }))}
+                      hint={SWITCH_HINT.quickStart}
+                    />
                   </div>
                 )}
               </div>
@@ -773,13 +826,16 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
           showQuickLane={false}
           demoMode
         />
-        <div style={{ fontSize: 9, color: TH.muted, marginTop: 8, lineHeight: 1.4 }}>
-          💡 這只是預覽，不會真的開始番茄，也不影響你的紀錄
-        </div>
       </Card>
 
-      <Card>
-        <SL>{selected ? `${selected.name} 的標籤` : "標籤"}</SL>
+      <Card
+        style={
+          selected && isLockedGroup(selected)
+            ? { border: `2px solid ${TH.accent}`, background: TH.accent + "14" }
+            : {}
+        }
+      >
+        <SL>{selected ? `${isLockedGroup(selected) ? "⭐ " : ""}${selected.name} 的標籤` : "標籤"}</SL>
         {!selected ? (
           <p style={{ fontSize: 11, color: TH.muted, margin: 0 }}>請先新增或點選一個分類維度</p>
         ) : (

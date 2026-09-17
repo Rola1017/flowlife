@@ -6,10 +6,10 @@ import {
   canStartWithTags,
   demoGroupHints,
   isNoCoinByTagIds,
-  isProjectGroup,
+  isQuickStartGroup,
   latestComboContaining,
   missingRequiredGroupNames,
-  projectLeafTags,
+  quickStartLeafTags,
   pushRecentCombo,
   tagIdsForProjectShortcut,
   tagLeafLabel,
@@ -124,16 +124,16 @@ describe("tagLeafLabel", () => {
 });
 
 describe("demoGroupHints", () => {
-  it("依 required / selectMode / isTimeDestination 即時切換文案", () => {
+  it("只在開關打開時顯示說明，關閉不顯示", () => {
     const req = demoGroupHints({ required: true, selectMode: "multi", isTimeDestination: true });
     expect(req.required).toContain("有打開『必填』");
     expect(req.selectMode).toContain("可多選");
     expect(req.timeDest).toContain("計時數");
 
     const off = demoGroupHints({ required: false, selectMode: "single", isTimeDestination: false });
-    expect(off.required).toContain("沒有『必填』");
-    expect(off.selectMode).toContain("單選");
-    expect(off.timeDest).toContain("不會分給它");
+    expect(off.required).toBe("");
+    expect(off.selectMode).toBe("");
+    expect(off.timeDest).toBe("");
   });
 });
 
@@ -197,27 +197,40 @@ describe("tagIdsForProjectShortcut", () => {
   });
 });
 
-describe("isProjectGroup", () => {
-  it("以 isTimeDestination && !required 判斷，不寫死名稱", () => {
-    expect(isProjectGroup(GROUPS[0])).toBe(false);
-    expect(isProjectGroup(DEFAULT_TAG_GROUPS[1])).toBe(false);
+describe("isQuickStartGroup", () => {
+  it("quickStart=true 才為 true；其他組合為 false", () => {
+    expect(isQuickStartGroup(GROUPS[0])).toBe(false);
+    expect(isQuickStartGroup(DEFAULT_TAG_GROUPS[1])).toBe(false);
     expect(
-      isProjectGroup({
+      isQuickStartGroup({
         id: "tg_proj",
         name: "隨便叫什麼",
         selectMode: "single",
         required: false,
         isTimeDestination: true,
+        quickStart: true,
         order: 9,
       }),
     ).toBe(true);
     expect(
-      isProjectGroup({
-        id: "tg_dead",
+      isQuickStartGroup({
+        id: "tg_time",
         name: "專案",
         selectMode: "single",
         required: false,
         isTimeDestination: true,
+        quickStart: false,
+        order: 9,
+      }),
+    ).toBe(false);
+    expect(
+      isQuickStartGroup({
+        id: "tg_dead",
+        name: "專案",
+        selectMode: "single",
+        required: false,
+        isTimeDestination: false,
+        quickStart: true,
         order: 9,
         deletedAt: "x",
       }),
@@ -225,8 +238,8 @@ describe("isProjectGroup", () => {
   });
 });
 
-describe("projectLeafTags", () => {
-  it("只回專案維度未刪葉標籤", () => {
+describe("quickStartLeafTags", () => {
+  it("只回快捷維度未刪葉標籤", () => {
     const groups: TagGroup[] = [
       ...GROUPS,
       {
@@ -235,6 +248,7 @@ describe("projectLeafTags", () => {
         selectMode: "single",
         required: false,
         isTimeDestination: true,
+        quickStart: true,
         order: 9,
       },
     ];
@@ -244,6 +258,6 @@ describe("projectLeafTags", () => {
       { id: "leaf", groupId: "tg_proj", name: "FlowLife開發", parentId: "parent", order: 0 },
       { id: "gone", groupId: "tg_proj", name: "已刪", order: 1, deletedAt: "x" },
     ];
-    expect(projectLeafTags(tags, groups).map((x) => x.id)).toEqual(["leaf"]);
+    expect(quickStartLeafTags(tags, groups).map((x) => x.id)).toEqual(["leaf"]);
   });
 });
