@@ -33,6 +33,18 @@ import { subscribeAppState, pushAppState, APP_STATE_KEYS } from "@/lib/appStateC
 import { CFG } from "@/lib/config";
 import { WorkplaceManager } from "./WorkplaceManager";
 import { RoutineManager } from "./RoutineManager";
+import { ScheduleBoard } from "./ScheduleBoard";
+import {
+  SCHED_GAP as GAP,
+  SCHED_ROW_H as ROW_H,
+  SCHED_STEP as STEP,
+  buildScheduleRows,
+  halfSlotsOf,
+  inFixedSlot,
+  renderFixedRoutineText,
+  fixedCellStyle,
+  wePlaceholderStyle,
+} from "./scheduleGridModel";
 import { toM } from "@/lib/utils";
 import { Card, SL } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
@@ -69,75 +81,7 @@ const FULL_END_MIN = 24 * 60;
 const fmtHM2 = (m: number) =>
   `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 
-function renderFixedRoutineText(row: Extract<RowDef, { kind: "fixed" }>) {
-  if (row.items && row.items.length > 0) {
-    return (
-      <>
-        {row.emoji ? `${row.emoji} ` : ""}
-        {row.items.map((it, j) => (
-          <span
-            key={j}
-            style={{
-              color: it.hi ? TH.yellow : TH.muted,
-              fontWeight: it.hi ? 900 : 700,
-            }}
-          >
-            {j > 0 ? "、" : ""}
-            {it.name}
-          </span>
-        ))}
-      </>
-    );
-  }
-  return row.label;
-}
-
-// 課表固定列由 loadRoutine() 衍生（單一來源）；視窗起訖決定顯示範圍
-function buildRows(routine: RoutineBlock[], winStart: number, winEnd: number): RowDef[] {
-  const rows: RowDef[] = [];
-  let t = winStart;
-  while (t < winEnd) {
-    const blk = routine.find((b) => toM(b.start) <= t && t < toM(b.end));
-    if (blk) {
-      const blkEnd = Math.min(toM(blk.end), winEnd);
-      const times: string[] = [];
-      while (t < blkEnd) {
-        times.push(fmtHM2(t));
-        t += 30;
-      }
-      rows.push({
-        kind: "fixed",
-        times,
-        label: blk.label,
-        span: "all",
-        emoji: blk.emoji,
-        items: blk.items,
-      });
-    } else {
-      rows.push({ kind: "class", time: fmtHM2(t) });
-      t += 30;
-    }
-  }
-  return rows;
-}
-
-function halfSlotsOf(rows: RowDef[]): string[] {
-  const slots: string[] = [];
-  for (const row of rows) {
-    if (row.kind === "class") slots.push(row.time);
-    else slots.push(...row.times);
-  }
-  return slots;
-}
-
-const ROW_H = 26;
-const GAP = 2;
-const STEP = ROW_H + GAP;
-
 const DAYS = ["一", "二", "三", "四", "五", "六", "日"] as const;
-
-const inFixedSlot = (t: string, routine = loadRoutine()) =>
-  routine.some((b) => toM(b.start) <= toM(t) && toM(t) < toM(b.end));
 
 function normalizeSchedule(raw: Record<string, RawSchedRow[]>): Record<string, SchedRow[]> {
   const out: Record<string, SchedRow[]> = {};
@@ -178,9 +122,11 @@ const selectStyle: CSSProperties = {
 export function SchedulePage({
   onBack,
   onShowCategoryManager,
+  hideBack = false,
 }: {
-  onBack: () => void;
+  onBack?: () => void;
   onShowCategoryManager: () => void;
+  hideBack?: boolean;
 }) {
   const [sched, setSched] = useState<Record<string, SchedRow[]>>(() =>
     normalizeSchedule(
@@ -217,7 +163,7 @@ export function SchedulePage({
   const winStart = expandEarly ? FULL_START_MIN : CORE_START_MIN;
   const winEnd = expandLate ? FULL_END_MIN : CORE_END_MIN;
   const ROWS = useMemo(
-    () => buildRows(loadRoutine(), winStart, winEnd),
+    () => buildScheduleRows(loadRoutine(), winStart, winEnd),
     [routineRev, winStart, winEnd],
   );
   const HALF_SLOTS = useMemo(() => halfSlotsOf(ROWS), [ROWS]);
@@ -315,9 +261,6 @@ export function SchedulePage({
     return Math.round(Math.min(240, Math.max(60, max + 16)));
   }, [sched, dayOverrides]);
 
-  const GRID_COLS = useMemo(() => `44px repeat(7, minmax(${dayColMin}px, 1fr))`, [dayColMin]);
-  const COL_W = `calc((100% - 44px - ${7 * GAP}px) / 7)`;
-  const SCHED_MIN_W = useMemo(() => 44 + 7 * dayColMin + 7 * GAP, [dayColMin]);
 
   const shiftLabelOf = (place: Place, shiftId: string) =>
     workplaces.find((w) => w.id === place)?.shifts.find((s) => s.id === shiftId)?.label ?? shiftId;
@@ -547,14 +490,6 @@ export function SchedulePage({
     }
   }, [workplaces]);
 
-  const rowGridStyle: CSSProperties = {
-    display: "grid",
-    gridTemplateColumns: GRID_COLS,
-    gap: GAP,
-    height: ROW_H,
-    marginBottom: GAP,
-  };
-
   const timeColStyle: CSSProperties = {
     fontSize: 7,
     color: TH.muted,
@@ -563,44 +498,6 @@ export function SchedulePage({
     alignSelf: "center",
     height: ROW_H,
     lineHeight: `${ROW_H}px`,
-  };
-
-  const MEAL_TIMES = new Set(["07:00", "12:00", "17:00"]);
-  const timeColStyleFor = (t: string): CSSProperties => ({
-    ...timeColStyle,
-    fontSize: t.endsWith(":00") ? 10 : 7,
-    fontWeight: t.endsWith(":00") ? 800 : 400,
-    color: MEAL_TIMES.has(t) ? "#FDE68A" : TH.muted,
-  });
-
-  // 時間欄凍結：左右捲動恆顯。不透明背板蓋住捲到底下的日格／班別塊（zIndex 高於覆蓋層 5）
-  const timeBackdropStyle: CSSProperties = {
-    position: "sticky",
-    left: 0,
-    zIndex: 20,
-    background: TH.bg,
-    height: "100%",
-  };
-
-  const fixedCellStyle: CSSProperties = {
-    height: ROW_H,
-    background: TH.card,
-    borderRadius: 5,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: 9,
-    fontWeight: 700,
-    color: TH.muted,
-    border: `1px solid ${TH.border}`,
-    boxSizing: "border-box",
-  };
-
-  const wePlaceholderStyle: CSSProperties = {
-    height: ROW_H,
-    background: "#0D0D0F",
-    borderRadius: 5,
-    boxSizing: "border-box",
   };
 
   const getCell = (d: string, t: string) => (sched[d] || []).find((e) => e.t === t);
@@ -770,14 +667,14 @@ export function SchedulePage({
     );
   };
 
-  const leftForDay = (dayColIndex: number) =>
-    `calc(44px + ${GAP}px + (${COL_W} + ${GAP}px) * ${dayColIndex})`;
   const ovNeedCustom = !!ovCourseWarn && ovCourses === null;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <BackBtn onBack={onBack} label="課表" />
+        {!hideBack && onBack ? <BackBtn onBack={onBack} label="課表常用模板" /> : (
+          <div style={{ fontSize: 13, fontWeight: 800, color: TH.text, padding: "0 0 8px 0" }}>課表常用模板</div>
+        )}
         <input
           value={note}
           onChange={(e) => saveNote(e.target.value)}
@@ -2049,251 +1946,32 @@ export function SchedulePage({
           {expandEarly ? "▲ 收合凌晨" : "▼ 展開凌晨 00:00–06:00"}
         </button>
       </div>
-      <div
-        className="flowlife-hscroll"
-        style={{
-          overflowX: "auto",
-          overflowY: "visible",
-          WebkitOverflowScrolling: "touch",
-          scrollbarWidth: "none",
+      <ScheduleBoard
+        columns={DAYS.map((d) => ({
+          key: d,
+          title: d,
+          weekend: isWE(d),
+          onHeaderClick: () => setDayMenu(d),
+        }))}
+        rows={ROWS}
+        halfSlots={HALF_SLOTS}
+        workplaces={workplaces}
+        dayColMin={dayColMin}
+        getCell={(d, t) => getCell(d, t)}
+        isCoveredByShift={isCoveredByShift}
+        picksFor={(d) => dayPlans[d]?.picks ?? []}
+        shiftTimesFor={(d, place, shift) => shiftTimes(place, shift, d)}
+        shiftRangeFor={(d, place, shift) => shiftRange(place, shift, d)}
+        pickActive={pickActive}
+        pickDisabled={pickDisabled}
+        onTogglePick={togglePick}
+        showShift={(d, place, shiftId) => {
+          const sh = workplaces.find((w) => w.id === place)?.shifts.find((x) => x.id === shiftId);
+          return !!sh?.days?.includes(d);
         }}
-      >
-        <div style={{ minWidth: SCHED_MIN_W }}>
-          <div
-            style={{
-              position: "sticky",
-              top: 0,
-              zIndex: 21,
-              background: TH.bg,
-              paddingBottom: 2,
-            }}
-          >
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: GRID_COLS,
-                gap: GAP,
-                marginBottom: GAP,
-              }}
-            >
-              <div
-                style={{
-                  ...timeBackdropStyle,
-                  zIndex: 22,
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "flex-end",
-                }}
-              >
-                <div style={{ fontSize: 9, color: TH.muted, textAlign: "center" }}>時間</div>
-              </div>
-              {DAYS.map((d) => (
-                <div
-                  key={d}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setDayMenu(d)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") setDayMenu(d);
-                  }}
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 700,
-                    textAlign: "center",
-                    padding: "4px 0",
-                    background: isWE(d) ? TH.cyan + "11" : TH.card,
-                    borderRadius: 5,
-                    color: isWE(d) ? TH.cyan : TH.muted,
-                    cursor: "pointer",
-                  }}
-                >
-                  {d}
-                  <span style={{ fontSize: 7, opacity: 0.5 }}> ⋯</span>
-                </div>
-              ))}
-            </div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: GRID_COLS,
-                gap: GAP,
-                marginBottom: GAP,
-              }}
-            >
-              <div style={timeBackdropStyle} />
-              {DAYS.map((d) => (
-                <div
-                  key={`plan-${d}`}
-                  style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "center" }}
-                >
-                  {workplaces.map((w) => (
-                    <div
-                      key={w.id}
-                      style={{
-                        width: "100%",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 1,
-                        alignItems: "center",
-                      }}
-                    >
-                      <div
-                        style={{
-                          fontSize: 7,
-                          color: placeColor(w.id),
-                          fontWeight: 700,
-                          textAlign: "center",
-                          lineHeight: 1.1,
-                        }}
-                      >
-                        {w.name}
-                      </div>
-                      {w.shifts.filter((s) => s.days?.includes(d)).map((s) => {
-                        const disabled = pickDisabled(d, w.id, s.id);
-                        return (
-                          <Chip
-                            key={`${w.id}-${s.id}`}
-                            label={s.label}
-                            active={pickActive(d, w.id, s.id)}
-                            color={placeColor(w.id)}
-                            onClick={() => {
-                              if (!disabled) togglePick(d, w.id, s.id);
-                            }}
-                            style={{
-                              fontSize: 8,
-                              padding: "2px 6px",
-                              width: "100%",
-                              textAlign: "center",
-                              opacity: disabled ? 0.3 : 1,
-                            }}
-                          />
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div style={{ position: "relative" }}>
-            {ROWS.map((row) => {
-              if (row.kind === "fixed") {
-                const fixedH = row.times.length * ROW_H + (row.times.length - 1) * GAP;
-                const fixedRowStyle: CSSProperties = { ...rowGridStyle, height: fixedH };
-                if (row.span === "all") {
-                  return (
-                    <div key={row.times.join("-")} style={fixedRowStyle}>
-                      <div style={timeBackdropStyle}>
-                        <div style={timeColStyleFor(row.times[0])}>{row.times[0]}</div>
-                      </div>
-                      <div style={{ ...fixedCellStyle, gridColumn: "2 / -1", height: "100%" }}>
-                        {renderFixedRoutineText(row)}
-                      </div>
-                    </div>
-                  );
-                }
-                return (
-                  <div key={row.times.join("-")} style={fixedRowStyle}>
-                    <div style={timeBackdropStyle}>
-                      <div style={timeColStyleFor(row.times[0])}>{row.times[0]}</div>
-                    </div>
-                    <div style={{ ...fixedCellStyle, gridColumn: "span 5", height: "100%" }}>
-                      {renderFixedRoutineText(row)}
-                    </div>
-                    <div style={wePlaceholderStyle} />
-                    <div style={wePlaceholderStyle} />
-                  </div>
-                );
-              }
-              return (
-                <div key={row.time} style={rowGridStyle}>
-                  <div style={timeBackdropStyle}>
-                    <div style={timeColStyleFor(row.time)}>{row.time}</div>
-                  </div>
-                  {DAYS.map((d) => renderClassCell(d, row.time))}
-                </div>
-              );
-            })}
-
-            {DAYS.flatMap((day, dayColIndex) => {
-              const plan = dayPlans[day];
-              if (!plan) return [];
-              return plan.picks
-                .map(({ place, shift }) => {
-                  const times = shiftTimes(place, shift, day);
-                  const coveredIdx = HALF_SLOTS.map((t, i) =>
-                    times.includes(t) ? i : -1,
-                  ).filter((i) => i >= 0);
-                  if (coveredIdx.length === 0) return null;
-                  const firstIdx = coveredIdx[0];
-                  const count = coveredIdx.length;
-                  const top = firstIdx * STEP;
-                  const height = count * STEP - GAP;
-                  const [rangeStart, rangeEnd] = shiftRange(place, shift, day).split("~");
-                  const col = placeColor(place);
-
-                  return (
-                    <div
-                      key={`shift-${day}-${place}-${shift}`}
-                      style={{
-                        position: "absolute",
-                        top: `${top}px`,
-                        height: `${height}px`,
-                        left: leftForDay(dayColIndex),
-                        width: COL_W,
-                        background: col + "33",
-                        border: `1px solid ${col}44`,
-                        borderRadius: 5,
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 1,
-                        zIndex: 5,
-                        pointerEvents: "none",
-                        boxSizing: "border-box",
-                      }}
-                    >
-                      <span
-                        style={{
-                          color: labelOnDark(col),
-                          fontSize: 8,
-                          fontWeight: 700,
-                          lineHeight: 1.2,
-                        }}
-                      >
-                        {`兼差:${placeName(place)}`}
-                      </span>
-                      <span
-                        style={{
-                          color: labelOnDark(col),
-                          fontSize: 8,
-                          fontWeight: 700,
-                          lineHeight: 1.2,
-                        }}
-                      >
-                        {rangeStart}
-                      </span>
-                      <span style={{ color: labelOnDark(col), fontSize: 7, lineHeight: 1 }}>～</span>
-                      <span
-                        style={{
-                          color: labelOnDark(col),
-                          fontSize: 8,
-                          fontWeight: 700,
-                          lineHeight: 1.2,
-                        }}
-                      >
-                        {rangeEnd}
-                      </span>
-                    </div>
-                  );
-                })
-                .filter(Boolean);
-            })}
-          </div>
-        </div>
-      </div>
+        placeColor={placeColor}
+        renderCell={(d, t) => renderClassCell(d, t)}
+      />
       <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
         <button
           type="button"

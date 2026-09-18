@@ -724,3 +724,66 @@ export function buildTodayBlocks(date: string, data: ScheduleData): TodayBlock[]
   blocks.sort((x, y) => blockStartMin(x.start) - blockStartMin(y.start));
   return blocks;
 }
+
+export type ResolvedDayView = {
+  date: string;
+  weekday: string;
+  picks: DayPick[];
+  courses: CourseInfo[];
+  isOverride: boolean;
+};
+
+/** 某日畫面：有 override 用 override；沒有用常用模板（week_schedule / day_plans） */
+export function resolveDayView(
+  dateStr: string,
+  week?: Record<string, CourseInfo[]>,
+  plans?: Record<string, DayPlan>,
+  overrides?: Record<string, DayOverride>,
+): ResolvedDayView {
+  const ovs = overrides ?? loadDayOverrides();
+  return {
+    date: dateStr,
+    weekday: weekdayOf(dateStr),
+    picks: planForDate(dateStr, plans, ovs).picks,
+    courses: coursesForDate(dateStr, week, ovs),
+    isOverride: ovs[dateStr] != null,
+  };
+}
+
+export type DayVacationMode = "shifts" | "courses" | "both";
+
+/** 寫入該日 override 休假；不動 week_schedule / day_plans */
+export function applyDayVacation(
+  dateStr: string,
+  mode: DayVacationMode,
+  week: Record<string, CourseInfo[]>,
+  plans: Record<string, DayPlan>,
+  overrides: Record<string, DayOverride>,
+): Record<string, DayOverride> {
+  const resolved = resolveDayView(dateStr, week, plans, overrides);
+  const existing = overrides[dateStr];
+  const picks = mode === "courses" ? [...(existing?.picks ?? resolved.picks)] : [];
+  if (mode === "shifts") {
+    const next: DayOverride =
+      existing?.courses !== undefined ? { picks, courses: existing.courses.map((c) => ({ ...c })) } : { picks };
+    return { ...overrides, [dateStr]: next };
+  }
+  return { ...overrides, [dateStr]: { picks, courses: [] } };
+}
+
+export function restoreDayToTemplate(
+  overrides: Record<string, DayOverride>,
+  dateStr: string,
+): Record<string, DayOverride> {
+  if (!(dateStr in overrides)) return overrides;
+  const next = { ...overrides };
+  delete next[dateStr];
+  return next;
+}
+
+export function vacationClearCounts(resolved: Pick<ResolvedDayView, "picks" | "courses">): {
+  shifts: number;
+  courses: number;
+} {
+  return { shifts: resolved.picks.length, courses: resolved.courses.length };
+}

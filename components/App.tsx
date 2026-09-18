@@ -34,7 +34,7 @@ import { TimelinePage } from "@/components/timeline/TimelinePage";
 import { PomodoroPage } from "@/components/pomodoro/PomodoroPage";
 import { CalendarPage } from "@/components/calendar/CalendarPage";
 import { DayViewPage } from "@/components/calendar/DayViewPage";
-import { SchedulePage } from "@/components/schedule/SchedulePage";
+import { ScheduleHub, type ScheduleHubView } from "@/components/schedule/ScheduleHub";
 import { SettingsPage } from "@/components/settings/SettingsPage";
 import { CategoryManager } from "@/components/category/CategoryManager";
 import { ShopPage } from "@/components/shop/ShopPage";
@@ -101,6 +101,7 @@ export function App() {
 
 function AppContent() {
   const [tab, setTab] = useState("home");
+  const [scheduleView, setScheduleView] = useState<ScheduleHubView>("calendar");
   const [calIntent, setCalIntent] = useState<{ review: "day" } | null>(null);
   const [subPage, setSubPage] = useState<{ type: string; props?: Record<string, unknown> } | null>(null);
   const [quote, setQuote] = useState("每一顆番茄鐘，都是打下江山的一刀。");
@@ -692,12 +693,6 @@ function AppContent() {
   };
 
   const SUB_PAGE_MAP: Record<string, (props?: Record<string, unknown>) => ReactNode> = {
-    schedule: () => (
-      <SchedulePage
-        onBack={pop}
-        onShowCategoryManager={() => push("categoryManager", { from: "schedule" })}
-      />
-    ),
     settings: () => (
       <SettingsPage
         onBack={pop}
@@ -709,8 +704,11 @@ function AppContent() {
     categoryManager: (props = {}) => (
       <CategoryManager
         onBack={() => {
-          if (props.from === "schedule") push("schedule");
-          else pop();
+          if (props.from === "schedule") {
+            setTab("schedule");
+            setScheduleView("template");
+            pop();
+          } else pop();
         }}
       />
     ),
@@ -790,7 +788,15 @@ function AppContent() {
         }}
       />
     ),
-    timeline: () => <TimelinePage {...todoProps} onShowSchedule={() => push("schedule")} />,
+    timeline: () => (
+      <TimelinePage
+        {...todoProps}
+        onShowSchedule={() => {
+          setTab("schedule");
+          setScheduleView("calendar");
+        }}
+      />
+    ),
     calendar: () => (
       <CalendarPage
         todos={todos}
@@ -800,6 +806,13 @@ function AppContent() {
           updateSessions((prev) => patchReflection(prev, id, text))}
         intent={calIntent}
         onIntentConsumed={() => setCalIntent(null)}
+      />
+    ),
+    schedule: () => (
+      <ScheduleHub
+        view={scheduleView}
+        onChangeView={setScheduleView}
+        onShowCategoryManager={() => push("categoryManager", { from: "schedule" })}
       />
     ),
     health: () => (
@@ -912,6 +925,7 @@ function AppContent() {
             onClick={() => {
               setTab(t.id);
               setSubPage(null);
+              if (t.id === "schedule") setScheduleView("calendar");
             }}
             style={{
               flex: 1,
