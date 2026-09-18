@@ -1,10 +1,8 @@
 import { toM } from "@/lib/utils";
 import { blockedRanges, blockedRangesWith, type Interval, type DayPlan, type ScheduleData } from "@/lib/schedule";
 import type { Tag, TagGroup } from "@/lib/tags";
-import { resolveSessionTagIds } from "@/lib/analytics";
-import { splitMinutesByGroup } from "@/lib/tagStats";
-import { primaryTagColor, UNCATEGORIZED_COLOR } from "@/lib/tagSelect";
-import { tagChain } from "@/lib/tagsCompat";
+import { sessionSplitLayout, UNSPECIFIED_SLICE } from "@/lib/analytics";
+import { TH } from "@/lib/theme";
 
 export type IdleGap = { start: string; end: string };
 
@@ -152,7 +150,7 @@ type SLite = {
 export function splitSessionsByAvailability(
   sessions: SLite[],
   availFullDay: Interval[],
-  tagCtx?: { tags: Tag[]; groups: TagGroup[]; groupId: string },
+  tagCtx?: { tags: Tag[]; groups: TagGroup[]; groupId: string; sel?: Set<string> },
 ): {
   within: number;
   off: number;
@@ -162,18 +160,15 @@ export function splitSessionsByAvailability(
   let within = 0,
     off = 0;
   const withinByCat1: Record<string, number> = {};
-  const sliceMins = new Map<string, number>();
+  const sliceMins = new Map<string, { minutes: number; color: string }>();
   const addCat = (c: string, m: number) => {
     withinByCat1[c] = (withinByCat1[c] ?? 0) + m;
   };
-  const addSlice = (id: string, m: number) => {
+  const addSlice = (id: string, m: number, color: string) => {
     if (m <= 0) return;
-    sliceMins.set(id, (sliceMins.get(id) ?? 0) + m);
-  };
-  const rootOf = (tagId: string) => {
-    if (!tagCtx) return tagId;
-    const inGroup = tagChain(tagId, tagCtx.tags).filter((t) => t.groupId === tagCtx.groupId);
-    return inGroup[0]?.id ?? "__uncat__";
+    const prev = sliceMins.get(id);
+    if (prev) prev.minutes += m;
+    else sliceMins.set(id, { minutes: m, color });
   };
   for (const s of sessions) {
     const cat1 = s.cat1 || "未分類";
@@ -182,13 +177,12 @@ export function splitSessionsByAvailability(
       within += m;
       addCat(cat1, m);
       if (!tagCtx) return;
-      const ids = resolveSessionTagIds(s, tagCtx.tags);
-      const pieces = splitMinutesByGroup(m, ids, tagCtx.groupId, tagCtx.tags, tagCtx.groups);
-      if (!pieces.length) {
-        addSlice("__uncat__", m);
-        return;
+      const sel = tagCtx.sel ?? new Set<string>();
+      const pieces = sessionSplitLayout({ ...s, mins: m }, sel, tagCtx.groupId, tagCtx.tags, tagCtx.groups);
+      for (const p of pieces) {
+        if (!p.keep) continue;
+        addSlice(p.tagId ?? UNSPECIFIED_SLICE, p.minutes, p.color);
       }
-      for (const p of pieces) addSlice(rootOf(p.tagId), p.minutes);
     };
     if (!s.startTime || !s.endTime) {
       applyWithin(dur);
@@ -202,12 +196,11 @@ export function splitSessionsByAvailability(
     off += span - w;
   }
   const withinSlices = [...sliceMins.entries()]
-    .filter(([, m]) => m > 0)
-    .map(([id, minutes]) => ({
+    .filter(([, x]) => x.minutes > 0)
+    .map(([id, x]) => ({
       id,
-      minutes,
-      color:
-        id === "__uncat__" || !tagCtx ? UNCATEGORIZED_COLOR : primaryTagColor([id], tagCtx.tags),
+      minutes: x.minutes,
+      color: x.color || TH.muted,
     }));
   return { within, off, withinByCat1, withinSlices };
 }

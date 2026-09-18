@@ -4,9 +4,7 @@ import { shiftDateStr } from "@/lib/dateStr";
 import { formatMd } from "@/lib/utils";
 import type { Session } from "@/lib/types";
 import type { Tag, TagGroup } from "@/lib/tags";
-import { resolveSessionTagIds } from "@/lib/analytics";
-import { splitMinutesByGroup } from "@/lib/tagStats";
-import { primaryTagColor, tagPathLabel, UNCATEGORIZED_COLOR } from "@/lib/tagSelect";
+import { sessionSplitLayout } from "@/lib/analytics";
 
 const AXIS_START = 6;
 const AXIS_LEN = 17;
@@ -23,6 +21,7 @@ export function WeekHeat({
   tags,
   groups,
   groupId,
+  sel,
   todayStr = CFG.TODAY_STR,
 }: {
   sessions: Session[];
@@ -30,8 +29,10 @@ export function WeekHeat({
   tags: Tag[];
   groups: TagGroup[];
   groupId: string;
+  sel?: Set<string>;
   todayStr?: string;
 }) {
+  const selection = sel ?? new Set<string>();
   const dayList: { key: string; label: string }[] = [];
   for (let i = days - 1; i >= 0; i--) {
     const key = shiftDateStr(todayStr, -i);
@@ -74,24 +75,18 @@ export function WeekHeat({
                 if (sh == null || eh == null) return null;
                 const leftPct = ((sh - AXIS_START) / AXIS_LEN) * 100;
                 const widthPct = Math.max(((eh - sh) / AXIS_LEN) * 100, 1.5);
-                const ids = resolveSessionTagIds(s, tags);
-                const pieces = splitMinutesByGroup(s.mins ?? 0, ids, groupId, tags, groups);
-                const parts =
-                  pieces.length > 0
-                    ? pieces
-                    : [{ tagId: "", minutes: s.mins ?? 0 }];
+                const parts = sessionSplitLayout(s, selection, groupId, tags, groups);
                 const total = parts.reduce((a, p) => a + p.minutes, 0) || 1;
                 let acc = 0;
                 return parts.map((p, pi) => {
                   const frac = p.minutes / total;
                   const segLeft = leftPct + widthPct * acc;
                   acc += frac;
-                  const col = p.tagId ? primaryTagColor([p.tagId], tags) : UNCATEGORIZED_COLOR;
-                  const path = p.tagId ? tagPathLabel(p.tagId, tags) : "未分類";
+                  if (!p.keep) return null;
                   return (
                     <div
                       key={`${day.key}-${si}-${pi}`}
-                      title={path}
+                      title={p.path || p.label}
                       style={{
                         position: "absolute",
                         left: `${segLeft}%`,
@@ -99,7 +94,7 @@ export function WeekHeat({
                         top: 2,
                         bottom: 2,
                         borderRadius: 3,
-                        background: col || TH.muted,
+                        background: p.color || TH.muted,
                       }}
                     />
                   );

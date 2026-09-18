@@ -592,6 +592,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **雲端寫入必須被發現**：所有 supabase upsert/insert/update/delete 走 `reportCloudWriteResult`；失敗 `console.error` + 計數；Header／設定紅標「⚠️ 有 N 筆未能同步」點開看最後錯誤。登出前比對 sessions uuid＋失敗計數，未同步則警告「重試同步／仍要登出」；登出必 `flushLocalToCloud`（5s 逾時）再清本機。設定頁「檢查雲端同步狀態」。
 - **Z3 番茄區標籤化**：CategorySelector 改為依分類維度分區（多選維度用 chips＋樹狀彈出面板、單選維度用 chips），新增最近組合與沿用上次；canStart 改為所有 required 維度皆已選；寫入 tagIds 並雙寫 cat1/2/3（Z8 前不得停止）；noCoin 改走標籤祖先鏈；顏色/emoji 取主標籤 tagIds[0]。
 - **Z4 統計標籤化：buildDistribution/buildCalendarStats/buildLineSeries/WeekHeat 改用 splitMinutesByGroup 分攤（同維度平均、餘數依序補、總和恆等於總時數）；新增統計維度切換器（僅列 isTimeDestination 維度）；MultiCategoryFilter 改吃 tagIds、同維度聯集/跨維度交集；舊資料以 resolveCatIds 相容。**
+- **Z4 修正：新增 distributeAndFilter 共用函式（分攤→過濾→加總同源）；有篩選時只計入選取標籤的分攤額、總時數＝保留片段總和；無該維度標籤者歸入「未指定{維度名}」，與真實「未分類」標籤區分。**
 - **說明卡層級寫法＋互動預覽＋葉標籤標題**：CategoryManager 說明卡改 Rola 層級描述（三分鐘看懂、pre-wrap 不橫滑）；標籤管理重用 `<CategorySelector showQuickLane={false} />` 即時預覽（獨立 demo state、不寫 combo）；番茄主標題改 `tagLeafLabel`（最深層），完整路徑小字 `tagPathLabel`。
 - **移除專案快捷（quickStart 欄位與相關函式）；領域維度展開區改為唯讀徽章（無 checkbox、無刪除鍵，僅可改名）；標籤管理排版改為 預覽→維度→標籤；demoMode 移除文字說明改純視覺示範；真實番茄頁移除『· 可多選』後綴、保留必填標記。**
 - **主維度改天藍色（TH.primaryDim）、移除靜態徽章與說明行、狀態標籤統一第二列；番茄面板預覽預設收折並與真實面板共用渲染；維度標題合併為單行『{維度名}標籤 必填 · 可多選』。**
@@ -698,7 +699,7 @@ TH.gold    = "#FBBF24"   // 金幣
   - `schedule.test.ts` — 時段重疊／`currentScheduleBlock`／`hi` 保留
   - `categories.test.ts` — `catPath`／`matchesCatSelection` 不重複計、`CAT.cat1Emoji`／`cat1Display`
   - `sessions.test.ts` — 跨午夜切段／手動補番茄／`setSessionTimes`
-  - `analytics.test.ts` — `buildDistribution` 分攤／50 組不變式／舊資料 resolveCatIds／matchesTagSelection 聯集交集／日期字串鎖死
+  - `analytics.test.ts` — `distributeAndFilter` 篩選只留選取分攤額／未指定{維度名}／未分類區分／有無篩選不變式／舊資料 resolveCatIds／matchesTagSelection 聯集交集／日期字串鎖死
   - `tagStats.test.ts` — splitMinutesByGroup 60→30/30、50→[17,17,16]、40→[14,13,13]、總和恆等不變式、只分攤指定群組（含「難」不參與領域）、已刪除仍分攤、日期字串鎖死不用 new Date()
   - `sessionsCloud.test.ts` — `mergeSessionsWithTombstones` 墓碑防復活
   - `today.test.ts` — `buildTodayBlocks`（重疊不裁決、便利貼覆蓋、空資料回退、未來日期週三鎖死時區）
@@ -719,5 +720,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/09/17（Z4 統計與篩選區標籤化：時數分攤正式上線）*
+*最後更新：2026/09/17（Z4 修正：篩選只計入選取標籤分攤額＋未指定{維度名}）*
 *維護原則：每次完成重要功能，同步更新第十、十一、十二節*

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { CFG } from "@/lib/config";
 import { buildLineSeries } from "@/lib/analytics";
+import { TAG_GROUP_IDS } from "@/lib/tags";
 import { coinsForSecs, playRestEnd, toLocalDateStr, toM } from "@/lib/utils";
 import { patchReflection, stampSession } from "@/lib/sessions";
 import { resolveCatIds } from "@/lib/categories";
@@ -577,8 +578,13 @@ export function usePomodoro({
 
   const lineD = useMemo(() => {
     const now = new Date();
-    return buildLineSeries(sessions, linePeriod, now.getFullYear(), now.getMonth() + 1, CFG.TODAY_STR);
-  }, [sessions, linePeriod]);
+    return buildLineSeries(sessions, linePeriod, now.getFullYear(), now.getMonth() + 1, CFG.TODAY_STR, {
+      sel: new Set(),
+      groupId: TAG_GROUP_IDS.domain,
+      tags,
+      groups,
+    });
+  }, [sessions, linePeriod, tags, groups]);
 
   const isRestActive = restSecs > 0;
   const effectiveMode = isRestActive ? "rest" : mode;

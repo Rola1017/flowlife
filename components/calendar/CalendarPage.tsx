@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
-import { buildCalendarStats, datesInPeriod, periodRange, sessionMatches } from "@/lib/analytics";
+import { buildCalendarStats, datesInPeriod, distributeAndFilter, periodRange, sessionMatches } from "@/lib/analytics";
 import { TAG_GROUP_IDS } from "@/lib/tags";
 import { availableMinutesFor, loadDayPlans, planForDate } from "@/lib/schedule";
 import { availableSegments, splitSessionsByAvailability } from "@/lib/idle";
@@ -237,13 +237,16 @@ export function CalendarPage({
 
   const focusByDate = useMemo(() => {
     const map: Record<string, number> = {};
+    const byDate: Record<string, Session[]> = {};
     for (const s of sessions) {
       if (!s.date) continue;
-      if (!sessionMatches(s, selTags, tags)) continue;
-      map[s.date] = (map[s.date] ?? 0) + (s.mins ?? 0);
+      (byDate[s.date] ??= []).push(s);
+    }
+    for (const [d, rows] of Object.entries(byDate)) {
+      map[d] = distributeAndFilter(rows, selTags, statsGroupId, tags, groups).totalMinutes;
     }
     return map;
-  }, [sessions, selTags, tags]);
+  }, [sessions, selTags, statsGroupId, tags, groups]);
 
   const sessionsByDate = useMemo(() => {
     const map: Record<string, Session[]> = {};
@@ -280,16 +283,23 @@ export function CalendarPage({
       ),
     [sessions, curY, curM, selTags, tags],
   );
-  const mTot = useMemo(() => monthSessions.reduce((s, x) => s + (x.mins ?? 0), 0), [monthSessions]);
+  const mTot = useMemo(
+    () => distributeAndFilter(monthSessions, selTags, statsGroupId, tags, groups).totalMinutes,
+    [monthSessions, selTags, statsGroupId, tags, groups],
+  );
   const dayCount = useMemo(() => new Set(monthSessions.map((s) => s.date).filter(Boolean)).size, [monthSessions]);
   const dayAvg = dayCount ? Math.round(mTot / dayCount) : 0;
   const pomo10 = useMemo(() => monthSessions.filter((s) => (s.mins ?? 0) >= 10).length, [monthSessions]);
   const pomo25 = useMemo(() => monthSessions.filter((s) => (s.mins ?? 0) >= 25).length, [monthSessions]);
   const prevTot = useMemo(() => {
-    return sessionsInMonth(sessions, prevY, prevM)
-      .filter((s) => sessionMatches(s, selTags, tags))
-      .reduce((s, x) => s + (x.mins ?? 0), 0);
-  }, [sessions, prevY, prevM, selTags, tags]);
+    return distributeAndFilter(
+      sessionsInMonth(sessions, prevY, prevM),
+      selTags,
+      statsGroupId,
+      tags,
+      groups,
+    ).totalMinutes;
+  }, [sessions, prevY, prevM, selTags, statsGroupId, tags, groups]);
   const pctVsLast = prevTot ? Math.round(((mTot - prevTot) / prevTot) * 100) : 0;
 
   const periodDates = useMemo(() => datesInPeriod(period, curY, curM), [period, curY, curM]);
@@ -705,7 +715,7 @@ export function CalendarPage({
               const { within, off, withinSlices } = splitSessionsByAvailability(
                 sessionsByDate[dateStr] ?? [],
                 availSegs,
-                { tags, groups, groupId: statsGroupId },
+                { tags, groups, groupId: statsGroupId, sel: selTags },
               );
               const totalPct = availMins > 0 ? Math.round(((within + off) / availMins) * 100) : 0;
               const dayPlan = planForDate(dateStr, dayPlans);
@@ -966,7 +976,7 @@ export function CalendarPage({
               const { off, withinSlices } = splitSessionsByAvailability(
                 sessionsByDate[dateStr] ?? [],
                 availSegs,
-                { tags, groups, groupId: statsGroupId },
+                { tags, groups, groupId: statsGroupId, sel: selTags },
               );
               const circOuter = 2 * Math.PI * 15;
               const offDash = availMins > 0 ? circOuter * Math.min(off / availMins, 1) : 0;

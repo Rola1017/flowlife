@@ -1,18 +1,20 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { DEFAULT_CATEGORIES } from "@/lib/categories";
+import { LS_KEYS, saveJSON } from "@/lib/storage";
+import { DEFAULT_TAG_GROUPS, DELETED_TAG_LABEL, TAG_GROUP_IDS, type Tag, type TagGroup } from "@/lib/tags";
+import { TH } from "@/lib/theme";
+import { matchesTagSelection } from "@/lib/tagsCompat";
+import type { Session } from "@/lib/types";
 import {
   buildCalendarStats,
   buildDistribution,
   buildLineSeries,
   datesInPeriod,
+  distributeAndFilter,
   periodRange,
   resolveSessionTagIds,
-  sessionMatches,
+  unspecifiedLabel,
 } from "@/lib/analytics";
-import { DEFAULT_CATEGORIES } from "@/lib/categories";
-import { LS_KEYS, saveJSON } from "@/lib/storage";
-import { DEFAULT_TAG_GROUPS, DELETED_TAG_LABEL, TAG_GROUP_IDS, type Tag } from "@/lib/tags";
-import { matchesTagSelection } from "@/lib/tagsCompat";
-import type { Session } from "@/lib/types";
 
 const DOMAIN = TAG_GROUP_IDS.domain;
 const DIFF = TAG_GROUP_IDS.difficulty;
@@ -104,42 +106,100 @@ describe("buildDistribution 分攤", () => {
     expect(dist.find((d) => d.label === "學習")).toBeUndefined();
   });
 
+  it("篩選學習時，掛學習+事業的 60 分 → 只有學習 30，總時數 30", () => {
+    const sessions = [sess({ id: 1, mins: 60, tagIds: ["learn", "biz"] })];
+    const { slices, totalMinutes } = distributeAndFilter(sessions, new Set(["learn"]), DOMAIN, tags, GROUPS);
+    expect(totalMinutes).toBe(30);
+    expect(slices).toHaveLength(1);
+    expect(slices[0]?.label).toBe("學習");
+    expect(slices[0]?.minutes).toBe(30);
+    expect(slices.some((s) => s.label.includes("未指定") || s.label === "未分類")).toBe(false);
+  });
+
+  it("篩選時不得出現未指定／未分類（除非該標籤本身被選取）", () => {
+    const withUncat: Tag[] = [...tags, { id: "uncat-real", groupId: DOMAIN, name: "未分類", color: "#9D9D9D", order: 9 }];
+    const sessions = [
+      sess({ id: 1, mins: 60, tagIds: ["learn", "biz"] }),
+      sess({ id: 2, mins: 20, tagIds: ["hard"] }),
+    ];
+    const dist = buildDistribution(sessions, new Set(["learn"]), DOMAIN, withUncat, GROUPS);
+    expect(dist.map((d) => d.label)).toEqual(["學習"]);
+    expect(dist.reduce((a, d) => a + d.value, 0)).toBe(30);
+  });
+
+  it("未篩選、依專案看：沒有專案標籤 → 未指定專案，不是未分類", () => {
+    const PROJECT = "tg_project";
+    const g: TagGroup[] = [
+      ...GROUPS,
+      { id: PROJECT, name: "專案", selectMode: "multi", required: false, isTimeDestination: true, order: 4 },
+    ];
+    const t: Tag[] = [...tags, { id: "roro", groupId: PROJECT, name: "Roro", order: 0 }];
+    const sessions = [sess({ id: 1, mins: 40, tagIds: ["learn"] })];
+    const { slices, totalMinutes } = distributeAndFilter(sessions, new Set(), PROJECT, t, g);
+    expect(totalMinutes).toBe(40);
+    expect(slices).toHaveLength(1);
+    expect(slices[0]?.label).toBe(unspecifiedLabel("專案"));
+    expect(slices[0]?.label).toBe("未指定專案");
+    expect(slices[0]?.label).not.toBe("未分類");
+    expect(slices[0]?.color).toBe(TH.muted);
+  });
+
+  it("真實未分類標籤與未指定領域是兩片", () => {
+    const extra: Tag[] = [...tags, { id: "uncat-real", groupId: DOMAIN, name: "未分類", color: "#9D9D9D", order: 9 }];
+    const sessions = [
+      sess({ id: 1, mins: 20, tagIds: ["uncat-real"] }),
+      sess({ id: 2, mins: 15, tagIds: ["hard"] }),
+    ];
+    const { slices, totalMinutes } = distributeAndFilter(sessions, new Set(), DOMAIN, extra, GROUPS);
+    expect(totalMinutes).toBe(35);
+    expect(slices).toHaveLength(2);
+    expect(slices.find((s) => s.label === "未分類")?.minutes).toBe(20);
+    expect(slices.find((s) => s.label === "未指定領域")?.minutes).toBe(15);
+    expect(slices.find((s) => s.label === "未分類")?.tagId).toBe("uncat-real");
+    expect(slices.find((s) => s.label === "未指定領域")?.tagId).toBeNull();
+  });
+
   it("非 isTimeDestination 維度不分攤、回空", () => {
     expect(buildDistribution([sess({ id: 1, mins: 60, tagIds: ["hard"] })], new Set(), DIFF, tags, GROUPS)).toEqual([]);
   });
 });
 
-describe("不變式：各片總和＝sessions 總時數", () => {
-  it("50 組種子隨機資料，任意標籤數與選取", () => {
+describe("不變式：各片總和＝當時顯示的總時數", () => {
+  it("50 組無篩選 + 50 組有篩選，slices 總和恆等於 totalMinutes", () => {
     let seed = 20260917;
     const rnd = () => {
       seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
       return seed / 4294967296;
     };
     const pool = ["learn", "law", "biz", "hard", "easy"];
-    for (let i = 0; i < 50; i++) {
-      const n = 1 + Math.floor(rnd() * 8);
-      const sessions = Array.from({ length: n }, (_, k) => {
-        const mins = Math.floor(rnd() * 180);
-        const count = 1 + Math.floor(rnd() * 3);
-        const tagIds: string[] = [];
-        for (let t = 0; t < count; t++) {
-          const id = pool[Math.floor(rnd() * pool.length)];
-          if (!tagIds.includes(id)) tagIds.push(id);
+    const run = (withSel: boolean) => {
+      for (let i = 0; i < 50; i++) {
+        const n = 1 + Math.floor(rnd() * 8);
+        const sessions = Array.from({ length: n }, (_, k) => {
+          const mins = Math.floor(rnd() * 180);
+          const count = 1 + Math.floor(rnd() * 3);
+          const tagIds: string[] = [];
+          for (let t = 0; t < count; t++) {
+            const id = pool[Math.floor(rnd() * pool.length)];
+            if (!tagIds.includes(id)) tagIds.push(id);
+          }
+          return sess({ id: k + 1, mins, tagIds, cat1: "學習" });
+        });
+        const sel = withSel ? (rnd() < 0.5 ? new Set(["learn"]) : new Set(["learn", "hard"])) : new Set<string>();
+        const { slices, totalMinutes } = distributeAndFilter(sessions, sel, DOMAIN, tags, GROUPS);
+        expect(slices.reduce((a, d) => a + d.minutes, 0)).toBe(totalMinutes);
+        const dist = buildDistribution(sessions, sel, DOMAIN, tags, GROUPS);
+        expect(dist.reduce((a, d) => a + d.value, 0)).toBe(totalMinutes);
+        if (!withSel) {
+          expect(totalMinutes).toBe(sessions.reduce((a, s) => a + (s.mins ?? 0), 0));
         }
-        return sess({ id: k + 1, mins, tagIds, cat1: "學習" });
-      });
-      const mode = rnd();
-      const sel =
-        mode < 0.4
-          ? new Set<string>()
-          : mode < 0.7
-            ? new Set(["learn"])
-            : new Set(["learn", "hard"]);
-      const filtered = sessions.filter((s) => sessionMatches(s, sel, tags));
-      const dist = buildDistribution(sessions, sel, DOMAIN, tags, GROUPS);
-      expect(dist.reduce((a, d) => a + d.value, 0)).toBe(filtered.reduce((a, s) => a + (s.mins ?? 0), 0));
-    }
+        if (sel.has("learn") && !sel.has("hard")) {
+          expect(slices.some((s) => s.label.startsWith("未指定") || s.label === "未分類")).toBe(false);
+        }
+      }
+    };
+    run(false);
+    run(true);
   });
 });
 
@@ -200,12 +260,12 @@ describe("時區鎖死／行事曆統計", () => {
     expect(line.pomos).toEqual([0, 0, 1]);
   });
 
-  it("buildCalendarStats 圓餅各片＝視窗內 mins 直加總", () => {
+  it("buildCalendarStats 未篩選時圓餅各片＝視窗內 mins 直加總", () => {
     const sessions = [
       sess({ id: 1, mins: 60, date: "2026-09-17", tagIds: ["learn", "biz"] }),
       sess({ id: 2, mins: 25, date: "2026-08-01", tagIds: ["learn"] }),
     ];
-    const { chartData, lineD } = buildCalendarStats({
+    const { chartData, lineD, totalMinutes } = buildCalendarStats({
       sessions,
       sel: new Set(),
       groupId: DOMAIN,
@@ -216,7 +276,31 @@ describe("時區鎖死／行事曆統計", () => {
       anchorM: 9,
       todayStr: "2026-09-17",
     });
+    expect(totalMinutes).toBe(60);
     expect(chartData.reduce((a, d) => a + d.value, 0)).toBe(60);
     expect(lineD.focus.reduce((a, n) => a + n, 0)).toBe(60);
+  });
+
+  it("buildCalendarStats 篩選學習時圓餅與折線都是保留片段", () => {
+    const sessions = [
+      sess({ id: 1, mins: 60, date: "2026-09-17", tagIds: ["learn", "biz"] }),
+      sess({ id: 2, mins: 25, date: "2026-08-01", tagIds: ["learn"] }),
+    ];
+    const { chartData, lineD, totalMinutes } = buildCalendarStats({
+      sessions,
+      sel: new Set(["learn"]),
+      groupId: DOMAIN,
+      tags,
+      groups: GROUPS,
+      period: "7天",
+      anchorY: 2026,
+      anchorM: 9,
+      todayStr: "2026-09-17",
+    });
+    expect(totalMinutes).toBe(30);
+    expect(chartData).toHaveLength(1);
+    expect(chartData[0]?.label).toBe("學習");
+    expect(chartData[0]?.value).toBe(30);
+    expect(lineD.focus.reduce((a, n) => a + n, 0)).toBe(30);
   });
 });

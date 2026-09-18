@@ -2,18 +2,31 @@ import { CFG } from "@/lib/config";
 import { resolveCatIds } from "@/lib/categories";
 import { shiftDateStr } from "@/lib/dateStr";
 import { DELETED_TAG_LABEL, resolveIsTimeDestination, type Tag, type TagGroup } from "@/lib/tags";
-import { childrenOf } from "@/lib/tagTree";
 import { matchesTagSelection, tagChain } from "@/lib/tagsCompat";
-import { primaryTagColor, tagPathLabel, UNCATEGORIZED_COLOR } from "@/lib/tagSelect";
+import { primaryTagColor, tagPathLabel } from "@/lib/tagSelect";
 import { splitMinutesByGroup } from "@/lib/tagStats";
+import { TH } from "@/lib/theme";
 import type { Session } from "@/lib/types";
 
 export type ChartDatum = { label: string; value: number; color: string; path?: string; tagId?: string };
 export type LineSeries = { labels: string[]; focus: number[]; pomos: number[] };
 
-export const UNCATEGORIZED_SLICE = "__uncat__";
+export type DistSlice = {
+  tagId: string | null;
+  label: string;
+  color: string;
+  minutes: number;
+  path?: string;
+};
+
+/** 無該統計維度標籤的片段鍵；不得與真實「未分類」標籤混淆 */
+export const UNSPECIFIED_SLICE = "__unspecified__";
 
 const pad = (n: number) => String(n).padStart(2, "0");
+
+export function unspecifiedLabel(groupName: string): string {
+  return `未指定${groupName}`;
+}
 
 /** 舊資料無 tagIds：用 cat 名經 resolveCatIds 推最深一層（整鏈會被誤分成多片） */
 export function resolveSessionTagIds(
@@ -87,24 +100,130 @@ function deepestMatchingSlice(tagId: string, sliceIds: string[], tags: Tag[]): s
   return best;
 }
 
-function sliceDatum(id: string, value: number, tags: Tag[]): ChartDatum {
-  if (id === UNCATEGORIZED_SLICE) {
-    return { label: "未分類", value, color: UNCATEGORIZED_COLOR, path: "未分類", tagId: id };
-  }
+function selectedInStatsGroup(sel: Set<string>, groupId: string, tags: Tag[]): string[] {
+  return [...sel].filter((id) => tags.find((t) => t.id === id)?.groupId === groupId);
+}
+
+function sliceFromTag(id: string, minutes: number, tags: Tag[]): DistSlice {
   const t = tags.find((x) => x.id === id);
   const label = !t || t.deletedAt ? DELETED_TAG_LABEL : t.name;
   return {
-    label,
-    value,
-    color: primaryTagColor([id], tags),
-    path: t ? tagPathLabel(id, tags) : DELETED_TAG_LABEL,
     tagId: id,
+    label,
+    color: primaryTagColor([id], tags),
+    minutes,
+    path: t ? tagPathLabel(id, tags) : DELETED_TAG_LABEL,
+  };
+}
+
+function unspecifiedSlice(minutes: number, groupName: string): DistSlice {
+  const label = unspecifiedLabel(groupName);
+  return { tagId: null, label, color: TH.muted, minutes, path: label };
+}
+
+export type SplitPiece = DistSlice & { keep: boolean };
+
+/**
+ * 單筆分攤後的片段（含是否保留）。有篩選且選了本維度標籤時，未命中片段 keep=false（丟棄，不進未指定）。
+ */
+export function sessionSplitLayout(
+  s: { tagIds?: string[]; cat1?: string; cat2?: string; cat3?: string; mins?: number },
+  sel: Set<string>,
+  groupId: string,
+  tags: Tag[],
+  groups: TagGroup[],
+): SplitPiece[] {
+  const group = groups.find((g) => g.id === groupId);
+  if (group && !resolveIsTimeDestination(group)) return [];
+
+  const mins = s.mins ?? 0;
+  const ids = resolveSessionTagIds(s, tags);
+  if (!matchesTagSelection(sel, ids, tags)) return [];
+  const groupName = group?.name ?? "";
+  const inGroupSel = selectedInStatsGroup(sel, groupId, tags);
+  const useSelected = inGroupSel.length > 0;
+  const pieces = splitMinutesByGroup(mins, ids, groupId, tags, groups);
+
+  if (pieces.length === 0) {
+    if (mins <= 0) return [];
+    const u = unspecifiedSlice(mins, groupName);
+    return [{ ...u, keep: !useSelected }];
+  }
+
+  const out: SplitPiece[] = [];
+  for (const p of pieces) {
+    if (useSelected) {
+      const key = deepestMatchingSlice(p.tagId, inGroupSel, tags);
+      if (!key) {
+        out.push({ ...sliceFromTag(p.tagId, p.minutes, tags), keep: false });
+        continue;
+      }
+      out.push({ ...sliceFromTag(key, p.minutes, tags), keep: true });
+    } else {
+      const root = rootInGroup(p.tagId, tags, groupId);
+      const slice = root ? sliceFromTag(root, p.minutes, tags) : unspecifiedSlice(p.minutes, groupName);
+      out.push({ ...slice, keep: true });
+    }
+  }
+  return out;
+}
+
+/** 分攤 → 過濾 → 加總同源。有篩選時總時數＝保留片段總和。 */
+export function distributeAndFilter(
+  sessions: Session[],
+  sel: Set<string>,
+  groupId: string,
+  tags: Tag[],
+  groups: TagGroup[],
+): { slices: DistSlice[]; totalMinutes: number } {
+  const group = groups.find((g) => g.id === groupId);
+  if (group && !resolveIsTimeDestination(group)) return { slices: [], totalMinutes: 0 };
+
+  const filtered = sessions.filter((s) => sessionMatches(s, sel, tags));
+  const sums = new Map<string, DistSlice>();
+  const add = (p: DistSlice) => {
+    if (p.minutes <= 0) return;
+    const key = p.tagId ?? UNSPECIFIED_SLICE;
+    const prev = sums.get(key);
+    if (prev) prev.minutes += p.minutes;
+    else sums.set(key, { ...p });
+  };
+
+  for (const s of filtered) {
+    for (const p of sessionSplitLayout(s, sel, groupId, tags, groups)) {
+      if (p.keep) add(p);
+    }
+  }
+
+  const slices = [...sums.values()].filter((x) => x.minutes > 0).sort((a, b) => b.minutes - a.minutes);
+  const totalMinutes = slices.reduce((a, x) => a + x.minutes, 0);
+  return { slices, totalMinutes };
+}
+
+export function sessionKeptMinutes(
+  s: Session,
+  sel: Set<string>,
+  groupId: string,
+  tags: Tag[],
+  groups: TagGroup[],
+): number {
+  return sessionSplitLayout(s, sel, groupId, tags, groups)
+    .filter((p) => p.keep)
+    .reduce((a, p) => a + p.minutes, 0);
+}
+
+function toChartDatum(s: DistSlice): ChartDatum {
+  return {
+    label: s.label,
+    value: s.minutes,
+    color: s.color,
+    path: s.path,
+    tagId: s.tagId ?? UNSPECIFIED_SLICE,
   };
 }
 
 /**
- * 圓餅/長條：未選＝該維度頂層標籤；有選（且選在該維度）＝各選取標籤一片。
- * 時數經 splitMinutesByGroup 分攤後累加，禁止整筆 s.mins 加給多片。
+ * 圓餅/長條：走 distributeAndFilter。未選＝頂層／未指定{維度}；有選＝只留選取標籤分攤額。
  */
 export function buildDistribution(
   sessions: Session[],
@@ -113,60 +232,40 @@ export function buildDistribution(
   tags: Tag[],
   groups: TagGroup[],
 ): ChartDatum[] {
-  const group = groups.find((g) => g.id === groupId);
-  if (group && !resolveIsTimeDestination(group)) return [];
-
-  const filtered = sessions.filter((s) => sessionMatches(s, sel, tags));
-  const selectedInGroup = [...sel].filter((id) => tags.find((t) => t.id === id)?.groupId === groupId);
-  const useSelected = selectedInGroup.length > 0;
-  const sliceIds = useSelected ? selectedInGroup : childrenOf(tags, undefined, groupId).map((t) => t.id);
-
-  const sums = new Map<string, number>();
-  const add = (id: string, m: number) => {
-    if (m <= 0) return;
-    sums.set(id, (sums.get(id) ?? 0) + m);
-  };
-
-  for (const s of filtered) {
-    const mins = s.mins ?? 0;
-    const ids = resolveSessionTagIds(s, tags);
-    const pieces = splitMinutesByGroup(mins, ids, groupId, tags, groups);
-    if (pieces.length === 0) {
-      add(UNCATEGORIZED_SLICE, mins);
-      continue;
-    }
-    let attributed = 0;
-    for (const p of pieces) {
-      const key = useSelected
-        ? deepestMatchingSlice(p.tagId, sliceIds, tags) ?? UNCATEGORIZED_SLICE
-        : rootInGroup(p.tagId, tags, groupId) ?? UNCATEGORIZED_SLICE;
-      add(key, p.minutes);
-      attributed += p.minutes;
-    }
-    if (mins - attributed > 0) add(UNCATEGORIZED_SLICE, mins - attributed);
-  }
-
-  return [...sums.entries()]
-    .filter(([, v]) => v > 0)
-    .map(([id, v]) => sliceDatum(id, v, tags))
-    .sort((a, b) => b.value - a.value);
+  return distributeAndFilter(sessions, sel, groupId, tags, groups).slices.map(toChartDatum);
 }
 
-/** 折線（時長＋顆數）。傳入的 sessions 應已用標籤篩選過。總時數＝mins 直加，不經分攤。 */
+export type DistCtx = {
+  sel: Set<string>;
+  groupId: string;
+  tags: Tag[];
+  groups: TagGroup[];
+};
+
+/** 折線。有 dist 時每日時長＝該日保留片段總和；否則 mins 直加。 */
 export function buildLineSeries(
   sessions: Session[],
   period: string,
   anchorY: number,
   anchorM: number,
   todayStr = CFG.TODAY_STR,
+  dist?: DistCtx,
 ): LineSeries {
   const labels: string[] = [],
     focus: number[] = [],
     pomos: number[] = [];
+  const dayMins = (rows: Session[]) => {
+    if (!dist) return rows.reduce((a, s) => a + (s.mins ?? 0), 0);
+    return distributeAndFilter(rows, dist.sel, dist.groupId, dist.tags, dist.groups).totalMinutes;
+  };
+  const dayPomos = (rows: Session[]) => {
+    if (!dist) return rows.length;
+    return rows.filter((s) => sessionKeptMinutes(s, dist.sel, dist.groupId, dist.tags, dist.groups) > 0).length;
+  };
   const push = (label: string, rows: Session[]) => {
     labels.push(label);
-    focus.push(rows.reduce((a, s) => a + (s.mins ?? 0), 0));
-    pomos.push(rows.length);
+    focus.push(dayMins(rows));
+    pomos.push(dayPomos(rows));
   };
   if (period === "3天" || period === "7天" || period === "14天") {
     const n = period === "3天" ? 3 : period === "14天" ? 14 : 7;
@@ -225,7 +324,7 @@ export function datesInPeriod(
   return out;
 }
 
-/** 行事曆主統計入口。圓餅走分攤；折線總時數直加 mins。 */
+/** 行事曆主統計入口。圓餅與折線皆走 distributeAndFilter。 */
 export function buildCalendarStats(opts: {
   sessions: Session[];
   sel: Set<string>;
@@ -236,14 +335,16 @@ export function buildCalendarStats(opts: {
   anchorY: number;
   anchorM: number;
   todayStr?: string;
-}): { chartData: ChartDatum[]; lineD: LineSeries } {
+}): { chartData: ChartDatum[]; lineD: LineSeries; totalMinutes: number } {
   const { sessions, sel, groupId, tags, groups, period, anchorY, anchorM } = opts;
   const todayStr = opts.todayStr ?? CFG.TODAY_STR;
-  const catFiltered = sessions.filter((s) => sessionMatches(s, sel, tags));
+  const dist: DistCtx = { sel, groupId, tags, groups };
   const { start, end } = periodRange(period, anchorY, anchorM, todayStr);
-  const windowSessions = catFiltered.filter((s) => s.date && s.date >= start && s.date <= end);
+  const windowSessions = sessions.filter((s) => s.date && s.date >= start && s.date <= end);
+  const { slices, totalMinutes } = distributeAndFilter(windowSessions, sel, groupId, tags, groups);
   return {
-    chartData: buildDistribution(windowSessions, sel, groupId, tags, groups),
-    lineD: buildLineSeries(catFiltered, period, anchorY, anchorM, todayStr),
+    chartData: slices.map(toChartDatum),
+    lineD: buildLineSeries(sessions, period, anchorY, anchorM, todayStr, dist),
+    totalMinutes,
   };
 }
