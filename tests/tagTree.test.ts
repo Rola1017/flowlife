@@ -10,6 +10,8 @@ import {
   reorderSiblings,
   setParent,
   softDeleteTagAndDescendants,
+  sortGroupsForSelector,
+  childrenOfForPicker,
   wouldCreateCycle,
 } from "@/lib/tagTree";
 
@@ -181,5 +183,36 @@ describe("isLockedGroup / patchGroup", () => {
     const other = patchGroup(groups, TAG_GROUP_IDS.difficulty, { required: true });
     const diff = other.find((g) => g.id === TAG_GROUP_IDS.difficulty)!;
     expect(diff.required).toBe(true);
+  });
+});
+
+describe("sortGroupsForSelector", () => {
+  it("必填維度恆排第一，其餘依 order（防歷史 bug：新增維度把領域擠到最下）", () => {
+    const groups: TagGroup[] = [
+      { id: "new", name: "後加", selectMode: "single", required: false, isTimeDestination: false, order: 0 },
+      { id: TAG_GROUP_IDS.domain, name: "領域", selectMode: "multi", required: true, isTimeDestination: true, order: 9 },
+      { id: "mid", name: "中間", selectMode: "single", required: false, isTimeDestination: false, order: 1 },
+      { id: "req2", name: "也必填", selectMode: "single", required: true, isTimeDestination: false, order: 5 },
+      { id: "dead", name: "已刪", selectMode: "single", required: true, isTimeDestination: false, order: 0, deletedAt: "x" },
+    ];
+    expect(sortGroupsForSelector(groups).map((g) => g.id)).toEqual([
+      "req2",
+      TAG_GROUP_IDS.domain,
+      "new",
+      "mid",
+    ]);
+  });
+});
+
+describe("childrenOfForPicker", () => {
+  it("根層把未分類釘在最前，其餘依 order", () => {
+    const tags: Tag[] = [
+      t({ id: "learn", name: "學習", order: 0 }),
+      t({ id: "work", name: "工作", order: 1 }),
+      t({ id: "uncat", name: "未分類", order: 9 }),
+      t({ id: "law", name: "法律", parentId: "learn", order: 0 }),
+    ];
+    expect(childrenOfForPicker(tags, undefined, G).map((x) => x.id)).toEqual(["uncat", "learn", "work"]);
+    expect(childrenOfForPicker(tags, "learn", G).map((x) => x.id)).toEqual(["law"]);
   });
 });

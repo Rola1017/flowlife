@@ -2,6 +2,7 @@ import {
   DELETED_TAG_LABEL,
   TAG_GROUP_IDS,
   isLockedGroup,
+  isUncategorizedRoot,
   type Tag,
   type TagGroup,
 } from "@/lib/tags";
@@ -27,11 +28,35 @@ export function liveGroups(groups: TagGroup[]): TagGroup[] {
   return groups.filter((g) => !g.deletedAt).slice().sort((a, b) => a.order - b.order);
 }
 
+/** 選擇器／預覽用：必填維度永遠在最上面，其餘依 order */
+export function sortGroupsForSelector(groups: TagGroup[]): TagGroup[] {
+  return liveGroups(groups)
+    .slice()
+    .sort((a, b) => {
+      const ar = a.required ? 0 : 1;
+      const br = b.required ? 0 : 1;
+      if (ar !== br) return ar - br;
+      return a.order - b.order;
+    });
+}
+
 export function childrenOf(tags: Tag[], parentId: string | undefined, groupId: string): Tag[] {
   return liveTags(tags)
     .filter((t) => t.groupId === groupId && (parentId ? t.parentId === parentId : !t.parentId))
     .slice()
     .sort((a, b) => a.order - b.order);
+}
+
+/** 選擇器樹：根層把「未分類」釘在最前，其餘仍依 order。管理頁繼續用 childrenOf。 */
+export function childrenOfForPicker(tags: Tag[], parentId: string | undefined, groupId: string): Tag[] {
+  const kids = childrenOf(tags, parentId, groupId);
+  if (parentId) return kids;
+  return kids.slice().sort((a, b) => {
+    const au = isUncategorizedRoot(a) ? 0 : 1;
+    const bu = isUncategorizedRoot(b) ? 0 : 1;
+    if (au !== bu) return au - bu;
+    return a.order - b.order;
+  });
 }
 
 function reindexSiblings(tags: Tag[], groupId: string, parentId: string | undefined): Tag[] {

@@ -397,7 +397,7 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ## 十、已完成功能 ✅
 
-- localStorage 持久化（todos/coins/sessions/評分）
+- **緊急修復（2026-09-18）**：①清除番茄記錄／重置全部改為先寫 `deleted_session_uuids` 墓碑再 `deleteSessionsCloud`、金幣／垃圾桶一併推空雲端，**await 完成後才 reload**；重置改走 `clearAllAppData()`（禁止 `flowlife_` 前綴迴圈）；確認文案明示「會同時清除雲端、所有裝置、無法復原」。②`pushAppState` 改為先 `setMetaTs` 再 `getUid`，避免新增 `tag_groups` 被舊雲端覆蓋；`saveTagGroups`/`saveTags` 改回傳 Promise，失敗走 `alertIfPushFailed`。③選擇器三處共用 `sortGroupsForSelector`（必填維度置頂、其餘依 order）；領域 picker 預設收合＋根層「未分類」釘最前（真實可選標籤，管理頁僅禁止刪根節點）。
 - 元件拆分（33個檔案）
 - 設定頁（重置資料、v1.0.0）；新增「只清番茄/金幣記錄」（保留分類／課表／班別等設定，與「重置所有資料」分開）
 - 動態日期 + 動態紅線（每分鐘更新）
@@ -623,7 +623,7 @@ TH.gold    = "#FBBF24"   // 金幣
 | ~~多裝置刪除「復活」硬化（墓碑/deletedAt 同步）~~ ✅ 已治本 | 獨立墓碑 `deleted_session_uuids`＋`tombstoneSet` 直查雲端；清空垃圾桶仍保留墓碑。永久 schema `deleted_at` 見「墓碑保存期」條。 |
 | 娛樂計時為單機本地狀態，多裝置同步待評估 | **刻意本地**——進行中的計時娛樂存 `LS_KEYS.activeEnt`，不上雲；重開 App 依 `startAt` 時間戳續算倒數與退幣。多裝置同步待 Capacitor／多裝置階段再評估。 |
 | 娛樂時間／番茄倒數結束前 2 分／1 分本機推播 | **暫緩至 Capacitor 原生打包批次**——Web 環境在 App 切走／手機鎖屏時無法可靠發提醒，目前僅 App 開著時提示；計時採結束時間戳記帳，關閉 App 再回來仍能正確結算與退幣。真推播需 Capacitor 原生殼；**進行 Capacitor 原生打包批次時必須一併實作本機推播提醒（結束前 2 分／1 分），並回頭移除本條。** |
-| ~~reset 未清雲端~~ ✅ 已解決 | `handleResetAllData` 已清雲端全部：番茄(`updateSessions([])`)、金幣(`resetCoins`/`resetCoinLog`→push 0/[])、分類(`saveCategories(DEFAULT_CATEGORIES)`→推雲)、覆盤(`clearReviewsCloud()`)；重置後雲端＝番茄空/金幣0/記錄空/分類預設/覆盤空，不再被拉回。 |
+| ~~reset 未清雲端~~ ✅ 已解決 | 清除記錄／重置：先合併墓碑再批次刪雲端 sessions，**不得** `updateDeletedUuids([])`。重置用 `clearAllAppData`＋`pushAllAppStateToCloud`，await 後 reload。 |
 | ~~分類尚未上雲~~ ✅ 已完成 | 分類沿用 app_state 單例 `key="categories"`，`saveCategories` 推雲＋`App` 訂閱刷新（番茄/金幣/分類全上雲）。 |
 | 技術債 #1 班別硬寫死 | ✅ **S3 班別使用者化完成**（S3-1~3c-2）：資料化、上雲、跨店 picks、重疊擋、時間/名稱/顏色可編、場所/班別增刪、pick 存班別 id、`findShift` 只認 id、孤兒 `reconcileDayPlans`、`ShiftDef.days` 可上班日閘門、單段時間隱藏 per-range 日子鈕（`rangeForDay` 單段套用所有可上班日）、WorkplaceManager「重設為預設」救援鈕。**剩**：⬜ S3-3d 單次微調（邊緣）。 |
 | ~~工作場所顏色綁分類名~~ ✅ 已解 | 3c-1b 顏色已解綁存入 `workplace.color`（`colorSeeded` 種子＋`placeColor`/`VerticalTimeline` 優先讀 color），改名不掉色。註：工作場所色與分類色現為兩套，logged 兼差時間色仍走 `CAT.cat2Color`。 |
@@ -701,12 +701,13 @@ TH.gold    = "#FBBF24"   // 金幣
   - `sessions.test.ts` — 跨午夜切段／手動補番茄／`setSessionTimes`
   - `analytics.test.ts` — `distributeAndFilter` 篩選只留選取分攤額／未指定{維度名}／未分類區分／有無篩選不變式／舊資料 resolveCatIds／matchesTagSelection 聯集交集／日期字串鎖死
   - `tagStats.test.ts` — splitMinutesByGroup 60→30/30、50→[17,17,16]、40→[14,13,13]、總和恆等不變式、只分攤指定群組（含「難」不參與領域）、已刪除仍分攤、日期字串鎖死不用 new Date()
-  - `sessionsCloud.test.ts` — `mergeSessionsWithTombstones` 墓碑防復活
+  - `sessionsCloud.test.ts` — `mergeSessionsWithTombstones` 墓碑防復活；`mergeDeletedSessionUuids` 清除記錄墓碑含全部 uuid
   - `today.test.ts` — `buildTodayBlocks`（重疊不裁決、便利貼覆蓋、空資料回退、未來日期週三鎖死時區）
   - `todos.test.ts` — 待辦墓碑防復活、同名不同 id、normalize deadline／endDate／estimateHours／doneDate／doneTime、updatedAt LWW、todoShowsOn 跨日含首尾（不受 doneDate 影響）、挪 date 不改 deadline、applyTodoComplete／Uncomplete 完成日語意、resolveDoneDate（hint vs 今天）、resolveDoneTime（僅今天自動填）、doneLabel 三態＋時間（日期字串鎖死、不用 Date.now()）
   - `todosApi.test.ts` — `computeAlert` 門檻／過期／無期限、`todoInWindow` 跨日交集與僅 deadline 命中（nowIso 字串鎖死）
   - `freeSlots.test.ts` — `availableSegmentsWith`／`toFreeSlots`：全空整天、作息切段邊界、班別∪作息聯集、minMinutes 濾碎片、`"24:00"`=1440、空檔＋佔用＝視窗長不變式（日期字串鎖死、不用 Date.now()）
   - `tagSelect.test.ts` — canStart／missingRequired、combo 去重上限 5、toggle 取消、`tagLeafLabel` 最深層／空＝未分類／已刪、`groupTitleLabel` 必填+多選／皆否
+  - `tagTree.test.ts` — 樹操作／成環／`sortGroupsForSelector` 必填置頂／`childrenOfForPicker` 未分類釘根層最前
   - `accountOwner.test.ts` — `clearAllAppData` 列舉鍵皆刪、非 FlowLife 鍵保留；`shouldWipe` 四組合（相同／不同有資料／未登入／首次無資料）
   - `utils.test.ts` — `fmtIdleHM` 精簡時分；`moveItem` from→to（含 from===to、頭尾互換、不改 id）
 - CI：`.github/workflows/ci.yml`（push／PR → main；`npm ci` → `tsc` → `npm test`）
@@ -720,5 +721,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/09/17（Z4 修正：篩選只計入選取標籤分攤額＋未指定{維度名}）*
+*最後更新：2026/09/18（緊急：清除記錄寫墓碑＋維度同步 meta 先蓋戳＋選擇器必填置頂／未分類可見）*
 *維護原則：每次完成重要功能，同步更新第十、十一、十二節*

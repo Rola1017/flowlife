@@ -20,16 +20,16 @@ export function loadTags(): Tag[] {
   return Array.isArray(data) ? data : [];
 }
 
-export function saveTagGroups(data: TagGroup[]): void {
+export function saveTagGroups(data: TagGroup[]): Promise<boolean> {
   saveJSON(LS_KEYS.tagGroups, data);
   notifyAppState(APP_STATE_KEYS.tagGroups);
-  void pushAppState(APP_STATE_KEYS.tagGroups, data);
+  return pushAppState(APP_STATE_KEYS.tagGroups, data);
 }
 
-export function saveTags(data: Tag[]): void {
+export function saveTags(data: Tag[]): Promise<boolean> {
   saveJSON(LS_KEYS.tags, data);
   notifyAppState(APP_STATE_KEYS.tags);
-  void pushAppState(APP_STATE_KEYS.tags, data);
+  return pushAppState(APP_STATE_KEYS.tags, data);
 }
 
 export function isDomainTagsMigrated(groups: TagGroup[] = loadTagGroups(), tags: Tag[] = loadTags()): boolean {

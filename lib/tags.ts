@@ -63,6 +63,12 @@ export function resolveIsTimeDestination(g: Pick<TagGroup, "id" | "isTimeDestina
 
 export const DELETED_TAG_LABEL = "已刪除的標籤";
 
+/** 領域根層「未分類」：真實可選標籤（id 沿用 DEFAULT_CATEGORIES）。管理頁禁止刪除根節點；選擇器必須顯示且可選。 */
+export const UNCATEGORIZED_TAG_NAME = "未分類";
+export function isUncategorizedRoot(t: Pick<Tag, "name" | "parentId">): boolean {
+  return t.name === UNCATEGORIZED_TAG_NAME && !t.parentId;
+}
+
 export const DEFAULT_ATTR_TAGS: Tag[] = [
   { id: "tg_diff_hard", groupId: TAG_GROUP_IDS.difficulty, name: "難", order: 0 },
   { id: "tg_diff_normal", groupId: TAG_GROUP_IDS.difficulty, name: "普通", order: 1 },

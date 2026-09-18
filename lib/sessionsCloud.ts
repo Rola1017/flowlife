@@ -130,6 +130,49 @@ export async function deleteSessionCloud(uuid: string): Promise<boolean> {
   return reportCloudWriteResult("sessions", "delete", { error }, uuid);
 }
 
+export function collectSessionUuids(rows: { uuid?: string }[]): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const s of rows) {
+    if (!s.uuid || seen.has(s.uuid)) continue;
+    seen.add(s.uuid);
+    out.push(s.uuid);
+  }
+  return out;
+}
+
+/** 合併墓碑：已有的保留 at，新 uuid 補上。純函式。 */
+export function mergeDeletedSessionUuids(
+  existing: { uuid: string; at: string }[],
+  uuids: string[],
+  at: string,
+): { uuid: string; at: string }[] {
+  const map = new Map<string, { uuid: string; at: string }>();
+  for (const d of existing) {
+    if (d?.uuid) map.set(d.uuid, d);
+  }
+  for (const uuid of uuids) {
+    if (!uuid || map.has(uuid)) continue;
+    map.set(uuid, { uuid, at });
+  }
+  return [...map.values()];
+}
+
+/** 批次從雲端刪番茄（chunks of 100）。未登入＝沒有雲端可刪，視為成功。 */
+export async function deleteSessionsCloud(uuids: string[]): Promise<boolean> {
+  const uniq = collectSessionUuids(uuids.map((uuid) => ({ uuid })));
+  if (!uniq.length) return true;
+  const uid = await getUid();
+  if (!uid) return true;
+  let ok = true;
+  for (let i = 0; i < uniq.length; i += 100) {
+    const chunk = uniq.slice(i, i + 100);
+    const { error } = await sb().from("sessions").delete().eq("user_id", uid).in("uuid", chunk);
+    if (!reportCloudWriteResult("sessions", "delete", { error })) ok = false;
+  }
+  return ok;
+}
+
 /** 墓碑集合：本機＋雲端 trashed_sessions／deleted_session_uuids（自給自足，不依賴 app_state sync 先跑） */
 async function tombstoneSet(uid: string): Promise<Set<string>> {
   const set = new Set<string>();

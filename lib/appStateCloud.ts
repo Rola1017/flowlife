@@ -104,12 +104,15 @@ export function notifyAppState(key: string) {
   emit(key);
 }
 
-/** 推單包到雲端（(user_id,key) 為主鍵 upsert） */
+/** 推單包到雲端（(user_id,key) 為主鍵 upsert）
+ * 本機 meta 必須在 await getUid 之前蓋上，否則「本機已寫、雲端尚未 upsert」的空窗
+ * 會被 sync 判定成雲端較新而覆蓋掉剛新增的 tag_groups。
+ */
 export async function pushAppState(key: string, value: unknown): Promise<boolean> {
-  const uid = await getUid();
-  if (!uid) return false;
   const iso = new Date().toISOString();
   setMetaTs(key, iso);
+  const uid = await getUid();
+  if (!uid) return false;
   const { error } = await sb()
     .from("app_state")
     .upsert({ user_id: uid, key, value, updated_at: iso }, { onConflict: "user_id,key" });

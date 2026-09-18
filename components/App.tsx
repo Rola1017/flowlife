@@ -14,7 +14,7 @@ import {
 import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
 import { TABS } from "@/lib/tabs";
-import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
+import { LS_KEYS, loadJSON, saveJSON, clearAllAppData, COIN_LEDGER_MIGRATED_KEY } from "@/lib/storage";
 import { migrateCategoryIds, saveCategories, DEFAULT_CATEGORIES } from "@/lib/categories";
 import { ensureTagsMigrated } from "@/lib/tagsMigrate";
 import { clearReviewsCloud } from "@/lib/reviews";
@@ -23,8 +23,8 @@ import { patchReflection, setSessionMins, setSessionTimes, buildManualSession, s
 import { useReviewCloudSync } from "@/components/hooks/useReviewCloudSync";
 import { useSessionCloudSync } from "@/components/hooks/useSessionCloudSync";
 import { useAppStateCloudSync } from "@/components/hooks/useAppStateCloudSync";
-import { subscribeSessions, syncSessionDiffToCloud } from "@/lib/sessionsCloud";
-import { APP_STATE_KEYS, pushAppState, subscribeAppState } from "@/lib/appStateCloud";
+import { subscribeSessions, syncSessionDiffToCloud, collectSessionUuids, mergeDeletedSessionUuids, deleteSessionsCloud } from "@/lib/sessionsCloud";
+import { APP_STATE_KEYS, pushAppState, pushAllAppStateToCloud, subscribeAppState } from "@/lib/appStateCloud";
 import { ensureWorkplacesSeeded, ensureRoutineSeeded } from "@/lib/schedule";
 import { nextIdleTrackStart } from "@/lib/idle";
 import { Card } from "@/components/ui/Card";
@@ -456,21 +456,43 @@ function AppContent() {
   const push = (type: string, props: Record<string, unknown> = {}) => setSubPage({ type, props });
   const pop = () => setSubPage(null);
 
-  const clearFlowLifeStorage = () => {
-    if (typeof window === "undefined") return;
-    Object.keys(localStorage)
-      .filter((key) => key.startsWith("flowlife_"))
-      .forEach((key) => localStorage.removeItem(key));
+  /** 為即將清除的番茄寫墓碑並刪雲端。不得把墓碑清空，否則其他裝置會推回。 */
+  const tombstoneAndDeleteCloud = async (uuids: string[]) => {
+    const at = new Date().toISOString();
+    const tombs = mergeDeletedSessionUuids(
+      loadJSON<{ uuid: string; at: string }[]>(LS_KEYS.deletedSessionUuids, []),
+      uuids,
+      at,
+    );
+    saveJSON(LS_KEYS.deletedSessionUuids, tombs);
+    setDeletedUuids(tombs);
+    await pushAppState(APP_STATE_KEYS.deletedSessions, tombs);
+    await deleteSessionsCloud(uuids);
+    return tombs;
   };
 
-  const handleResetAllData = () => {
-    clearFlowLifeStorage();
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("flowlife_coin_ledger_migrated");
-    }
-    saveCategories(DEFAULT_CATEGORIES); // 分類重置為預設並推上雲，蓋掉雲端舊分類
-    ensureTagsMigrated(); // 清掉後重建領域標籤並推雲，避免舊 tags 被拉回
-    void clearReviewsCloud(); // 清掉雲端覆盤，避免下次同步被拉回
+  const collectLiveAndTrashUuids = () => {
+    const live = loadJSON<Session[]>(LS_KEYS.sessions, []).map(ensureSessionUuid);
+    const trash = loadJSON<Session[]>(LS_KEYS.trashedSessions, []).map((s) =>
+      s.uuid ? s : ensureSessionUuid(s),
+    );
+    return collectSessionUuids([...live, ...trash]);
+  };
+
+  const handleResetAllData = async () => {
+    const uuids = collectLiveAndTrashUuids();
+    const tombs = await tombstoneAndDeleteCloud(uuids);
+    await pushAppState(APP_STATE_KEYS.trashedSessions, []);
+    await pushAppState(APP_STATE_KEYS.coinLog, []);
+    await pushAppState(APP_STATE_KEYS.coins, 0);
+    await clearReviewsCloud();
+
+    clearAllAppData();
+
+    saveCategories(DEFAULT_CATEGORIES);
+    ensureTagsMigrated();
+    saveJSON(LS_KEYS.deletedSessionUuids, tombs);
+    await pushAllAppStateToCloud();
     resetCoinLog();
     setFocused(DEFAULT_RATINGS.focused);
     setNeutral(DEFAULT_RATINGS.neutral);
@@ -478,35 +500,42 @@ function AppContent() {
     setIdleTrackStart(null);
     setRestEndAt(null);
     resetTodos([]);
-    updateSessions([]);
-    updateTrashed([]);
-    updateDeletedUuids([]);
+    setSessions([]);
+    setTrashedSessions([]);
+    setDeletedUuids(tombs);
     setResetVersion((v) => v + 1);
     setTab("home");
     setSubPage(null);
     setEditTodoId(null);
+    if (typeof window !== "undefined") window.location.reload();
   };
 
-  const handleClearRecords = () => {
+  const handleClearRecords = async () => {
+    const uuids = collectLiveAndTrashUuids();
+    await tombstoneAndDeleteCloud(uuids);
+
+    saveJSON(LS_KEYS.sessions, []);
+    setSessions([]);
+    saveJSON(LS_KEYS.trashedSessions, []);
+    setTrashedSessions([]);
+    await pushAppState(APP_STATE_KEYS.trashedSessions, []);
+
     if (typeof window !== "undefined") {
-      [
-        LS_KEYS.sessions,
-        LS_KEYS.coinIncomeLog,
-        LS_KEYS.coins,
-        LS_KEYS.ratingCounts,
-      ].forEach((k) => localStorage.removeItem(k));
-      localStorage.removeItem("flowlife_coin_ledger_migrated");
+      localStorage.removeItem(LS_KEYS.ratingCounts);
+      localStorage.removeItem(COIN_LEDGER_MIGRATED_KEY);
     }
     resetCoinLog();
+    await pushAppState(APP_STATE_KEYS.coinLog, []);
+    saveJSON(LS_KEYS.coins, 0);
+    await pushAppState(APP_STATE_KEYS.coins, 0);
+
     setFocused(DEFAULT_RATINGS.focused);
     setNeutral(DEFAULT_RATINGS.neutral);
     setDistracted(DEFAULT_RATINGS.distracted);
     setIdleTrackStart(null);
     setRestEndAt(null);
-    updateSessions([]);
-    updateTrashed([]);
-    updateDeletedUuids([]);
     setResetVersion((v) => v + 1);
+    if (typeof window !== "undefined") window.location.reload();
   };
 
   const handleEditSessionMins = (id: number, newMins: number) => {

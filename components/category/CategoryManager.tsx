@@ -10,8 +10,9 @@ import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 import { APP_STATE_KEYS, subscribeAppState } from "@/lib/appStateCloud";
 import { ensureTagsMigrated } from "@/lib/tagsMigrate";
 import { loadTagGroups, loadTags, saveTagGroups, saveTags } from "@/lib/tagsStore";
+import { getCloudWriteFailures, alertIfPushFailed } from "@/lib/cloudWrite";
 import type { Tag, TagGroup } from "@/lib/tags";
-import { DELETED_TAG_LABEL, TAG_GROUP_IDS, isLockedGroup } from "@/lib/tags";
+import { DELETED_TAG_LABEL, TAG_GROUP_IDS, isLockedGroup, isUncategorizedRoot } from "@/lib/tags";
 import {
   addChildTag,
   addGroup,
@@ -432,12 +433,14 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
 
   const persistGroups = useCallback((next: TagGroup[]) => {
     setGroups(next);
-    saveTagGroups(next);
+    const before = getCloudWriteFailures().count;
+    void saveTagGroups(next).then((ok) => alertIfPushFailed(ok, before, "分類維度"));
   }, []);
 
   const persistTags = useCallback((next: Tag[]) => {
     setTags(next);
-    saveTags(next);
+    const before = getCloudWriteFailures().count;
+    void saveTags(next).then((ok) => alertIfPushFailed(ok, before, "標籤"));
     saveCategoriesOnly(categoriesFromDomainTags(next));
   }, []);
 
@@ -485,7 +488,7 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
   };
 
   const deleteTag = (tag: Tag) => {
-    if (tag.name === "未分類" && !tag.parentId) return;
+    if (isUncategorizedRoot(tag)) return;
     const counts = countTagsUsage([tag.id], tags, loadUsageData());
     const kids = tags.filter((t) => t.parentId === tag.id && !t.deletedAt).length;
     const extra = kids > 0 ? `刪除後其所有子孫也會一併軟刪除。` : "";
@@ -646,7 +649,7 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
                   +子
                 </button>
                 <HintDot text={HINT.addChild} />
-                {!(tag.name === "未分類" && !tag.parentId) && (
+                {!isUncategorizedRoot(tag) && (
                   <button type="button" onClick={() => deleteTag(tag)} style={{ ...btnSm, color: TH.red }}>
                     刪
                   </button>

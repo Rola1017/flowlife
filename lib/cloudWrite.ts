@@ -26,6 +26,17 @@ export function getCloudWriteFailures(): CloudWriteFailures {
   return { count, lastError };
 }
 
+/** push 回 false 且失敗計數有增加 → 真的寫入失敗（未登入不算）。必須被使用者看見。 */
+export function alertIfPushFailed(ok: boolean, beforeCount: number, what = "資料"): void {
+  if (ok) return;
+  if (typeof window === "undefined") return;
+  const fail = getCloudWriteFailures();
+  if (fail.count <= beforeCount) return;
+  window.alert(
+    `雲端寫入失敗${fail.lastError ? `：${fail.lastError}` : ""}。${what}已存本機，請檢查網路；設定頁可看同步狀態。`,
+  );
+}
+
 export function resetCloudWriteFailures() {
   count = 0;
   lastError = null;

@@ -6,7 +6,7 @@ import { resolveCatIds } from "@/lib/categories";
 import { Chip } from "@/components/ui/Chip";
 import { useTagsSnapshot } from "@/components/hooks/useTagsSnapshot";
 import type { Tag, TagGroup } from "@/lib/tags";
-import { childrenOf, liveGroups, liveTags } from "@/lib/tagTree";
+import { childrenOf, childrenOfForPicker, liveTags, sortGroupsForSelector } from "@/lib/tagTree";
 import {
   loadTagCombos,
   primaryTagColor,
@@ -62,7 +62,7 @@ export function CategorySelector({
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
 
-  const liveG = useMemo(() => liveGroups(groups), [groups]);
+  const liveG = useMemo(() => sortGroupsForSelector(groups), [groups]);
 
   const selected = useMemo(() => {
     if (tagIds?.length) return tagIds;
@@ -156,8 +156,8 @@ export function CategorySelector({
             onOpenPicker={() => {
               setSearch("");
               setPickerGroup(g.id);
-              const roots = childrenOf(tags, undefined, g.id);
-              setExpanded(new Set(roots.map((t) => t.id)));
+              // 收合所有根：展開學習等大會把「未分類」埋到樹底
+              setExpanded(new Set());
             }}
           />
         ) : (
@@ -572,7 +572,7 @@ function TreeNodes({
   onPick: (id: string) => void;
 }) {
   if (depth > 20) return null;
-  const kids = childrenOf(tags, parentId, groupId);
+  const kids = childrenOfForPicker(tags, parentId, groupId);
   return (
     <>
       {kids.map((t) => {

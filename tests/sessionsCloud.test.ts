@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergeSessionsWithTombstones } from "@/lib/sessionsCloud";
+import { mergeDeletedSessionUuids, mergeSessionsWithTombstones } from "@/lib/sessionsCloud";
 import type { Session } from "@/lib/types";
 
 function s(partial: Partial<Session> & { uuid: string }): Session {
@@ -60,5 +60,20 @@ describe("mergeSessionsWithTombstones（防復活）", () => {
     expect(toPush.map((x) => x.uuid)).toContain("new-local");
     expect(toDeleteFromCloud).toEqual([]);
     expect(merged.map((x) => x.uuid)).toContain("new-local");
+  });
+});
+
+describe("mergeDeletedSessionUuids（清除記錄墓碑）", () => {
+  it("墓碑集合包含所有被清除的 uuid，既有 at 不覆寫", () => {
+    const existing = [{ uuid: "old", at: "2026-01-01T00:00:00.000Z" }];
+    const next = mergeDeletedSessionUuids(
+      existing,
+      ["a", "b", "old", "a"],
+      "2026-09-18T00:00:00.000Z",
+    );
+    expect(next.map((d) => d.uuid).sort()).toEqual(["a", "b", "old"]);
+    expect(next.find((d) => d.uuid === "old")?.at).toBe("2026-01-01T00:00:00.000Z");
+    expect(next.find((d) => d.uuid === "a")?.at).toBe("2026-09-18T00:00:00.000Z");
+    expect(next.find((d) => d.uuid === "b")?.at).toBe("2026-09-18T00:00:00.000Z");
   });
 });

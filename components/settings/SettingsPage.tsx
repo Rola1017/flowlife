@@ -16,12 +16,13 @@ export function SettingsPage({
   onClearRecords,
 }: {
   onBack: () => void;
-  onResetAllData: () => void;
+  onResetAllData: () => void | Promise<void>;
   onResetTodos: (todos: Partial<Todo>[]) => void;
-  onClearRecords: () => void;
+  onClearRecords: () => void | Promise<void>;
 }) {
   const [confirming, setConfirming] = useState(false);
   const [clearingRecords, setClearingRecords] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [inspect, setInspect] = useState<SessionCloudStatus | null>(null);
   const [inspecting, setInspecting] = useState(false);
 
@@ -88,10 +89,12 @@ export function SettingsPage({
         <div style={{ color: TH.muted, fontSize: 11, lineHeight: 1.5, marginBottom: 12 }}>
           只清除番茄紀錄、金幣收支、評分與未利用時間統計。
           保留你的分類設定、課表、班別。適合清掉測試資料、重新開始記錄。
+          這會同時清除雲端資料，所有裝置都會消失，且無法復原。
         </div>
         {!clearingRecords ? (
           <button
             type="button"
+            disabled={busy}
             onClick={() => setClearingRecords(true)}
             style={{
               width: "100%",
@@ -102,7 +105,7 @@ export function SettingsPage({
               color: TH.yellow,
               fontSize: 13,
               fontWeight: 900,
-              cursor: "pointer",
+              cursor: busy ? "not-allowed" : "pointer",
             }}
           >
             清除番茄/金幣記錄
@@ -110,13 +113,14 @@ export function SettingsPage({
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <div style={{ color: TH.yellow, fontSize: 12, fontWeight: 800, textAlign: "center" }}>
-              確認清除所有番茄/金幣記錄？（設定會保留）
+              這會同時清除雲端資料，所有裝置都會消失，且無法復原。確定？
             </div>
             <button
               type="button"
+              disabled={busy}
               onClick={() => {
-                onClearRecords();
-                setClearingRecords(false);
+                setBusy(true);
+                void Promise.resolve(onClearRecords()).finally(() => setBusy(false));
               }}
               style={{
                 width: "100%",
@@ -127,10 +131,10 @@ export function SettingsPage({
                 color: "#000",
                 fontSize: 13,
                 fontWeight: 900,
-                cursor: "pointer",
+                cursor: busy ? "not-allowed" : "pointer",
               }}
             >
-              確認清除記錄
+              {busy ? "清除中…" : "確認清除記錄"}
             </button>
             <button
               type="button"
@@ -164,7 +168,7 @@ export function SettingsPage({
             marginBottom: 12,
           }}
         >
-          ⚠️ 重置後會清空所有 FlowLife 本機資料，包含待辦、番茄紀錄、金幣、評分、休息與未利用時間統計。此操作無法復原。
+          ⚠️ 重置後會清空所有 FlowLife 本機＋雲端資料，包含待辦、番茄紀錄、金幣、評分、休息與未利用時間統計。這會同時清除雲端資料，所有裝置都會消失，且無法復原。
         </div>
 
         {!confirming ? (
@@ -190,14 +194,16 @@ export function SettingsPage({
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <div style={{ color: TH.yellow, fontSize: 12, fontWeight: 800, textAlign: "center" }}>
-              請再次確認：真的要刪除所有本機資料？
+              這會同時清除雲端資料，所有裝置都會消失，且無法復原。確定？
             </div>
             <button
               className="flowlife-pressable"
               type="button"
+              disabled={busy}
               onClick={() => {
+                setBusy(true);
                 onResetTodos([]);
-                onResetAllData();
+                void Promise.resolve(onResetAllData()).finally(() => setBusy(false));
               }}
               style={{
                 width: "100%",
@@ -208,11 +214,11 @@ export function SettingsPage({
                 color: "#fff",
                 fontSize: 13,
                 fontWeight: 900,
-                cursor: "pointer",
+                cursor: busy ? "not-allowed" : "pointer",
                 transition: "transform .12s, filter .12s",
               }}
             >
-              確認重置，清空所有資料
+              {busy ? "重置中…" : "確認重置，清空所有資料"}
             </button>
             <button
               type="button"
