@@ -397,6 +397,7 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ## 十、已完成功能 ✅
 
+- **課表行事曆點擊／選課面板／回本週／登出強制同步／課程 id（2026-09-20）**：週切換改為 pointermove 達水平門檻才 `setPointerCapture`（根因：pointerdown 就 capture 吃掉電腦 click）；可點元素 `stopPropagation`。行事曆選課改重用抽出的 `CourseEditPanel`（模板同一套）。非本週顯示「今」。`AuthPanel` 登出先 `flushLocalToCloud(8000)`，逾時才問。`CourseInfo.id?`＋`ensureCourseIds` 冪等補發（App 啟動 migration）、複製整天發新 id。App 比照 `bumpCat` 訂閱 `week_schedule`／`day_overrides`／`day_plans`。
 - **課表分頁（週切換行事曆＋常用模板，2026-09-18）**：底部 TABS 新增「📋 課表」（主頁不動）。預設「課表行事曆」（本週，‹ ›／標題列 Pointer 滑動換週；格線 `data-no-week-swipe` 橫捲不換週）。「課表常用模板」＝原 `SchedulePage`（week_schedule／day_plans，含班表 chips），只改標題與入口。行事曆改動／三顆休假快捷一律寫 `day_overrides`（`applyDayVacation`／`restoreDayToTemplate`），不動模板；override 日橘點＋虛線標記。共用 `ScheduleBoard`。時段頁「📅 課表」改切底部課表分頁。登出登入仍走既有 `saveDayOverrides` 上雲。
 - **緊急修復（2026-09-18）**：①清除番茄記錄／重置全部改為先寫 `deleted_session_uuids` 墓碑再 `deleteSessionsCloud`、金幣／垃圾桶一併推空雲端，**await 完成後才 reload**；重置改走 `clearAllAppData()`（禁止 `flowlife_` 前綴迴圈）；確認文案明示「會同時清除雲端、所有裝置、無法復原」。②`pushAppState` 改為先 `setMetaTs` 再 `getUid`，避免新增 `tag_groups` 被舊雲端覆蓋；`saveTagGroups`/`saveTags` 改回傳 Promise，失敗走 `alertIfPushFailed`。③選擇器三處共用 `sortGroupsForSelector`（必填維度置頂、其餘依 order）；領域 picker 預設收合＋根層「未分類」釘最前（真實可選標籤，管理頁僅禁止刪根節點）。
 - 元件拆分（33個檔案）
@@ -681,7 +682,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - ⬜ **觸控相容性盤點清單**（見本批 Cursor 回報），待逐項處理。✅ 觸控-1（下拉 Pointer＋hover）已完成。
 - ⬜ **觸控-2**：全庫 `title=` 共 10 處改用共用「長按看說明」氣泡元件（Tip）。
 - ⬜ **【待測・需 Capacitor App 版】某日詳情頁左右滑動切換日期**：①背景：網頁版無法測試滑動手勢，需打包成 App 後驗證 ②操作：開啟 FlowLife App → 底部『行事曆』→ 點任一天進入該日詳情頁 → 在頁面空白處用手指由右往左滑 ③過：日期切換到後一天，內容同步更新；由左往右滑切換到前一天；手指上下滑時頁面正常捲動、日期不變 ④沒過：滑動無反應，或上下捲動時日期被誤切換 → 回報是哪一種。
-- ⬜ **【待測・需真機】課表行事曆：格子橫捲 vs 標題列換週**：①操作：底部『課表』→ 在課表格子裡左右滑應只捲內容、週區間不變；在標題列（或格線外）左右滑／點 ‹ › 應切週 ②過：兩者不互相干擾 ③沒過：格子裡滑卻換週，或標題列滑不動。
+- ⬜ **【待測・需真機】課表行事曆：格子橫捲 vs 標題列換週**：①操作：底部『課表』→ 在課表格子裡左右滑應只捲內容、週區間不變；在標題列（或格線外）左右滑／點 ‹ › 應切週 ②過：兩者不互相干擾 ③沒過：格子裡滑卻換週，或標題列滑不動。**2026-09-20 已改為 move 達門檻才 capture**，電腦點擊應已修好；手機滑動需再驗一次。
 
 ---
 
@@ -699,7 +700,7 @@ TH.gold    = "#FBBF24"   // 金幣
   - `overlap.test.ts` — `spansOverlap`／`findOverlaps`：相鄰不重疊、包含、部分重疊、完全相同；datetime-local 與 `"24:00"`；日期字串鎖死、不用 new Date()
   - `idle.test.ts` — 未利用 subtract 夾窗（防延伸到不可用時段）＋ `inAvailableWindow`
   - `schedule.test.ts` — 時段重疊／`currentScheduleBlock`／`hi` 保留
-  - `scheduleWeek.test.ts` — `resolveDayView` override vs 模板、休假快捷只寫 override、恢復清 override、週一為首區間、日期字串鎖死不用 `new Date()`
+  - `scheduleWeek.test.ts` — `resolveDayView` override vs 模板、休假快捷只寫 override、恢復清 override、週一為首區間、回本週目標、`ensureCourseIds`/`stampCourseIds` 冪等、複製整天發新 id、改名改時 id 不變、日期字串鎖死不用 `new Date()`
   - `categories.test.ts` — `catPath`／`matchesCatSelection` 不重複計、`CAT.cat1Emoji`／`cat1Display`
   - `sessions.test.ts` — 跨午夜切段／手動補番茄／`setSessionTimes`
   - `analytics.test.ts` — `distributeAndFilter` 篩選只留選取分攤額／未指定{維度名}／未分類區分／有無篩選不變式／舊資料 resolveCatIds／matchesTagSelection 聯集交集／日期字串鎖死

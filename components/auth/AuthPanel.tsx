@@ -5,7 +5,6 @@ import { TH } from "@/lib/theme";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { clearAllAppData, clearOwnerUserId, loadOwnerUserId, saveOwnerUserId } from "@/lib/storage";
 import { flushLocalToCloud } from "@/lib/cloudFlush";
-import { inspectSessionCloudStatus } from "@/lib/sessionsCloud";
 
 const inputStyle = {
   background: "#15151B",
@@ -72,54 +71,45 @@ export function AuthPanel() {
     setPassword("");
   };
 
-  const finishSignOut = async () => {
+  const performSignOut = async () => {
     setLoading(true);
-    const flushed = await flushLocalToCloud(5000);
-    if (flushed.timedOut) {
-      setMsg("同步逾時（5秒）。若仍登出，本機未上雲的資料會消失。");
-    }
     await supabase.auth.signOut();
     clearAllAppData();
     clearOwnerUserId();
     window.location.reload();
   };
 
+  const finishSignOut = async () => {
+    await performSignOut();
+  };
+
   const signOut = async () => {
     setLoading(true);
-    setMsg("");
-    const status = await inspectSessionCloudStatus();
-    const n = status.onlyLocalCount + status.failCount;
-    const unsynced = n > 0 || status.cloudUnreachable;
-    setLoading(false);
-    if (unsynced) {
-      const bits = [
-        status.onlyLocalCount > 0 ? `${status.onlyLocalCount} 筆番茄只在本機` : "",
-        status.failCount > 0 ? `${status.failCount} 筆寫入失敗` : "",
-        status.cloudUnreachable ? "雲端讀取失敗" : "",
-      ].filter(Boolean);
-      setLogoutWarn({ n: Math.max(n, 1), detail: bits.join("、") });
+    setMsg("同步中…");
+    setLogoutWarn(null);
+    const flushed = await flushLocalToCloud(8000);
+    if (flushed.timedOut) {
+      setLoading(false);
+      setMsg("");
+      setLogoutWarn({ n: 1, detail: "全量推送逾時 8 秒" });
       return;
     }
+    setLoading(false);
+    setMsg("");
     if (!window.confirm("登出會清除這台裝置上的本機資料（雲端資料保留）。確定登出？")) return;
-    await finishSignOut();
+    await performSignOut();
   };
 
   const retryThenRecheck = async () => {
     setLoading(true);
-    setMsg("");
-    const flushed = await flushLocalToCloud(5000);
+    setMsg("同步中…");
+    const flushed = await flushLocalToCloud(8000);
     if (flushed.timedOut) {
       setLoading(false);
-      setMsg("同步逾時（5秒），請檢查網路後再試，或仍要登出。");
+      setMsg("⚠️ 尚有資料未同步完成，仍要登出嗎？");
       return;
     }
-    const status = await inspectSessionCloudStatus();
     setLoading(false);
-    const n = status.onlyLocalCount + status.failCount;
-    if (n > 0 || status.cloudUnreachable) {
-      setMsg("仍有資料未上雲，請再試或仍要登出。");
-      return;
-    }
     setLogoutWarn(null);
     setMsg("✅ 已同步到雲端，可以登出");
   };
@@ -143,7 +133,7 @@ export function AuthPanel() {
             }}
           >
             <div style={{ fontSize: 11, color: TH.red, fontWeight: 800, lineHeight: 1.5 }}>
-              ⚠️ 有 {logoutWarn.n} 筆資料還沒同步到雲端（{logoutWarn.detail}），現在登出會遺失。建議先確認網路後重試，或仍要登出？
+              ⚠️ 尚有資料未同步完成，仍要登出嗎？
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button
@@ -206,7 +196,7 @@ export function AuthPanel() {
               cursor: loading ? "not-allowed" : "pointer",
             }}
           >
-            {loading ? "檢查同步…" : "登出"}
+            {loading ? "同步中…" : "登出"}
           </button>
         )}
         {msg && (

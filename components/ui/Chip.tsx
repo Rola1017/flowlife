@@ -1,4 +1,4 @@
-import { useRef, type CSSProperties } from "react";
+import { useRef, type CSSProperties, type PointerEvent } from "react";
 import { TH } from "@/lib/theme";
 
 export function Chip({
@@ -18,7 +18,8 @@ export function Chip({
 }) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longFired = useRef(false);
-  const start = () => {
+  const start = (e: PointerEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
     if (!onLongPress) return;
     longFired.current = false;
     timer.current = setTimeout(() => {

@@ -86,3 +86,7 @@ export function weekDatesFromMonday(mondayStr: string): string[] {
 export function weekRangeMd(mondayStr: string): string {
   return `${formatMd(mondayStr)} ~ ${formatMd(addDaysYmd(mondayStr, 6))}`;
 }
+
+export function isCurrentWeek(mondayStr: string, todayStr: string): boolean {
+  return mondayStr === mondayOfDateStr(todayStr);
+}

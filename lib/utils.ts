@@ -1,7 +1,7 @@
 import { CFG } from "@/lib/config";
 import { CAT } from "@/lib/categories";
 
-export { toLocalDateStr, shiftDateStr, formatYmdLabel, formatMd, mondayOfDateStr, weekDatesFromMonday, weekRangeMd, addDaysYmd } from "@/lib/dateStr";
+export { toLocalDateStr, shiftDateStr, formatYmdLabel, formatMd, mondayOfDateStr, weekDatesFromMonday, weekRangeMd, addDaysYmd, isCurrentWeek } from "@/lib/dateStr";
 
 export function toM(t: string) {
   const [h, m] = t.split(":").map(Number);

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerE
 import { TH } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { CFG } from "@/lib/config";
-import { LS_KEYS, loadJSON } from "@/lib/storage";
+import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 import { Card, SL } from "@/components/ui/Card";
 import {
   type CourseInfo,
@@ -26,12 +26,14 @@ import {
   shiftTimesOn,
   vacationClearCounts,
   weekdayOf,
+  newCourseId,
 } from "@/lib/schedule";
 import { subscribeAppState, APP_STATE_KEYS } from "@/lib/appStateCloud";
-import { mondayOfDateStr, weekDatesFromMonday, weekRangeMd, addDaysYmd, formatMd } from "@/lib/dateStr";
+import { mondayOfDateStr, weekDatesFromMonday, weekRangeMd, addDaysYmd, formatMd, isCurrentWeek } from "@/lib/dateStr";
 import { toM } from "@/lib/utils";
 import { ScheduleBoard } from "./ScheduleBoard";
 import { buildScheduleRows, halfSlotsOf, inFixedSlot } from "./scheduleGridModel";
+import { CourseEditPanel, type CourseDraft, type CourseHistoryItem } from "./CourseEditPanel";
 
 const CORE_S = toM("06:00");
 const CORE_E = toM("23:00");
@@ -72,9 +74,13 @@ function shouldIgnoreWeekSwipe(target: EventTarget | null, root: EventTarget | n
   return false;
 }
 
-type Draft = { name: string; cat1: string; cat2: string; cat3: string; color: string };
+type Draft = CourseDraft;
 
-export function ScheduleWeekPage() {
+function stopSwipe(e: { stopPropagation: () => void }) {
+  e.stopPropagation();
+}
+
+export function ScheduleWeekPage({ onShowCategoryManager }: { onShowCategoryManager?: () => void }) {
   const [monday, setMonday] = useState(() => mondayOfDateStr(CFG.TODAY_STR));
   const [week, setWeek] = useState<Record<string, CourseInfo[]>>(() =>
     loadJSON<Record<string, CourseInfo[]>>(LS_KEYS.weekSchedule, {}),
@@ -86,9 +92,12 @@ export function ScheduleWeekPage() {
   const [expandEarly, setExpandEarly] = useState(false);
   const [expandLate, setExpandLate] = useState(false);
   const [dayPanel, setDayPanel] = useState<string | null>(null);
-  const [edit, setEdit] = useState<{ date: string; time: string; draft: Draft } | null>(null);
+  const [edit, setEdit] = useState<{ date: string; time: string; draft: Draft; courseId?: string } | null>(null);
+  const [history, setHistory] = useState<CourseHistoryItem[]>(() =>
+    loadJSON<CourseHistoryItem[]>(LS_KEYS.scheduleHistory, []),
+  );
   const editWarned = useRef(false);
-  const swipeRef = useRef<{ x: number; y: number; id: number; ignore: boolean } | null>(null);
+  const swipeRef = useRef<{ x: number; y: number; id: number; ignore: boolean; captured: boolean } | null>(null);
 
   const dates = useMemo(() => weekDatesFromMonday(monday), [monday]);
 
@@ -191,6 +200,7 @@ export function ScheduleWeekPage() {
     setEdit({
       date,
       time,
+      courseId: cell?.id,
       draft: cell
         ? { name: cell.n, cat1: cell.cat1, cat2: cell.cat2, cat3: cell.cat3, color: cell.color ?? "" }
         : { name: "", cat1: "學習", cat2: "", cat3: "", color: "" },
@@ -201,12 +211,33 @@ export function ScheduleWeekPage() {
     if (!edit) return;
     const cur = seedOverride(edit.date);
     const baseCourses = cur.courses !== undefined ? cur.courses : [...(resolved[edit.date]?.courses ?? [])];
+    const existing = baseCourses.find((c) => c.t === edit.time);
     const rest = baseCourses.filter((c) => c.t !== edit.time);
     const d = edit.draft;
     const nextCourses = d.cat1
-      ? [...rest, { t: edit.time, n: d.name, cat1: d.cat1, cat2: d.cat2, cat3: d.cat3, color: d.color || undefined }]
+      ? [
+          ...rest,
+          {
+            id: existing?.id ?? edit.courseId ?? newCourseId(),
+            t: edit.time,
+            n: d.name,
+            cat1: d.cat1,
+            cat2: d.cat2,
+            cat3: d.cat3,
+            color: d.color || undefined,
+          },
+        ]
       : rest;
     writeDay(edit.date, { ...cur, courses: nextCourses });
+    if (d.cat1) {
+      setHistory((prev) => {
+        const key = (h: CourseHistoryItem) => `${h.name}|${h.cat1}|${h.cat2}|${h.cat3}`;
+        const item = { name: d.name, cat1: d.cat1, cat2: d.cat2, cat3: d.cat3, color: d.color || undefined };
+        const next = [item, ...prev.filter((h) => key(h) !== key(item))].slice(0, 10);
+        saveJSON(LS_KEYS.scheduleHistory, next);
+        return next;
+      });
+    }
     setEdit(null);
   };
 
@@ -237,19 +268,26 @@ export function ScheduleWeekPage() {
   const onSwipeDown = (e: PointerEvent<HTMLDivElement>) => {
     if (e.pointerType === "mouse" && e.button !== 0) return;
     const ignore = shouldIgnoreWeekSwipe(e.target, e.currentTarget);
-    swipeRef.current = { x: e.clientX, y: e.clientY, id: e.pointerId, ignore };
-    if (!ignore) {
-      try {
-        e.currentTarget.setPointerCapture(e.pointerId);
-      } catch {
-        /* 非信任事件 */
-      }
+    swipeRef.current = { x: e.clientX, y: e.clientY, id: e.pointerId, ignore, captured: false };
+  };
+  const onSwipeMove = (e: PointerEvent<HTMLDivElement>) => {
+    const s = swipeRef.current;
+    if (!s || s.ignore || e.pointerId !== s.id || s.captured) return;
+    const dx = e.clientX - s.x;
+    const dy = e.clientY - s.y;
+    if (Math.abs(dx) <= SWIPE_MIN_PX) return;
+    if (Math.abs(dx) <= Math.abs(dy) * SWIPE_H_RATIO) return;
+    s.captured = true;
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* 非信任事件 */
     }
   };
   const onSwipeUp = (e: PointerEvent<HTMLDivElement>) => {
     const s = swipeRef.current;
     swipeRef.current = null;
-    if (!s || s.ignore || e.pointerId !== s.id) return;
+    if (!s || s.ignore || !s.captured || e.pointerId !== s.id) return;
     const dx = e.clientX - s.x;
     const dy = e.clientY - s.y;
     if (Math.abs(dx) <= SWIPE_MIN_PX) return;
@@ -259,25 +297,23 @@ export function ScheduleWeekPage() {
     setEdit(null);
   };
 
-  const cat2Options = edit?.draft.cat1 ? CAT.cat2List(edit.draft.cat1) : [];
-  const cat3Options = edit?.draft.cat1 && edit.draft.cat2 ? CAT.cat3List(edit.draft.cat1, edit.draft.cat2) : [];
   const panelResolved = dayPanel ? resolved[dayPanel] : null;
   const panelCounts = panelResolved ? vacationClearCounts(panelResolved) : { shifts: 0, courses: 0 };
+  const thisMonday = mondayOfDateStr(CFG.TODAY_STR);
+  const onThisWeek = isCurrentWeek(monday, CFG.TODAY_STR);
 
   return (
     <div
       style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", minWidth: 0, boxSizing: "border-box" }}
       onPointerDown={onSwipeDown}
-      onPointerMove={() => {
-        /* 垂直捲動不擋；水平判定在 pointerup */
-      }}
+      onPointerMove={onSwipeMove}
       onPointerUp={onSwipeUp}
       onPointerCancel={() => {
         swipeRef.current = null;
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, width: "100%", boxSizing: "border-box" }}>
-        <button type="button" aria-label="上一週" onClick={() => setMonday((m) => addDaysYmd(m, -7))} style={navHit}>
+        <button type="button" aria-label="上一週" onPointerDown={stopSwipe} onClick={() => setMonday((m) => addDaysYmd(m, -7))} style={navHit}>
           ‹
         </button>
         <div
@@ -295,7 +331,20 @@ export function ScheduleWeekPage() {
         >
           {weekRangeMd(monday)}
         </div>
-        <button type="button" aria-label="下一週" onClick={() => setMonday((m) => addDaysYmd(m, 7))} style={navHit}>
+        <div style={{ width: 44, height: 44, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          {!onThisWeek && (
+            <button
+              type="button"
+              aria-label="回本週"
+              onPointerDown={stopSwipe}
+              onClick={() => setMonday(thisMonday)}
+              style={{ ...navHit, fontSize: 12, fontWeight: 800 }}
+            >
+              今
+            </button>
+          )}
+        </div>
+        <button type="button" aria-label="下一週" onPointerDown={stopSwipe} onClick={() => setMonday((m) => addDaysYmd(m, 7))} style={navHit}>
           ›
         </button>
       </div>
@@ -307,6 +356,7 @@ export function ScheduleWeekPage() {
       </div>
 
       {dayPanel && panelResolved && (
+        <div onPointerDown={stopSwipe}>
         <Card>
           <SL>
             {formatMd(dayPanel)}（{panelResolved.weekday}）
@@ -315,6 +365,7 @@ export function ScheduleWeekPage() {
           {panelResolved.isOverride && (
             <button
               type="button"
+              onPointerDown={stopSwipe}
               onClick={() => restore(dayPanel)}
               style={{
                 width: "100%",
@@ -353,81 +404,37 @@ export function ScheduleWeekPage() {
           </div>
           <button
             type="button"
+            onPointerDown={stopSwipe}
             onClick={() => setDayPanel(null)}
             style={{ marginTop: 8, background: "none", border: "none", color: TH.muted, fontSize: 11, cursor: "pointer" }}
           >
             關閉
           </button>
         </Card>
+        </div>
       )}
 
       {edit && (
-        <Card>
-          <SL>
-            編輯 {formatMd(edit.date)} {edit.time}
-          </SL>
-          <div style={{ fontSize: 10, color: TH.muted, marginBottom: 8 }}>{EDIT_TIP}</div>
-          <input
-            value={edit.draft.name}
-            onChange={(e) => setEdit({ ...edit, draft: { ...edit.draft, name: e.target.value } })}
-            placeholder="課名（可空）"
-            style={inputStyle}
-          />
-          <select
-            value={edit.draft.cat1}
-            onChange={(e) => setEdit({ ...edit, draft: { ...edit.draft, cat1: e.target.value, cat2: "", cat3: "" } })}
-            style={inputStyle}
-          >
-            {CAT.cat1List().map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-          {cat2Options.length > 0 && (
-            <select
-              value={edit.draft.cat2}
-              onChange={(e) => setEdit({ ...edit, draft: { ...edit.draft, cat2: e.target.value, cat3: "" } })}
-              style={inputStyle}
-            >
-              <option value="">—</option>
-              {cat2Options.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          )}
-          {cat3Options.length > 0 && (
-            <select
-              value={edit.draft.cat3}
-              onChange={(e) => setEdit({ ...edit, draft: { ...edit.draft, cat3: e.target.value } })}
-              style={inputStyle}
-            >
-              <option value="">—</option>
-              {cat3Options.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          )}
-          <div style={{ display: "flex", gap: 8 }}>
-            <button type="button" onClick={saveCell} style={{ ...vacBtn, flex: 1, background: TH.accent, color: "#000", border: "none" }}>
-              儲存（只改這一天）
-            </button>
-            <button type="button" onClick={clearCell} style={{ ...vacBtn, flex: 1, color: TH.red, border: `1px solid ${TH.red}` }}>
-              清空此格
-            </button>
-            <button type="button" onClick={() => setEdit(null)} style={{ ...vacBtn, color: TH.muted }}>
-              取消
-            </button>
-          </div>
-        </Card>
+        <CourseEditPanel
+          title={
+            <>
+              編輯 {formatMd(edit.date)} {edit.time}
+            </>
+          }
+          hint={EDIT_TIP}
+          draft={edit.draft}
+          onChange={(draft) => setEdit({ ...edit, draft })}
+          history={history}
+          onShowCategoryManager={onShowCategoryManager}
+          saveLabel="儲存（只改這一天）"
+          onSave={saveCell}
+          onClear={clearCell}
+          onCancel={() => setEdit(null)}
+        />
       )}
 
       <div style={{ display: "flex", gap: 6 }}>
-        <button type="button" onClick={() => setExpandEarly((v) => !v)} style={tinyBtn(expandEarly)}>
+        <button type="button" onPointerDown={stopSwipe} onClick={() => setExpandEarly((v) => !v)} style={tinyBtn(expandEarly)}>
           {expandEarly ? "▲ 收合凌晨" : "▼ 展開凌晨 00:00–06:00"}
         </button>
       </div>
@@ -490,7 +497,7 @@ export function ScheduleWeekPage() {
       />
 
       <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-        <button type="button" onClick={() => setExpandLate((v) => !v)} style={tinyBtn(expandLate)}>
+        <button type="button" onPointerDown={stopSwipe} onClick={() => setExpandLate((v) => !v)} style={tinyBtn(expandLate)}>
           {expandLate ? "▲ 收合深夜" : "▼ 展開深夜 23:00–24:00"}
         </button>
       </div>
@@ -510,19 +517,6 @@ const vacBtn: CSSProperties = {
   fontWeight: 800,
   cursor: "pointer",
   boxSizing: "border-box",
-};
-
-const inputStyle: CSSProperties = {
-  width: "100%",
-  minWidth: 0,
-  boxSizing: "border-box",
-  background: "#0A0A0C",
-  border: `1px solid ${TH.border}`,
-  borderRadius: 8,
-  padding: "8px 10px",
-  color: TH.text,
-  fontSize: 12,
-  marginBottom: 8,
 };
 
 function tinyBtn(active: boolean): CSSProperties {

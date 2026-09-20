@@ -4,8 +4,79 @@ import { pushAppState, APP_STATE_KEYS, notifyAppState } from "@/lib/appStateClou
 export type Place = string;
 export type DayPick = { place: Place; shift: string };
 export type DayPlan = { picks: DayPick[] };
-export type CourseInfo = { t: string; n: string; cat1: string; cat2: string; cat3: string; color?: string };
+export type CourseInfo = { id?: string; t: string; n: string; cat1: string; cat2: string; cat3: string; color?: string };
 export type DayOverride = { picks: DayPick[]; courses?: CourseInfo[] };
+
+export function newCourseId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `course_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+}
+
+export function stampCourseId<T extends { id?: string }>(c: T, newId: () => string = newCourseId): T {
+  return c.id ? c : { ...c, id: newId() };
+}
+
+/** 改時間／名稱／分類時必須保留 id */
+export function patchCourseKeepId(c: CourseInfo, patch: Partial<Omit<CourseInfo, "id">>): CourseInfo {
+  return { ...c, ...patch, id: c.id };
+}
+
+/** 複製整天課程：每格發新 id，不可與來源共用 */
+export function cloneCoursesForPaste(courses: CourseInfo[], newId: () => string = newCourseId): CourseInfo[] {
+  return courses.map((c) => ({ ...c, id: newId() }));
+}
+
+export function stampCourseIds(
+  week: Record<string, CourseInfo[]>,
+  overrides: Record<string, DayOverride>,
+  newId: () => string = newCourseId,
+): { week: Record<string, CourseInfo[]>; overrides: Record<string, DayOverride>; changed: boolean } {
+  let changed = false;
+  const nextWeek: Record<string, CourseInfo[]> = {};
+  for (const [day, rows] of Object.entries(week)) {
+    nextWeek[day] = rows.map((c) => {
+      if (c.id) return c;
+      changed = true;
+      return { ...c, id: newId() };
+    });
+  }
+  const nextOvs: Record<string, DayOverride> = {};
+  for (const [d, ov] of Object.entries(overrides)) {
+    if (!ov.courses) {
+      nextOvs[d] = ov;
+      continue;
+    }
+    nextOvs[d] = {
+      ...ov,
+      courses: ov.courses.map((c) => {
+        if (c.id) return c;
+        changed = true;
+        return { ...c, id: newId() };
+      }),
+    };
+  }
+  return { week: nextWeek, overrides: nextOvs, changed };
+}
+
+/** 冪等補發：沒有 id 才發；已有絕不覆寫。補發後存本地＋推雲。 */
+export function ensureCourseIds(newId: () => string = newCourseId): {
+  changed: boolean;
+  week: Record<string, CourseInfo[]>;
+  overrides: Record<string, DayOverride>;
+} {
+  const week = loadJSON<Record<string, CourseInfo[]>>(LS_KEYS.weekSchedule, {});
+  const overrides = loadDayOverrides();
+  const stamped = stampCourseIds(week, overrides, newId);
+  if (stamped.changed) {
+    saveJSON(LS_KEYS.weekSchedule, stamped.week);
+    notifyAppState(APP_STATE_KEYS.weekSchedule);
+    void pushAppState(APP_STATE_KEYS.weekSchedule, stamped.week);
+    saveDayOverrides(stamped.overrides);
+  }
+  return stamped;
+}
 
 export type ShiftRangeDef = { days: string[] | null; start: string; end: string };
 export type ShiftDef = { id: string; label: string; days: string[]; ranges: ShiftRangeDef[] };
@@ -204,6 +275,7 @@ function normalizeDayOverride(raw: unknown): DayOverride {
         cat2: String(x.cat2 ?? ""),
         cat3: String(x.cat3 ?? ""),
         color: typeof x.color === "string" ? x.color : undefined,
+        id: typeof x.id === "string" && x.id ? x.id : undefined,
       };
     });
     return { picks: base.picks, courses };

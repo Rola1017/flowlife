@@ -25,7 +25,7 @@ import { useSessionCloudSync } from "@/components/hooks/useSessionCloudSync";
 import { useAppStateCloudSync } from "@/components/hooks/useAppStateCloudSync";
 import { subscribeSessions, syncSessionDiffToCloud, collectSessionUuids, mergeDeletedSessionUuids, deleteSessionsCloud } from "@/lib/sessionsCloud";
 import { APP_STATE_KEYS, pushAppState, pushAllAppStateToCloud, subscribeAppState } from "@/lib/appStateCloud";
-import { ensureWorkplacesSeeded, ensureRoutineSeeded } from "@/lib/schedule";
+import { ensureWorkplacesSeeded, ensureRoutineSeeded, ensureCourseIds } from "@/lib/schedule";
 import { nextIdleTrackStart } from "@/lib/idle";
 import { Card } from "@/components/ui/Card";
 import { Header } from "@/components/Header";
@@ -193,6 +193,7 @@ function AppContent() {
     ensureTagsMigrated();
     ensureWorkplacesSeeded();
     ensureRoutineSeeded();
+    ensureCourseIds();
     updateSessions(loadJSON<Session[]>(LS_KEYS.sessions, []));
     const loadedTrash = loadJSON<Session[]>(LS_KEYS.trashedSessions, []);
     const cutoff = Date.now() - 30 * 86400000;
@@ -386,6 +387,21 @@ function AppContent() {
   const [, bumpRoutine] = useState(0);
   useEffect(
     () => subscribeAppState(APP_STATE_KEYS.routine, () => bumpRoutine((n) => n + 1)),
+    [],
+  );
+
+  // 課表／班表雲端同步回來 → 觸發重畫（比照 bumpCat；頁內另有 subscribe 重讀 LS）
+  const [schedRev, bumpSched] = useState(0);
+  useEffect(
+    () => subscribeAppState(APP_STATE_KEYS.weekSchedule, () => bumpSched((n) => n + 1)),
+    [],
+  );
+  useEffect(
+    () => subscribeAppState(APP_STATE_KEYS.dayOverrides, () => bumpSched((n) => n + 1)),
+    [],
+  );
+  useEffect(
+    () => subscribeAppState(APP_STATE_KEYS.dayPlans, () => bumpSched((n) => n + 1)),
     [],
   );
 
@@ -810,6 +826,7 @@ function AppContent() {
     ),
     schedule: () => (
       <ScheduleHub
+        key={schedRev}
         view={scheduleView}
         onChangeView={setScheduleView}
         onShowCategoryManager={() => push("categoryManager", { from: "schedule" })}

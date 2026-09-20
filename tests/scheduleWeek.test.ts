@@ -1,20 +1,31 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, beforeEach, vi } from "vitest";
 import {
   addDaysYmd,
   mondayOfDateStr,
   weekDatesFromMonday,
   weekRangeMd,
   weekdayMon0,
+  isCurrentWeek,
 } from "@/lib/dateStr";
 import {
   applyDayVacation,
+  cloneCoursesForPaste,
+  ensureCourseIds,
+  patchCourseKeepId,
   resolveDayView,
   restoreDayToTemplate,
+  stampCourseIds,
   vacationClearCounts,
   type CourseInfo,
   type DayOverride,
   type DayPlan,
 } from "@/lib/schedule";
+import { LS_KEYS, saveJSON } from "@/lib/storage";
+
+vi.mock("@/lib/appStateCloud", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/appStateCloud")>();
+  return { ...actual, pushAppState: async () => true };
+});
 
 const WED = "2026-09-16"; // 三
 const FRI = "2026-09-18"; // 五
@@ -168,5 +179,79 @@ describe("恢復成常用模板：清掉 override 後回到模板", () => {
     expect(v.isOverride).toBe(false);
     expect(v.courses).toEqual([COURSE_A]);
     expect(v.picks).toEqual([PICK_A]);
+  });
+});
+
+describe("回本週目標週", () => {
+  it("今天若在該週，monday 就是回本週的目標", () => {
+    expect(isCurrentWeek("2026-09-14", FRI)).toBe(true);
+    expect(isCurrentWeek("2026-09-21", FRI)).toBe(false);
+    expect(mondayOfDateStr(FRI)).toBe("2026-09-14");
+    expect(mondayOfDateStr("2026-09-21")).toBe("2026-09-21");
+  });
+});
+
+describe("課程穩定 id", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("stampCourseIds 冪等：第二次不改已有 id", () => {
+    let n = 0;
+    const newId = () => `id-${++n}`;
+    const week = { 一: [{ t: "09:00", n: "民法", cat1: "學習", cat2: "", cat3: "" }] };
+    const ovs: Record<string, DayOverride> = {
+      "2026-09-14": { picks: [], courses: [{ t: "10:00", n: "刑法", cat1: "學習", cat2: "", cat3: "" }] },
+    };
+    const a = stampCourseIds(week, ovs, newId);
+    expect(a.changed).toBe(true);
+    expect(a.week["一"][0].id).toBe("id-1");
+    expect(a.overrides["2026-09-14"].courses?.[0].id).toBe("id-2");
+    const b = stampCourseIds(a.week, a.overrides, newId);
+    expect(b.changed).toBe(false);
+    expect(b.week["一"][0].id).toBe("id-1");
+    expect(b.overrides["2026-09-14"].courses?.[0].id).toBe("id-2");
+    expect(n).toBe(2);
+  });
+
+  it("ensureCourseIds 執行兩次結果相同，已有 id 不被覆寫", () => {
+    saveJSON(LS_KEYS.weekSchedule, {
+      一: [{ t: "09:00", n: "民法", cat1: "學習", cat2: "", cat3: "", id: "keep-me" }],
+    });
+    saveJSON(LS_KEYS.dayOverrides, {
+      "2026-09-14": { picks: [], courses: [{ t: "10:00", n: "刑法", cat1: "學習", cat2: "", cat3: "" }] },
+    });
+    const a = ensureCourseIds(() => "new-only");
+    expect(a.week["一"][0].id).toBe("keep-me");
+    expect(a.overrides["2026-09-14"].courses?.[0].id).toBe("new-only");
+    expect(a.changed).toBe(true);
+    const b = ensureCourseIds(() => "should-not-apply");
+    expect(b.changed).toBe(false);
+    expect(b.week["一"][0].id).toBe("keep-me");
+    expect(b.overrides["2026-09-14"].courses?.[0].id).toBe("new-only");
+  });
+
+  it("複製整天課程 → 新格子 id 與原格子不同", () => {
+    const src: CourseInfo[] = [
+      { id: "src-a", t: "09:00", n: "民法", cat1: "學習", cat2: "", cat3: "" },
+      { id: "src-b", t: "10:00", n: "刑法", cat1: "學習", cat2: "", cat3: "" },
+    ];
+    let n = 0;
+    const pasted = cloneCoursesForPaste(src, () => `paste-${++n}`);
+    expect(pasted.map((c) => c.id)).toEqual(["paste-1", "paste-2"]);
+    expect(pasted[0].id).not.toBe(src[0].id);
+    expect(pasted[1].id).not.toBe(src[1].id);
+    expect(pasted[0].n).toBe("民法");
+    expect(src[0].id).toBe("src-a");
+  });
+
+  it("改課程時間或名稱後 id 不變", () => {
+    const c: CourseInfo = { id: "stable", t: "09:00", n: "民法", cat1: "學習", cat2: "", cat3: "" };
+    const renamed = patchCourseKeepId(c, { n: "民法總則" });
+    const retimed = patchCourseKeepId(renamed, { t: "14:00" });
+    expect(renamed.id).toBe("stable");
+    expect(retimed.id).toBe("stable");
+    expect(retimed.n).toBe("民法總則");
+    expect(retimed.t).toBe("14:00");
   });
 });

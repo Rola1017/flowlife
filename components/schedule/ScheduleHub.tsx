@@ -35,7 +35,7 @@ export function ScheduleHub({
         />
       </div>
       {view === "calendar" ? (
-        <ScheduleWeekPage />
+        <ScheduleWeekPage onShowCategoryManager={onShowCategoryManager} />
       ) : (
         <SchedulePage hideBack onShowCategoryManager={onShowCategoryManager} />
       )}
