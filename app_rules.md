@@ -397,7 +397,7 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ## 十、已完成功能 ✅
 
-- **habit-tracker18 批次 A（2026-09-20）**：「今」圓形黃圈（`TH.yellow` inset 陰影，navHit content-box／44×44 不動）；時段頁頂部「📅 課表」已移除，底部 📋 課表為唯一入口；時段重疊判斷收成 `lib/overlap.ts`（`rangeStrToSpan`／`rangeStrsOverlap`／`spansOverlap`），`timeRangesOverlap` 薄包裝，`pickOverlapsOn` 班別撞班共用；`architecture.test.ts` 守門 `.split("~")`。
+- **habit-tracker18 批次 A（2026-09-21）**：「今」圓形黃圈（`TH.yellow` inset 陰影，navHit content-box／44×44 不動）；時段頁頂部「📅 課表」已移除，底部 📋 課表為唯一入口；時段重疊判斷收成 `lib/overlap.ts`（`rangeStrToSpan`／`rangeStrsOverlap`／`spansOverlap`），`timeRangesOverlap` 薄包裝，`pickOverlapsOn` 班別撞班共用；`architecture.test.ts` 守門 `.split("~")`。
 - **課表行事曆點擊／選課面板／回本週／登出強制同步／課程 id（2026-09-20）**：週切換改為 pointermove 達水平門檻才 `setPointerCapture`（根因：pointerdown 就 capture 吃掉電腦 click）；可點元素 `stopPropagation`。行事曆選課改重用抽出的 `CourseEditPanel`（模板同一套）。非本週顯示「今」。`AuthPanel` 登出先 `flushLocalToCloud(8000)`，逾時才問。`CourseInfo.id?`＋`ensureCourseIds` 冪等補發（App 啟動 migration）、複製整天發新 id。App 比照 `bumpCat` 訂閱 `week_schedule`／`day_overrides`／`day_plans`。
 - **課表分頁（週切換行事曆＋常用模板，2026-09-18）**：底部 TABS 新增「📋 課表」（主頁不動）。預設「課表行事曆」（本週，‹ ›／標題列 Pointer 滑動換週；格線 `data-no-week-swipe` 橫捲不換週）。「課表常用模板」＝原 `SchedulePage`（week_schedule／day_plans，含班表 chips），只改標題與入口。行事曆改動／三顆休假快捷一律寫 `day_overrides`（`applyDayVacation`／`restoreDayToTemplate`），不動模板；override 日橘點＋虛線標記。共用 `ScheduleBoard`。時段頁「📅 課表」改切底部課表分頁。登出登入仍走既有 `saveDayOverrides` 上雲。
 - **緊急修復（2026-09-18）**：①清除番茄記錄／重置全部改為先寫 `deleted_session_uuids` 墓碑再 `deleteSessionsCloud`、金幣／垃圾桶一併推空雲端，**await 完成後才 reload**；重置改走 `clearAllAppData()`（禁止 `flowlife_` 前綴迴圈）；確認文案明示「會同時清除雲端、所有裝置、無法復原」。②`pushAppState` 改為先 `setMetaTs` 再 `getUid`，避免新增 `tag_groups` 被舊雲端覆蓋；`saveTagGroups`/`saveTags` 改回傳 Promise，失敗走 `alertIfPushFailed`。③選擇器三處共用 `sortGroupsForSelector`（必填維度置頂、其餘依 order）；領域 picker 預設收合＋根層「未分類」釘最前（真實可選標籤，管理頁僅禁止刪根節點）。
@@ -729,5 +729,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/09/20（habit-tracker18 批次 A：今黃圈＋時段頁課表鈕移除＋overlap 單一來源）*
+*最後更新：2026/09/21（habit-tracker18 批次 A：今黃圈＋時段頁課表鈕移除＋overlap 單一來源）*
 *維護原則：每次完成重要功能，同步更新第十、十一、十二節*
