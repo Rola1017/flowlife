@@ -14,6 +14,7 @@ import {
   coursesForDate,
   routineBlocksInWindow,
 } from "@/lib/schedule";
+import { rangeStrToSpan } from "@/lib/overlap";
 import { subscribeAppState, APP_STATE_KEYS } from "@/lib/appStateCloud";
 import { actSessionsFor, actIdleFor } from "@/lib/timelineActual";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
@@ -131,12 +132,13 @@ export function VerticalTimeline({
     const shiftBlocks = (plan?.picks ?? []).flatMap(({ place, shift }) => {
       const r = shiftRangeOn(place, shift, date, isOv);
       if (!r) return [];
-      const [start, end] = r.split("~");
+      const span = rangeStrToSpan(r);
+      if (!span) return [];
       const wp = loadWorkplaces().find((x) => x.id === place);
       return [
         {
-          start,
-          end,
+          start: span.start,
+          end: span.end,
           label: `兼差:${placeName(place)}`,
           color: wp?.color ?? CAT.cat2Color("兼差", placeName(place)),
           kind: "shift" as const,

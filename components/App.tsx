@@ -807,10 +807,6 @@ function AppContent() {
     timeline: () => (
       <TimelinePage
         {...todoProps}
-        onShowSchedule={() => {
-          setTab("schedule");
-          setScheduleView("calendar");
-        }}
       />
     ),
     calendar: () => (

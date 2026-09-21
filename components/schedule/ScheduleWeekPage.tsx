@@ -22,6 +22,7 @@ import {
   resolveDayView,
   restoreDayToTemplate,
   saveDayOverrides,
+  pickOverlapsOn,
   shiftRangeOn,
   shiftTimesOn,
   vacationClearCounts,
@@ -177,18 +178,7 @@ export function ScheduleWeekPage({ onShowCategoryManager }: { onShowCategoryMana
     }
     const r = shiftRangeOn(place, shift, date, true);
     if (!r) return;
-    const overlap = cur.picks.some((p) => {
-      const other = shiftRangeOn(p.place, p.shift, date, true);
-      if (!other || !r) return false;
-      const [a1, b1] = r.split("~");
-      const [a2, b2] = other.split("~");
-      const m = (t: string) => {
-        const [h, mm] = t.split(":").map(Number);
-        return h * 60 + mm;
-      };
-      return m(a1) < m(b2) && m(a2) < m(b1);
-    });
-    if (overlap) return;
+    if (pickOverlapsOn(date, place, shift, cur.picks, true)) return;
     writeDay(date, { ...cur, picks: [...cur.picks, { place, shift }] });
   };
 
@@ -338,7 +328,13 @@ export function ScheduleWeekPage({ onShowCategoryManager }: { onShowCategoryMana
               aria-label="回本週"
               onPointerDown={stopSwipe}
               onClick={() => setMonday(thisMonday)}
-              style={{ ...navHit, fontSize: 12, fontWeight: 800 }}
+              style={{
+                ...navHit,
+                fontSize: 12,
+                fontWeight: 800,
+                borderRadius: "50%",
+                boxShadow: `inset 0 0 0 1.5px ${TH.yellow}`,
+              }}
             >
               今
             </button>
@@ -349,7 +345,7 @@ export function ScheduleWeekPage({ onShowCategoryManager }: { onShowCategoryMana
         </button>
       </div>
       <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4, textAlign: "center" }}>
-        💡 左右滑動或點箭頭可切換週；在課表格子裡滑動是左右看內容
+        💡 左右滑動或點箭頭可切換週；在課表格子裡滑動是左右看內容；點黃圈『今』回到本週
       </div>
       <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4 }}>
         💡 左上橘色小圓點／虛線框＝這天被特別改過（便利貼），常用模板沒動
@@ -474,17 +470,7 @@ export function ScheduleWeekPage({ onShowCategoryManager }: { onShowCategoryMana
           if (picks.some((p) => p.place === place && p.shift === shift)) return false;
           const r = shiftRangeOn(place, shift, d, true);
           if (!r) return true;
-          return picks.some((p) => {
-            const other = shiftRangeOn(p.place, p.shift, d, true);
-            if (!other) return false;
-            const [a1, b1] = r.split("~");
-            const [a2, b2] = other.split("~");
-            const m = (t: string) => {
-              const [h, mm] = t.split(":").map(Number);
-              return h * 60 + mm;
-            };
-            return m(a1) < m(b2) && m(a2) < m(b1);
-          });
+          return pickOverlapsOn(d, place, shift, picks, true);
         }}
         onTogglePick={onTogglePick}
         showShift={(d, place, shiftId) => {

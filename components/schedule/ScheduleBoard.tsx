@@ -6,6 +6,7 @@ import { CAT } from "@/lib/categories";
 import { Chip } from "@/components/ui/Chip";
 import type { DayPick, Place, WorkplaceConfig } from "@/lib/schedule";
 import { placeName } from "@/lib/schedule";
+import { rangeStrToSpan } from "@/lib/overlap";
 import {
   SCHED_GAP,
   SCHED_ROW_H,
@@ -350,7 +351,9 @@ export function ScheduleBoard({
                 const top = firstIdx * SCHED_STEP;
                 const height = count * SCHED_STEP - SCHED_GAP;
                 const range = shiftRangeFor(col.key, place, shift);
-                const [rangeStart, rangeEnd] = range.split("~");
+                const span = rangeStrToSpan(range);
+                if (!span) return null;
+                const { start: rangeStart, end: rangeEnd } = span;
                 const color = placeColor(place);
                 return (
                   <div

@@ -1,5 +1,15 @@
-import { describe, expect, it } from "vitest";
-import { findOverlaps, sessionToSpan, spansOverlap, spanToAbsMin, type Span } from "@/lib/overlap";
+import { beforeEach, describe, expect, it } from "vitest";
+import {
+  findOverlaps,
+  rangeStrToSpan,
+  rangeStrsOverlap,
+  sessionToSpan,
+  spansOverlap,
+  spanToAbsMin,
+  type Span,
+} from "@/lib/overlap";
+import { pickOverlapsOn, timeRangesOverlap, type WorkplaceConfig } from "@/lib/schedule";
+import { LS_KEYS, saveJSON } from "@/lib/storage";
 
 /** 鎖死字串；禁止 Date.now()／new Date() */
 
@@ -89,3 +99,125 @@ describe("sessionToSpan", () => {
     });
   });
 });
+
+describe("rangeStrToSpan", () => {
+  it("正常 HH:mm~HH:mm", () => {
+    expect(rangeStrToSpan("08:30~12:00")).toEqual({ start: "08:30", end: "12:00" });
+  });
+  it('"24:00" 合法', () => {
+    expect(rangeStrToSpan("22:00~24:00")).toEqual({ start: "22:00", end: "24:00" });
+  });
+  it("空字串 → null", () => {
+    expect(rangeStrToSpan("")).toBeNull();
+  });
+  it('缺 "~" → null', () => {
+    expect(rangeStrToSpan("08:30-12:00")).toBeNull();
+  });
+  it("非數字 → null", () => {
+    expect(rangeStrToSpan("ab:cd~10:00")).toBeNull();
+    expect(rangeStrToSpan("10:00~xx:yy")).toBeNull();
+  });
+});
+
+describe("rangeStrsOverlap", () => {
+  it("碰邊不算（14:00~18:00 vs 18:00~22:00）", () => {
+    expect(rangeStrsOverlap("14:00~18:00", "18:00~22:00")).toBe(false);
+  });
+  it("包含算重疊", () => {
+    expect(rangeStrsOverlap("09:00~12:00", "10:00~11:00")).toBe(true);
+  });
+  it("部分重疊", () => {
+    expect(rangeStrsOverlap("10:00~12:00", "11:00~13:00")).toBe(true);
+  });
+  it("完全相同算重疊", () => {
+    expect(rangeStrsOverlap("10:00~11:00", "10:00~11:00")).toBe(true);
+  });
+  it("任一空字串 → false（當天不可用＝不佔時間）", () => {
+    expect(rangeStrsOverlap("", "10:00~11:00")).toBe(false);
+    expect(rangeStrsOverlap("10:00~11:00", "")).toBe(false);
+    expect(rangeStrsOverlap("", "")).toBe(false);
+  });
+});
+
+describe("timeRangesOverlap / rangeStrsOverlap / spansOverlap 等價性", () => {
+  it("隨機 ≥500 組（5 分步進、含 24:00）三者一致且交換律", () => {
+    const rand = mulberry32(20260920);
+    const nSlots = 1440 / 5 + 1;
+    const hmAt = (i: number) => {
+      const m = i * 5;
+      if (m >= 1440) return "24:00";
+      return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+    };
+    for (let n = 0; n < 500; n++) {
+      const a1 = hmAt(Math.floor(rand() * nSlots));
+      const a2 = hmAt(Math.floor(rand() * nSlots));
+      const b1 = hmAt(Math.floor(rand() * nSlots));
+      const b2 = hmAt(Math.floor(rand() * nSlots));
+      const viaSpans = spansOverlap({ start: a1, end: a2 }, { start: b1, end: b2 });
+      const viaTime = timeRangesOverlap(a1, a2, b1, b2);
+      const viaStr = rangeStrsOverlap(`${a1}~${a2}`, `${b1}~${b2}`);
+      expect(viaTime).toBe(viaSpans);
+      expect(viaStr).toBe(viaSpans);
+      expect(spansOverlap({ start: b1, end: b2 }, { start: a1, end: a2 })).toBe(viaSpans);
+      expect(timeRangesOverlap(b1, b2, a1, a2)).toBe(viaTime);
+      expect(rangeStrsOverlap(`${b1}~${b2}`, `${a1}~${a2}`)).toBe(viaStr);
+    }
+  });
+});
+
+/** 鎖死 2026-08-17＝週一（與 today.test 的 2026-08-19＝週三對齊）；禁止 Date.now()／new Date() */
+const MON = "2026-08-17";
+
+const pickWps: WorkplaceConfig[] = [
+  {
+    id: "彩",
+    name: "彩券行",
+    shifts: [
+      { id: "早", label: "早", days: ["一"], ranges: [{ days: null, start: "07:30", end: "14:00" }] },
+      { id: "晚", label: "晚", days: ["一"], ranges: [{ days: null, start: "14:00", end: "22:00" }] },
+    ],
+  },
+  {
+    id: "診",
+    name: "診所",
+    shifts: [
+      { id: "午", label: "午", days: ["一"], ranges: [{ days: null, start: "14:00", end: "18:00" }] },
+      { id: "專", label: "專", days: ["三"], ranges: [{ days: null, start: "10:00", end: "12:00" }] },
+    ],
+  },
+];
+
+describe("pickOverlapsOn", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    saveJSON(LS_KEYS.workplaces, pickWps);
+  });
+
+  it("碰邊可並存（彩早 14:00 結束接診午 14:00 開始）", () => {
+    expect(pickOverlapsOn(MON, "診", "午", [{ place: "彩", shift: "早" }], false)).toBe(false);
+  });
+
+  it("重疊擋下（彩晚 14:00–22:00 vs 診午 14:00–18:00）", () => {
+    expect(pickOverlapsOn(MON, "診", "午", [{ place: "彩", shift: "晚" }], false)).toBe(true);
+  });
+
+  it("isOverride=true 不受可上班日閘門（週一可取週三專班時段，與彩早重疊）", () => {
+    expect(pickOverlapsOn(MON, "診", "專", [{ place: "彩", shift: "早" }], true)).toBe(true);
+  });
+
+  it("isOverride=false 守閘門（週一取週三專班＝無時段，不判重疊）", () => {
+    expect(pickOverlapsOn(MON, "診", "專", [{ place: "彩", shift: "早" }], false)).toBe(false);
+  });
+});
+
+/** 固定種子 PRNG；禁止 Date.now() */
+function mulberry32(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}

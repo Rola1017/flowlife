@@ -22,7 +22,7 @@
 
 - **【資料關聯地圖優先】**：動功能前先列出該資料被誰讀/寫/衍生，同一批改齊所有連動面，完成定義＝無任何一面漂移（日後併入對話與交接紀律 §8）。
 - **【副作用禁止置於 setState updater 內】**：`setState(updater)` 在 React 嚴格模式會雙執行，造成重複記錄等 bug；`setCoinIncomeLog`/`updateSessions`/`toast` 等副作用一律移出 updater 外（用 ref 讀目前值＋防重入）。
-- **【不變式守恆】**：每種資料先寫下不變式→單一寫入口強制把關→做成共用檢查器多處重用（併入 §8）。例：作息行時間互不重疊 → `timeRangesOverlap`／`overlappingIndices`。
+- **【不變式守恆】**：每種資料先寫下不變式→單一寫入口強制把關→做成共用檢查器多處重用（併入 §8）。例：時段半開區間、碰邊不算 → `lib/overlap.ts`（`spansOverlap`／`rangeStrsOverlap`）；作息列走薄包裝 `timeRangesOverlap`／`overlappingIndices`。
 - **【課表分類引用必須存在】**：課表／便利貼課程的 `cat1/2/3` 必須對應分類設定；分類被刪時經 `purgeCategoryRefs` 降級為「未分類」（保留課名與時段），不毀格子、不碰番茄歷史。
 - **【區段輸出必須落在傳入視窗內】**：`availableSegments`／`subtract` 等區段運算的輸出必須完全落在 `[winStart, winEnd]`；只夾下界會讓未來不可用時段把可用區段撐出「現在」之後（未利用超界根因）。
 
@@ -71,7 +71,7 @@ lib/
 ├── schedule.ts   ← 班別定義 + currentOrNextCourse 課程查找 + availableMinutesFor（單一來源）
 ├── types.ts      ← Session 等共用型別（含 intention／reflection／id）
 ├── sessions.ts   ← patchReflection（覆盤寫入單一來源）
-├── overlap.ts    ← 時段重疊共用檢查器（spansOverlap／findOverlaps；相鄰不算）
+├── overlap.ts    ← 時段重疊與 "a~b" 解析唯一來源（rangeStrToSpan／rangeStrsOverlap／spansOverlap）；schedule.timeRangesOverlap 為薄包裝；pickOverlapsOn 為班別撞班共用判斷
 ├── cloudWrite.ts ← 雲端寫入錯誤單一入口（reportCloudWriteResult／getCloudWriteFailures／uuidsOnlyInLocal）
 ├── cloudFlush.ts ← 登出前完整推送（5s 逾時）
 ├── reviews.ts    ← upsertReview / addReview / removeReview / nextId（覆盤表寫入單一來源）
@@ -397,6 +397,7 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ## 十、已完成功能 ✅
 
+- **habit-tracker18 批次 A（2026-09-20）**：「今」圓形黃圈（`TH.yellow` inset 陰影，navHit content-box／44×44 不動）；時段頁頂部「📅 課表」已移除，底部 📋 課表為唯一入口；時段重疊判斷收成 `lib/overlap.ts`（`rangeStrToSpan`／`rangeStrsOverlap`／`spansOverlap`），`timeRangesOverlap` 薄包裝，`pickOverlapsOn` 班別撞班共用；`architecture.test.ts` 守門 `.split("~")`。
 - **課表行事曆點擊／選課面板／回本週／登出強制同步／課程 id（2026-09-20）**：週切換改為 pointermove 達水平門檻才 `setPointerCapture`（根因：pointerdown 就 capture 吃掉電腦 click）；可點元素 `stopPropagation`。行事曆選課改重用抽出的 `CourseEditPanel`（模板同一套）。非本週顯示「今」。`AuthPanel` 登出先 `flushLocalToCloud(8000)`，逾時才問。`CourseInfo.id?`＋`ensureCourseIds` 冪等補發（App 啟動 migration）、複製整天發新 id。App 比照 `bumpCat` 訂閱 `week_schedule`／`day_overrides`／`day_plans`。
 - **課表分頁（週切換行事曆＋常用模板，2026-09-18）**：底部 TABS 新增「📋 課表」（主頁不動）。預設「課表行事曆」（本週，‹ ›／標題列 Pointer 滑動換週；格線 `data-no-week-swipe` 橫捲不換週）。「課表常用模板」＝原 `SchedulePage`（week_schedule／day_plans，含班表 chips），只改標題與入口。行事曆改動／三顆休假快捷一律寫 `day_overrides`（`applyDayVacation`／`restoreDayToTemplate`），不動模板；override 日橘點＋虛線標記。共用 `ScheduleBoard`。時段頁「📅 課表」改切底部課表分頁。登出登入仍走既有 `saveDayOverrides` 上雲。
 - **緊急修復（2026-09-18）**：①清除番茄記錄／重置全部改為先寫 `deleted_session_uuids` 墓碑再 `deleteSessionsCloud`、金幣／垃圾桶一併推空雲端，**await 完成後才 reload**；重置改走 `clearAllAppData()`（禁止 `flowlife_` 前綴迴圈）；確認文案明示「會同時清除雲端、所有裝置、無法復原」。②`pushAppState` 改為先 `setMetaTs` 再 `getUid`，避免新增 `tag_groups` 被舊雲端覆蓋；`saveTagGroups`/`saveTags` 改回傳 Promise，失敗走 `alertIfPushFailed`。③選擇器三處共用 `sortGroupsForSelector`（必填維度置頂、其餘依 order）；領域 picker 預設收合＋根層「未分類」釘最前（真實可選標籤，管理頁僅禁止刪根節點）。
@@ -418,7 +419,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - 番茄頁：時長／加時休息按鈕標籤、版面重排（評分在計時圈下方）
 - 番茄獎勵動畫：>25 分鐘大硬幣＋金額 3 倍字；≥60 分鐘 30% 雙倍金幣＋寶箱動畫
 - 週課表（SchedulePage）：06:30~22:30 半小時一格；跨一小時固定作息（午餐／晚餐）合併大格；雙工作場所 + `day_plans`；兼差大格／班別 Chip 顏色 = `CAT.cat2Color("兼差", 診所|彩券行)`；編輯卡片「最近選過」快捷鈕（`schedule_history` 最多 10 筆、顯示前 5）；編輯卡片可跳分類管理；**多選套用同一課程**（`selectMode`／`selected`／`setCells` 批次寫入、長按進多選）；**複製整天課表**（`clip`／`dayMenu`、貼上覆蓋整天）；橫向滑動（minWidth 520）
-- 課表入口：底部「📋 課表」分頁（行事曆／常用模板）；時段頁「📅 課表」改切該分頁（原行事曆 📋 已移除）
+- 課表入口：時段頁課表鈕已移除，底部 📋 課表為唯一入口
 - 分類系統：中分類自訂 color（CategoryManager 色盤）；小分類 `cat3ColorFrom` 依 index 混入白／彩虹色／黑（35%）；金幣記錄標籤色點
 - 預設分類色：`DEFAULT_CATEGORIES` 大／中分類各自獨立色（學習黃、法律紫等）；色盤 `color_palette` localStorage 可自訂
 - 分類改名同步（階段一止血版）：`CategoryManager` 改名時連鎖更新 sessions／coin_income_log／week_schedule；同名跨大分類會一併改到（已知限制）；階段二接 Supabase 時改用穩定 ID
@@ -637,6 +638,7 @@ TH.gold    = "#FBBF24"   // 金幣
 | 新版 sb_secret_ key 不繞過 RLS | 與舊版 service_role JWT 不同，需顯式 policy 放行；已採 `app_state` **唯讀**最小權限（`FOR SELECT TO service_role`）。寫入階段另議精細化 policy。 |
 | 抽 DayColumn 共用元件 | **技術債**——便利貼單日格子與課表頁 7 欄格子有渲染邏輯重複；未來抽共用 `<DayColumn>` 元件（課表頁與便利貼共用），現階段隔離不改動已穩定課表頁。 |
 | 便利貼新建科目 | **待議**——便利貼加課僅能從 `loadScheduleCourses` 科目庫選；全新科目需先在每週課表建立。未來如需在便利貼直接新建科目再議。 |
+| 課程 id 現為「每格一號」 | 目前 week_schedule／day_overrides 每半小時格各發一個 course id，覆盤會分裂；目前無任何功能讀 id，遷移零成本。**觸發＝tracks 批次（Z6 之前）**。 |
 | reconcileOverrides 待辦 | 便利貼引用的班別被刪後 key 殘留但無害（`findShift`→空）；未來加 `reconcileOverrides` 比照 `reconcileDayPlans` 清孤兒。 |
 | 例外排程：過去日期不自動清除 | **刻意保留**——過去日期的例外不自動清除，供時間軸/未利用回看歷史（非 bug）。 |
 | 例外能否跨「可上班日」閘門 | ✅ **已決策（分流）**——**複製貼上/週模式課表**：守 `shiftRange` 閘門＋略過提醒；**便利貼**（2b）：`shiftRangeOn(..., isOverride=true)` 不受閘門，可挑任何班。 |
@@ -647,6 +649,7 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ## 十一、待完成事項 ⬜
 
+- ⬜ **課表格改掛 trackId**（課程身分＝科目 track，即《讀書章節與覆盤系統設計》的 tracks）：目前 week_schedule／day_overrides 每半小時一格各發一個 course id，覆盤會分裂；改為每格記 trackId、章節掛在 track 下；排在 Z6（課表標籤化）之前；便利貼 addOvCourse 缺 id 併入該批。
 - ⬜ **重疊檢測其餘寫入點**（本批只修番茄手動補/改）：課表課格同格覆蓋無警告、班別已擋、作息已警告、便利貼課↔班衝突／課↔課無、待辦只驗同日 end>start、時間軸 ACT 補登無、健身 stub、即時番茄/娛樂 session 無。待 Rola 決定是否接 `lib/overlap`。
 - ✅ **Z2 標籤管理頁**（群組＋無限層樹編輯器、`isTimeDestination`、軟刪除＋影響範圍）。✅ **Z3 番茄區標籤化**。✅ **說明卡層級寫法＋互動預覽＋葉標籤標題**。✅ **移除專案快捷**。✅ **主維度天藍色＋預覽收折＋維度標題單行**。✅ **Z4 統計與篩選區標籤化**（分攤＋統計維度切換器＋MultiCategoryFilter 吃 tagIds）。⬜ **Z5～Z7 未執行**。超過三層的降級位置（本批只顯示前三層，供 Z5～Z7 改走標籤樹）：`CAT.cats()`／`categoriesFromDomainTags`（只投影 root→mid→sub）；`SchedulePage` 編輯卡片 cat1/2/3；`SessionHistoryPage` 篩選仍可能 cat；待辦 `TodoFormFields` 單層 cat；商店／娛樂 `cat1/2/3`；`legacyPath` 只取祖先前三層；`stampSessionCatIds`／`resolveCatIds` 三層名稱仍雙寫。
 - ⬜ **Z5～Z8 其餘分類標籤化**，見 FlowLife_分類標籤化設計.md §4。
@@ -697,7 +700,8 @@ TH.gold    = "#FBBF24"   // 金幣
 - `vitest.config.ts`：`environment: jsdom`、`globals: true`、`@` → 專案根
 - `tests/`（與 `lib/` 並列）：
   - `cloudWrite.test.ts` — 寫入失敗計數累加／成功不累加（mock `{ error }`）；`uuidsOnlyInLocal` 只在本機
-  - `overlap.test.ts` — `spansOverlap`／`findOverlaps`：相鄰不重疊、包含、部分重疊、完全相同；datetime-local 與 `"24:00"`；日期字串鎖死、不用 new Date()
+  - `overlap.test.ts` — `spansOverlap`／`findOverlaps`：相鄰不重疊、包含、部分重疊、完全相同；datetime-local 與 `"24:00"`；`rangeStrToSpan`／`rangeStrsOverlap`（空字串＝不佔時間）；三者等價性 ≥500 組；`pickOverlapsOn` 碰邊／重疊／閘門；日期字串鎖死、不用 new Date()
+  - `architecture.test.ts` — 掃 `components/`＋`lib/`＋`app/`：除 `lib/overlap.ts` 外不得 `.split("~")`（防 2026-09 重疊判斷複製 6 份）
   - `idle.test.ts` — 未利用 subtract 夾窗（防延伸到不可用時段）＋ `inAvailableWindow`
   - `schedule.test.ts` — 時段重疊／`currentScheduleBlock`／`hi` 保留
   - `scheduleWeek.test.ts` — `resolveDayView` override vs 模板、休假快捷只寫 override、恢復清 override、週一為首區間、回本週目標、`ensureCourseIds`/`stampCourseIds` 冪等、複製整天發新 id、改名改時 id 不變、日期字串鎖死不用 `new Date()`
@@ -725,5 +729,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/09/18（緊急：清除記錄寫墓碑＋維度同步 meta 先蓋戳＋選擇器必填置頂／未分類可見）*
+*最後更新：2026/09/20（habit-tracker18 批次 A：今黃圈＋時段頁課表鈕移除＋overlap 單一來源）*
 *維護原則：每次完成重要功能，同步更新第十、十一、十二節*

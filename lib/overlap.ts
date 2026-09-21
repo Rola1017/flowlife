@@ -34,6 +34,33 @@ export function spansOverlap(a: Span, b: Span): boolean {
   return spanToAbsMin(a.start) < spanToAbsMin(b.end) && spanToAbsMin(b.start) < spanToAbsMin(a.end);
 }
 
+function isClock(t: string): boolean {
+  if (t === "24:00") return true;
+  const m = /^(\d{1,2}):(\d{2})$/.exec(t);
+  if (!m) return false;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  return Number.isFinite(h) && Number.isFinite(min);
+}
+
+/** `"HH:mm~HH:mm"` → Span；空字串或格式錯 → null。`"24:00"` 合法。 */
+export function rangeStrToSpan(r: string): Span | null {
+  if (!r) return null;
+  const parts = r.split("~");
+  if (parts.length !== 2) return null;
+  const [start, end] = parts;
+  if (!isClock(start) || !isClock(end)) return null;
+  return { start, end };
+}
+
+/** 班別字串是否重疊；任一解析為 null → false（空字串＝當天不可用＝不佔時間）。 */
+export function rangeStrsOverlap(r1: string, r2: string): boolean {
+  const a = rangeStrToSpan(r1);
+  const b = rangeStrToSpan(r2);
+  if (!a || !b) return false;
+  return spansOverlap(a, b);
+}
+
 export function findOverlaps(target: Span, existing: Span[]): Span[] {
   return existing.filter((e) => spansOverlap(target, e));
 }

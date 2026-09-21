@@ -1,5 +1,6 @@
 import { LS_KEYS, loadJSON, saveJSON, removeKey } from "@/lib/storage";
 import { pushAppState, APP_STATE_KEYS, notifyAppState } from "@/lib/appStateCloud";
+import { rangeStrToSpan, rangeStrsOverlap, spansOverlap } from "@/lib/overlap";
 
 export type Place = string;
 export type DayPick = { place: Place; shift: string };
@@ -144,10 +145,9 @@ const toMin = (t: string) => {
 const fmtHM = (m: number) =>
   `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 
-/** 兩個 [start,end] 字串時段是否重疊（碰邊不算）。"24:00" 視為 1440。 */
+/** 兩個 [start,end] 字串時段是否重疊（碰邊不算）。薄包裝 → spansOverlap。"24:00" 視為 1440。 */
 export function timeRangesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
-  const m = (t: string) => (t === "24:00" ? 1440 : toMin(t));
-  return m(aStart) < m(bEnd) && m(bStart) < m(aEnd);
+  return spansOverlap({ start: aStart, end: aEnd }, { start: bStart, end: bEnd });
 }
 
 /** 一組時段中，找出彼此重疊的索引集合（回傳所有涉及重疊的 index）。 */
@@ -459,8 +459,9 @@ export function blockedRangesWith(date: string, data: ScheduleData): Interval[] 
   for (const pk of plan.picks) {
     const r = shiftRangeOn(pk.place, pk.shift, date, isOv, workplaces);
     if (!r) continue;
-    const [a, b] = r.split("~");
-    ivs.push([toMin(a), toMin(b)]);
+    const span = rangeStrToSpan(r);
+    if (!span) continue;
+    ivs.push([toMin(span.start), toMin(span.end)]);
   }
   for (const c of coursesForDate(date, weekSchedule, dayOverrides)) {
     if (!c.t) continue;
@@ -481,18 +482,27 @@ export function blockedRanges(dateStr: string, dayPlans?: Record<string, DayPlan
   });
 }
 
-function rangesOverlapStr(r1: string, r2: string): boolean {
-  if (!r1 || !r2) return false;
-  const [a1, b1] = r1.split("~");
-  const [a2, b2] = r2.split("~");
-  return toMin(a1) < toMin(b2) && toMin(a2) < toMin(b1); // 嚴格 <：碰邊 end==start 不算重疊
-}
-
 /** day 已選 picks 下，新增 (place,shift) 是否與任一既有重疊 */
 export function pickOverlaps(day: string, place: Place, shift: string, picks: DayPick[]): boolean {
   const r = shiftRange(place, shift, day);
   if (!r) return false;
-  return picks.some((p) => rangesOverlapStr(r, shiftRange(p.place, p.shift, day)));
+  return picks.some((p) => rangeStrsOverlap(r, shiftRange(p.place, p.shift, day)));
+}
+
+/** 指定日期版：加入此班是否撞到已選班。isOverride=true 不受可上班日閘門。 */
+export function pickOverlapsOn(
+  date: string,
+  place: Place,
+  shift: string,
+  picks: DayPick[],
+  isOverride: boolean,
+  workplaces?: WorkplaceConfig[],
+): boolean {
+  const r = shiftRangeOn(place, shift, date, isOverride, workplaces);
+  if (!r) return false;
+  return picks.some((p) =>
+    rangeStrsOverlap(r, shiftRangeOn(p.place, p.shift, date, isOverride, workplaces)),
+  );
 }
 
 /** 某日可用分鐘數＝1440 −（固定不可用 ∪ 當天課表班別）合併後的總長 */
@@ -668,9 +678,10 @@ export function currentScheduleBlock(
   for (const pk of plan.picks) {
     const r = shiftRangeOn(pk.place, pk.shift, dateStr, isOv);
     if (!r) continue;
-    const [a, b] = r.split("~");
-    if (inRange(a, b))
-      return { kind: "shift", label: `💼 ${placeName(pk.place)}${pk.shift}班`, start: a, end: b };
+    const span = rangeStrToSpan(r);
+    if (!span) continue;
+    if (inRange(span.start, span.end))
+      return { kind: "shift", label: `💼 ${placeName(pk.place)}${pk.shift}班`, start: span.start, end: span.end };
   }
   for (const c of coursesForDate(dateStr)) {
     if (!c.t) continue;
@@ -765,12 +776,13 @@ export function buildTodayBlocks(date: string, data: ScheduleData): TodayBlock[]
   for (const pk of plan.picks) {
     const r = shiftRangeOn(pk.place, pk.shift, date, isOv, workplaces);
     if (!r) continue;
-    const [a, b] = r.split("~");
+    const span = rangeStrToSpan(r);
+    if (!span) continue;
     const pname = placeName(pk.place, workplaces);
     blocks.push({
       type: "shift",
-      start: a,
-      end: b,
+      start: span.start,
+      end: span.end,
       label: `💼 ${pname}${pk.shift}班`,
       place: pk.place,
       placeName: pname,

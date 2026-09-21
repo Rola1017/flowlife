@@ -12,6 +12,7 @@ import {
   type WorkplaceConfig,
   placeName,
   pickOverlaps,
+  pickOverlapsOn,
   shiftTimes,
   shiftRange,
   weekdayOf,
@@ -31,6 +32,7 @@ import {
   type RoutineBlock,
   type RoutineItem,
 } from "@/lib/schedule";
+import { rangeStrToSpan } from "@/lib/overlap";
 import { subscribeAppState, pushAppState, APP_STATE_KEYS } from "@/lib/appStateCloud";
 import { CFG } from "@/lib/config";
 import { WorkplaceManager } from "./WorkplaceManager";
@@ -256,16 +258,6 @@ export function SchedulePage({
     [],
   );
 
-  const rangeOverlap = (r1: string, r2: string) => {
-    if (!r1 || !r2) return false;
-    const m = (t: string) => {
-      const [h, mm] = t.split(":").map(Number);
-      return h * 60 + mm;
-    };
-    const [a1, b1] = r1.split("~");
-    const [a2, b2] = r2.split("~");
-    return m(a1) < m(b2) && m(a2) < m(b1);
-  };
   const effectivePicksFor = (date: string): DayPick[] => {
     const ov = dayOverrides[date];
     const base = ov ? ov.picks : (dayPlans[weekdayOf(date)]?.picks ?? []);
@@ -301,7 +293,7 @@ export function SchedulePage({
     if (ovPickActive(place, shift)) return false;
     const r = shiftRangeOn(place, shift, ovDate, true);
     if (!r) return true;
-    return ovPicks.some((p) => rangeOverlap(r, shiftRangeOn(p.place, p.shift, ovDate, true)));
+    return pickOverlapsOn(ovDate, place, shift, ovPicks, true);
   };
   const toggleOvPick = (place: Place, shift: string) => {
     const exists = ovPicks.some((p) => p.place === place && p.shift === shift);
@@ -311,7 +303,7 @@ export function SchedulePage({
     }
     const r = shiftRangeOn(place, shift, ovDate, true);
     if (!r) return;
-    if (ovPicks.some((p) => rangeOverlap(r, shiftRangeOn(p.place, p.shift, ovDate, true)))) return;
+    if (pickOverlapsOn(ovDate, place, shift, ovPicks, true)) return;
     const slots = shiftTimesOn(place, shift, ovDate, true);
     const clash = ovEffectiveCourses().filter((c) => slots.includes(c.t));
     if (clash.length) {
@@ -1174,7 +1166,9 @@ export function SchedulePage({
                 const top = coveredIdx[0] * STEP;
                 const height = coveredIdx.length * STEP - GAP;
                 const r = shiftRangeOn(place, shift, ovDate, true);
-                const [rs, re] = r.split("~");
+                const span = rangeStrToSpan(r);
+                if (!span) return null;
+                const { start: rs, end: re } = span;
                 const col = placeColor(place);
                 return (
                   <div
