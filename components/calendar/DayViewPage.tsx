@@ -159,11 +159,16 @@ export function DayViewPage({
 
   return (
     <div
-      style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", minWidth: 0, boxSizing: "border-box" }}
-      onPointerDown={swipe.onPointerDown}
-      onPointerMove={swipe.onPointerMove}
-      onPointerUp={swipe.onPointerUp}
-      onPointerCancel={swipe.onPointerCancel}
+      {...swipe.bind}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+        width: "100%",
+        minWidth: 0,
+        boxSizing: "border-box",
+        ...swipe.bind.style,
+      }}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0, width: "100%" }}>
       <div

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifySwipe } from "@/components/hooks/useHorizontalSwipe";
+import { classifySwipe, SWIPE_CONTAINER_TOUCH_ACTION } from "@/components/hooks/useHorizontalSwipe";
 
 /** 鎖死輸入數字；禁止 Date.now()／new Date() */
 
@@ -18,5 +18,11 @@ describe("classifySwipe", () => {
   });
   it("dx=-100 dy=10 → left", () => {
     expect(classifySwipe(-100, 10)).toBe("left");
+  });
+});
+
+describe("SWIPE_CONTAINER_TOUCH_ACTION", () => {
+  it('必須為 "pan-y"', () => {
+    expect(SWIPE_CONTAINER_TOUCH_ACTION).toBe("pan-y");
   });
 });

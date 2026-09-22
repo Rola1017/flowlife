@@ -25,7 +25,7 @@
 - **【不變式守恆】**：每種資料先寫下不變式→單一寫入口強制把關→做成共用檢查器多處重用（併入 §8）。例：時段半開區間、碰邊不算 → `lib/overlap.ts`（`spansOverlap`／`rangeStrsOverlap`）；作息列走薄包裝 `timeRangesOverlap`／`overlappingIndices`。
 - **【課表分類引用必須存在】**：課表／便利貼課程的 `cat1/2/3` 必須對應分類設定；分類被刪時經 `purgeCategoryRefs` 降級為「未分類」（保留課名與時段），不毀格子、不碰番茄歷史。
 - **【區段輸出必須落在傳入視窗內】**：`availableSegments`／`subtract` 等區段運算的輸出必須完全落在 `[winStart, winEnd]`；只夾下界會讓未來不可用時段把可用區段撐出「現在」之後（未利用超界根因）。
-- **【開工模式】**：每份指令開頭標示。**【開工模式：直接施工】** → 讀檔後直接做，做完一次回報。施工中若發現與指令不符（多出要改的檔、實際程式與指令描述不同、需要碰資料／雲端欄位），立即停下回報，不得自行決定。**【開工模式：先報告】** → 先交動手前報告，等 Rola 回「可以」才動手。（用於：動雲端欄位／資料表、資料遷移、刪除資料、任何不可逆操作）
+- **【開工模式】**：每份指令開頭標示。**【開工模式：直接施工】** → 讀檔後直接做，做完一次回報。施工中若發現與指令不符（多出要改的檔、實際程式與指令描述不同、需要碰資料／雲端欄位），立即停下回報，不得自行決定。**【開工模式：先報告】** → 先交動手前報告，等 Rola 回「可以」才動手。（用於：動雲端欄位／資料表、資料遷移、刪除資料、任何不可逆操作）**Cursor 不得 git add／commit／push**；完工保留於工作區，附建議 commit 訊息，由 Rola 提交與同步。
 
 ---
 
@@ -42,7 +42,7 @@ components/
 ├── Header.tsx            ← 固定頂部，動態顯示今天日期，右上角設定按鈕（無 😤🙂😴）
 ├── useCoinLog.ts         ← 金幣單一真相（明細帳＋餘額＝加總；append/remove/upsert/spend）
 ├── hooks/
-│   ├── useHorizontalSwipe.ts ← 水平滑動唯一實作（classifySwipe／useHorizontalSwipe）
+│   ├── useHorizontalSwipe.ts ← 水平滑動唯一實作（classifySwipe／useHorizontalSwipe）；回傳 bind（含 touchAction pan-y）
 │   ├── useAppStateCloudSync.ts
 │   ├── useSessionCloudSync.ts
 │   ├── useReviewCloudSync.ts
@@ -404,6 +404,7 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ## 十、已完成功能 ✅
 
+- **habit-tracker18 批次 C（2026-09-22）**：`useHorizontalSwipe` 回傳 `{...swipe.bind}` 內建 `touchAction: pan-y`（防手機 pointercancel）；課表格子橫捲區 `pan-x pan-y`。Git 交由 Rola 提交。
 - **habit-tracker18 批次 B（2026-09-22）**：左右滑動收成 `useHorizontalSwipe`（pointerdown 不 capture；move 達門檻才 `setPointerCapture`）；某日詳情頁電腦返回鍵／‹ ›／新增可點。忽略區統一 `data-no-swipe`；`classifySwipe` 單一判定。刪死常數 `SCHED_HSCROLL_ATTR`。
 - **habit-tracker18 批次 A（2026-09-21）**：「今」圓形黃圈（`TH.yellow` inset 陰影，navHit content-box／44×44 不動）；時段頁頂部「📅 課表」已移除，底部 📋 課表為唯一入口；時段重疊判斷收成 `lib/overlap.ts`（`rangeStrToSpan`／`rangeStrsOverlap`／`spansOverlap`），`timeRangesOverlap` 薄包裝，`pickOverlapsOn` 班別撞班共用；`architecture.test.ts` 守門 `.split("~")`。
 - **課表行事曆點擊／選課面板／回本週／登出強制同步／課程 id（2026-09-20）**：週切換改為 pointermove 達水平門檻才 `setPointerCapture`（根因：pointerdown 就 capture 吃掉電腦 click）；可點元素 `stopPropagation`。行事曆選課改重用抽出的 `CourseEditPanel`（模板同一套）。非本週顯示「今」。`AuthPanel` 登出先 `flushLocalToCloud(8000)`，逾時才問。`CourseInfo.id?`＋`ensureCourseIds` 冪等補發（App 啟動 migration）、複製整天發新 id。App 比照 `bumpCat` 訂閱 `week_schedule`／`day_overrides`／`day_plans`。
@@ -692,8 +693,8 @@ TH.gold    = "#FBBF24"   // 金幣
 - ⬜ **課表時間欄手機橫向捲動遮擋**：✅ z-index 已升至時間欄 20／表頭 21／交會格 22（高於班別塊 5）；若真機仍有殘餘再查。
 - ⬜ **觸控相容性盤點清單**（見本批 Cursor 回報），待逐項處理。✅ 觸控-1（下拉 Pointer＋hover）已完成。
 - ⬜ **觸控-2**：全庫 `title=` 共 10 處改用共用「長按看說明」氣泡元件（Tip）。
-- ⬜ **【待測・需 Capacitor App 版】某日詳情頁左右滑動切換日期**（**已改用 `useHorizontalSwipe`**）：①背景：網頁版無法測試滑動手勢，需打包成 App 後驗證 ②操作：開啟 FlowLife App → 底部『行事曆』→ 點任一天進入該日詳情頁 → 在頁面空白處用手指由右往左滑 ③過：日期切換到後一天，內容同步更新；由左往右滑切換到前一天；手指上下滑時頁面正常捲動、日期不變 ④沒過：滑動無反應，或上下捲動時日期被誤切換 → 回報是哪一種。
-- ⬜ **【待測・需真機】課表行事曆：格子橫捲 vs 標題列換週**（**已改用 `useHorizontalSwipe`**）：①操作：底部『課表』→ 在課表格子裡左右滑應只捲內容、週區間不變；在標題列（或格線外）左右滑／點 ‹ › 應切週 ②過：兩者不互相干擾 ③沒過：格子裡滑卻換週，或標題列滑不動。**2026-09-20 已改為 move 達門檻才 capture**；2026-09-22 兩頁收成同一 Hook。電腦點擊應已修好；手機滑動需再驗一次。
+- ⬜ **【待測・需 Capacitor App 版】某日詳情頁左右滑動切換日期**（**待 Rola 真機驗收（批次 C 修 touch-action）**）：①背景：網頁版無法測試滑動手勢，需打包成 App 後驗證 ②操作：開啟 FlowLife App → 底部『行事曆』→ 點任一天進入該日詳情頁 → 在頁面空白處用手指由右往左滑 ③過：日期切換到後一天，內容同步更新；由左往右滑切換到前一天；手指上下滑時頁面正常捲動、日期不變 ④沒過：滑動無反應，或上下捲動時日期被誤切換 → 回報是哪一種。
+- ⬜ **【待測・需真機】課表行事曆：格子橫捲 vs 標題列換週**（**待 Rola 真機驗收（批次 C 修 touch-action）**）：①操作：底部『課表』→ 在課表格子裡左右滑應只捲內容、週區間不變；在標題列（或格線外）左右滑／點 ‹ › 應切週 ②過：兩者不互相干擾 ③沒過：格子裡滑卻換週，或標題列滑不動。**2026-09-20 已改為 move 達門檻才 capture**；2026-09-22 兩頁收成同一 Hook；批次 C 修 touch-action。
 
 ---
 
@@ -709,8 +710,8 @@ TH.gold    = "#FBBF24"   // 金幣
 - `tests/`（與 `lib/` 並列）：
   - `cloudWrite.test.ts` — 寫入失敗計數累加／成功不累加（mock `{ error }`）；`uuidsOnlyInLocal` 只在本機
   - `overlap.test.ts` — `spansOverlap`／`findOverlaps`：相鄰不重疊、包含、部分重疊、完全相同；datetime-local 與 `"24:00"`；`rangeStrToSpan`／`rangeStrsOverlap`（空字串＝不佔時間）；三者等價性 ≥500 組；`pickOverlapsOn` 碰邊／重疊／閘門；日期字串鎖死、不用 new Date()
-  - `architecture.test.ts` — 掃 `components/`＋`lib/`＋`app/`：除 `lib/overlap.ts` 外不得 `.split("~")`（防 2026-09 重疊判斷複製 6 份）；`setPointerCapture` 只准 `useHorizontalSwipe`（防 2026-09 滑動兩份、修一漏一）；`noDaySwipe`／`noWeekSwipe` 零出現
-  - `swipe.test.ts` — `classifySwipe`：門檻不含 60、1.5 倍率、left／right；日期字串鎖死、不用 new Date()
+  - `architecture.test.ts` — 掃 `components/`＋`lib/`＋`app/`：除 `lib/overlap.ts` 外不得 `.split("~")`（防 2026-09 重疊判斷複製 6 份）；`setPointerCapture` 只准 `useHorizontalSwipe`（防 2026-09 滑動兩份、修一漏一）；`noDaySwipe`／`noWeekSwipe` 零出現；`useHorizontalSwipe` 必須 `{...swipe.bind}` 不得逐個掛（防 E23 缺 touch-action）
+  - `swipe.test.ts` — `classifySwipe`：門檻不含 60、1.5 倍率、left／right；`SWIPE_CONTAINER_TOUCH_ACTION === "pan-y"`；日期字串鎖死、不用 new Date()
   - `idle.test.ts` — 未利用 subtract 夾窗（防延伸到不可用時段）＋ `inAvailableWindow`
   - `schedule.test.ts` — 時段重疊／`currentScheduleBlock`／`hi` 保留
   - `scheduleWeek.test.ts` — `resolveDayView` override vs 模板、休假快捷只寫 override、恢復清 override、週一為首區間、回本週目標、`ensureCourseIds`/`stampCourseIds` 冪等、複製整天發新 id、改名改時 id 不變、日期字串鎖死不用 `new Date()`
@@ -738,5 +739,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/09/22（habit-tracker18 批次 B：水平滑動收成 useHorizontalSwipe）*
+*最後更新：2026/09/22（habit-tracker18 批次 C：swipe bind 內建 touchAction pan-y）*
 *維護原則：每次完成重要功能，同步更新第十、十一、十二節*

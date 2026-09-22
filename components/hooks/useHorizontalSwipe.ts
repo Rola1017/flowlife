@@ -1,11 +1,14 @@
 "use client";
 
-import { useRef, type PointerEvent } from "react";
+import { useRef, type CSSProperties, type PointerEvent } from "react";
 
 export type SwipeDir = "left" | "right";
 
 const SWIPE_MIN_PX = 60;
 const SWIPE_H_RATIO = 1.5;
+
+/** 滑動容器 touch-action：上下捲動給瀏覽器，水平留給 Hook。 */
+export const SWIPE_CONTAINER_TOUCH_ACTION = "pan-y";
 
 /** 半開門檻：|dx| > 60 且 |dx| > |dy|×1.5 才算水平滑。 */
 export function classifySwipe(dx: number, dy: number): SwipeDir | null {
@@ -25,7 +28,7 @@ function shouldIgnoreSwipe(target: EventTarget | null, root: EventTarget | null)
   return false;
 }
 
-/** 水平滑動唯一實作。pointerdown 不 capture；move 達門檻才 setPointerCapture。 */
+/** 水平滑動唯一實作。pointerdown 不 capture；move 達門檻才 setPointerCapture。回傳 bind（含 touchAction pan-y）。 */
 export function useHorizontalSwipe(onSwipe: (dir: SwipeDir) => void) {
   const swipeRef = useRef<{ x: number; y: number; id: number; ignore: boolean; captured: boolean } | null>(null);
 
@@ -62,5 +65,19 @@ export function useHorizontalSwipe(onSwipe: (dir: SwipeDir) => void) {
     swipeRef.current = null;
   };
 
-  return { onPointerDown, onPointerMove, onPointerUp, onPointerCancel };
+  const bind: {
+    onPointerDown: typeof onPointerDown;
+    onPointerMove: typeof onPointerMove;
+    onPointerUp: typeof onPointerUp;
+    onPointerCancel: typeof onPointerCancel;
+    style: Pick<CSSProperties, "touchAction">;
+  } = {
+    onPointerDown,
+    onPointerMove,
+    onPointerUp,
+    onPointerCancel,
+    style: { touchAction: SWIPE_CONTAINER_TOUCH_ACTION },
+  };
+
+  return { bind };
 }

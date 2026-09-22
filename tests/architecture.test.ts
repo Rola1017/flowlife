@@ -106,4 +106,33 @@ describe("水平滑動單一來源", () => {
     }
     expect(hits).toEqual([]);
   });
+
+  /**
+   * 防 2026-09 手機滑動因缺 touch-action 被瀏覽器取消（E23）。
+   * 呼叫 useHorizontalSwipe 的檔案必須 {...swipe.bind}，不得 swipe.onPointerDown／onPointerUp 逐個掛。
+   */
+  it("useHorizontalSwipe 必須 {...swipe.bind}，不得逐個掛 onPointerDown/Up", () => {
+    const missingBind: string[] = [];
+    const splitMount: string[] = [];
+    const BIND_RE = /\{\s*\.\.\.\s*swipe\.bind\s*\}/;
+    const SPLIT_MOUNT_RE = /swipe\.onPointerDown|swipe\.onPointerUp/;
+    for (const dirName of SCAN_DIRS) {
+      const dir = path.join(ROOT, dirName);
+      try {
+        statSync(dir);
+      } catch {
+        continue;
+      }
+      for (const file of walkTs(dir)) {
+        const rel = relPosix(file);
+        if (rel === SWIPE_HOOK) continue;
+        const text = readFileSync(file, "utf8");
+        if (!/useHorizontalSwipe\s*\(/.test(text)) continue;
+        if (!BIND_RE.test(text)) missingBind.push(rel);
+        if (SPLIT_MOUNT_RE.test(text)) splitMount.push(rel);
+      }
+    }
+    expect(missingBind).toEqual([]);
+    expect(splitMount).toEqual([]);
+  });
 });

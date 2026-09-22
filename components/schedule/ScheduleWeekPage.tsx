@@ -254,11 +254,16 @@ export function ScheduleWeekPage({ onShowCategoryManager }: { onShowCategoryMana
 
   return (
     <div
-      style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", minWidth: 0, boxSizing: "border-box" }}
-      onPointerDown={swipe.onPointerDown}
-      onPointerMove={swipe.onPointerMove}
-      onPointerUp={swipe.onPointerUp}
-      onPointerCancel={swipe.onPointerCancel}
+      {...swipe.bind}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+        width: "100%",
+        minWidth: 0,
+        boxSizing: "border-box",
+        ...swipe.bind.style,
+      }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, width: "100%", boxSizing: "border-box" }}>
         <button type="button" aria-label="上一週" onPointerDown={stopSwipe} onClick={() => setMonday((m) => addDaysYmd(m, -7))} style={navHit}>

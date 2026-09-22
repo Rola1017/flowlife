@@ -166,6 +166,7 @@ export function ScheduleBoard({
         width: "100%",
         minWidth: 0,
         boxSizing: "border-box",
+        touchAction: "pan-x pan-y",
       }}
     >
       <div style={{ minWidth: SCHED_MIN_W }}>
