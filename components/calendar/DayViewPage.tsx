@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useHorizontalSwipe } from "@/components/hooks/useHorizontalSwipe";
 import { Card, SL } from "@/components/ui/Card";
 import { TodoCard } from "@/components/todo/TodoCard";
 import {
@@ -63,20 +64,6 @@ const navArrow: CSSProperties = {
   fontWeight: 800,
 };
 
-const SWIPE_MIN_PX = 60;
-const SWIPE_H_RATIO = 1.5;
-
-function shouldIgnoreDaySwipe(target: EventTarget | null, root: EventTarget | null): boolean {
-  let el = target instanceof Element ? target : null;
-  while (el && el !== root) {
-    if (el instanceof HTMLElement && el.dataset.noDaySwipe === "1") return true;
-    const ox = getComputedStyle(el).overflowX;
-    if (ox === "auto" || ox === "scroll") return true;
-    el = el.parentElement;
-  }
-  return false;
-}
-
 export function DayViewPage({
   date,
   todos,
@@ -105,7 +92,9 @@ export function DayViewPage({
   const [quickDraft, setQuickDraft] = useState<TodoFormDraft | null>(null);
   const [now, setNow] = useState(getCurrentMinutes);
   const nowPct = ((now - DS) / DT) * 100;
-  const swipeRef = useRef<{ x: number; y: number; id: number; ignore: boolean } | null>(null);
+  const swipe = useHorizontalSwipe((dir) => {
+    setViewDate((d) => shiftDateStr(d, dir === "left" ? 1 : -1));
+  });
 
   useEffect(() => {
     const syncNow = () => setNow(getCurrentMinutes());
@@ -168,45 +157,13 @@ export function DayViewPage({
 
   const quickHeader = quickDraft ? rangeHeader(quickDraft, "快速新增") : "";
 
-  const onSwipeDown = (e: PointerEvent<HTMLDivElement>) => {
-    if (e.pointerType === "mouse" && e.button !== 0) return;
-    const ignore = shouldIgnoreDaySwipe(e.target, e.currentTarget);
-    swipeRef.current = { x: e.clientX, y: e.clientY, id: e.pointerId, ignore };
-    if (!ignore) {
-      try {
-        e.currentTarget.setPointerCapture(e.pointerId);
-      } catch {
-        /* 非信任／測試事件可能沒有 active pointer */
-      }
-    }
-  };
-
-  const onSwipeMove = (e: PointerEvent<HTMLDivElement>) => {
-    const s = swipeRef.current;
-    if (!s || s.ignore || e.pointerId !== s.id) return;
-    /* 不 preventDefault：垂直捲動必須暢通；水平判定留在 pointerup */
-  };
-
-  const onSwipeUp = (e: PointerEvent<HTMLDivElement>) => {
-    const s = swipeRef.current;
-    swipeRef.current = null;
-    if (!s || s.ignore || e.pointerId !== s.id) return;
-    const dx = e.clientX - s.x;
-    const dy = e.clientY - s.y;
-    if (Math.abs(dx) <= SWIPE_MIN_PX) return;
-    if (Math.abs(dx) <= Math.abs(dy) * SWIPE_H_RATIO) return;
-    setViewDate((d) => shiftDateStr(d, dx < 0 ? 1 : -1));
-  };
-
   return (
     <div
       style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", minWidth: 0, boxSizing: "border-box" }}
-      onPointerDown={onSwipeDown}
-      onPointerMove={onSwipeMove}
-      onPointerUp={onSwipeUp}
-      onPointerCancel={() => {
-        swipeRef.current = null;
-      }}
+      onPointerDown={swipe.onPointerDown}
+      onPointerMove={swipe.onPointerMove}
+      onPointerUp={swipe.onPointerUp}
+      onPointerCancel={swipe.onPointerCancel}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0, width: "100%" }}>
       <div
@@ -304,7 +261,7 @@ export function DayViewPage({
             );
           })}
         </div>
-        <div data-no-day-swipe="1">
+        <div data-no-swipe="1">
         <VerticalTimeline
           nowPct={nowPct}
           showNowLine={viewDate === CFG.TODAY_STR}

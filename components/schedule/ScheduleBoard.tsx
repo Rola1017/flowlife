@@ -157,7 +157,7 @@ export function ScheduleBoard({
   return (
     <div
       className="flowlife-hscroll"
-      data-no-week-swipe="1"
+      data-no-swipe="1"
       style={{
         overflowX: "auto",
         overflowY: "visible",

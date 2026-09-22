@@ -15,6 +15,12 @@ const SPLIT_TILDE_ALLOWLIST: string[] = [
 const ROOT = path.resolve(__dirname, "..");
 const SCAN_DIRS = ["components", "lib", "app"];
 const SPLIT_RE = /\.split\(\s*["']~["']\s*\)/;
+const CAPTURE_RE = /setPointerCapture/;
+const OLD_SWIPE_ATTR_RE = /noDaySwipe|noWeekSwipe/;
+const SWIPE_HOOK = "components/hooks/useHorizontalSwipe.ts";
+const CAPTURE_ALLOWLIST: string[] = [
+  // 預期為空。setPointerCapture 只准出現在 useHorizontalSwipe。
+];
 
 function walkTs(dir: string): string[] {
   const out: string[] = [];
@@ -52,5 +58,52 @@ describe("時段字串解析單一來源", () => {
     const missing = SPLIT_TILDE_ALLOWLIST.filter((h) => !hits.includes(h));
     expect(extra).toEqual([]);
     expect(missing).toEqual([]);
+  });
+});
+
+describe("水平滑動單一來源", () => {
+  /**
+   * 防 2026-09 滑動邏輯兩份、修一漏一，導致電腦版返回鍵失效。
+   * 掃描 components/、lib/、app/（hooks 在 components/hooks）：
+   * setPointerCapture 只准出現在 useHorizontalSwipe；白名單預期為空。
+   */
+  it("setPointerCapture 只准出現在 useHorizontalSwipe", () => {
+    const hits: string[] = [];
+    for (const dirName of SCAN_DIRS) {
+      const dir = path.join(ROOT, dirName);
+      try {
+        statSync(dir);
+      } catch {
+        continue;
+      }
+      for (const file of walkTs(dir)) {
+        const rel = relPosix(file);
+        if (rel === SWIPE_HOOK) continue;
+        const text = readFileSync(file, "utf8");
+        if (CAPTURE_RE.test(text)) hits.push(rel);
+      }
+    }
+    const extra = hits.filter((h) => !CAPTURE_ALLOWLIST.includes(h));
+    const missing = CAPTURE_ALLOWLIST.filter((h) => !hits.includes(h));
+    expect(extra).toEqual([]);
+    expect(missing).toEqual([]);
+  });
+
+  it("data-noDaySwipe／data-noWeekSwipe 零出現", () => {
+    const hits: string[] = [];
+    for (const dirName of SCAN_DIRS) {
+      const dir = path.join(ROOT, dirName);
+      try {
+        statSync(dir);
+      } catch {
+        continue;
+      }
+      for (const file of walkTs(dir)) {
+        const rel = relPosix(file);
+        const text = readFileSync(file, "utf8");
+        if (OLD_SWIPE_ATTR_RE.test(text)) hits.push(rel);
+      }
+    }
+    expect(hits).toEqual([]);
   });
 });

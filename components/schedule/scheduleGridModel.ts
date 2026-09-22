@@ -7,7 +7,6 @@ export const SCHED_ROW_H = 26;
 export const SCHED_GAP = 2;
 export const SCHED_STEP = SCHED_ROW_H + SCHED_GAP;
 export const SCHED_TIME_W = 44;
-export const SCHED_HSCROLL_ATTR = "noWeekSwipe";
 
 export type SchedCell = { t: string; n: string; cat1: string; cat2: string; cat3: string; color?: string };
 

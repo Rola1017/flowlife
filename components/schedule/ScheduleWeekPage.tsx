@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { TH } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { CFG } from "@/lib/config";
@@ -35,6 +35,7 @@ import { toM } from "@/lib/utils";
 import { ScheduleBoard } from "./ScheduleBoard";
 import { buildScheduleRows, halfSlotsOf, inFixedSlot } from "./scheduleGridModel";
 import { CourseEditPanel, type CourseDraft, type CourseHistoryItem } from "./CourseEditPanel";
+import { useHorizontalSwipe } from "@/components/hooks/useHorizontalSwipe";
 
 const CORE_S = toM("06:00");
 const CORE_E = toM("23:00");
@@ -60,20 +61,7 @@ const navHit: CSSProperties = {
   cursor: "pointer",
 };
 
-const SWIPE_MIN_PX = 60;
-const SWIPE_H_RATIO = 1.5;
 const EDIT_TIP = "💡 在這裡改只會影響這一天，不會動到常用模板";
-
-function shouldIgnoreWeekSwipe(target: EventTarget | null, root: EventTarget | null): boolean {
-  let el = target instanceof Element ? target : null;
-  while (el && el !== root) {
-    if (el instanceof HTMLElement && el.dataset.noWeekSwipe === "1") return true;
-    const ox = getComputedStyle(el).overflowX;
-    if (ox === "auto" || ox === "scroll") return true;
-    el = el.parentElement;
-  }
-  return false;
-}
 
 type Draft = CourseDraft;
 
@@ -98,7 +86,11 @@ export function ScheduleWeekPage({ onShowCategoryManager }: { onShowCategoryMana
     loadJSON<CourseHistoryItem[]>(LS_KEYS.scheduleHistory, []),
   );
   const editWarned = useRef(false);
-  const swipeRef = useRef<{ x: number; y: number; id: number; ignore: boolean; captured: boolean } | null>(null);
+  const swipe = useHorizontalSwipe((dir) => {
+    setMonday((m) => addDaysYmd(m, dir === "left" ? 7 : -7));
+    setDayPanel(null);
+    setEdit(null);
+  });
 
   const dates = useMemo(() => weekDatesFromMonday(monday), [monday]);
 
@@ -255,38 +247,6 @@ export function ScheduleWeekPage({ onShowCategoryManager }: { onShowCategoryMana
     setDayPanel(null);
   };
 
-  const onSwipeDown = (e: PointerEvent<HTMLDivElement>) => {
-    if (e.pointerType === "mouse" && e.button !== 0) return;
-    const ignore = shouldIgnoreWeekSwipe(e.target, e.currentTarget);
-    swipeRef.current = { x: e.clientX, y: e.clientY, id: e.pointerId, ignore, captured: false };
-  };
-  const onSwipeMove = (e: PointerEvent<HTMLDivElement>) => {
-    const s = swipeRef.current;
-    if (!s || s.ignore || e.pointerId !== s.id || s.captured) return;
-    const dx = e.clientX - s.x;
-    const dy = e.clientY - s.y;
-    if (Math.abs(dx) <= SWIPE_MIN_PX) return;
-    if (Math.abs(dx) <= Math.abs(dy) * SWIPE_H_RATIO) return;
-    s.captured = true;
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {
-      /* 非信任事件 */
-    }
-  };
-  const onSwipeUp = (e: PointerEvent<HTMLDivElement>) => {
-    const s = swipeRef.current;
-    swipeRef.current = null;
-    if (!s || s.ignore || !s.captured || e.pointerId !== s.id) return;
-    const dx = e.clientX - s.x;
-    const dy = e.clientY - s.y;
-    if (Math.abs(dx) <= SWIPE_MIN_PX) return;
-    if (Math.abs(dx) <= Math.abs(dy) * SWIPE_H_RATIO) return;
-    setMonday((m) => addDaysYmd(m, dx < 0 ? 7 : -7));
-    setDayPanel(null);
-    setEdit(null);
-  };
-
   const panelResolved = dayPanel ? resolved[dayPanel] : null;
   const panelCounts = panelResolved ? vacationClearCounts(panelResolved) : { shifts: 0, courses: 0 };
   const thisMonday = mondayOfDateStr(CFG.TODAY_STR);
@@ -295,12 +255,10 @@ export function ScheduleWeekPage({ onShowCategoryManager }: { onShowCategoryMana
   return (
     <div
       style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", minWidth: 0, boxSizing: "border-box" }}
-      onPointerDown={onSwipeDown}
-      onPointerMove={onSwipeMove}
-      onPointerUp={onSwipeUp}
-      onPointerCancel={() => {
-        swipeRef.current = null;
-      }}
+      onPointerDown={swipe.onPointerDown}
+      onPointerMove={swipe.onPointerMove}
+      onPointerUp={swipe.onPointerUp}
+      onPointerCancel={swipe.onPointerCancel}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, width: "100%", boxSizing: "border-box" }}>
         <button type="button" aria-label="上一週" onPointerDown={stopSwipe} onClick={() => setMonday((m) => addDaysYmd(m, -7))} style={navHit}>
