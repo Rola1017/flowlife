@@ -136,3 +136,71 @@ describe("水平滑動單一來源", () => {
     expect(splitMount).toEqual([]);
   });
 });
+
+const BANNED_FLUSH = [
+  "flushLocalToCloud",
+  "pushAllLocalSessionsToCloud",
+  "pushAllAppStateToCloud",
+  "pushAllReviewsToCloud",
+  "inspectSessionCloudStatus",
+];
+
+describe("雲端同步單一入口", () => {
+  /**
+   * 防 2026-09 登出盲推／假警報（E25）：登出與設定頁只能走 syncNow。
+   */
+  it("舊全量推送／inspect 零出現", () => {
+    const hits: string[] = [];
+    for (const dirName of SCAN_DIRS) {
+      const dir = path.join(ROOT, dirName);
+      try {
+        statSync(dir);
+      } catch {
+        continue;
+      }
+      for (const file of walkTs(dir)) {
+        const rel = relPosix(file);
+        const text = readFileSync(file, "utf8");
+        for (const ban of BANNED_FLUSH) {
+          if (text.includes(ban)) hits.push(`${rel}:${ban}`);
+        }
+      }
+    }
+    expect(hits).toEqual([]);
+  });
+
+  it("AuthPanel 與 SettingsPage 只能透過 syncNow（E25）", () => {
+    const files = ["components/auth/AuthPanel.tsx", "components/settings/SettingsPage.tsx"];
+    for (const rel of files) {
+      const text = readFileSync(path.join(ROOT, rel), "utf8");
+      expect(text, rel).toMatch(/\bsyncNow\s*\(/);
+      for (const ban of BANNED_FLUSH) {
+        expect(text.includes(ban), `${rel} ${ban}`).toBe(false);
+      }
+    }
+  });
+
+  it("forcePushAppStateForReset 只准出現在 appStateCloud.ts 與 App.tsx", () => {
+    const hits: string[] = [];
+    for (const dirName of SCAN_DIRS) {
+      const dir = path.join(ROOT, dirName);
+      try {
+        statSync(dir);
+      } catch {
+        continue;
+      }
+      for (const file of walkTs(dir)) {
+        const rel = relPosix(file);
+        const text = readFileSync(file, "utf8");
+        if (text.includes("forcePushAppStateForReset")) hits.push(rel);
+      }
+    }
+    expect(hits.sort()).toEqual(["components/App.tsx", "lib/appStateCloud.ts"].sort());
+  });
+
+  it("syncNow 不得提供 force 參數", () => {
+    const text = readFileSync(path.join(ROOT, "lib/cloudSync.ts"), "utf8");
+    expect(/\bforce\s*\?:/.test(text)).toBe(false);
+    expect(/\bforce\s*:/.test(text)).toBe(false);
+  });
+});

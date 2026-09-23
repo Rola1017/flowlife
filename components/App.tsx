@@ -24,7 +24,7 @@ import { useReviewCloudSync } from "@/components/hooks/useReviewCloudSync";
 import { useSessionCloudSync } from "@/components/hooks/useSessionCloudSync";
 import { useAppStateCloudSync } from "@/components/hooks/useAppStateCloudSync";
 import { subscribeSessions, syncSessionDiffToCloud, collectSessionUuids, mergeDeletedSessionUuids, deleteSessionsCloud } from "@/lib/sessionsCloud";
-import { APP_STATE_KEYS, pushAppState, pushAllAppStateToCloud, subscribeAppState } from "@/lib/appStateCloud";
+import { APP_STATE_KEYS, forcePushAppStateForReset, pushAppState, subscribeAppState } from "@/lib/appStateCloud";
 import { ensureWorkplacesSeeded, ensureRoutineSeeded, ensureCourseIds } from "@/lib/schedule";
 import { nextIdleTrackStart } from "@/lib/idle";
 import { Card } from "@/components/ui/Card";
@@ -509,7 +509,7 @@ function AppContent() {
     saveCategories(DEFAULT_CATEGORIES);
     ensureTagsMigrated();
     saveJSON(LS_KEYS.deletedSessionUuids, tombs);
-    await pushAllAppStateToCloud();
+    await forcePushAppStateForReset();
     resetCoinLog();
     setFocused(DEFAULT_RATINGS.focused);
     setNeutral(DEFAULT_RATINGS.neutral);

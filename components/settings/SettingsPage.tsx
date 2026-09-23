@@ -6,7 +6,7 @@ import { Card, SL } from "@/components/ui/Card";
 import { AuthPanel } from "@/components/auth/AuthPanel";
 import { CloudSyncBadge } from "@/components/ui/CloudSyncBadge";
 import { TH } from "@/lib/theme";
-import { inspectSessionCloudStatus, type SessionCloudStatus } from "@/lib/sessionsCloud";
+import { SYNC_TARGET_LABELS, syncNow, type SyncReport } from "@/lib/cloudSync";
 import type { Todo } from "@/lib/types";
 
 export function SettingsPage({
@@ -23,8 +23,9 @@ export function SettingsPage({
   const [confirming, setConfirming] = useState(false);
   const [clearingRecords, setClearingRecords] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [inspect, setInspect] = useState<SessionCloudStatus | null>(null);
-  const [inspecting, setInspecting] = useState(false);
+  const [syncReport, setSyncReport] = useState<SyncReport | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState("");
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -36,12 +37,16 @@ export function SettingsPage({
         <AuthPanel />
         <button
           type="button"
-          disabled={inspecting}
+          disabled={syncing}
           onClick={() => {
-            setInspecting(true);
-            void inspectSessionCloudStatus()
-              .then(setInspect)
-              .finally(() => setInspecting(false));
+            setSyncing(true);
+            setSyncProgress("同步中…");
+            void syncNow({ onProgress: setSyncProgress })
+              .then(setSyncReport)
+              .finally(() => {
+                setSyncing(false);
+                setSyncProgress("");
+              });
           }}
           style={{
             marginTop: 10,
@@ -53,34 +58,39 @@ export function SettingsPage({
             color: TH.text,
             fontSize: 12,
             fontWeight: 800,
-            cursor: inspecting ? "not-allowed" : "pointer",
+            cursor: syncing ? "not-allowed" : "pointer",
           }}
         >
-          {inspecting ? "檢查中…" : "檢查雲端同步狀態"}
+          {syncing ? syncProgress || "同步中…" : "立即同步並檢查"}
         </button>
-        {inspect && (
+        {syncReport && (
           <div style={{ marginTop: 8, fontSize: 11, color: TH.muted, lineHeight: 1.6 }}>
-            <div>本機 sessions：{inspect.localCount} 筆</div>
             <div>
-              雲端 sessions：
-              {!inspect.loggedIn
-                ? "未登入"
-                : inspect.cloudCount == null
-                  ? "讀取失敗"
-                  : `${inspect.cloudCount} 筆`}
+              {syncReport.loggedIn
+                ? syncReport.allClear
+                  ? "✅ 已全部同步"
+                  : syncReport.timedOut
+                    ? "⏱ 逾時（未完成≠失敗，可重試）"
+                    : "⚠️ 尚有資料未同步完成"
+                : "未登入"}
             </div>
-            <div>只在本機：{inspect.onlyLocalCount} 筆</div>
-            {inspect.onlyLocalSample.length > 0 && (
-              <div style={{ wordBreak: "break-all" }}>
-                uuid 前 {inspect.onlyLocalSample.length} 筆：{inspect.onlyLocalSample.join("、")}
+            {syncReport.targets.map((t) => (
+              <div key={t.name}>
+                {SYNC_TARGET_LABELS[t.name] ?? t.name}：上傳 {t.pushed}／刪除 {t.deleted}／待處理 {t.pending}
+                {t.failed > 0 ? `／失敗 ${t.failed}` : ""}
+                {t.lastError ? `（${t.lastError}）` : ""}
               </div>
-            )}
-            <div>最後寫入錯誤：{inspect.lastError ?? "無"}</div>
-            <div>失敗計數：{inspect.failCount}</div>
+            ))}
           </div>
         )}
         <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4, marginTop: 8 }}>
-          💡 登出會清本機；若有未上雲資料會先警告。紅色標記＝寫入失敗，點開看最後錯誤。
+          💡 立即同步只上傳本機較新與雲端缺的，並刪除墓碑中的雲端列；不會蓋掉他機較新的資料，也不會刪他機新資料。
+        </div>
+        <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4, marginTop: 4 }}>
+          💡 登出會清本機；若有未上雲／未刪雲端資料會先警告。逾時只是還沒跑完，可重試。
+        </div>
+        <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4, marginTop: 4 }}>
+          💡 紅色標記＝寫入失敗，點開看最後錯誤。
         </div>
       </Card>
 

@@ -1,4 +1,4 @@
-import { getCloudWriteFailures, reportCloudWriteResult, uuidsOnlyInLocal } from "@/lib/cloudWrite";
+import { reportCloudWriteResult } from "@/lib/cloudWrite";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Session } from "@/lib/types";
@@ -26,6 +26,43 @@ async function getUid(): Promise<string | null> {
 function loadLocal(): Session[] {
   const v = loadJSON<Session[]>(LS_KEYS.sessions, []);
   return Array.isArray(v) ? v : [];
+}
+
+export function loadLocalSessions(): Session[] {
+  return loadLocal();
+}
+
+/** 本機墓碑：垃圾桶 uuid ＋ deleted_session_uuids。不含「雲端有、本機沒有」。 */
+export function loadLocalSessionTombstoneUuids(): Set<string> {
+  const set = new Set<string>();
+  for (const s of loadJSON<Session[]>(LS_KEYS.trashedSessions, [])) {
+    if (s?.uuid) set.add(s.uuid);
+  }
+  for (const d of loadJSON<{ uuid?: string }[]>(LS_KEYS.deletedSessionUuids, [])) {
+    if (d?.uuid) set.add(d.uuid);
+  }
+  return set;
+}
+
+export type SessionIndexRow = { uuid: string; updated_at: string };
+
+export async function fetchSessionsIndex(uid: string): Promise<SessionIndexRow[] | null> {
+  const { data, error } = await sb().from("sessions").select("uuid, updated_at").eq("user_id", uid);
+  if (error) return null;
+  const out: SessionIndexRow[] = [];
+  for (const r of (data ?? []) as { uuid?: string; updated_at?: string }[]) {
+    if (!r.uuid) continue;
+    out.push({ uuid: r.uuid, updated_at: r.updated_at ?? "" });
+  }
+  return out;
+}
+
+/** 單批 upsert（呼叫端切 ≤100）。uid 由 syncNow 傳入，不再 getUid。 */
+export async function upsertSessionsBatch(uid: string, sessions: Session[]): Promise<boolean> {
+  const rows = sessions.filter((s) => s.uuid).map((s) => toRow(uid, s));
+  if (!rows.length) return true;
+  const { error } = await sb().from("sessions").upsert(rows, { onConflict: "uuid" });
+  return reportCloudWriteResult("sessions", "upsert", { error });
 }
 
 type SessionRow = {
@@ -158,16 +195,16 @@ export function mergeDeletedSessionUuids(
   return [...map.values()];
 }
 
-/** 批次從雲端刪番茄（chunks of 100）。未登入＝沒有雲端可刪，視為成功。 */
-export async function deleteSessionsCloud(uuids: string[]): Promise<boolean> {
+/** 批次從雲端刪番茄（chunks of 100）。未登入＝沒有雲端可刪，視為成功。uid 可傳入以免再 getUid。 */
+export async function deleteSessionsCloud(uuids: string[], uid?: string): Promise<boolean> {
   const uniq = collectSessionUuids(uuids.map((uuid) => ({ uuid })));
   if (!uniq.length) return true;
-  const uid = await getUid();
-  if (!uid) return true;
+  const userId = uid ?? (await getUid());
+  if (!userId) return true;
   let ok = true;
   for (let i = 0; i < uniq.length; i += 100) {
     const chunk = uniq.slice(i, i + 100);
-    const { error } = await sb().from("sessions").delete().eq("user_id", uid).in("uuid", chunk);
+    const { error } = await sb().from("sessions").delete().eq("user_id", userId).in("uuid", chunk);
     if (!reportCloudWriteResult("sessions", "delete", { error })) ok = false;
   }
   return ok;
@@ -278,57 +315,3 @@ export async function syncSessionDiffToCloud(prev: Session[], next: Session[]) {
   }
 }
 
-export async function fetchCloudSessionUuids(): Promise<string[] | null> {
-  const uid = await getUid();
-  if (!uid) return [];
-  const { data, error } = await sb().from("sessions").select("uuid").eq("user_id", uid);
-  if (error || !data) return null;
-  return (data as { uuid?: string }[]).map((r) => r.uuid).filter((u): u is string => Boolean(u));
-}
-
-export async function pushAllLocalSessionsToCloud(): Promise<void> {
-  for (const s of loadLocal()) {
-    if (s.uuid) await pushSessionCloud(s.uuid);
-  }
-}
-
-export type SessionCloudStatus = {
-  localCount: number;
-  cloudCount: number | null;
-  onlyLocalCount: number;
-  onlyLocalSample: string[];
-  lastError: string | null;
-  failCount: number;
-  cloudUnreachable: boolean;
-  loggedIn: boolean;
-};
-
-export async function inspectSessionCloudStatus(): Promise<SessionCloudStatus> {
-  const localUuids = loadLocal().map((s) => s.uuid).filter((u): u is string => Boolean(u));
-  const uid = await getUid();
-  const fails = getCloudWriteFailures();
-  if (!uid) {
-    return {
-      localCount: localUuids.length,
-      cloudCount: null,
-      onlyLocalCount: 0,
-      onlyLocalSample: [],
-      lastError: fails.lastError,
-      failCount: fails.count,
-      cloudUnreachable: false,
-      loggedIn: false,
-    };
-  }
-  const cloud = await fetchCloudSessionUuids();
-  const onlyLocal = uuidsOnlyInLocal(localUuids, cloud ?? []);
-  return {
-    localCount: localUuids.length,
-    cloudCount: cloud == null ? null : cloud.length,
-    onlyLocalCount: onlyLocal.length,
-    onlyLocalSample: onlyLocal.slice(0, 10),
-    lastError: fails.lastError,
-    failCount: fails.count,
-    cloudUnreachable: cloud == null,
-    loggedIn: true,
-  };
-}

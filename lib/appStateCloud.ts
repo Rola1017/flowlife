@@ -119,7 +119,50 @@ export async function pushAppState(key: string, value: unknown): Promise<boolean
   return reportCloudWriteResult("app_state", "upsert", { error }, key);
 }
 
-export async function pushAllAppStateToCloud(): Promise<void> {
+export function loadAppStateMeta(): Record<string, string> {
+  return loadMeta();
+}
+
+export function loadAppStateLocalValue(key: string): unknown {
+  const k = key as AppStateKey;
+  if (!(k in LS_FOR_KEY)) return null;
+  return loadJSON(LS_FOR_KEY[k], DEFAULT_FOR_KEY[k]);
+}
+
+export type AppStateIndexRow = { key: string; updated_at: string };
+
+export async function fetchAppStateIndex(uid: string): Promise<AppStateIndexRow[] | null> {
+  const { data, error } = await sb().from("app_state").select("key,updated_at").eq("user_id", uid);
+  if (error) return null;
+  const out: AppStateIndexRow[] = [];
+  for (const r of (data ?? []) as { key?: string; updated_at?: string }[]) {
+    if (!r.key) continue;
+    out.push({ key: r.key, updated_at: r.updated_at ?? "" });
+  }
+  return out;
+}
+
+/** 用既有 meta 時戳 upsert，不得蓋成 now（syncNow 增量對帳；不蓋較新雲端）。 */
+export async function upsertAppStateBatch(
+  uid: string,
+  items: { key: string; value: unknown; updatedAt: string }[],
+): Promise<boolean> {
+  if (!items.length) return true;
+  const rows = items.map((it) => ({
+    user_id: uid,
+    key: it.key,
+    value: it.value,
+    updated_at: it.updatedAt,
+  }));
+  const { error } = await sb().from("app_state").upsert(rows, { onConflict: "user_id,key" });
+  return reportCloudWriteResult("app_state", "upsert", { error });
+}
+
+/**
+ * 暫行方案：重置的正確語意是明確刪除雲端列，而非推本機預設值蓋上去。見 app_rules §十一。
+ * 僅供 App.tsx handleResetAllData 使用。不得當作一般同步入口。
+ */
+export async function forcePushAppStateForReset(): Promise<void> {
   for (const key of Object.values(APP_STATE_KEYS)) {
     await pushAppState(key, loadJSON(LS_FOR_KEY[key], DEFAULT_FOR_KEY[key]));
   }

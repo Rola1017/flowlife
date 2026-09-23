@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { TH } from "@/lib/theme";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { clearAllAppData, clearOwnerUserId, loadOwnerUserId, saveOwnerUserId } from "@/lib/storage";
-import { flushLocalToCloud } from "@/lib/cloudFlush";
+import { SYNC_TARGET_LABELS, syncNow, type SyncReport } from "@/lib/cloudSync";
 
 const inputStyle = {
   background: "#15151B",
@@ -26,6 +26,20 @@ const btnBase = {
   cursor: "pointer",
 } as const;
 
+function unsyncedDetail(report: SyncReport): string {
+  const parts: string[] = [];
+  if (report.timedOut) parts.push("逾時（未完成≠失敗，可重試）");
+  for (const t of report.targets) {
+    if (t.pending <= 0 && t.failed <= 0) continue;
+    const label = SYNC_TARGET_LABELS[t.name] ?? t.name;
+    const bits: string[] = [];
+    if (t.pending > 0) bits.push(`待處理 ${t.pending}`);
+    if (t.failed > 0) bits.push(`失敗 ${t.failed}`);
+    parts.push(`${label} ${bits.join("／")}`);
+  }
+  return parts.join("、") || "尚有資料未同步完成";
+}
+
 export function AuthPanel() {
   const [supabase] = useState(() => createSupabaseBrowserClient());
   const [email, setEmail] = useState("");
@@ -34,7 +48,7 @@ export function AuthPanel() {
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [logoutWarn, setLogoutWarn] = useState<{ n: number; detail: string } | null>(null);
+  const [logoutWarn, setLogoutWarn] = useState<SyncReport | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -83,29 +97,35 @@ export function AuthPanel() {
     await performSignOut();
   };
 
+  const runSync = () =>
+    syncNow({
+      onProgress: (m) => setMsg(m),
+    });
+
   const signOut = async () => {
     setLoading(true);
     setMsg("同步中…");
     setLogoutWarn(null);
-    const flushed = await flushLocalToCloud(8000);
-    if (flushed.timedOut) {
+    const report = await runSync();
+    if (report.allClear) {
       setLoading(false);
       setMsg("");
-      setLogoutWarn({ n: 1, detail: "全量推送逾時 8 秒" });
+      if (!window.confirm("登出會清除這台裝置上的本機資料（雲端資料保留）。確定登出？")) return;
+      await performSignOut();
       return;
     }
     setLoading(false);
     setMsg("");
-    if (!window.confirm("登出會清除這台裝置上的本機資料（雲端資料保留）。確定登出？")) return;
-    await performSignOut();
+    setLogoutWarn(report);
   };
 
   const retryThenRecheck = async () => {
     setLoading(true);
     setMsg("同步中…");
-    const flushed = await flushLocalToCloud(8000);
-    if (flushed.timedOut) {
+    const report = await runSync();
+    if (!report.allClear) {
       setLoading(false);
+      setLogoutWarn(report);
       setMsg("⚠️ 尚有資料未同步完成，仍要登出嗎？");
       return;
     }
@@ -135,6 +155,9 @@ export function AuthPanel() {
             <div style={{ fontSize: 11, color: TH.red, fontWeight: 800, lineHeight: 1.5 }}>
               ⚠️ 尚有資料未同步完成，仍要登出嗎？
             </div>
+            <div style={{ fontSize: 10, color: TH.muted, lineHeight: 1.5 }}>
+              {unsyncedDetail(logoutWarn)}
+            </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button
                 type="button"
@@ -148,7 +171,7 @@ export function AuthPanel() {
                   cursor: loading ? "not-allowed" : "pointer",
                 }}
               >
-                {loading ? "同步中…" : "重試同步"}
+                {loading ? (msg.startsWith("同步中") ? msg : "同步中…") : "重試同步"}
               </button>
               <button
                 type="button"
@@ -196,10 +219,10 @@ export function AuthPanel() {
               cursor: loading ? "not-allowed" : "pointer",
             }}
           >
-            {loading ? "同步中…" : "登出"}
+            {loading ? (msg.startsWith("同步中") ? msg : "同步中…") : "登出"}
           </button>
         )}
-        {msg && (
+        {msg && !loading && (
           <div style={{ fontSize: 11, color: msg.startsWith("✅") ? TH.green : TH.red, lineHeight: 1.4 }}>
             {msg}
           </div>

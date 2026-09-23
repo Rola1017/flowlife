@@ -80,7 +80,7 @@ lib/
 ├── sessions.ts   ← patchReflection（覆盤寫入單一來源）
 ├── overlap.ts    ← 時段重疊與 "a~b" 解析唯一來源（rangeStrToSpan／rangeStrsOverlap／spansOverlap）；schedule.timeRangesOverlap 為薄包裝；pickOverlapsOn 為班別撞班共用判斷
 ├── cloudWrite.ts ← 雲端寫入錯誤單一入口（reportCloudWriteResult／getCloudWriteFailures／uuidsOnlyInLocal）
-├── cloudFlush.ts ← 登出前完整推送（5s 逾時）
+├── cloudSync.ts  ← 登出／設定頁同步唯一入口（syncNow：增量對帳上傳＋刪除＋驗證；timeout 30s）
 ├── reviews.ts    ← upsertReview / addReview / removeReview / nextId（覆盤表寫入單一來源）
 ├── period.ts     ← mondayOf／weekKey／monthKey／quarterKey／isoWeek／daysOfWeek／weekKeysOfMonth／monthKeysOfQuarter／weekLabel／monthLabel／quarterLabel（期間 key 單一來源）
 ├── timelineActual.ts ← actSessionsFor / overridesFor / actIdleFor / buildActualSegments（VT＋迷你 bar 單一來源）
@@ -399,15 +399,17 @@ TH.gold    = "#FBBF24"   // 金幣
 9. **金幣記錄＝`useCoinLog` 單一真相** → 餘額＝明細 `amount` 加總；`coinIncomeLog` 只在 `App.tsx` 經 `useCoinLog()` 持有；變動只走 `appendCoinRow`／`removeCoinRows*`／`upsertCoinRowForSession`／`spendCoins` 四入口；禁止獨立餘額 state 或元件各自 load/save 金幣
 10. **番茄雲端同步＝`lib/sessionsCloud`** → 番茄上雲（push/delete/拉合併）一律走 `sessionsCloud`（uuid 主鍵、last-write-wins by `updatedAt`、localStorage 為本機快取/備援）；寫入路徑由 `App.updateSessions` 末端 `syncSessionDiffToCloud(prev,next)` 自動增量推送，禁止元件各自直連 supabase 寫 sessions
 11. **app_state 雲端同步＝`lib/appStateCloud`** → 金幣明細（`coin_income_log`）整包上雲；餘額由明細加總、不再讀寫獨立 `coins` key（舊 `coins` 僅遷移用）；`useCoinLog` 本地變動才 `pushAppState`、訂閱套回；禁止元件各自直連 supabase 寫 app_state
+12. **登出／手動同步＝`lib/cloudSync.ts` `syncNow` 唯一入口** → 增量對帳（上傳＋刪除墓碑列＋不動）、不蓋較新雲端、驗證 planPush／planDelete 皆空才全清；uid 只取一次；不得 force；新雲端表必須掛進同步目標註冊表。重置暫行 `forcePushAppStateForReset`（僅 App.tsx handleResetAllData）
 
 ---
 
 ## 十、已完成功能 ✅
 
+- **habit-tracker18 批次 D（2026-09-23）**：登出／設定頁同步收成 `lib/cloudSync.ts` `syncNow` 唯一入口（增量對帳：上傳＋刪除墓碑列＋不動；不蓋較新雲端；上傳後重抓 index，planPush／planDelete 皆空才 allClear）。uid 只取一次；sessions 批次 upsert ≤100；reviews free 批次 upsert、singleton 對帳後逐筆；todos 走 `mergeTodosWithTombstones`。重置暫行 `forcePushAppStateForReset`（不得給 syncNow force）。刪 `cloudFlush`／`pushAll*`／`inspectSessionCloudStatus`。逾時 30 秒 pending≠失敗。Git 交由 Rola 提交。
 - **habit-tracker18 批次 C（2026-09-22）**：`useHorizontalSwipe` 回傳 `{...swipe.bind}` 內建 `touchAction: pan-y`（防手機 pointercancel）；課表格子橫捲區 `pan-x pan-y`。Git 交由 Rola 提交。
 - **habit-tracker18 批次 B（2026-09-22）**：左右滑動收成 `useHorizontalSwipe`（pointerdown 不 capture；move 達門檻才 `setPointerCapture`）；某日詳情頁電腦返回鍵／‹ ›／新增可點。忽略區統一 `data-no-swipe`；`classifySwipe` 單一判定。刪死常數 `SCHED_HSCROLL_ATTR`。
 - **habit-tracker18 批次 A（2026-09-21）**：「今」圓形黃圈（`TH.yellow` inset 陰影，navHit content-box／44×44 不動）；時段頁頂部「📅 課表」已移除，底部 📋 課表為唯一入口；時段重疊判斷收成 `lib/overlap.ts`（`rangeStrToSpan`／`rangeStrsOverlap`／`spansOverlap`），`timeRangesOverlap` 薄包裝，`pickOverlapsOn` 班別撞班共用；`architecture.test.ts` 守門 `.split("~")`。
-- **課表行事曆點擊／選課面板／回本週／登出強制同步／課程 id（2026-09-20）**：週切換改為 pointermove 達水平門檻才 `setPointerCapture`（根因：pointerdown 就 capture 吃掉電腦 click）；可點元素 `stopPropagation`。行事曆選課改重用抽出的 `CourseEditPanel`（模板同一套）。非本週顯示「今」。`AuthPanel` 登出先 `flushLocalToCloud(8000)`，逾時才問。`CourseInfo.id?`＋`ensureCourseIds` 冪等補發（App 啟動 migration）、複製整天發新 id。App 比照 `bumpCat` 訂閱 `week_schedule`／`day_overrides`／`day_plans`。
+- **課表行事曆點擊／選課面板／回本週／登出強制同步／課程 id（2026-09-20）**：週切換改為 pointermove 達水平門檻才 `setPointerCapture`（根因：pointerdown 就 capture 吃掉電腦 click）；可點元素 `stopPropagation`。行事曆選課改重用抽出的 `CourseEditPanel`（模板同一套）。非本週顯示「今」。`AuthPanel` 登出先 `syncNow`（批次 D 取代 `flushLocalToCloud`），逾時／未清才問。`CourseInfo.id?`＋`ensureCourseIds` 冪等補發（App 啟動 migration）、複製整天發新 id。App 比照 `bumpCat` 訂閱 `week_schedule`／`day_overrides`／`day_plans`。
 - **課表分頁（週切換行事曆＋常用模板，2026-09-18）**：底部 TABS 新增「📋 課表」（主頁不動）。預設「課表行事曆」（本週，‹ ›／標題列 Pointer 滑動換週；格線 `data-no-swipe` 橫捲不換週）。「課表常用模板」＝原 `SchedulePage`（week_schedule／day_plans，含班表 chips），只改標題與入口。行事曆改動／三顆休假快捷一律寫 `day_overrides`（`applyDayVacation`／`restoreDayToTemplate`），不動模板；override 日橘點＋虛線標記。共用 `ScheduleBoard`。時段頁「📅 課表」改切底部課表分頁。登出登入仍走既有 `saveDayOverrides` 上雲。
 - **緊急修復（2026-09-18）**：①清除番茄記錄／重置全部改為先寫 `deleted_session_uuids` 墓碑再 `deleteSessionsCloud`、金幣／垃圾桶一併推空雲端，**await 完成後才 reload**；重置改走 `clearAllAppData()`（禁止 `flowlife_` 前綴迴圈）；確認文案明示「會同時清除雲端、所有裝置、無法復原」。②`pushAppState` 改為先 `setMetaTs` 再 `getUid`，避免新增 `tag_groups` 被舊雲端覆蓋；`saveTagGroups`/`saveTags` 改回傳 Promise，失敗走 `alertIfPushFailed`。③選擇器三處共用 `sortGroupsForSelector`（必填維度置頂、其餘依 order）；領域 picker 預設收合＋根層「未分類」釘最前（真實可選標籤，管理頁僅禁止刪根節點）。
 - 元件拆分（33個檔案）
@@ -601,7 +603,7 @@ TH.gold    = "#FBBF24"   // 金幣
 - **取消番茄立刻進未利用**：根因＝`abandonFocus` 自行 `setIdleTrackStart` 後，App 60s 規則制 tick 若仍見 `pomoRunning` 會清掉、等到下一輪才重開。修法＝抽出 `syncIdleTrack`＋`inAvailableWindow`，`onFocusEnd` 立刻重算；放棄路徑不再自己點燃 idle。
 - **課表課格分類小字**：課名下方 7px `TH.muted` 中分類（無則大分類），單行省略；`ROW_H=26` 不變。週課表＋便利貼格子同步。
 - **直式行程表未完成／已完成 💡**：未完成＝今日未完成且有排定時間、疊在計畫時段；已完成＝今日已完成且有 `endAt`、疊在實際完成點；眼睛只改時間軸顯示。
-- **雲端寫入必須被發現**：所有 supabase upsert/insert/update/delete 走 `reportCloudWriteResult`；失敗 `console.error` + 計數；Header／設定紅標「⚠️ 有 N 筆未能同步」點開看最後錯誤。登出前比對 sessions uuid＋失敗計數，未同步則警告「重試同步／仍要登出」；登出必 `flushLocalToCloud`（5s 逾時）再清本機。設定頁「檢查雲端同步狀態」。
+- **雲端寫入必須被發現**：所有 supabase upsert/insert/update/delete 走 `reportCloudWriteResult`；失敗 `console.error` + 計數；Header／設定紅標「⚠️ 有 N 筆未能同步」點開看最後錯誤。登出前走 `syncNow`（增量對帳上傳＋刪除＋驗證）；未全清則警告「重試同步／仍要登出／取消」。設定頁「立即同步並檢查」。
 - **Z3 番茄區標籤化**：CategorySelector 改為依分類維度分區（多選維度用 chips＋樹狀彈出面板、單選維度用 chips），新增最近組合與沿用上次；canStart 改為所有 required 維度皆已選；寫入 tagIds 並雙寫 cat1/2/3（Z8 前不得停止）；noCoin 改走標籤祖先鏈；顏色/emoji 取主標籤 tagIds[0]。
 - **Z4 統計標籤化：buildDistribution/buildCalendarStats/buildLineSeries/WeekHeat 改用 splitMinutesByGroup 分攤（同維度平均、餘數依序補、總和恆等於總時數）；新增統計維度切換器（僅列 isTimeDestination 維度）；MultiCategoryFilter 改吃 tagIds、同維度聯集/跨維度交集；舊資料以 resolveCatIds 相容。**
 - **Z4 修正：新增 distributeAndFilter 共用函式（分攤→過濾→加總同源）；有篩選時只計入選取標籤的分攤額、總時數＝保留片段總和；無該維度標籤者歸入「未指定{維度名}」，與真實「未分類」標籤區分。**
@@ -615,6 +617,7 @@ TH.gold    = "#FBBF24"   // 金幣
 
 | 決策 | 內容 |
 |------|------|
+| 重置應改為明確刪除雲端列（急救登記 §8-38） | 現況重置走 `forcePushAppStateForReset` 推本機預設值蓋雲端。**正確語意**＝明確刪除雲端 `sessions`／`app_state`／`reviews` 列，而非盲推預設。**觸發＝下次動雲端資料的批次**。 |
 | 跨帳號汙染修復前，兩個帳號的雲端資料可能已互相混入 | 需人工清理（見下批）。本批只擋往後再汙染。 |
 | reviews 上提 App.tsx | 現況 `DayReview`／`ReviewNudgeCard` 各自 load/save 或直讀 `getReview`；暫緩原因＝覆盤頁與主頁不同 tab 不同時掛載，第三步經評估不需上提；**觸發上提時機＝未來同畫面同時出現浮現卡與覆盤編輯、需即時連動時**（附原脈絡：Batch C 走 `calIntent` 跳轉即可）。 |
 | ~~行事曆與金幣頁兩套分類篩選~~ ✅ 已解決 | 行事曆與金幣頁兩套分類篩選 → 已統一為 `matchesCatSelection` 單一來源（`selPaths:Set<string>`＋`MultiCategoryFilter`）。 |
@@ -635,7 +638,7 @@ TH.gold    = "#FBBF24"   // 金幣
 | ~~多裝置刪除「復活」硬化（墓碑/deletedAt 同步）~~ ✅ 已治本 | 獨立墓碑 `deleted_session_uuids`＋`tombstoneSet` 直查雲端；清空垃圾桶仍保留墓碑。永久 schema `deleted_at` 見「墓碑保存期」條。 |
 | 娛樂計時為單機本地狀態，多裝置同步待評估 | **刻意本地**——進行中的計時娛樂存 `LS_KEYS.activeEnt`，不上雲；重開 App 依 `startAt` 時間戳續算倒數與退幣。多裝置同步待 Capacitor／多裝置階段再評估。 |
 | 娛樂時間／番茄倒數結束前 2 分／1 分本機推播 | **暫緩至 Capacitor 原生打包批次**——Web 環境在 App 切走／手機鎖屏時無法可靠發提醒，目前僅 App 開著時提示；計時採結束時間戳記帳，關閉 App 再回來仍能正確結算與退幣。真推播需 Capacitor 原生殼；**進行 Capacitor 原生打包批次時必須一併實作本機推播提醒（結束前 2 分／1 分），並回頭移除本條。** |
-| ~~reset 未清雲端~~ ✅ 已解決 | 清除記錄／重置：先合併墓碑再批次刪雲端 sessions，**不得** `updateDeletedUuids([])`。重置用 `clearAllAppData`＋`pushAllAppStateToCloud`，await 後 reload。 |
+| ~~reset 未清雲端~~ ✅ 已解決（暫行） | 清除記錄／重置：先合併墓碑再批次刪雲端 sessions，**不得** `updateDeletedUuids([])`。重置用 `clearAllAppData`＋`forcePushAppStateForReset`（暫行盲推預設值；正確語意見 §十一 ⬜ 明確刪除雲端列）。await 後 reload。 |
 | ~~分類尚未上雲~~ ✅ 已完成 | 分類沿用 app_state 單例 `key="categories"`，`saveCategories` 推雲＋`App` 訂閱刷新（番茄/金幣/分類全上雲）。 |
 | 技術債 #1 班別硬寫死 | ✅ **S3 班別使用者化完成**（S3-1~3c-2）：資料化、上雲、跨店 picks、重疊擋、時間/名稱/顏色可編、場所/班別增刪、pick 存班別 id、`findShift` 只認 id、孤兒 `reconcileDayPlans`、`ShiftDef.days` 可上班日閘門、單段時間隱藏 per-range 日子鈕（`rangeForDay` 單段套用所有可上班日）、WorkplaceManager「重設為預設」救援鈕。**剩**：⬜ S3-3d 單次微調（邊緣）。 |
 | ~~工作場所顏色綁分類名~~ ✅ 已解 | 3c-1b 顏色已解綁存入 `workplace.color`（`colorSeeded` 種子＋`placeColor`/`VerticalTimeline` 優先讀 color），改名不掉色。註：工作場所色與分類色現為兩套，logged 兼差時間色仍走 `CAT.cat2Color`。 |
@@ -658,6 +661,8 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ## 十一、待完成事項 ⬜
 
+- ⬜ **重置應改為「明確刪除雲端 sessions／app_state／reviews 列」**（現況暫行 `forcePushAppStateForReset` 推本機預設值蓋上去）。觸發＝下次動雲端資料的批次；見暫緩決策帳本（紀律 §8-38 急救登記）。
+- ⬜ **新雲端資料表必須掛進 `lib/cloudSync.ts` 同步目標註冊表**（sessions／app_state／reviews）；不得另開 flush／pushAll 入口。觸發＝下次新增雲端表。
 - ⬜ **課表格改掛 trackId**（課程身分＝科目 track，即《讀書章節與覆盤系統設計》的 tracks）：目前 week_schedule／day_overrides 每半小時一格各發一個 course id，覆盤會分裂；改為每格記 trackId、章節掛在 track 下；排在 Z6（課表標籤化）之前；便利貼 addOvCourse 缺 id 併入該批。
 - ⬜ **重疊檢測其餘寫入點**（本批只修番茄手動補/改）：課表課格同格覆蓋無警告、班別已擋、作息已警告、便利貼課↔班衝突／課↔課無、待辦只驗同日 end>start、時間軸 ACT 補登無、健身 stub、即時番茄/娛樂 session 無。待 Rola 決定是否接 `lib/overlap`。
 - ✅ **Z2 標籤管理頁**（群組＋無限層樹編輯器、`isTimeDestination`、軟刪除＋影響範圍）。✅ **Z3 番茄區標籤化**。✅ **說明卡層級寫法＋互動預覽＋葉標籤標題**。✅ **移除專案快捷**。✅ **主維度天藍色＋預覽收折＋維度標題單行**。✅ **Z4 統計與篩選區標籤化**（分攤＋統計維度切換器＋MultiCategoryFilter 吃 tagIds）。⬜ **Z5～Z7 未執行**。超過三層的降級位置（本批只顯示前三層，供 Z5～Z7 改走標籤樹）：`CAT.cats()`／`categoriesFromDomainTags`（只投影 root→mid→sub）；`SchedulePage` 編輯卡片 cat1/2/3；`SessionHistoryPage` 篩選仍可能 cat；待辦 `TodoFormFields` 單層 cat；商店／娛樂 `cat1/2/3`；`legacyPath` 只取祖先前三層；`stampSessionCatIds`／`resolveCatIds` 三層名稱仍雙寫。
@@ -710,7 +715,8 @@ TH.gold    = "#FBBF24"   // 金幣
 - `tests/`（與 `lib/` 並列）：
   - `cloudWrite.test.ts` — 寫入失敗計數累加／成功不累加（mock `{ error }`）；`uuidsOnlyInLocal` 只在本機
   - `overlap.test.ts` — `spansOverlap`／`findOverlaps`：相鄰不重疊、包含、部分重疊、完全相同；datetime-local 與 `"24:00"`；`rangeStrToSpan`／`rangeStrsOverlap`（空字串＝不佔時間）；三者等價性 ≥500 組；`pickOverlapsOn` 碰邊／重疊／閘門；日期字串鎖死、不用 new Date()
-  - `architecture.test.ts` — 掃 `components/`＋`lib/`＋`app/`：除 `lib/overlap.ts` 外不得 `.split("~")`（防 2026-09 重疊判斷複製 6 份）；`setPointerCapture` 只准 `useHorizontalSwipe`（防 2026-09 滑動兩份、修一漏一）；`noDaySwipe`／`noWeekSwipe` 零出現；`useHorizontalSwipe` 必須 `{...swipe.bind}` 不得逐個掛（防 E23 缺 touch-action）
+  - `architecture.test.ts` — 掃 `components/`＋`lib/`＋`app/`：除 `lib/overlap.ts` 外不得 `.split("~")`（防 2026-09 重疊判斷複製 6 份）；`setPointerCapture` 只准 `useHorizontalSwipe`（防 2026-09 滑動兩份、修一漏一）；`noDaySwipe`／`noWeekSwipe` 零出現；`useHorizontalSwipe` 必須 `{...swipe.bind}` 不得逐個掛（防 E23 缺 touch-action）；舊全量推送／inspect 零出現；AuthPanel／SettingsPage 只能 `syncNow`（E25）；`forcePushAppStateForReset` 只准 `appStateCloud.ts`＋`App.tsx`；`syncNow` 不得 force
+  - `cloudSync.test.ts` — `planPush`／`planDelete` sessions／app_state／reviews／todos：墓碑永不 push、雲端獨有無墓碑永不 delete（E05／E06 property ≥500）；300 筆 sessions 網路 ≤1 index＋3 批次＋1 驗證、`getUser` 一次；驗證未清 pending>0 非 allClear；日期字串鎖死、不用 Date.now()
   - `swipe.test.ts` — `classifySwipe`：門檻不含 60、1.5 倍率、left／right；`SWIPE_CONTAINER_TOUCH_ACTION === "pan-y"`；日期字串鎖死、不用 new Date()
   - `idle.test.ts` — 未利用 subtract 夾窗（防延伸到不可用時段）＋ `inAvailableWindow`
   - `schedule.test.ts` — 時段重疊／`currentScheduleBlock`／`hi` 保留
@@ -739,5 +745,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/09/22（habit-tracker18 批次 C：swipe bind 內建 touchAction pan-y）*
+*最後更新：2026/09/23（habit-tracker18 批次 D：syncNow 增量對帳上傳＋刪除＋驗證）*
 *維護原則：每次完成重要功能，同步更新第十、十一、十二節*

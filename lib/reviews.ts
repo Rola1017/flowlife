@@ -43,9 +43,44 @@ export async function clearReviewsCloud(): Promise<void> {
   reportCloudWriteResult("reviews", "delete", { error });
 }
 
-/** 推單筆到雲端（手動 upsert，避開 partial-index onConflict） */
-async function pushSingletonCloud(uid: string, r: ReviewEntry) {
-  if (r.scope === "free") return;
+export type ReviewIndexRow = {
+  id: string;
+  scope: string;
+  period_key: string;
+  updated_at: string;
+};
+
+export function reviewLocalKey(r: ReviewEntry): string | null {
+  if (r.scope === "free") return r.uuid ?? null;
+  return `${r.scope}|${r.periodKey}`;
+}
+
+export function reviewIndexKey(row: ReviewIndexRow): string {
+  return row.scope === "free" ? row.id : `${row.scope}|${row.period_key}`;
+}
+
+export async function fetchReviewsIndex(uid: string): Promise<ReviewIndexRow[] | null> {
+  const { data, error } = await sb()
+    .from("reviews")
+    .select("id,scope,period_key,updated_at")
+    .eq("user_id", uid);
+  if (error) return null;
+  const out: ReviewIndexRow[] = [];
+  for (const r of (data ?? []) as Partial<ReviewIndexRow>[]) {
+    if (!r.id || !r.scope) continue;
+    out.push({
+      id: r.id,
+      scope: r.scope,
+      period_key: r.period_key ?? "",
+      updated_at: r.updated_at ?? "",
+    });
+  }
+  return out;
+}
+
+/** 推單筆到雲端（手動 upsert，避開 partial-index onConflict）。次數＝待推數，不得全量。 */
+async function pushSingletonCloud(uid: string, r: ReviewEntry): Promise<boolean> {
+  if (r.scope === "free") return true;
   const { data: ex } = await sb()
     .from("reviews")
     .select("id")
@@ -62,11 +97,19 @@ async function pushSingletonCloud(uid: string, r: ReviewEntry) {
   };
   if (ex) {
     const { error } = await sb().from("reviews").update(payload).eq("id", ex.id);
-    reportCloudWriteResult("reviews", "update", { error }, String(ex.id));
-  } else {
-    const { error } = await sb().from("reviews").insert(payload);
-    reportCloudWriteResult("reviews", "insert", { error }, `${r.scope}:${r.periodKey}`);
+    return reportCloudWriteResult("reviews", "update", { error }, String(ex.id));
   }
+  const { error } = await sb().from("reviews").insert(payload);
+  return reportCloudWriteResult("reviews", "insert", { error }, `${r.scope}:${r.periodKey}`);
+}
+
+/** 對帳後逐筆 select/update/insert，次數＝待推數。 */
+export async function pushSingletonReviews(uid: string, entries: ReviewEntry[]): Promise<boolean> {
+  let ok = true;
+  for (const r of entries) {
+    if (!(await pushSingletonCloud(uid, r))) ok = false;
+  }
+  return ok;
 }
 
 /** 對 free 且無 uuid 者補上 uuid（冪等） */
@@ -82,17 +125,17 @@ function ensureFreeUuids(list: ReviewEntry[]): { list: ReviewEntry[]; changed: b
   return { list: changed ? next : list, changed };
 }
 
-/** 推一則 free 到雲端（以 uuid 為 reviews 表 id 主鍵 upsert） */
-async function pushFreeCloud(entry: ReviewEntry) {
-  if (!entry.uuid) return;
-  const uid = await getUid();
-  if (!uid) return;
+/** 推一則 free 到雲端（以 uuid 為 reviews 表 id 主鍵 upsert）。uid 可傳入，不得每則再 getUid。 */
+export async function pushFreeCloud(entry: ReviewEntry, uid?: string): Promise<boolean> {
+  if (!entry.uuid) return true;
+  const userId = uid ?? (await getUid());
+  if (!userId) return false;
   const { error } = await sb()
     .from("reviews")
     .upsert(
       {
         id: entry.uuid,
-        user_id: uid,
+        user_id: userId,
         scope: "free",
         period_key: entry.periodKey,
         text: entry.text,
@@ -100,7 +143,65 @@ async function pushFreeCloud(entry: ReviewEntry) {
       },
       { onConflict: "id" },
     );
-  reportCloudWriteResult("reviews", "upsert", { error }, entry.uuid);
+  return reportCloudWriteResult("reviews", "upsert", { error }, entry.uuid);
+}
+
+function freeRow(uid: string, entry: ReviewEntry) {
+  return {
+    id: entry.uuid,
+    user_id: uid,
+    scope: "free" as const,
+    period_key: entry.periodKey,
+    text: entry.text,
+    updated_at: entry.updatedAt ?? entry.createdAt,
+  };
+}
+
+/** index 對帳後批次 upsert（chunks of 100）。 */
+export async function pushFreeReviewsBatch(uid: string, entries: ReviewEntry[]): Promise<boolean> {
+  const rows = entries.filter((e) => e.uuid).map((e) => freeRow(uid, e));
+  if (!rows.length) return true;
+  let ok = true;
+  for (let i = 0; i < rows.length; i += 100) {
+    const chunk = rows.slice(i, i + 100);
+    const { error } = await sb().from("reviews").upsert(chunk, { onConflict: "id" });
+    if (!reportCloudWriteResult("reviews", "upsert", { error })) ok = false;
+  }
+  return ok;
+}
+
+export async function deleteReviewsByKeys(uid: string, keys: string[]): Promise<boolean> {
+  const freeIds: string[] = [];
+  const singletons: { scope: string; periodKey: string }[] = [];
+  for (const key of keys) {
+    if (!key) continue;
+    const i = key.indexOf("|");
+    if (i < 0) freeIds.push(key);
+    else singletons.push({ scope: key.slice(0, i), periodKey: key.slice(i + 1) });
+  }
+  let ok = true;
+  for (let i = 0; i < freeIds.length; i += 100) {
+    const chunk = freeIds.slice(i, i + 100);
+    const { error } = await sb().from("reviews").delete().eq("user_id", uid).in("id", chunk);
+    if (!reportCloudWriteResult("reviews", "delete", { error })) ok = false;
+  }
+  for (const s of singletons) {
+    const { error } = await sb()
+      .from("reviews")
+      .delete()
+      .eq("user_id", uid)
+      .eq("scope", s.scope)
+      .eq("period_key", s.periodKey);
+    if (!reportCloudWriteResult("reviews", "delete", { error }, `${s.scope}:${s.periodKey}`)) ok = false;
+  }
+  return ok;
+}
+
+export function ensureLocalFreeUuids(): ReviewEntry[] {
+  const list = loadReviews();
+  const ensured = ensureFreeUuids(list);
+  if (ensured.changed) saveJSON(LS_KEYS.reviews, ensured.list);
+  return ensured.list;
 }
 
 /** 從雲端刪除一則 free */
@@ -204,16 +305,6 @@ export async function syncReviewsFromCloud() {
   const merged = [...Array.from(map.values()), ...mergedFree];
   saveJSON(LS_KEYS.reviews, merged);
   emitReviews();
-}
-
-export async function pushAllReviewsToCloud(): Promise<void> {
-  const uid = await getUid();
-  if (!uid) return;
-  const list = loadReviews();
-  for (const r of list) {
-    if (r.scope === "free") await pushFreeCloud(r);
-    else await pushSingletonCloud(uid, r);
-  }
 }
 
 export function loadReviews(): ReviewEntry[] {

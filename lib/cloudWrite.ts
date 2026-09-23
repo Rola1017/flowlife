@@ -1,6 +1,6 @@
 /**
  * 雲端寫入錯誤單一入口：所有 supabase upsert/insert/update/delete 必須走這。
- * 失敗才累加；成功不累加、也不自動遞減（flush 成功才 reset）。
+ * 失敗才累加；成功不累加、也不自動遞減（syncNow 驗證全清才 reset）。
  */
 
 export type CloudWriteOp = "upsert" | "insert" | "update" | "delete";
