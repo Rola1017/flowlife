@@ -70,7 +70,7 @@ describe.skipIf(!HAS_CREDS)("契約：雲端時間往返", () => {
     if (created.reviewIds.length) {
       await sb.from("reviews").delete().eq("user_id", uid).in("id", created.reviewIds);
     }
-    await sb.auth.signOut();
+    await sb.auth.signOut({ scope: "local" });
   });
 
   it("(a)(b) app_state／sessions／reviews 寫入後 tsNewer 兩向 false，且不在 planPush", async () => {

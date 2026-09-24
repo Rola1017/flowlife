@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TH } from "@/lib/theme";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { clearAllAppData, clearOwnerUserId, loadOwnerUserId, saveOwnerUserId } from "@/lib/storage";
+import { getLocalSession, isOnline, signOut as signOutAuth, subscribeAuth, subscribeOnline } from "@/lib/authState";
 import { SYNC_TARGET_LABELS, syncNow, type SyncReport } from "@/lib/cloudSync";
+import { clearAllAppData, clearOwnerUserId, loadOwnerUserId, saveOwnerUserId } from "@/lib/storage";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { TH } from "@/lib/theme";
 
 const inputStyle = {
   background: "#15151B",
@@ -28,6 +29,7 @@ const btnBase = {
 
 function unsyncedDetail(report: SyncReport): string {
   const parts: string[] = [];
+  if (report.offline) parts.push("目前離線");
   if (report.timedOut) parts.push("逾時（未完成≠失敗，可重試）");
   for (const t of report.targets) {
     if (t.pending <= 0 && t.failed <= 0) continue;
@@ -48,17 +50,20 @@ export function AuthPanel() {
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [online, setOnline] = useState(isOnline);
   const [logoutWarn, setLogoutWarn] = useState<SyncReport | null>(null);
+  const [offlineLogout, setOfflineLogout] = useState(false);
+  const [globalConfirm, setGlobalConfirm] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUserEmail(data.user?.email ?? null);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUserEmail(session?.user?.email ?? null);
-    });
-    return () => sub.subscription.unsubscribe();
-  }, [supabase]);
+    void getLocalSession().then((s) => setUserEmail(s.email));
+    const unsubAuth = subscribeAuth((s) => setUserEmail(s.email));
+    const unsubOnline = subscribeOnline(setOnline);
+    return () => {
+      unsubAuth();
+      unsubOnline();
+    };
+  }, []);
 
   const submit = async () => {
     setLoading(true);
@@ -73,7 +78,7 @@ export function AuthPanel() {
       setMsg(error.message);
       return;
     }
-    const uid = data.user?.id ?? (await supabase.auth.getUser()).data.user?.id ?? null;
+    const uid = data.user?.id ?? (await getLocalSession()).uid;
     const stored = loadOwnerUserId();
     if (uid && stored !== uid) {
       clearAllAppData();
@@ -85,16 +90,12 @@ export function AuthPanel() {
     setPassword("");
   };
 
-  const performSignOut = async () => {
+  const performSignOut = async (scope: "local" | "global") => {
     setLoading(true);
-    await supabase.auth.signOut();
+    await signOutAuth(scope);
     clearAllAppData();
     clearOwnerUserId();
     window.location.reload();
-  };
-
-  const finishSignOut = async () => {
-    await performSignOut();
   };
 
   const runSync = () =>
@@ -102,21 +103,44 @@ export function AuthPanel() {
       onProgress: (m) => setMsg(m),
     });
 
-  const signOut = async () => {
+  const beginLocalSignOut = async () => {
+    if (!isOnline()) {
+      setLogoutWarn(null);
+      setGlobalConfirm(false);
+      setOfflineLogout(true);
+      return;
+    }
     setLoading(true);
     setMsg("同步中…");
     setLogoutWarn(null);
+    setOfflineLogout(false);
     const report = await runSync();
     if (report.allClear) {
       setLoading(false);
       setMsg("");
       if (!window.confirm("登出會清除這台裝置上的本機資料（雲端資料保留）。確定登出？")) return;
-      await performSignOut();
+      await performSignOut("local");
       return;
     }
     setLoading(false);
     setMsg("");
     setLogoutWarn(report);
+  };
+
+  const beginGlobalSignOut = async () => {
+    if (!isOnline()) return;
+    setLoading(true);
+    setMsg("同步中…");
+    setLogoutWarn(null);
+    setOfflineLogout(false);
+    const report = await runSync();
+    setLoading(false);
+    setMsg("");
+    if (!report.allClear) {
+      setLogoutWarn(report);
+      return;
+    }
+    setGlobalConfirm(true);
   };
 
   const retryThenRecheck = async () => {
@@ -140,7 +164,97 @@ export function AuthPanel() {
         <div style={{ fontSize: 12, color: TH.text }}>
           已登入：<span style={{ fontWeight: 800 }}>{userEmail}</span>
         </div>
-        {logoutWarn ? (
+        {offlineLogout ? (
+          <div
+            style={{
+              border: `1px solid ${TH.yellow}66`,
+              background: TH.yellow + "14",
+              borderRadius: 10,
+              padding: 10,
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+            }}
+          >
+            <div style={{ fontSize: 11, color: TH.yellow, fontWeight: 800, lineHeight: 1.5 }}>
+              離線登出會清除本機資料且無法先上傳，可能遺失尚未同步的資料
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => setOfflineLogout(false)}
+                style={{
+                  ...btnBase,
+                  border: `1px solid ${TH.border}`,
+                  background: TH.accent,
+                  color: "#fff",
+                }}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => void performSignOut("local")}
+                style={{
+                  ...btnBase,
+                  border: `1px solid ${TH.red}66`,
+                  background: "transparent",
+                  color: TH.red,
+                  cursor: loading ? "not-allowed" : "pointer",
+                }}
+              >
+                仍要登出
+              </button>
+            </div>
+          </div>
+        ) : globalConfirm ? (
+          <div
+            style={{
+              border: `1px solid ${TH.red}66`,
+              background: TH.red + "14",
+              borderRadius: 10,
+              padding: 10,
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+            }}
+          >
+            <div style={{ fontSize: 11, color: TH.red, fontWeight: 800, lineHeight: 1.5 }}>
+              這會讓所有裝置都退出登入。確定？
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => setGlobalConfirm(false)}
+                style={{
+                  ...btnBase,
+                  border: `1px solid ${TH.border}`,
+                  background: TH.accent,
+                  color: "#fff",
+                }}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => void performSignOut("global")}
+                style={{
+                  ...btnBase,
+                  border: "none",
+                  background: TH.red,
+                  color: "#fff",
+                  cursor: loading ? "not-allowed" : "pointer",
+                }}
+              >
+                確認登出所有裝置
+              </button>
+            </div>
+          </div>
+        ) : logoutWarn ? (
           <div
             style={{
               border: `1px solid ${TH.red}66`,
@@ -176,7 +290,7 @@ export function AuthPanel() {
               <button
                 type="button"
                 disabled={loading}
-                onClick={() => void finishSignOut()}
+                onClick={() => void performSignOut("local")}
                 style={{
                   ...btnBase,
                   border: `1px solid ${TH.red}66`,
@@ -206,27 +320,45 @@ export function AuthPanel() {
             </div>
           </div>
         ) : (
-          <button
-            type="button"
-            disabled={loading}
-            onClick={() => void signOut()}
-            style={{
-              ...btnBase,
-              border: `1px solid ${TH.border}`,
-              background: "transparent",
-              color: TH.muted,
-              alignSelf: "flex-start",
-              cursor: loading ? "not-allowed" : "pointer",
-            }}
-          >
-            {loading ? (msg.startsWith("同步中") ? msg : "同步中…") : "登出"}
-          </button>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-start" }}>
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => void beginLocalSignOut()}
+              style={{
+                ...btnBase,
+                border: `1px solid ${TH.border}`,
+                background: "transparent",
+                color: TH.muted,
+                cursor: loading ? "not-allowed" : "pointer",
+              }}
+            >
+              {loading ? (msg.startsWith("同步中") ? msg : "同步中…") : "登出"}
+            </button>
+            <button
+              type="button"
+              disabled={loading || !online}
+              onClick={() => void beginGlobalSignOut()}
+              style={{
+                ...btnBase,
+                border: `1px solid ${TH.red}44`,
+                background: "transparent",
+                color: online ? TH.red : TH.muted,
+                cursor: loading || !online ? "not-allowed" : "pointer",
+              }}
+            >
+              登出所有裝置
+            </button>
+          </div>
         )}
         {msg && !loading && (
           <div style={{ fontSize: 11, color: msg.startsWith("✅") ? TH.green : TH.red, lineHeight: 1.4 }}>
             {msg}
           </div>
         )}
+        <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4 }}>
+          💡 登出只退出這台，其他裝置維持登入。登出所有裝置會讓每台都退出（需連網）。
+        </div>
       </div>
     );
   }

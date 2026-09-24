@@ -6,6 +6,7 @@ import {
   syncAppStateFromCloud,
   upsertAppStateBatch,
 } from "@/lib/appStateCloud";
+import { getLocalSession, isOnline } from "@/lib/authState";
 import { resetCloudWriteFailures } from "@/lib/cloudWrite";
 import { CFG } from "@/lib/config";
 import { tsNewer } from "@/lib/time";
@@ -30,7 +31,6 @@ import {
   upsertSessionsBatch,
 } from "@/lib/sessionsCloud";
 import { LS_KEYS, loadJSON } from "@/lib/storage";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { mergeTodosWithTombstones, normalizeTodoList } from "@/lib/todosCloud";
 import type { Session, Todo } from "@/lib/types";
 
@@ -56,6 +56,7 @@ export type SyncReport = {
   timedOut: boolean;
   loggedIn: boolean;
   allClear: boolean;
+  offline: boolean;
   targets: SyncTargetReport[];
 };
 
@@ -186,8 +187,8 @@ function chunk<T>(items: T[], size = CLOUD_BATCH_SIZE): T[][] {
 }
 
 async function getUidOnce(): Promise<string | null> {
-  const { data } = await createSupabaseBrowserClient().auth.getUser();
-  return data.user?.id ?? null;
+  const s = await getLocalSession();
+  return s.uid;
 }
 
 function emptyTarget(name: string): SyncTargetReport {
@@ -387,6 +388,7 @@ function snapshotReport(report: SyncReport, timedOut: boolean): SyncReport {
     timedOut,
     loggedIn: report.loggedIn,
     allClear: timedOut ? false : report.allClear,
+    offline: report.offline,
     targets: report.targets.map((t) => ({ ...t })),
   };
 }
@@ -394,6 +396,7 @@ function snapshotReport(report: SyncReport, timedOut: boolean): SyncReport {
 /**
  * 登出／設定頁同步唯一入口。拉→推→刪→驗證。增量對帳：上傳＋刪除＋不動。
  * 拉重用 sync*FromCloud（不得另寫合併）。不得提供 force。
+ * 離線立即回傳，不得空轉到逾時。
  */
 export async function syncNow(opts?: {
   timeoutMs?: number;
@@ -404,8 +407,17 @@ export async function syncNow(opts?: {
     timedOut: false,
     loggedIn: false,
     allClear: false,
+    offline: false,
     targets: [],
   };
+
+  if (!isOnline()) {
+    const local = await getLocalSession();
+    report.loggedIn = Boolean(local.uid);
+    report.offline = true;
+    report.allClear = false;
+    return snapshotReport(report, false);
+  }
 
   const work = runSync(report, opts?.onProgress).then(() => snapshotReport(report, false));
   const raced = await Promise.race([

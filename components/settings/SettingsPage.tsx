@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BackBtn } from "@/components/ui/BackBtn";
 import { Card, SL } from "@/components/ui/Card";
 import { AuthPanel } from "@/components/auth/AuthPanel";
 import { CloudSyncBadge } from "@/components/ui/CloudSyncBadge";
+import { isOnline, subscribeOnline } from "@/lib/authState";
 import { TH } from "@/lib/theme";
 import { SYNC_TARGET_LABELS, syncNow, type SyncReport } from "@/lib/cloudSync";
 import type { Todo } from "@/lib/types";
@@ -26,6 +27,9 @@ export function SettingsPage({
   const [syncReport, setSyncReport] = useState<SyncReport | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState("");
+  const [online, setOnline] = useState(isOnline);
+
+  useEffect(() => subscribeOnline(setOnline), []);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -35,10 +39,16 @@ export function SettingsPage({
         <SL>雲端同步（測試中）</SL>
         <CloudSyncBadge />
         <AuthPanel />
+        {!online ? (
+          <div style={{ marginTop: 10, fontSize: 12, color: TH.yellow, fontWeight: 800, lineHeight: 1.5 }}>
+            📴 目前離線，無法同步
+          </div>
+        ) : null}
         <button
           type="button"
-          disabled={syncing}
+          disabled={syncing || !online}
           onClick={() => {
+            if (!isOnline()) return;
             setSyncing(true);
             setSyncProgress("同步中…");
             void syncNow({ onProgress: setSyncProgress })
@@ -55,23 +65,25 @@ export function SettingsPage({
             borderRadius: 10,
             border: `1px solid ${TH.border}`,
             background: "transparent",
-            color: TH.text,
+            color: online ? TH.text : TH.muted,
             fontSize: 12,
             fontWeight: 800,
-            cursor: syncing ? "not-allowed" : "pointer",
+            cursor: syncing || !online ? "not-allowed" : "pointer",
           }}
         >
           {syncing ? syncProgress || "同步中…" : "立即同步並檢查"}
         </button>
-        {syncReport && (
+        {online && syncReport && (
           <div style={{ marginTop: 8, fontSize: 11, color: TH.muted, lineHeight: 1.6 }}>
             <div>
               {syncReport.loggedIn
-                ? syncReport.allClear
-                  ? "✅ 已全部同步"
-                  : syncReport.timedOut
-                    ? "⏱ 逾時（未完成≠失敗，可重試）"
-                    : "⚠️ 尚有資料未同步完成"
+                ? syncReport.offline
+                  ? "📴 目前離線，無法同步"
+                  : syncReport.allClear
+                    ? "✅ 已全部同步"
+                    : syncReport.timedOut
+                      ? "⏱ 逾時（未完成≠失敗，可重試）"
+                      : "⚠️ 尚有資料未同步完成"
                 : "未登入"}
             </div>
             {syncReport.targets.map((t) => (
@@ -87,7 +99,7 @@ export function SettingsPage({
           💡 立即同步只上傳本機較新與雲端缺的，並刪除墓碑中的雲端列；不會蓋掉他機較新的資料，也不會刪他機新資料。
         </div>
         <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4, marginTop: 4 }}>
-          💡 登出會清本機；若有未上雲／未刪雲端資料會先警告。逾時只是還沒跑完，可重試。
+          💡 登出只退出這台；登出所有裝置才會讓其他裝置也退出。離線時無法同步。
         </div>
         <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4, marginTop: 4 }}>
           💡 紅色標記＝寫入失敗，點開看最後錯誤。

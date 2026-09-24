@@ -1,4 +1,4 @@
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { getLocalSession } from "@/lib/authState";
 import {
   clearAllAppData,
   hasLocalAppData,
@@ -23,8 +23,8 @@ export function shouldWipe(
 
 async function currentUid(): Promise<string | null> {
   try {
-    const { data } = await createSupabaseBrowserClient().auth.getUser();
-    return data.user?.id ?? null;
+    const s = await getLocalSession();
+    return s.uid;
   } catch {
     return null;
   }

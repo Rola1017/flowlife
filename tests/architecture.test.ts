@@ -241,3 +241,47 @@ describe("時間比較單一來源", () => {
     expect(hits).toEqual([]);
   });
 });
+
+describe("登入狀態單一來源（E28）", () => {
+  /**
+   * 防 2026-09 斷網被當成登出、全域登出波及其他裝置（E28）
+   */
+  it("除 lib/authState.ts 外，components/ 不得直接呼叫 auth.getUser()", () => {
+    const hits: string[] = [];
+    const dir = path.join(ROOT, "components");
+    const re = /auth\.getUser\s*\(/;
+    for (const file of walkTs(dir)) {
+      const rel = relPosix(file);
+      const text = readFileSync(file, "utf8");
+      const lines = text.split(/\r?\n/);
+      for (let i = 0; i < lines.length; i++) {
+        if (re.test(lines[i])) hits.push(`${rel}:${i + 1}`);
+      }
+    }
+    expect(hits).toEqual([]);
+  });
+
+  it("全庫 .auth.signOut( 必須顯式帶 scope", () => {
+    const hits: string[] = [];
+    const re = /\.auth\.signOut\s*\(/g;
+    for (const dirName of SCAN_DIRS) {
+      const dir = path.join(ROOT, dirName);
+      try {
+        statSync(dir);
+      } catch {
+        continue;
+      }
+      for (const file of walkTs(dir)) {
+        const rel = relPosix(file);
+        const text = readFileSync(file, "utf8");
+        let m: RegExpExecArray | null;
+        re.lastIndex = 0;
+        while ((m = re.exec(text))) {
+          const slice = text.slice(m.index, m.index + 180);
+          if (!/scope\s*:/.test(slice)) hits.push(`${rel}@${m.index}`);
+        }
+      }
+    }
+    expect(hits).toEqual([]);
+  });
+});

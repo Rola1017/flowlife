@@ -38,6 +38,7 @@ const hoisted = vi.hoisted(() => {
   type Call = { table: string; op: string; count?: number };
   const state = {
     getUser: vi.fn(),
+    getSession: vi.fn(),
     calls: [] as Call[],
     sessions: new Map<string, { uuid: string; updated_at: string }>(),
     appState: new Map<string, { key: string; updated_at: string; value: unknown }>(),
@@ -51,7 +52,7 @@ vi.mock("@/lib/supabase/client", () => ({
   createSupabaseBrowserClient: () => {
     const st = hoisted.state;
     return {
-      auth: { getUser: st.getUser },
+      auth: { getUser: st.getUser, getSession: st.getSession },
       from(table: string) {
         const ctx: { op: string; payload: unknown; inVals?: unknown[] } = { op: "", payload: null };
         const run = () => {
@@ -219,6 +220,11 @@ beforeEach(() => {
   hoisted.state.selectSessionsEmpty = false;
   hoisted.state.getUser.mockReset();
   hoisted.state.getUser.mockResolvedValue({ data: { user: { id: "user-1" } }, error: null });
+  hoisted.state.getSession.mockReset();
+  hoisted.state.getSession.mockResolvedValue({
+    data: { session: { user: { id: "user-1", email: "u@e.c" } } },
+    error: null,
+  });
 });
 
 describe("planPushSessions", () => {
@@ -365,6 +371,22 @@ describe("syncNow 網路對帳", () => {
     expect(report.allClear).toBe(false);
     const sessionsTarget = report.targets.find((t) => t.name === "sessions");
     expect(sessionsTarget?.pending ?? 0).toBeGreaterThan(0);
+  });
+
+  it("離線時立即回傳、allClear=false、不等待逾時", async () => {
+    const prev = navigator.onLine;
+    Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
+    try {
+      const t0 = Date.now();
+      const report = await syncNow({ timeoutMs: 30_000 });
+      expect(Date.now() - t0).toBeLessThan(500);
+      expect(report.offline).toBe(true);
+      expect(report.allClear).toBe(false);
+      expect(report.timedOut).toBe(false);
+      expect(report.loggedIn).toBe(true);
+    } finally {
+      Object.defineProperty(navigator, "onLine", { configurable: true, get: () => prev });
+    }
   });
 
   it("墓碑 uuid 會從雲端刪除，且驗證後 planDelete 為空", async () => {

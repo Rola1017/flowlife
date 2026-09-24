@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CloudSyncBadge } from "@/components/ui/CloudSyncBadge";
+import { isOnline, subscribeOnline } from "@/lib/authState";
 import { TH } from "@/lib/theme";
 
 const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
@@ -21,7 +22,9 @@ export function Header({
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(quote);
+  const [online, setOnline] = useState(isOnline);
   const todayLabel = formatTodayLabel();
+  useEffect(() => subscribeOnline(setOnline), []);
   return (
     <div
       style={{
@@ -51,6 +54,9 @@ export function Header({
             FlowLife
           </div>
           <div style={{ fontSize: 10, color: TH.muted, marginTop: 1 }}>{todayLabel}</div>
+          {!online ? (
+            <div style={{ fontSize: 10, color: TH.yellow, fontWeight: 800, marginTop: 2 }}>📴 離線</div>
+          ) : null}
         </div>
         <button
           type="button"
