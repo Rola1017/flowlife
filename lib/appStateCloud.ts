@@ -2,6 +2,7 @@ import { reportCloudWriteResult } from "@/lib/cloudWrite";
 import { CFG } from "@/lib/config";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { tsNewer } from "@/lib/time";
 import { gcTodoTombstones, mergeTodosWithTombstones, normalizeTodoList } from "@/lib/todosCloud";
 
 function sb() {
@@ -188,14 +189,14 @@ function reconcileTodos(cloud: AppStateRow | undefined, localTs: string) {
     return;
   }
   const cloudTs = cloud.updated_at ?? "";
-  if (cloudTs > localTs) {
+  if (tsNewer(cloudTs, localTs)) {
     saveJSON(LS_KEYS.todos, merged);
     setMetaTs(APP_STATE_KEYS.todos, cloudTs);
     emit(APP_STATE_KEYS.todos);
     if (strippedRemote || toPush.length) void pushAppState(APP_STATE_KEYS.todos, merged);
     return;
   }
-  if (localTs > cloudTs) {
+  if (tsNewer(localTs, cloudTs)) {
     saveJSON(LS_KEYS.todos, merged);
     void pushAppState(APP_STATE_KEYS.todos, merged);
   }
@@ -230,11 +231,11 @@ export async function syncAppStateFromCloud() {
       continue;
     }
 
-    if ((cloud.updated_at ?? "") > localTs) {
+    if (tsNewer(cloud.updated_at, localTs)) {
       saveJSON(ls, cloud.value);
       setMetaTs(key, cloud.updated_at);
       emit(key);
-    } else if (localTs > (cloud.updated_at ?? "")) {
+    } else if (tsNewer(localTs, cloud.updated_at)) {
       void pushAppState(key, loadJSON(ls, DEFAULT_FOR_KEY[key]));
     }
   }

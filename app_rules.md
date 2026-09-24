@@ -26,6 +26,8 @@
 - **【課表分類引用必須存在】**：課表／便利貼課程的 `cat1/2/3` 必須對應分類設定；分類被刪時經 `purgeCategoryRefs` 降級為「未分類」（保留課名與時段），不毀格子、不碰番茄歷史。
 - **【區段輸出必須落在傳入視窗內】**：`availableSegments`／`subtract` 等區段運算的輸出必須完全落在 `[winStart, winEnd]`；只夾下界會讓未來不可用時段把可用區段撐出「現在」之後（未利用超界根因）。
 - **【開工模式】**：每份指令開頭標示。**【開工模式：直接施工】** → 讀檔後直接做，做完一次回報。施工中若發現與指令不符（多出要改的檔、實際程式與指令描述不同、需要碰資料／雲端欄位），立即停下回報，不得自行決定。**【開工模式：先報告】** → 先交動手前報告，等 Rola 回「可以」才動手。（用於：動雲端欄位／資料表、資料遷移、刪除資料、任何不可逆操作）**Cursor 不得 git add／commit／push**；完工保留於工作區，附建議 commit 訊息，由 Rola 提交與同步。
+- **【跨系統邊界需契約測試（§8-39）】**：對真實外部系統（如 Supabase timestamptz 往返）寫契約測試；未設測試帳號時必須明確印「契約測試已略過」，不得靜默 skip、不得用 mock 冒充往返。
+- **【外部值先正規化（§8-40）】**：跨系統邊界的值（時間戳格式、UUID 大小寫等）先正規化再比較；禁止直接比對方的字串表象。時間比較唯一來源＝`lib/time.ts`（`tsMs`／`tsNewer`）。
 
 ---
 
@@ -80,7 +82,8 @@ lib/
 ├── sessions.ts   ← patchReflection（覆盤寫入單一來源）
 ├── overlap.ts    ← 時段重疊與 "a~b" 解析唯一來源（rangeStrToSpan／rangeStrsOverlap／spansOverlap）；schedule.timeRangesOverlap 為薄包裝；pickOverlapsOn 為班別撞班共用判斷
 ├── cloudWrite.ts ← 雲端寫入錯誤單一入口（reportCloudWriteResult／getCloudWriteFailures／uuidsOnlyInLocal）
-├── cloudSync.ts  ← 登出／設定頁同步唯一入口（syncNow：增量對帳上傳＋刪除＋驗證；timeout 30s）
+├── time.ts       ← 時間比較唯一來源（tsMs／tsNewer；禁止字串直接比 timestamptz）
+├── cloudSync.ts  ← 登出／設定頁同步唯一入口（syncNow：拉→推→刪→驗證；timeout 30s）
 ├── reviews.ts    ← upsertReview / addReview / removeReview / nextId（覆盤表寫入單一來源）
 ├── period.ts     ← mondayOf／weekKey／monthKey／quarterKey／isoWeek／daysOfWeek／weekKeysOfMonth／monthKeysOfQuarter／weekLabel／monthLabel／quarterLabel（期間 key 單一來源）
 ├── timelineActual.ts ← actSessionsFor / overridesFor / actIdleFor / buildActualSegments（VT＋迷你 bar 單一來源）
@@ -399,12 +402,13 @@ TH.gold    = "#FBBF24"   // 金幣
 9. **金幣記錄＝`useCoinLog` 單一真相** → 餘額＝明細 `amount` 加總；`coinIncomeLog` 只在 `App.tsx` 經 `useCoinLog()` 持有；變動只走 `appendCoinRow`／`removeCoinRows*`／`upsertCoinRowForSession`／`spendCoins` 四入口；禁止獨立餘額 state 或元件各自 load/save 金幣
 10. **番茄雲端同步＝`lib/sessionsCloud`** → 番茄上雲（push/delete/拉合併）一律走 `sessionsCloud`（uuid 主鍵、last-write-wins by `updatedAt`、localStorage 為本機快取/備援）；寫入路徑由 `App.updateSessions` 末端 `syncSessionDiffToCloud(prev,next)` 自動增量推送，禁止元件各自直連 supabase 寫 sessions
 11. **app_state 雲端同步＝`lib/appStateCloud`** → 金幣明細（`coin_income_log`）整包上雲；餘額由明細加總、不再讀寫獨立 `coins` key（舊 `coins` 僅遷移用）；`useCoinLog` 本地變動才 `pushAppState`、訂閱套回；禁止元件各自直連 supabase 寫 app_state
-12. **登出／手動同步＝`lib/cloudSync.ts` `syncNow` 唯一入口** → 增量對帳（上傳＋刪除墓碑列＋不動）、不蓋較新雲端、驗證 planPush／planDelete 皆空才全清；uid 只取一次；不得 force；新雲端表必須掛進同步目標註冊表。重置暫行 `forcePushAppStateForReset`（僅 App.tsx handleResetAllData）
+12. **登出／手動同步＝`lib/cloudSync.ts` `syncNow` 唯一入口** → 拉→推→刪→驗證（拉重用 `sync*FromCloud`）；時間比較走 `lib/time.ts` `tsNewer`；planPush／planDelete 皆空才全清；不得 force；新雲端表必須掛進同步目標註冊表。重置暫行 `forcePushAppStateForReset`（僅 App.tsx handleResetAllData）
 
 ---
 
 ## 十、已完成功能 ✅
 
+- **habit-tracker18 批次 E（2026-09-24）**：時間比較收成 `lib/time.ts`（`tsMs`／`tsNewer`）；步驟 0 證實雲端回 `+00:00`、本機 `Z`，字串 `>` 本機恆勝、`Date.parse` 相等（未跨毫秒，不加 `tsEqualish`）。`syncNow` 改拉→推→刪→驗證。契約測試 `tests/contract/cloudRoundtrip.test.ts`。業界標準（伺服器蓋章＋游標增量）列批次 F。Git 交由 Rola 提交。
 - **habit-tracker18 批次 D（2026-09-23）**：登出／設定頁同步收成 `lib/cloudSync.ts` `syncNow` 唯一入口（增量對帳：上傳＋刪除墓碑列＋不動；不蓋較新雲端；上傳後重抓 index，planPush／planDelete 皆空才 allClear）。uid 只取一次；sessions 批次 upsert ≤100；reviews free 批次 upsert、singleton 對帳後逐筆；todos 走 `mergeTodosWithTombstones`。重置暫行 `forcePushAppStateForReset`（不得給 syncNow force）。刪 `cloudFlush`／`pushAll*`／`inspectSessionCloudStatus`。逾時 30 秒 pending≠失敗。Git 交由 Rola 提交。
 - **habit-tracker18 批次 C（2026-09-22）**：`useHorizontalSwipe` 回傳 `{...swipe.bind}` 內建 `touchAction: pan-y`（防手機 pointercancel）；課表格子橫捲區 `pan-x pan-y`。Git 交由 Rola 提交。
 - **habit-tracker18 批次 B（2026-09-22）**：左右滑動收成 `useHorizontalSwipe`（pointerdown 不 capture；move 達門檻才 `setPointerCapture`）；某日詳情頁電腦返回鍵／‹ ›／新增可點。忽略區統一 `data-no-swipe`；`classifySwipe` 單一判定。刪死常數 `SCHED_HSCROLL_ATTR`。
@@ -618,6 +622,8 @@ TH.gold    = "#FBBF24"   // 金幣
 | 決策 | 內容 |
 |------|------|
 | 重置應改為明確刪除雲端列（急救登記 §8-38） | 現況重置走 `forcePushAppStateForReset` 推本機預設值蓋雲端。**正確語意**＝明確刪除雲端 `sessions`／`app_state`／`reviews` 列，而非盲推預設。**觸發＝下次動雲端資料的批次**。 |
+| 同步時間由裝置產生（急救登記 §8-38；批次 F） | 本批只止血：`tsNewer` 正規化比較＋`syncNow` 補拉。**暫行原因**＝業界標準要伺服器蓋章＋游標增量，需 schema。**觸發＝批次 F**。 |
+| `sync*FromCloud` 收 uid（本批不做） | 批次 E 優先重用既有合併、不動結構；拉階段各自再 `getUid`。觸發＝下次動 `syncNow` 效能時。 |
 | 跨帳號汙染修復前，兩個帳號的雲端資料可能已互相混入 | 需人工清理（見下批）。本批只擋往後再汙染。 |
 | reviews 上提 App.tsx | 現況 `DayReview`／`ReviewNudgeCard` 各自 load/save 或直讀 `getReview`；暫緩原因＝覆盤頁與主頁不同 tab 不同時掛載，第三步經評估不需上提；**觸發上提時機＝未來同畫面同時出現浮現卡與覆盤編輯、需即時連動時**（附原脈絡：Batch C 走 `calIntent` 跳轉即可）。 |
 | ~~行事曆與金幣頁兩套分類篩選~~ ✅ 已解決 | 行事曆與金幣頁兩套分類篩選 → 已統一為 `matchesCatSelection` 單一來源（`selPaths:Set<string>`＋`MultiCategoryFilter`）。 |
@@ -661,6 +667,8 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ## 十一、待完成事項 ⬜
 
+- ⬜ **同步改為業界標準**：時間由伺服器蓋章並回傳、以游標做增量拉取、刪除改為雲端 tombstone 欄位；觸發＝批次 F；原因＝目前比較兩台裝置各自產生的時間戳，時鐘偏移與格式差異都會出錯（E27）。
+- ⬜ **`sync*FromCloud` 收 uid**（本批不做）：批次 E 優先重用既有合併邏輯、不動結構。觸發＝下次動 `syncNow` 效能時。
 - ⬜ **重置應改為「明確刪除雲端 sessions／app_state／reviews 列」**（現況暫行 `forcePushAppStateForReset` 推本機預設值蓋上去）。觸發＝下次動雲端資料的批次；見暫緩決策帳本（紀律 §8-38 急救登記）。
 - ⬜ **新雲端資料表必須掛進 `lib/cloudSync.ts` 同步目標註冊表**（sessions／app_state／reviews）；不得另開 flush／pushAll 入口。觸發＝下次新增雲端表。
 - ⬜ **課表格改掛 trackId**（課程身分＝科目 track，即《讀書章節與覆盤系統設計》的 tracks）：目前 week_schedule／day_overrides 每半小時一格各發一個 course id，覆盤會分裂；改為每格記 trackId、章節掛在 track 下；排在 Z6（課表標籤化）之前；便利貼 addOvCourse 缺 id 併入該批。
@@ -711,12 +719,14 @@ TH.gold    = "#FBBF24"   // 金幣
 - `npm run typecheck` — `tsc --noEmit`（與 CI 獨立步驟相同；不依賴 `next build`）
 
 ### 結構
-- `vitest.config.ts`：`environment: jsdom`、`globals: true`、`@` → 專案根
+- `vitest.config.ts`：`environment: jsdom`、`globals: true`、`@` → 專案根；讀 `.env.local` 進 `process.env`（契約測試；檔本身被 `.env*` ignore）
 - `tests/`（與 `lib/` 並列）：
+  - `time.test.ts` — `tsMs`／`tsNewer`：同一時刻 `Z` 與 `+00:00` 相等、微秒與毫秒相等、空字串→0；property ≥500 兩向皆 false；日期字串鎖死
   - `cloudWrite.test.ts` — 寫入失敗計數累加／成功不累加（mock `{ error }`）；`uuidsOnlyInLocal` 只在本機
   - `overlap.test.ts` — `spansOverlap`／`findOverlaps`：相鄰不重疊、包含、部分重疊、完全相同；datetime-local 與 `"24:00"`；`rangeStrToSpan`／`rangeStrsOverlap`（空字串＝不佔時間）；三者等價性 ≥500 組；`pickOverlapsOn` 碰邊／重疊／閘門；日期字串鎖死、不用 new Date()
-  - `architecture.test.ts` — 掃 `components/`＋`lib/`＋`app/`：除 `lib/overlap.ts` 外不得 `.split("~")`（防 2026-09 重疊判斷複製 6 份）；`setPointerCapture` 只准 `useHorizontalSwipe`（防 2026-09 滑動兩份、修一漏一）；`noDaySwipe`／`noWeekSwipe` 零出現；`useHorizontalSwipe` 必須 `{...swipe.bind}` 不得逐個掛（防 E23 缺 touch-action）；舊全量推送／inspect 零出現；AuthPanel／SettingsPage 只能 `syncNow`（E25）；`forcePushAppStateForReset` 只准 `appStateCloud.ts`＋`App.tsx`；`syncNow` 不得 force
-  - `cloudSync.test.ts` — `planPush`／`planDelete` sessions／app_state／reviews／todos：墓碑永不 push、雲端獨有無墓碑永不 delete（E05／E06 property ≥500）；300 筆 sessions 網路 ≤1 index＋3 批次＋1 驗證、`getUser` 一次；驗證未清 pending>0 非 allClear；日期字串鎖死、不用 Date.now()
+  - `architecture.test.ts` — 掃 `components/`＋`lib/`＋`app/`：除 `lib/overlap.ts` 外不得 `.split("~")`（防 2026-09 重疊判斷複製 6 份）；`setPointerCapture` 只准 `useHorizontalSwipe`（防 2026-09 滑動兩份、修一漏一）；`noDaySwipe`／`noWeekSwipe` 零出現；`useHorizontalSwipe` 必須 `{...swipe.bind}` 不得逐個掛（防 E23 缺 touch-action）；舊全量推送／inspect 零出現；AuthPanel／SettingsPage 只能 `syncNow`（E25）；`forcePushAppStateForReset` 只准 `appStateCloud.ts`＋`App.tsx`；`syncNow` 不得 force；除 `lib/time.ts` 外不得對 `updated_at`／`updatedAt`／`createdAt` 直接 `>`／`<`（E27；regex 避開 `safe > 1, updatedAt`）
+  - `cloudSync.test.ts` — `planPush`／`planDelete`；E27：本機 Z／雲端 +00:00 同一時刻 planPush 空；墓碑永不 push、雲端獨有無墓碑永不 delete（E05／E06 property ≥500）；300 筆拉後 pending 0；驗證未清 pending>0 非 allClear
+  - `contract/cloudRoundtrip.test.ts` — 真實 Supabase 往返：寫入後 tsNewer 兩向 false、不在 planPush、100 筆 upsert index 筆數；無 `FLOWLIFE_TEST_EMAIL`／`PASSWORD` 時 skip 並印「契約測試已略過」
   - `swipe.test.ts` — `classifySwipe`：門檻不含 60、1.5 倍率、left／right；`SWIPE_CONTAINER_TOUCH_ACTION === "pan-y"`；日期字串鎖死、不用 new Date()
   - `idle.test.ts` — 未利用 subtract 夾窗（防延伸到不可用時段）＋ `inAvailableWindow`
   - `schedule.test.ts` — 時段重疊／`currentScheduleBlock`／`hi` 保留
@@ -745,5 +755,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/09/23（habit-tracker18 批次 D：syncNow 增量對帳上傳＋刪除＋驗證）*
+*最後更新：2026/09/24（habit-tracker18 批次 E：tsNewer 正規化比較＋syncNow 先拉再推）*
 *維護原則：每次完成重要功能，同步更新第十、十一、十二節*

@@ -331,21 +331,29 @@ describe("planPush／planDelete reviews", () => {
   });
 });
 
+describe("E27 時間格式：雲端 +00:00 vs 本機 Z", () => {
+  /** 重現：字串比較會讓本機恆大於雲端，pending 永不歸零。 */
+  it("同一時刻本機 Z、雲端 +00:00 → planPush 空", () => {
+    const local = "2026-09-24T08:48:11.964Z";
+    const cloud = "2026-09-24T08:48:11.964+00:00";
+    expect(planPushSessions([{ uuid: "u1", updatedAt: local }], [{ uuid: "u1", updated_at: cloud }], [])).toEqual(
+      [],
+    );
+    expect(planPushAppStateKeys(["coins"], { coins: local }, [{ key: "coins", updated_at: cloud }])).toEqual([]);
+    expect(planPushReviews([{ key: "k", updatedAt: local }], [{ key: "k", updated_at: cloud }], [])).toEqual([]);
+  });
+});
+
 describe("syncNow 網路對帳", () => {
-  it("300 筆 sessions：index＋3 批次＋驗證；auth.getUser 一次", async () => {
+  it("300 筆 sessions：拉後驗證 pending 為 0、allClear", async () => {
     saveJSON(
       LS_KEYS.sessions,
       Array.from({ length: 300 }, (_, i) => session(i)),
     );
     const report = await syncNow({ timeoutMs: 30_000 });
-    const sess = hoisted.state.calls.filter((c) => c.table === "sessions");
-    expect(sess.filter((c) => c.op === "select")).toHaveLength(2);
-    expect(sess.filter((c) => c.op === "upsert")).toHaveLength(3);
-    expect(hoisted.state.getUser).toHaveBeenCalledTimes(1);
     expect(report.loggedIn).toBe(true);
     expect(report.timedOut).toBe(false);
     const sessionsTarget = report.targets.find((t) => t.name === "sessions");
-    expect(sessionsTarget?.pushed).toBe(300);
     expect(sessionsTarget?.pending).toBe(0);
     expect(report.allClear).toBe(true);
   });

@@ -1,6 +1,7 @@
 import type { Todo, TodoPhase, TodoTombstone } from "@/lib/types";
 import { formatMd } from "@/lib/dateStr";
 import { LS_KEYS, loadJSON } from "@/lib/storage";
+import { tsNewer } from "@/lib/time";
 
 const PHASES: TodoPhase[] = ["pending", "started", "ending", "done"];
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -199,13 +200,13 @@ export function mergeTodosWithTombstones(
   for (const t of remote) {
     if (dead.has(t.id)) continue;
     const cur = map.get(t.id);
-    if (!cur || (t.updatedAt ?? "") > (cur.updatedAt ?? "")) map.set(t.id, t);
+    if (!cur || tsNewer(t.updatedAt, cur.updatedAt)) map.set(t.id, t);
   }
 
   const merged = Array.from(map.values());
   const toPush = merged.filter((t) => {
     const r = remote.find((x) => x.id === t.id);
-    return !r || (t.updatedAt ?? "") > (r.updatedAt ?? "");
+    return !r || tsNewer(t.updatedAt, r.updatedAt);
   });
   return { merged, toPush, strippedRemote };
 }

@@ -1,6 +1,7 @@
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 import { reportCloudWriteResult } from "@/lib/cloudWrite";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { tsNewer } from "@/lib/time";
 
 export type ReviewScope = "day" | "week" | "month" | "quarter" | "free";
 
@@ -252,14 +253,14 @@ export async function syncReviewsFromCloud() {
       updatedAt: c.updated_at ?? undefined,
     };
     if (!cur) map.set(k, cloudEntry);
-    else if (stamp(c.created_at, c.updated_at) > stamp(cur.createdAt, cur.updatedAt))
+    else if (tsNewer(stamp(c.created_at, c.updated_at), stamp(cur.createdAt, cur.updatedAt)))
       map.set(k, cloudEntry);
   }
   const cloudKeys = new Set(cloud.map((c) => keyOf(c.scope, c.period_key)));
   for (const r of localSingles) {
     const k = keyOf(r.scope, r.periodKey);
     const c = cloud.find((x) => keyOf(x.scope, x.period_key) === k);
-    if (!cloudKeys.has(k) || stamp(r.createdAt, r.updatedAt) > stamp(c?.created_at, c?.updated_at)) {
+    if (!cloudKeys.has(k) || tsNewer(stamp(r.createdAt, r.updatedAt), stamp(c?.created_at, c?.updated_at))) {
       await pushSingletonCloud(uid, r);
     }
   }
@@ -289,14 +290,14 @@ export async function syncReviewsFromCloud() {
         uuid: c.id,
       };
       if (!cur) freeMap.set(c.id, cloudEntry);
-      else if (stamp(c.created_at, c.updated_at) > stamp(cur.createdAt, cur.updatedAt))
+      else if (tsNewer(stamp(c.created_at, c.updated_at), stamp(cur.createdAt, cur.updatedAt)))
         freeMap.set(c.id, cloudEntry);
     }
     const cloudFreeIds = new Set(cloudFree.map((c) => c.id));
     for (const r of localFree) {
       if (!r.uuid) continue;
       const c = cloudFree.find((x) => x.id === r.uuid);
-      if (!cloudFreeIds.has(r.uuid) || stamp(r.createdAt, r.updatedAt) > stamp(c?.created_at, c?.updated_at))
+      if (!cloudFreeIds.has(r.uuid) || tsNewer(stamp(r.createdAt, r.updatedAt), stamp(c?.created_at, c?.updated_at)))
         void pushFreeCloud(r);
     }
   }

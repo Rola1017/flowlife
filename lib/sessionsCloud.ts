@@ -1,6 +1,7 @@
 import { reportCloudWriteResult } from "@/lib/cloudWrite";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { tsNewer } from "@/lib/time";
 import type { Session } from "@/lib/types";
 
 function sb() {
@@ -251,7 +252,7 @@ export function mergeSessionsWithTombstones(
     const cur = map.get(c.uuid);
     if (!cur) {
       map.set(c.uuid, c);
-    } else if ((c.updatedAt ?? "") > (cur.updatedAt ?? "")) {
+    } else if (tsNewer(c.updatedAt, cur.updatedAt)) {
       map.set(c.uuid, { ...c, id: cur.id });
     }
   }
@@ -265,7 +266,7 @@ export function mergeSessionsWithTombstones(
       continue;
     }
     const c = cloud.find((x) => x.uuid === s.uuid);
-    if (!cloudUuids.has(s.uuid) || (s.updatedAt ?? "") > (c?.updatedAt ?? "")) {
+    if (!cloudUuids.has(s.uuid) || tsNewer(s.updatedAt, c?.updatedAt)) {
       toPush.push(s);
     }
   }

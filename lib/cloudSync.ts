@@ -3,10 +3,12 @@ import {
   fetchAppStateIndex,
   loadAppStateLocalValue,
   loadAppStateMeta,
+  syncAppStateFromCloud,
   upsertAppStateBatch,
 } from "@/lib/appStateCloud";
 import { resetCloudWriteFailures } from "@/lib/cloudWrite";
 import { CFG } from "@/lib/config";
+import { tsNewer } from "@/lib/time";
 import {
   deleteReviewsByKeys,
   ensureLocalFreeUuids,
@@ -15,6 +17,7 @@ import {
   pushSingletonReviews,
   reviewIndexKey,
   reviewLocalKey,
+  syncReviewsFromCloud,
   type ReviewEntry,
   type ReviewIndexRow,
 } from "@/lib/reviews";
@@ -23,6 +26,7 @@ import {
   fetchSessionsIndex,
   loadLocalSessionTombstoneUuids,
   loadLocalSessions,
+  syncSessionsFromCloud,
   upsertSessionsBatch,
 } from "@/lib/sessionsCloud";
 import { LS_KEYS, loadJSON } from "@/lib/storage";
@@ -75,7 +79,7 @@ export function planPushSessions(
     if (!s.uuid || seen.has(s.uuid) || dead.has(s.uuid)) continue;
     seen.add(s.uuid);
     const cts = cloudMap.get(s.uuid);
-    if (cts === undefined || (s.updatedAt ?? "") > cts) out.push(s.uuid);
+    if (cts === undefined || tsNewer(s.updatedAt, cts)) out.push(s.uuid);
   }
   return out;
 }
@@ -107,7 +111,7 @@ export function planPushAppStateKeys(
   return keys.filter((k) => {
     const cts = cloudMap.get(k);
     if (cts === undefined) return true;
-    return (meta[k] ?? "") > cts;
+    return tsNewer(meta[k], cts);
   });
 }
 
@@ -129,7 +133,7 @@ export function planPushReviews(
     if (!r.key || seen.has(r.key) || dead.has(r.key)) continue;
     seen.add(r.key);
     const cts = cloudMap.get(r.key);
-    if (cts === undefined || r.updatedAt > cts) out.push(r.key);
+    if (cts === undefined || tsNewer(r.updatedAt, cts)) out.push(r.key);
   }
   return out;
 }
@@ -363,6 +367,10 @@ async function runSync(report: SyncReport, onProgress?: (msg: string) => void): 
   const reviews = emptyTarget("reviews");
   report.targets = [sessions, appState, reviews];
 
+  await syncSessionsFromCloud();
+  await syncAppStateFromCloud();
+  await syncReviewsFromCloud();
+
   await runSessions(uid, sessions, onProgress);
   onProgress?.("同步中…");
   await runAppState(uid, appState);
@@ -384,8 +392,8 @@ function snapshotReport(report: SyncReport, timedOut: boolean): SyncReport {
 }
 
 /**
- * 登出／設定頁同步唯一入口。增量對帳：上傳＋刪除＋不動。
- * 不得提供 force（避免盲推後門）。uid 只取一次。
+ * 登出／設定頁同步唯一入口。拉→推→刪→驗證。增量對帳：上傳＋刪除＋不動。
+ * 拉重用 sync*FromCloud（不得另寫合併）。不得提供 force。
  */
 export async function syncNow(opts?: {
   timeoutMs?: number;

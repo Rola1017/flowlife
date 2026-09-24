@@ -204,3 +204,40 @@ describe("雲端同步單一入口", () => {
     expect(/\bforce\s*:/.test(text)).toBe(false);
   });
 });
+
+describe("時間比較單一來源", () => {
+  /**
+   * 防 2026-09 兩種時間格式直接比字串導致同步永不完成（E27）。
+   * 掃描 components/、lib/、app/：除 lib/time.ts 外不得把
+   * updated_at／updatedAt／created_at／createdAt 當 >／< 運算元。
+   * 不可用「同行出現 >」——會誤殺 lib/sessions.ts 的 `counted: safe > 1, updatedAt:`。
+   */
+  it("除 lib/time.ts 外不得對 updated_at／updatedAt／createdAt 直接 >／<", () => {
+    const FIELD = "(?:updated_at|updatedAt|created_at|createdAt)";
+    const asLeft = new RegExp(FIELD + "(?:\\s*\\?\\?\\s*(?:\"\"|''))?\\s*\\)*\\s*[<>]=?");
+    const asRight = new RegExp("[<>]=?\\s*\\(*\\s*" + FIELD);
+    const stampCmp = /stamp\s*\([^)]*\)\s*[<>]|[<>]\s*stamp\s*\(/;
+    const hits: string[] = [];
+    for (const dirName of SCAN_DIRS) {
+      const dir = path.join(ROOT, dirName);
+      try {
+        statSync(dir);
+      } catch {
+        continue;
+      }
+      for (const file of walkTs(dir)) {
+        const rel = relPosix(file);
+        if (rel === "lib/time.ts") continue;
+        const text = readFileSync(file, "utf8");
+        const lines = text.split(/\r?\n/);
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          if (asLeft.test(line) || asRight.test(line) || stampCmp.test(line)) {
+            hits.push(`${rel}:${i + 1}`);
+          }
+        }
+      }
+    }
+    expect(hits).toEqual([]);
+  });
+});
