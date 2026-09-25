@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
-import { TH, readableTextOn, labelOnDark } from "@/lib/theme";
+import { TH, readableTextOn, labelOnDark, withAlpha } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { DS, DE, toM, nowHM } from "@/lib/utils";
 import { CFG } from "@/lib/config";
@@ -327,7 +327,7 @@ export function VerticalTimeline({
                 left: 4,
                 right: "53%",
                 background: isFixed ? "#1A1A22" : col ? col + "2E" : "#1F293777",
-                border: item.kind === "shift" ? `1px solid ${col}66` : `1px solid #0D0D0F`,
+                border: item.kind === "shift" ? `1px solid ${col}66` : `1px solid ${TH.bg}`,
                 borderRadius: 5,
                 padding: "2px 5px",
                 overflow: "hidden",
@@ -629,7 +629,7 @@ export function VerticalTimeline({
                 left: "47%",
                 right: 4,
                 background: "#16161B",
-                border: "1px dashed #2A2A33",
+                border: `1px dashed ${TH.border}`,
                 borderRadius: 5,
                 overflow: "hidden",
                 zIndex: 1,
@@ -658,7 +658,7 @@ export function VerticalTimeline({
                 left: "47%",
                 right: 4,
                 background: b.color,
-                border: `1px solid #0D0D0F`,
+                border: `1px solid ${TH.bg}`,
                 borderRadius: 5,
                 padding: "2px 5px",
                 overflow: "hidden",
@@ -713,7 +713,7 @@ export function VerticalTimeline({
                 overflow: "hidden",
                 zIndex: 3,
                 cursor: "pointer",
-                border: "1px solid #ffffff22",
+                border: `1px solid ${withAlpha(TH.text, 0.13)}`,
               }}
             >
               <div
@@ -767,7 +767,7 @@ export function VerticalTimeline({
                     }
                   }}
                   style={{
-                    border: "1px solid #3A3A45",
+                    border: `1px solid ${TH.border}`,
                     borderRadius: 4,
                     padding: "2px 6px",
                     background: "rgba(15,15,18,0.88)",

@@ -7,6 +7,7 @@ import { SortableList } from "@/components/ui/SortableList";
 import { TH } from "@/lib/theme";
 import { CAT, categoriesFromDomainTags, saveCategoriesOnly } from "@/lib/categories";
 import { persistLocalSessions } from "@/lib/sessionPersist";
+import { cardStyle } from "@/lib/cardTone";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 import type { Session, Todo } from "@/lib/types";
 import { APP_STATE_KEYS, subscribeAppState } from "@/lib/appStateCloud";
@@ -231,11 +232,11 @@ function ColorPicker({
         transform: "translate(-50%, -50%)",
         zIndex: 200,
         background: TH.card,
-        border: `1px solid ${TH.border}`,
         borderRadius: 10,
         padding: 10,
         boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
         minWidth: 200,
+        ...cardStyle("neutral"),
       }}
       onClick={(e) => e.stopPropagation()}
     >
@@ -692,7 +693,7 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
       <BackBtn onBack={onBack} label="標籤管理" />
 
       <div ref={previewRef} style={{ minWidth: 0, boxSizing: "border-box" }}>
-        <Card>
+        <Card tone="neutral">
           <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
             <button
               type="button"
@@ -738,7 +739,7 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
         </Card>
       </div>
 
-      <Card>
+      <Card tone="neutral">
         <button
           type="button"
           onClick={openPreviewAndScroll}
@@ -912,9 +913,10 @@ export function CategoryManager({ onBack }: { onBack: () => void }) {
       </Card>
 
       <Card
+        tone="neutral"
         style={
           selected && isLockedGroup(selected)
-            ? { border: `2px solid ${TH.primaryDim}`, background: TH.primaryDim + "14" }
+            ? { background: `${TH.primaryDim}14`, boxShadow: `inset 0 0 0 1px ${TH.primaryDim}` }
             : {}
         }
       >

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { cardStyle } from "@/lib/cardTone";
 import { TH } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { currentOrNextCourse, type CourseInfo } from "@/lib/schedule";
@@ -9,10 +10,10 @@ const wrap: CSSProperties = {
   width: "100%",
   minWidth: 0,
   background: TH.card,
-  border: `1px solid ${TH.border}`,
   borderRadius: 12,
   padding: "10px 12px",
   boxSizing: "border-box",
+  ...cardStyle("schedule"),
 };
 
 export function CourseBanner({

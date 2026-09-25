@@ -74,24 +74,24 @@ export function TriCharts({
           <Chip key={p} label={p} active={period === p} onClick={() => onPeriodChange(p)} />
         ))}
       </div>
-      <Card>
+      <Card tone="focus">
         <SL>
           {period} {label} 圓餅圖
         </SL>
         <PieChart data={chartData} size={160} title={period} />
       </Card>
-      <Card>
+      <Card tone="focus">
         <SL>
           {period} {label} 分佈(時長)
         </SL>
         <CatBars data={chartData} />
       </Card>
-      <Card>
+      <Card tone="focus">
         <SL>{period} 趨勢(時長)</SL>
         <LineChart data={lineD.focus} labels={lineD.labels} color={lineColor} height={70} />
       </Card>
       {idleLine && idleLine.data.length >= 2 && (
-        <Card>
+        <Card tone="focus">
           <SL>
             {period} 未利用 趨勢(時長)
           </SL>

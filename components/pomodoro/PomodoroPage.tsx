@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type CSSProperties, type Dispatch, type SetStateAction } from "react";
 import { CFG } from "@/lib/config";
 import { CAT } from "@/lib/categories";
-import { TH } from "@/lib/theme";
+import { TH, withAlpha } from "@/lib/theme";
 import { fmt, fmtIdleHM, toM } from "@/lib/utils";
 import { currentScheduleBlock, coursesForDate, loadScheduleCourses } from "@/lib/schedule";
 import { APP_STATE_KEYS, subscribeAppState } from "@/lib/appStateCloud";
@@ -501,7 +501,7 @@ export function PomodoroPage({
         style={{
           width: "100%",
           background: "#1C1C22",
-          border: `1px solid #2E2E38`,
+          border: `1px solid ${TH.border}`,
           borderRadius: 14,
           padding: "12px 16px",
           boxSizing: "border-box",
@@ -536,7 +536,7 @@ export function PomodoroPage({
         style={{
           width: "100%",
           background: "#1C1C22",
-          border: `1px solid #2E2E38`,
+          border: `1px solid ${TH.border}`,
           borderRadius: 14,
           padding: "12px 16px",
           boxSizing: "border-box",
@@ -913,7 +913,7 @@ export function PomodoroPage({
       )}
 
       {showRating && !rated && (
-        <Card style={{ width: "100%", textAlign: "center", minWidth: 0, boxSizing: "border-box" }}>
+        <Card tone="focus" style={{ width: "100%", textAlign: "center", minWidth: 0, boxSizing: "border-box" }}>
           <div style={{ fontSize: 11, color: TH.muted, marginBottom: 10 }}>這次的專注狀態？</div>
           <div style={{ display: "flex", justifyContent: "center", gap: 10, flexWrap: "wrap", width: "100%", minWidth: 0, boxSizing: "border-box" }}>
             {(
@@ -1147,7 +1147,7 @@ export function PomodoroPage({
           </button>
         ))}
       {mode !== "focus" && (
-        <Card style={{ width: "100%", padding: 10, minWidth: 0, boxSizing: "border-box" }}>
+        <Card tone="focus" style={{ width: "100%", padding: 10, minWidth: 0, boxSizing: "border-box" }}>
           <CategorySelector
             tagIds={catSel.tagIds}
             cat1={catSel.cat1}
@@ -1249,7 +1249,7 @@ export function PomodoroPage({
             style={{
               padding: "9px 14px",
               borderRadius: 20,
-              border: "2px solid #EF444444",
+              border: `2px solid ${withAlpha(TH.red, 0.27)}`,
               background: "#EF444411",
               color: TH.red,
               fontSize: 11,
@@ -1308,7 +1308,7 @@ export function PomodoroPage({
           </div>
         </>
       )}
-      <Card style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }}>
+      <Card tone="focus" style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, minWidth: 0, gap: 8 }}>
           <SL style={{ marginBottom: 0, ...FLEX_ITEM }}>今日統計</SL>
           {onShowSessionHistory && (
@@ -1415,7 +1415,7 @@ export function PomodoroPage({
           </div>
         </div>
       </Card>
-      <Card style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }}>
+      <Card tone="reward" style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, minWidth: 0, gap: 8 }}>
           <SL style={{ marginBottom: 0, ...FLEX_ITEM }}>金幣收支</SL>
           <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
@@ -1459,14 +1459,14 @@ export function PomodoroPage({
           </div>
         )}
       </Card>
-      <Card style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }}>
+      <Card tone="focus" style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }}>
         <SL>番茄鐘分佈</SL>
         <div style={{ marginBottom: 8 }}>
           <StatsGroupSwitcher groups={groups} groupId={statsGroupId} onChange={setStatsGroupId} />
         </div>
         <WeekHeat sessions={sessions} days={7} tags={tags} groups={groups} groupId={statsGroupId} />
       </Card>
-      <Card style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }}>
+      <Card tone="focus" style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, minWidth: 0, gap: 8 }}>
           <SL style={{ marginBottom: 0, ...FLEX_ITEM }}>趨勢(番茄顆數)</SL>
           <div style={{ display: "flex", gap: 3, flexWrap: "wrap", justifyContent: "flex-end", minWidth: 0, boxSizing: "border-box" }}>

@@ -32,7 +32,7 @@ export function ReviewNudgeCard({
   const yesterdayReview = getReview("day", yesterday);
 
   return (
-    <Card>
+    <Card tone="review">
       <div style={{ fontSize: 13, fontWeight: 800, color: TH.text, marginBottom: 6 }}>🌙 今日總覆盤</div>
       <div style={{ fontSize: 11, color: TH.text, lineHeight: 1.5, marginBottom: 10 }}>
         現在 {hm}，今天還沒寫總結——用一句話收束今天吧

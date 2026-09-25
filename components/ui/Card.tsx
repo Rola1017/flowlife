@@ -1,16 +1,25 @@
 import type { CSSProperties, ReactNode } from "react";
+import { cardStyle, type CardTone } from "@/lib/cardTone";
 import { TH } from "@/lib/theme";
 
-export function Card({ children, style = {} }: { children: ReactNode; style?: CSSProperties }) {
+export function Card({
+  children,
+  style = {},
+  tone = "neutral",
+}: {
+  children: ReactNode;
+  style?: CSSProperties;
+  tone?: CardTone;
+}) {
   return (
     <div
       style={{
         background: TH.card,
-        border: `1px solid ${TH.border}`,
         borderRadius: 14,
         padding: 14,
         boxSizing: "border-box",
         minWidth: 0,
+        ...cardStyle(tone),
         ...style,
       }}
     >

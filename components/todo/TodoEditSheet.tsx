@@ -81,7 +81,7 @@ export function TodoEditSheet({
         onClick={(e) => e.stopPropagation()}
         style={{ width: "100%", maxWidth: 430, maxHeight: "88vh", overflow: "auto", minWidth: 0, boxSizing: "border-box" }}
       >
-        <Card style={{ padding: 12 }}>
+        <Card tone="todo" style={{ padding: 12 }}>
           <SL>修改待辦</SL>
           <div style={{ marginTop: 10 }}>
             <TodoFormFields key={todo.id} draft={draft} setDraft={setDraft} />

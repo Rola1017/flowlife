@@ -2,7 +2,8 @@
 
 import { useState, useEffect, type CSSProperties } from "react";
 import { CFG, reminderLabel } from "@/lib/config";
-import { TH } from "@/lib/theme";
+import { cardStyle } from "@/lib/cardTone";
+import { TH, withAlpha } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { fmtMs, fmtElapsed } from "@/lib/utils";
 import { doneLabel } from "@/lib/todosCloud";
@@ -260,10 +261,15 @@ export function TodoCard({
     <div
       style={{
         background: TH.card,
-        border: `1px solid ${isEnding ? TH.red + "55" : isStarted ? TH.green + "44" : TH.border}`,
         borderRadius: 14,
         padding: "12px 14px",
-        transition: "border-color .25s",
+        transition: "box-shadow .25s",
+        ...cardStyle("todo"),
+        ...(isEnding
+          ? { boxShadow: `inset 0 0 0 1px ${withAlpha(TH.red, 0.45)}` }
+          : isStarted
+            ? { boxShadow: `inset 0 0 0 1px ${withAlpha(TH.green, 0.4)}` }
+            : {}),
       }}
     >
       <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 10 }}>
@@ -348,7 +354,7 @@ export function TodoCard({
             fontSize: 11,
             fontWeight: 800,
             cursor: "pointer",
-            border: `2px solid ${isStarted ? TH.green : "#4B5563"}`,
+            border: `2px solid ${isStarted ? TH.green : TH.muted}`,
             background: isStarted ? TH.green + "1A" : "#1C1C24",
             color: isStarted ? TH.green : "#6B7280",
             transition: "all .2s, transform .12s, filter .12s",

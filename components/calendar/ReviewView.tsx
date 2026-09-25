@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { cardStyle } from "@/lib/cardTone";
 import { TH, readableTextOn } from "@/lib/theme";
 import { fmt } from "@/lib/utils";
 import { CFG } from "@/lib/config";
@@ -106,13 +107,13 @@ export function ReviewView({
                 key={key}
                 style={{
                   background: TH.card,
-                  border: `1px solid ${TH.border}`,
-                  borderLeft: `3px solid ${col}`,
                   borderRadius: 10,
                   padding: "8px 10px",
                   display: "flex",
                   flexDirection: "column",
                   gap: 5,
+                  ...cardStyle("review"),
+                  borderLeft: `3px solid ${col}`,
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>

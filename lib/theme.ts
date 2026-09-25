@@ -32,6 +32,14 @@ function hexToRgb(hex: string): [number, number, number] | null {
   ];
 }
 
+/** hex → rgba。a 為 0~1。失敗回原字串。唯一實作，禁止各處自寫。 */
+export function withAlpha(hex: string, a: number): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return hex;
+  const alpha = Math.min(1, Math.max(0, a));
+  return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha})`;
+}
+
 /** 深色介面上的「標籤文字色」：太暗的色往白色混以確保可讀，保留色相。非 hex → 安全亮灰。 */
 export function labelOnDark(hex: string): string {
   const rgb = hexToRgb(hex);

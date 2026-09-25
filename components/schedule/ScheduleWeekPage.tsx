@@ -316,7 +316,7 @@ export function ScheduleWeekPage({ onShowCategoryManager }: { onShowCategoryMana
 
       {dayPanel && panelResolved && (
         <div onPointerDown={stopSwipe}>
-        <Card>
+        <Card tone="schedule">
           <SL>
             {formatMd(dayPanel)}（{panelResolved.weekday}）
             {panelResolved.isOverride ? " · 已特別調整" : ""}

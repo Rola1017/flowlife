@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { cardStyle } from "@/lib/cardTone";
 import { TH } from "@/lib/theme";
 import {
   loadRoutine,
@@ -57,7 +58,7 @@ export function RoutineManager({ onClose }: { onClose: () => void }) {
     boxSizing: "border-box" as const,
   };
   return (
-    <div style={{ background: TH.card, border: `1px solid ${TH.border}`, borderRadius: 12, padding: 12 }}>
+    <div style={{ background: TH.card, borderRadius: 12, padding: 12, ...cardStyle("routine") }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
         <div style={{ fontSize: 13, fontWeight: 800 }}>🛏 管理固定作息</div>
         <div style={{ display: "flex", gap: 6 }}>

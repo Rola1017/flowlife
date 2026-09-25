@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties, ReactNode } from "react";
-import { TH } from "@/lib/theme";
+import { TH, withAlpha } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { Card, SL } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
@@ -72,7 +72,7 @@ export function CourseEditPanel({
   const cat3Options = draft.cat1 && draft.cat2 ? CAT.cat3List(draft.cat1, draft.cat2) : [];
 
   return (
-    <Card style={{ border: `1px solid ${TH.accent}44` }}>
+    <Card tone="schedule">
       <div onPointerDown={stopSwipe}>
         <SL>{title}</SL>
         {hint ? <div style={{ fontSize: 10, color: TH.muted, marginBottom: 8, lineHeight: 1.4 }}>{hint}</div> : null}
@@ -308,7 +308,7 @@ export function CourseEditPanel({
               minHeight: 44,
               borderRadius: 8,
               background: "#EF444422",
-              border: "1px solid #EF444444",
+              border: `1px solid ${withAlpha(TH.red, 0.27)}`,
               color: TH.red,
               fontSize: 11,
               fontWeight: 700,

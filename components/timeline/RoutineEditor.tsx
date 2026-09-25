@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { cardStyle } from "@/lib/cardTone";
 import { TH, readableTextOn } from "@/lib/theme";
 import {
   routineFor,
@@ -103,8 +104,8 @@ export function RoutineEditor({
           maxWidth: 360,
           maxHeight: "85vh",
           overflow: "auto",
-          background: "#0A0A0C",
-          border: `1px solid ${TH.accent}`,
+          background: TH.bg,
+          ...cardStyle("routine"),
           borderRadius: 12,
           padding: 14,
           display: "flex",
@@ -128,8 +129,8 @@ export function RoutineEditor({
                 gap: 6,
                 padding: 8,
                 background: TH.card,
-                border: `1px solid ${TH.border}`,
                 borderRadius: 8,
+                ...cardStyle("routine"),
               }}
             >
               <input

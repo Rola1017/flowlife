@@ -96,7 +96,7 @@ export function HomePage({
         </div>
       </div>
       <ReviewNudgeCard onWriteSummary={onWriteSummary} nowTick={nowTick} />
-      <Card>
+      <Card tone="review">
         <SL>🎯 今日意圖回顧</SL>
         {intentionReview.length === 0 ? (
           <div style={{ fontSize: 11, color: TH.muted, lineHeight: 1.5 }}>
@@ -157,7 +157,7 @@ export function HomePage({
           </div>
         )}
       </Card>
-      <Card>
+      <Card tone="todo">
         <SL>🔴 今日必做</SL>
         {mustDo.length === 0 && (
           <div style={{ fontSize: 11, color: TH.muted, textAlign: "center", padding: 8 }}>

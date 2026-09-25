@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { CFG } from "@/lib/config";
+import { cardStyle } from "@/lib/cardTone";
 import { TH } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { buildCalendarStats, datesInPeriod, distributeAndFilter, periodRange, sessionMatches } from "@/lib/analytics";
@@ -423,9 +424,9 @@ export function CalendarPage({
           <div
             style={{
               background: TH.card,
-              border: `1px solid ${TH.border}`,
               borderRadius: 12,
               padding: 10,
+              ...cardStyle("focus"),
             }}
           >
             <MultiCategoryFilter selected={selTags} onChange={setSelTags} />
@@ -515,12 +516,12 @@ export function CalendarPage({
               ["有效天", `${dayCount}天`, TH.text],
             ] as const
           ).map(([l, v, col]) => (
-            <div key={l} style={{ background: TH.card, border: `1px solid ${TH.border}`, borderRadius: 10, padding: "6px 8px" }}>
+            <div key={l} style={{ background: TH.card, borderRadius: 10, padding: "6px 8px", ...cardStyle("focus") }}>
               <div style={{ fontSize: 8, color: TH.muted }}>{l}</div>
               <div style={{ fontSize: 12, fontWeight: 800, color: col }}>{v}</div>
             </div>
           ))}
-          <div style={{ background: TH.card, border: `1px solid ${TH.border}`, borderRadius: 10, padding: "6px 8px" }}>
+          <div style={{ background: TH.card, borderRadius: 10, padding: "6px 8px", ...cardStyle("focus") }}>
             <div style={{ fontSize: 8, color: TH.muted }}>番茄數</div>
             <div style={{ fontSize: 12, fontWeight: 800, color: TH.text }}>
               {pomo10}/{pomo25}
@@ -533,10 +534,10 @@ export function CalendarPage({
         <div
           style={{
             background: TH.card,
-            border: `1px solid ${TH.border}`,
             borderRadius: 10,
             padding: "8px 10px",
             marginTop: 5,
+            ...cardStyle("focus"),
           }}
         >
           <button

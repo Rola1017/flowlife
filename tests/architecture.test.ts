@@ -360,3 +360,84 @@ describe("G1 雲端蓋章／軟刪／dirty 守門", () => {
   });
 });
 
+/**
+ * 卡片外框走 lib/cardTone.cardStyle；禁止元件自寫色碼邊框。
+ * 白名單＝chrome（輸入、chip、nav、格子），不是資料卡片外框。
+ */
+const CARD_TH_BORDER_CHROME: Record<string, string> = {
+  "components/Header.tsx": "頂欄 chrome",
+  "components/auth/AuthPanel.tsx": "登入表單欄位",
+  "components/calendar/CalendarPage.tsx": "篩選鈕／月曆格；資料卡已走 cardStyle",
+  "components/calendar/DayReview.tsx": "輸入／新增鈕；session 列已走 cardStyle",
+  "components/calendar/DayViewPage.tsx": "待辦表單 chrome",
+  "components/calendar/PeriodReview.tsx": "覆盤輸入；摘要卡已走 cardStyle",
+  "components/calendar/ReviewView.tsx": "分頁鈕／輸入；session 列已走 cardStyle",
+  "components/category/CategoryManager.tsx": "樹列／chip／新增欄；外層 Card.tone",
+  "components/home/ReviewNudgeCard.tsx": "內層按鈕；外層 Card.tone=review",
+  "components/pomodoro/CategorySelector.tsx": "標籤 chip；彈層已走 cardStyle",
+  "components/pomodoro/CoinHistoryPage.tsx": "表單欄位／收支 tab；資料卡已走 cardStyle",
+  "components/pomodoro/PomodoroPage.tsx": "輸入／chip／等待徽章；真實卡片走 Card.tone",
+  "components/pomodoro/SessionHistoryPage.tsx": "工具列鈕／篩選；垃圾桶容器已走 cardStyle",
+  "components/schedule/CourseEditPanel.tsx": "表單欄位；外層 Card.tone=schedule",
+  "components/schedule/RoutineManager.tsx": "作息列／表單；外層已 cardStyle",
+  "components/schedule/SchedulePage.tsx": "格子／表單／chip；便利貼與整天操作走 Card.tone",
+  "components/schedule/ScheduleWeekPage.tsx": "導覽鈕 chrome",
+  "components/schedule/WorkplaceManager.tsx": "表單欄位；外層 Card.tone=shift",
+  "components/schedule/scheduleGridModel.ts": "課表格子 chrome",
+  "components/settings/SettingsPage.tsx": "同步／取消按鈕 chrome",
+  "components/timeline/RoutineEditor.tsx": "表單欄位；外層已 cardStyle",
+  "components/timeline/TimelinePage.tsx": "待辦開關／表單",
+  "components/timeline/VerticalTimeline.tsx": "時間軸區塊／補登 chrome",
+  "components/todo/TodoCard.tsx": "狀態鈕／分隔線；外層已 cardStyle",
+  "components/todo/TodoEditSheet.tsx": "表單欄位；外層 Card.tone=todo",
+  "components/todo/TodoFormFields.tsx": "表單欄位",
+  "components/ui/DateTimePicker.tsx": "輸入 chrome",
+  "components/ui/MultiCategoryFilter.tsx": "篩選 chrome",
+  "components/ui/TodoDateRangePicker.tsx": "輸入 chrome",
+  "components/shop/ShopPage.tsx": "商品表單欄位 chrome",
+};
+
+const HEX_BORDER_RE =
+  /border(?:Left|Right|Top|Bottom)?\s*:\s*(?:`[^`]*#[0-9A-Fa-f]{3,8}|["'][^"']*#[0-9A-Fa-f]{3,8})/;
+const TH_BORDER_FRAME_RE = /border\s*:\s*`1px solid \$\{TH\.border\}`/;
+const TH_CARD_BG_RE = /background\s*:\s*TH\.card/;
+
+describe("卡片外框走 cardStyle", () => {
+  it("components/ 不得用字面 #RRGGBB 當 border／borderLeft", () => {
+    const hits: string[] = [];
+    const dir = path.join(ROOT, "components");
+    for (const file of walkTs(dir)) {
+      const rel = relPosix(file);
+      const lines = readFileSync(file, "utf8").split(/\r?\n/);
+      for (let i = 0; i < lines.length; i++) {
+        if (HEX_BORDER_RE.test(lines[i])) hits.push(`${rel}:${i + 1}`);
+      }
+    }
+    expect(hits).toEqual([]);
+  });
+
+  it("卡片容器不得直接寫 TH.border 當外框（改走 cardStyle）", () => {
+    const extra: string[] = [];
+    const stale: string[] = [];
+    const used = new Set<string>();
+    const dir = path.join(ROOT, "components");
+    for (const file of walkTs(dir)) {
+      const rel = relPosix(file);
+      const text = readFileSync(file, "utf8");
+      const hasFrame = TH_BORDER_FRAME_RE.test(text) && TH_CARD_BG_RE.test(text);
+      if (!hasFrame) continue;
+      used.add(rel);
+      const isCardPath = rel === "components/ui/Card.tsx" || text.includes("cardStyle(") || /tone\s*=/.test(text);
+      if (isCardPath) continue;
+      if (CARD_TH_BORDER_CHROME[rel]) continue;
+      extra.push(rel);
+    }
+    for (const rel of Object.keys(CARD_TH_BORDER_CHROME)) {
+      const text = readFileSync(path.join(ROOT, rel), "utf8");
+      if (!TH_BORDER_FRAME_RE.test(text)) stale.push(rel);
+    }
+    expect(extra).toEqual([]);
+    expect(stale).toEqual([]);
+  });
+});
+

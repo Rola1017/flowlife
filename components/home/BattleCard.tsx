@@ -1,3 +1,4 @@
+import { cardStyle } from "@/lib/cardTone";
 import { TH } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { fmt, aggregateByCat1 } from "@/lib/utils";
@@ -19,7 +20,7 @@ export function BattleCard({
   const cntDiff = pomos.length - prevCount;
   const maxM = Math.max(...agg.map((a) => a.mins), 1);
   return (
-    <div style={{ background: TH.card, border: `1px solid ${TH.border}`, borderRadius: 12, padding: 10 }}>
+    <div style={{ background: TH.card, borderRadius: 12, padding: 10, ...cardStyle("focus") }}>
       <div style={{ fontSize: 11, fontWeight: 800, color: TH.text, marginBottom: 5 }}>⚔️ {title}</div>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
         <div style={{ fontSize: 16, fontWeight: 900, color: pct >= 0 ? TH.green : TH.red }}>

@@ -4,6 +4,7 @@ import { useMemo, useState, type CSSProperties, type Dispatch, type SetStateActi
 import { CFG } from "@/lib/config";
 import { CAT } from "@/lib/categories";
 import { sessionCatLabels, tagPathLabel } from "@/lib/tagSelect";
+import { cardStyle } from "@/lib/cardTone";
 import { TH } from "@/lib/theme";
 import { BackBtn } from "@/components/ui/BackBtn";
 import { Chip } from "@/components/ui/Chip";
@@ -426,9 +427,9 @@ export function CoinHistoryPage({
       key={key}
       style={{
         background: TH.card,
-        border: `1px solid ${TH.border}`,
         borderRadius: 12,
         padding: 10,
+        ...cardStyle("reward"),
       }}
     >
       <div
@@ -486,7 +487,7 @@ export function CoinHistoryPage({
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <BackBtn onBack={onBack} label="金幣收支" />
 
-      <div style={{ border: `1px solid ${TH.border}`, borderRadius: 10, padding: 10, background: "#0A0A0C" }}>
+      <div style={{ borderRadius: 10, padding: 10, background: TH.bg, ...cardStyle("reward") }}>
         <button
           type="button"
           onClick={() => onReconcile?.()}
@@ -653,9 +654,9 @@ export function CoinHistoryPage({
           <div
             style={{
               background: TH.card,
-              border: `1px solid ${TH.border}`,
               borderRadius: 12,
               padding: 10,
+              ...cardStyle("reward"),
             }}
           >
             <MultiCategoryFilter selected={catSel} onChange={setCatSel} />
@@ -746,9 +747,10 @@ export function CoinHistoryPage({
                           key={group.label}
                           style={{
                             background: TH.card,
-                            border: `1px solid ${expanded ? TH.accent : TH.border}`,
                             borderRadius: 12,
                             padding: 10,
+                            ...cardStyle("reward"),
+                            ...(expanded ? { boxShadow: `inset 0 0 0 1px ${TH.accent}` } : {}),
                           }}
                         >
                           <button

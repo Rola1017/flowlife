@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { TH, labelOnDark } from "@/lib/theme";
+import { TH, labelOnDark, withAlpha } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 import {
@@ -778,7 +778,7 @@ export function SchedulePage({
       {pasteNotice && (
         <div
           style={{
-            border: "1px solid #F59E0B66",
+            border: `1px solid ${withAlpha(TH.yellow, 0.4)}`,
             background: "#F59E0B18",
             borderRadius: 8,
             padding: "8px 10px",
@@ -801,7 +801,7 @@ export function SchedulePage({
         </div>
       )}
       {showDateOv && (
-        <Card style={{ border: `1px solid ${TH.accent}44` }}>
+        <Card tone="shift">
           <SL>📅 指定日期排班（便利貼）</SL>
           <div style={{ fontSize: 10, color: TH.muted, margin: "4px 0 8px" }}>
             💡 便利貼只改「這一天」，不動每週固定班表；可挑任何班（含平常這天沒有的班）。撕掉便利貼就恢復每週固定。
@@ -929,7 +929,7 @@ export function SchedulePage({
             {ovCourseWarn && (
               <div
                 style={{
-                  border: "1px solid #F59E0B66",
+                  border: `1px solid ${withAlpha(TH.yellow, 0.4)}`,
                   background: "#F59E0B18",
                   borderRadius: 8,
                   padding: "6px 8px",
@@ -982,7 +982,7 @@ export function SchedulePage({
                       fontWeight: 700,
                       padding: "5px 10px",
                       borderRadius: 8,
-                      border: "1px solid #EF444455",
+                      border: `1px solid ${withAlpha(TH.red, 0.33)}`,
                       background: "#EF444422",
                       color: TH.red,
                       cursor: "pointer",
@@ -1287,7 +1287,7 @@ export function SchedulePage({
                 padding: "7px 10px",
                 borderRadius: 8,
                 background: "#F59E0B22",
-                border: "1px solid #F59E0B55",
+                border: `1px solid ${withAlpha(TH.yellow, 0.33)}`,
                 color: "#F59E0B",
                 fontSize: 11,
                 fontWeight: 700,
@@ -1307,7 +1307,7 @@ export function SchedulePage({
                   padding: "7px 10px",
                   borderRadius: 8,
                   background: "#EF444422",
-                  border: "1px solid #EF444444",
+                  border: `1px solid ${withAlpha(TH.red, 0.27)}`,
                   color: TH.red,
                   fontSize: 11,
                   fontWeight: 700,
@@ -1382,7 +1382,7 @@ export function SchedulePage({
                             fontSize: 10,
                             padding: "3px 8px",
                             borderRadius: 6,
-                            border: "1px solid #EF444444",
+                            border: `1px solid ${withAlpha(TH.red, 0.27)}`,
                             background: "#EF444422",
                             color: TH.red,
                             cursor: "pointer",
@@ -1443,7 +1443,7 @@ export function SchedulePage({
         />
       )}
       {dayMenu && !editTargets && (
-        <Card style={{ border: `1px solid ${TH.accent}44` }}>
+        <Card tone="schedule">
           <SL>📅 週{dayMenu}　整天操作</SL>
           <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
             <button
@@ -1612,7 +1612,7 @@ export function SchedulePage({
               style={{
                 padding: 8,
                 borderRadius: 8,
-                border: "1px solid #EF444444",
+                border: `1px solid ${withAlpha(TH.red, 0.27)}`,
                 background: "#EF444422",
                 color: TH.red,
                 fontSize: 12,

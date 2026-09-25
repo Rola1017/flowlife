@@ -6,7 +6,7 @@ import { Card, SL } from "@/components/ui/Card";
 import { AuthPanel } from "@/components/auth/AuthPanel";
 import { CloudSyncBadge } from "@/components/ui/CloudSyncBadge";
 import { isOnline, subscribeOnline } from "@/lib/authState";
-import { loadG1MigrateResult } from "@/lib/cloudMigrateG1";
+import { CARD_TONES, CARD_TONE_COLOR, CARD_TONE_LABEL } from "@/lib/cardTone";
 import { TH } from "@/lib/theme";
 import { SYNC_TARGET_LABELS, syncNow, type SyncReport } from "@/lib/cloudSync";
 import type { Todo } from "@/lib/types";
@@ -29,18 +29,14 @@ export function SettingsPage({
   const [syncing, setSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState("");
   const [online, setOnline] = useState(isOnline);
-  const [migrateResult, setMigrateResult] = useState(() => loadG1MigrateResult());
 
   useEffect(() => subscribeOnline(setOnline), []);
-  useEffect(() => {
-    setMigrateResult(loadG1MigrateResult());
-  }, []);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <BackBtn onBack={onBack} label="設定" />
 
-      <Card>
+      <Card tone="neutral">
         <SL>雲端同步（測試中）</SL>
         <CloudSyncBadge />
         <AuthPanel />
@@ -100,11 +96,6 @@ export function SettingsPage({
             ))}
           </div>
         )}
-        {migrateResult ? (
-          <div style={{ marginTop: 8, fontSize: 12, color: TH.text, fontWeight: 800, lineHeight: 1.5 }}>
-            資料搬家已完成：標記 {migrateResult.marked} 筆、壓回 {migrateResult.clamped} 筆
-          </div>
-        ) : null}
         <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4, marginTop: 8 }}>
           💡 立即同步只上傳本機有改（dirty）與雲端缺的，並把墓碑列 stamp 軟刪；不會蓋掉他機較新的資料，也不會刪他機新資料。
         </div>
@@ -116,7 +107,7 @@ export function SettingsPage({
         </div>
       </Card>
 
-      <Card>
+      <Card tone="neutral">
         <SL>清除番茄/金幣記錄</SL>
         <div style={{ color: TH.muted, fontSize: 11, lineHeight: 1.5, marginBottom: 12 }}>
           只清除番茄紀錄、金幣收支、評分與未利用時間統計。
@@ -189,7 +180,7 @@ export function SettingsPage({
         )}
       </Card>
 
-      <Card>
+      <Card tone="neutral">
         <SL>危險操作</SL>
         <div
           style={{
@@ -271,6 +262,36 @@ export function SettingsPage({
             </button>
           </div>
         )}
+      </Card>
+
+      <Card tone="neutral">
+        <SL>顏色圖例</SL>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+          {CARD_TONES.map((t) => (
+            <div key={t} style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+              <span
+                style={{
+                  width: 14,
+                  height: 14,
+                  borderRadius: 3,
+                  background: CARD_TONE_COLOR[t],
+                  flexShrink: 0,
+                  boxSizing: "border-box",
+                }}
+              />
+              <span style={{ fontSize: 12, color: TH.text, fontWeight: 700 }}>{CARD_TONE_LABEL[t]}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4, marginTop: 8 }}>
+          💡 定義：外框顏色代表這張卡片屬於哪一類資料。
+        </div>
+        <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4, marginTop: 4 }}>
+          💡 用法：滑動時用顏色快速找到區塊。
+        </div>
+        <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4, marginTop: 4 }}>
+          💡 範例：黃色＝待辦、藍色＝課表。
+        </div>
       </Card>
       <div style={{ fontSize: 9, color: TH.muted, textAlign: "center" }}>版本 v1.0.0 · FlowLife</div>
     </div>

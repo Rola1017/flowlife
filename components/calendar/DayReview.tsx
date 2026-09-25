@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CFG } from "@/lib/config";
+import { cardStyle } from "@/lib/cardTone";
 import { TH, readableTextOn } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { fmt, toLocalDateStr } from "@/lib/utils";
@@ -167,13 +168,13 @@ export function DayReview({ sessions }: { sessions: Session[] }) {
                 key={key}
                 style={{
                   background: TH.card,
-                  border: `1px solid ${TH.border}`,
-                  borderLeft: `3px solid ${col}`,
                   borderRadius: 10,
                   padding: "8px 10px",
                   display: "flex",
                   flexDirection: "column",
                   gap: 5,
+                  ...cardStyle("review"),
+                  borderLeft: `3px solid ${col}`,
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -228,12 +229,12 @@ export function DayReview({ sessions }: { sessions: Session[] }) {
               key={r.id}
               style={{
                 background: TH.card,
-                border: `1px solid ${TH.border}`,
                 borderRadius: 8,
                 padding: "8px 10px",
                 display: "flex",
                 alignItems: "flex-start",
                 gap: 8,
+                ...cardStyle("review"),
               }}
             >
               <div style={{ flex: 1, fontSize: 11, color: TH.text, lineHeight: 1.5 }}>{r.text}</div>

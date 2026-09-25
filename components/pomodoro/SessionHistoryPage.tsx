@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { cardStyle } from "@/lib/cardTone";
 import { TH } from "@/lib/theme";
 import { fmt } from "@/lib/utils";
 import { CFG } from "@/lib/config";
@@ -648,10 +649,10 @@ export function SessionHistoryPage({
 
       <div
         style={{
-          border: `1px solid ${TH.border}`,
           borderRadius: 10,
           overflow: "hidden",
-          background: "#0A0A0C",
+          background: TH.bg,
+          ...cardStyle("focus"),
         }}
       >
         <button
@@ -729,12 +730,12 @@ export function SessionHistoryPage({
                   <div
                     key={s.uuid ?? `${s.date}-${s.id ?? i}`}
                     style={{
-                      border: `1px solid ${TH.border}`,
                       borderRadius: 8,
                       padding: "7px 8px",
                       display: "flex",
                       alignItems: "center",
                       gap: 8,
+                      ...cardStyle("focus"),
                     }}
                   >
                     <div style={{ flex: 1, minWidth: 0 }}>

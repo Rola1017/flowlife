@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { TH } from "@/lib/theme";
+import { TH, withAlpha } from "@/lib/theme";
 import { Card, SL } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { DEFAULT_WORKPLACES, type ShiftRangeDef, type WorkplaceConfig } from "@/lib/schedule";
@@ -221,14 +221,14 @@ export function WorkplaceManager({
     fontSize: 10,
     padding: "4px 8px",
     borderRadius: 8,
-    border: "1px solid #EF444444",
+    border: `1px solid ${withAlpha(TH.red, 0.27)}`,
     background: "#EF444422",
     color: TH.red,
     cursor: "pointer",
   };
 
   return (
-    <Card style={{ border: `1px solid ${TH.accent}44` }}>
+    <Card tone="shift">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <SL>🏢 管理工作場所（時間）</SL>
         <div style={{ display: "flex", gap: 6 }}>
@@ -420,7 +420,7 @@ export function WorkplaceManager({
                           fontSize: 10,
                           padding: "4px 8px",
                           borderRadius: 8,
-                          border: "1px solid #EF444444",
+                          border: `1px solid ${withAlpha(TH.red, 0.27)}`,
                           background: "#EF444422",
                           color: TH.red,
                           cursor: "pointer",

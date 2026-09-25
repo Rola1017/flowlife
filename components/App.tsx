@@ -76,7 +76,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
             textAlign: "center",
           }}
         >
-          <Card>
+          <Card tone="neutral">
             <div style={{ fontSize: 28, marginBottom: 10 }}>⚠️</div>
             <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 6 }}>出了點問題，請重新整理</div>
             <div style={{ color: TH.muted, fontSize: 12 }}>資料仍保存在本機，重新整理後會重新載入。</div>
@@ -829,12 +829,12 @@ function AppContent() {
       />
     ),
     health: () => (
-      <Card>
+      <Card tone="neutral">
         <div style={{ textAlign: "center", padding: 30, color: TH.muted }}>💪 健康模組 — v11 開發</div>
       </Card>
     ),
     reading: () => (
-      <Card>
+      <Card tone="neutral">
         <div style={{ textAlign: "center", padding: 30, color: TH.muted }}>📚 閱讀模組 — v11 開發</div>
       </Card>
     ),

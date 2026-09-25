@@ -293,7 +293,7 @@ export function TimelinePage({
           onSaved={() => setRoutineRev((v) => v + 1)}
         />
       )}
-      <Card style={{ padding: "8px 12px" }}>
+      <Card tone="todo" style={{ padding: "8px 12px" }}>
         <SL>今日待辦</SL>
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 6 }}>
           {active.map((t) => (
@@ -395,7 +395,7 @@ export function TimelinePage({
         )}
       </Card>
       {quickDraft && (
-        <Card style={{ padding: 10 }}>
+        <Card tone="todo" style={{ padding: 10 }}>
           <SL>{quickHeader}</SL>
           <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
             <TodoFormFields

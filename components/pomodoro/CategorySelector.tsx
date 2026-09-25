@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type CSSProperties } from "react";
+import { cardStyle } from "@/lib/cardTone";
 import { TH } from "@/lib/theme";
 import { resolveCatIds } from "@/lib/categories";
 import { Chip } from "@/components/ui/Chip";
@@ -480,13 +481,13 @@ function TagTreePicker({
           maxWidth: 430,
           maxHeight: "80vh",
           background: TH.card,
-          border: `1px solid ${TH.border}`,
           borderRadius: "16px 16px 0 0",
           padding: 12,
           paddingBottom: "max(12px, env(safe-area-inset-bottom))",
           boxSizing: "border-box",
           display: "flex",
           flexDirection: "column",
+          ...cardStyle("neutral"),
           gap: 8,
           minWidth: 0,
         }}

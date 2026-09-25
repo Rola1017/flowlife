@@ -202,7 +202,7 @@ export function ShopPage({
         ＋ 新增商品
       </button>
       {addOpen && (
-        <Card style={{ border: `1px solid ${TH.accent}44` }}>
+        <Card tone="reward">
           <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
             {(["instant", "time"] as const).map((k) => (
               <button
@@ -316,7 +316,7 @@ export function ShopPage({
         const price = item.price ?? 0;
         const catLabel = [item.cat1, item.cat2, item.cat3].filter(Boolean).join(" › ");
         return (
-          <Card key={item.id}>
+          <Card tone="reward" key={item.id}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 800, color: TH.text }}>{item.name}</div>
@@ -435,7 +435,7 @@ export function ShopPage({
           </Card>
         );
       })}
-      <Card>
+      <Card tone="reward">
         <div style={{ fontSize: 12, fontWeight: 900, color: TH.text }}>最近購買</div>
         <div style={{ fontSize: 9, color: TH.muted, margin: "4px 0 8px", lineHeight: 1.4 }}>
           💡 買錯了可以在這裡取消，金幣會退回
@@ -508,7 +508,7 @@ export function ShopPage({
           </div>
         )}
       </Card>
-      <Card>
+      <Card tone="reward">
         <div style={{ fontSize: 12, fontWeight: 900, color: TH.text, marginBottom: 10 }}>購買記錄</div>
         {purchaseGroups.length === 0 ? (
           <div style={{ fontSize: 11, color: TH.muted, textAlign: "center", padding: 10 }}>尚無購買記錄</div>

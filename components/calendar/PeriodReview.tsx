@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CFG } from "@/lib/config";
+import { cardStyle } from "@/lib/cardTone";
 import { TH, readableTextOn } from "@/lib/theme";
 import { getReview, loadReviews, subscribeReviews, upsertReview } from "@/lib/reviews";
 import {
@@ -190,12 +191,12 @@ export function PeriodReview({ scope }: { scope: "week" | "month" | "quarter" })
               key={item.key}
               style={{
                 background: TH.card,
-                border: `1px solid ${TH.border}`,
                 borderRadius: 10,
                 padding: "8px 10px",
                 display: "flex",
                 flexDirection: "column",
                 gap: 4,
+                ...cardStyle("review"),
               }}
             >
               <div style={{ fontSize: 9, fontWeight: 700, color: TH.accent }}>{item.label}</div>
