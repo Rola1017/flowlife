@@ -9,7 +9,6 @@ import {
 import { getLocalSession, isOnline } from "@/lib/authState";
 import { resetCloudWriteFailures } from "@/lib/cloudWrite";
 import { CFG } from "@/lib/config";
-import { tsNewer } from "@/lib/time";
 import {
   deleteReviewsByKeys,
   ensureLocalFreeUuids,
@@ -31,6 +30,7 @@ import {
   upsertSessionsBatch,
 } from "@/lib/sessionsCloud";
 import { LS_KEYS, loadJSON } from "@/lib/storage";
+import { loadSyncDirty } from "@/lib/syncDirty";
 import { mergeTodosWithTombstones, normalizeTodoList } from "@/lib/todosCloud";
 import type { Session, Todo } from "@/lib/types";
 
@@ -60,42 +60,46 @@ export type SyncReport = {
   targets: SyncTargetReport[];
 };
 
-export type CloudTsRow = { uuid: string; updated_at?: string };
+export type CloudTsRow = { uuid: string; updated_at?: string; deleted_at?: string | null };
 
-/** 本機較新或雲端缺 → 入列；墓碑永不入列；雲端較新或相等者不入列。 */
+/** 本機 dirty 或雲端缺 → 入列。墓碑／雲端已軟刪永不入列。時間比較不決定要不要推。 */
 export function planPushSessions(
   local: { uuid?: string; updatedAt?: string }[],
   cloud: CloudTsRow[],
   tombstones: Iterable<string>,
+  dirty: Iterable<string> = [],
 ): string[] {
   const dead = new Set<string>();
   for (const u of tombstones) if (u) dead.add(u);
-  const cloudMap = new Map<string, string>();
+  const dirtySet = new Set<string>();
+  for (const u of dirty) if (u) dirtySet.add(u);
+  const cloudMap = new Map<string, CloudTsRow>();
   for (const c of cloud) {
-    if (c.uuid) cloudMap.set(c.uuid, c.updated_at ?? "");
+    if (c.uuid) cloudMap.set(c.uuid, c);
   }
   const out: string[] = [];
   const seen = new Set<string>();
   for (const s of local) {
     if (!s.uuid || seen.has(s.uuid) || dead.has(s.uuid)) continue;
     seen.add(s.uuid);
-    const cts = cloudMap.get(s.uuid);
-    if (cts === undefined || tsNewer(s.updatedAt, cts)) out.push(s.uuid);
+    const row = cloudMap.get(s.uuid);
+    if (row?.deleted_at) continue;
+    if (row === undefined || dirtySet.has(s.uuid)) out.push(s.uuid);
   }
   return out;
 }
 
 /**
- * 雲端 index 中、uuid 在本機墓碑者 → 刪雲端。
+ * 雲端 index 中、uuid 在本機墓碑且尚未軟刪 → stamp deleted_at。
  * 嚴禁「雲端有、本機沒有且無墓碑」就刪（他機新資料；E05／E06）。
  */
-export function planDeleteSessions(cloud: { uuid: string }[], tombstones: Iterable<string>): string[] {
+export function planDeleteSessions(cloud: CloudTsRow[], tombstones: Iterable<string>): string[] {
   const dead = new Set<string>();
   for (const u of tombstones) if (u) dead.add(u);
   const out: string[] = [];
   const seen = new Set<string>();
   for (const c of cloud) {
-    if (!c.uuid || seen.has(c.uuid) || !dead.has(c.uuid)) continue;
+    if (!c.uuid || seen.has(c.uuid) || !dead.has(c.uuid) || c.deleted_at) continue;
     seen.add(c.uuid);
     out.push(c.uuid);
   }
@@ -106,47 +110,55 @@ export function planPushAppStateKeys(
   keys: string[],
   meta: Record<string, string>,
   cloud: { key: string; updated_at?: string }[],
+  dirty: Iterable<string> = [],
 ): string[] {
+  void meta;
+  const dirtySet = new Set<string>();
+  for (const k of dirty) if (k) dirtySet.add(k);
   const cloudMap = new Map<string, string>();
   for (const c of cloud) cloudMap.set(c.key, c.updated_at ?? "");
   return keys.filter((k) => {
     const cts = cloudMap.get(k);
     if (cts === undefined) return true;
-    return tsNewer(meta[k], cts);
+    return dirtySet.has(k);
   });
 }
 
 export type ReviewPlanLocal = { key: string; updatedAt: string };
-export type ReviewPlanCloud = { key: string; updated_at: string };
+export type ReviewPlanCloud = { key: string; updated_at: string; deleted_at?: string | null };
 
 export function planPushReviews(
   local: ReviewPlanLocal[],
   cloud: ReviewPlanCloud[],
   tombstones: Iterable<string>,
+  dirty: Iterable<string> = [],
 ): string[] {
   const dead = new Set<string>();
   for (const k of tombstones) if (k) dead.add(k);
-  const cloudMap = new Map<string, string>();
-  for (const c of cloud) if (c.key) cloudMap.set(c.key, c.updated_at ?? "");
+  const dirtySet = new Set<string>();
+  for (const k of dirty) if (k) dirtySet.add(k);
+  const cloudMap = new Map<string, ReviewPlanCloud>();
+  for (const c of cloud) if (c.key) cloudMap.set(c.key, c);
   const out: string[] = [];
   const seen = new Set<string>();
   for (const r of local) {
     if (!r.key || seen.has(r.key) || dead.has(r.key)) continue;
     seen.add(r.key);
-    const cts = cloudMap.get(r.key);
-    if (cts === undefined || tsNewer(r.updatedAt, cts)) out.push(r.key);
+    const row = cloudMap.get(r.key);
+    if (row?.deleted_at) continue;
+    if (row === undefined || dirtySet.has(r.key)) out.push(r.key);
   }
   return out;
 }
 
-/** 僅刪墓碑命中的雲端列。無墓碑的雲端獨有列一律不動。 */
+/** 僅 stamp 墓碑命中且尚未軟刪的雲端列。無墓碑的雲端獨有列一律不動。 */
 export function planDeleteReviews(cloud: ReviewPlanCloud[], tombstones: Iterable<string>): string[] {
   const dead = new Set<string>();
   for (const k of tombstones) if (k) dead.add(k);
   const out: string[] = [];
   const seen = new Set<string>();
   for (const c of cloud) {
-    if (!c.key || seen.has(c.key) || !dead.has(c.key)) continue;
+    if (!c.key || seen.has(c.key) || !dead.has(c.key) || c.deleted_at) continue;
     seen.add(c.key);
     out.push(c.key);
   }
@@ -159,8 +171,13 @@ export function planTodosValueForPush(local: Todo[], tombs: { id: number }[]): T
 }
 
 function loadLocalReviewTombstoneKeys(): Set<string> {
-  // 尚無 reviews 墓碑 LS；不得把「雲端有、本機沒有」當成刪除（E05／E06）。
-  return new Set();
+  const set = new Set<string>();
+  const raw = loadJSON<unknown>(LS_KEYS.deletedReviewKeys, []);
+  if (!Array.isArray(raw)) return set;
+  for (const k of raw) {
+    if (typeof k === "string" && k) set.add(k);
+  }
+  return set;
 }
 
 function reviewsToPlanLocal(list: ReviewEntry[]): ReviewPlanLocal[] {
@@ -177,6 +194,7 @@ function reviewsToPlanCloud(rows: ReviewIndexRow[]): ReviewPlanCloud[] {
   return rows.map((row) => ({
     key: reviewIndexKey(row),
     updated_at: row.updated_at ?? "",
+    deleted_at: row.deleted_at ?? null,
   }));
 }
 
@@ -209,11 +227,12 @@ async function runSessions(
   const index = await fetchSessionsIndex(uid);
   const local = loadLocalSessions();
   const tombs = loadLocalSessionTombstoneUuids();
+  const dirty = loadSyncDirty("sessions");
   if (index == null) {
     markFail(tr, "sessions index 讀取失敗", local.length);
     return;
   }
-  const pushIds = planPushSessions(local, index, tombs);
+  const pushIds = planPushSessions(local, index, tombs, dirty);
   const delIds = planDeleteSessions(index, tombs);
   const byUuid = new Map<string, Session>();
   for (const s of local) if (s.uuid) byUuid.set(s.uuid, s);
@@ -248,7 +267,9 @@ async function runSessions(
     markFail(tr, "sessions 驗證讀取失敗", pushIds.length + delIds.length);
     return;
   }
-  tr.pending = planPushSessions(local, verify, tombs).length + planDeleteSessions(verify, tombs).length;
+  tr.pending =
+    planPushSessions(loadLocalSessions(), verify, tombs, loadSyncDirty("sessions")).length +
+    planDeleteSessions(verify, tombs).length;
 }
 
 function todosValueForPush(): unknown {
@@ -267,7 +288,7 @@ async function runAppState(uid: string, tr: SyncTargetReport): Promise<void> {
     markFail(tr, "app_state index 讀取失敗", keys.length);
     return;
   }
-  const pushKeys = planPushAppStateKeys(keys, meta, index);
+  const pushKeys = planPushAppStateKeys(keys, meta, index, loadSyncDirty("app_state"));
   const items = pushKeys.map((key) => ({
     key,
     value: key === APP_STATE_KEYS.todos ? todosValueForPush() : loadAppStateLocalValue(key),
@@ -291,7 +312,7 @@ async function runAppState(uid: string, tr: SyncTargetReport): Promise<void> {
     markFail(tr, "app_state 驗證讀取失敗", pushKeys.length);
     return;
   }
-  tr.pending = planPushAppStateKeys(keys, meta, verify).length;
+  tr.pending = planPushAppStateKeys(keys, loadAppStateMeta(), verify, loadSyncDirty("app_state")).length;
 }
 
 async function runReviews(uid: string, tr: SyncTargetReport): Promise<void> {
@@ -304,7 +325,7 @@ async function runReviews(uid: string, tr: SyncTargetReport): Promise<void> {
   }
   const localPlan = reviewsToPlanLocal(localList);
   const cloudPlan = reviewsToPlanCloud(index);
-  const pushKeys = planPushReviews(localPlan, cloudPlan, tombs);
+  const pushKeys = planPushReviews(localPlan, cloudPlan, tombs, loadSyncDirty("reviews"));
   const delKeys = planDeleteReviews(cloudPlan, tombs);
 
   const byKey = new Map<string, ReviewEntry>();
@@ -351,7 +372,10 @@ async function runReviews(uid: string, tr: SyncTargetReport): Promise<void> {
     return;
   }
   const vCloud = reviewsToPlanCloud(verify);
-  tr.pending = planPushReviews(localPlan, vCloud, tombs).length + planDeleteReviews(vCloud, tombs).length;
+  const vLocal = reviewsToPlanLocal(ensureLocalFreeUuids());
+  tr.pending =
+    planPushReviews(vLocal, vCloud, loadLocalReviewTombstoneKeys(), loadSyncDirty("reviews")).length +
+    planDeleteReviews(vCloud, loadLocalReviewTombstoneKeys()).length;
 }
 
 async function runSync(report: SyncReport, onProgress?: (msg: string) => void): Promise<void> {

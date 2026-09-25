@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { TH } from "@/lib/theme";
 import { ensureAccountOwnership } from "@/lib/accountOwner";
+import { runG1MigrateIfNeeded } from "@/lib/cloudMigrateG1";
 
 const CloudSyncReadyContext = createContext(false);
 
@@ -16,9 +17,13 @@ export function AccountGate({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    void ensureAccountOwnership().then(() => {
-      if (!cancelled) setReady(true);
-    });
+    void ensureAccountOwnership()
+      .then(() => runG1MigrateIfNeeded().catch((err) => {
+        console.error("[FlowLife] G1 搬家失敗", err);
+      }))
+      .then(() => {
+        if (!cancelled) setReady(true);
+      });
     return () => {
       cancelled = true;
     };

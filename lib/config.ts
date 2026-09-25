@@ -70,4 +70,6 @@ export const CFG = {
     { mins: 420, coins: 500, label: "7小時" },
   ],
   TIME_RANGES: ["3天", "7天", "14天", "月", "季"],
-};
+  /** G1 資料搬家。正式 Vercel 先關；本機測試帳號才開。 */
+  G1_MIGRATE: process.env.NEXT_PUBLIC_G1_MIGRATE === "1",
+} as const;

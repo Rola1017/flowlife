@@ -6,7 +6,9 @@ import { Card, SL } from "@/components/ui/Card";
 import { SortableList } from "@/components/ui/SortableList";
 import { TH } from "@/lib/theme";
 import { CAT, categoriesFromDomainTags, saveCategoriesOnly } from "@/lib/categories";
+import { persistLocalSessions } from "@/lib/sessionPersist";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
+import type { Session, Todo } from "@/lib/types";
 import { APP_STATE_KEYS, subscribeAppState } from "@/lib/appStateCloud";
 import { ensureTagsMigrated } from "@/lib/tagsMigrate";
 import { loadTagGroups, loadTags, saveTagGroups, saveTags } from "@/lib/tagsStore";
@@ -32,7 +34,6 @@ import {
   TAG_TREE_RENDER_MAX_DEPTH,
   type CatRef,
 } from "@/lib/tagTree";
-import type { Session, Todo } from "@/lib/types";
 import { CategorySelector } from "@/components/pomodoro/CategorySelector";
 import { selFromTagIds, type TagSel } from "@/lib/tagSelect";
 
@@ -147,7 +148,8 @@ function SwitchRow({
 function cascadeRename(level: "cat1" | "cat2" | "cat3", oldName: string, newName: string) {
   if (oldName === newName) return;
 
-  const sessions = loadJSON<Record<string, unknown>[]>(LS_KEYS.sessions, []);
+  const prevSessions = loadJSON<Session[]>(LS_KEYS.sessions, []);
+  const sessions = prevSessions.map((s) => ({ ...s }));
   let sChanged = false;
   for (const s of sessions) {
     if (s[level] === oldName) {
@@ -155,7 +157,7 @@ function cascadeRename(level: "cat1" | "cat2" | "cat3", oldName: string, newName
       sChanged = true;
     }
   }
-  if (sChanged) saveJSON(LS_KEYS.sessions, sessions);
+  if (sChanged) persistLocalSessions(sessions, prevSessions, "local");
 
   const coinLog = loadJSON<Record<string, unknown>[]>(LS_KEYS.coinIncomeLog, []);
   let cChanged = false;

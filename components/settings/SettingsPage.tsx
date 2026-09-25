@@ -6,6 +6,7 @@ import { Card, SL } from "@/components/ui/Card";
 import { AuthPanel } from "@/components/auth/AuthPanel";
 import { CloudSyncBadge } from "@/components/ui/CloudSyncBadge";
 import { isOnline, subscribeOnline } from "@/lib/authState";
+import { loadG1MigrateResult } from "@/lib/cloudMigrateG1";
 import { TH } from "@/lib/theme";
 import { SYNC_TARGET_LABELS, syncNow, type SyncReport } from "@/lib/cloudSync";
 import type { Todo } from "@/lib/types";
@@ -28,8 +29,12 @@ export function SettingsPage({
   const [syncing, setSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState("");
   const [online, setOnline] = useState(isOnline);
+  const [migrateResult, setMigrateResult] = useState(() => loadG1MigrateResult());
 
   useEffect(() => subscribeOnline(setOnline), []);
+  useEffect(() => {
+    setMigrateResult(loadG1MigrateResult());
+  }, []);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -95,8 +100,13 @@ export function SettingsPage({
             ))}
           </div>
         )}
+        {migrateResult ? (
+          <div style={{ marginTop: 8, fontSize: 12, color: TH.text, fontWeight: 800, lineHeight: 1.5 }}>
+            資料搬家已完成：標記 {migrateResult.marked} 筆、壓回 {migrateResult.clamped} 筆
+          </div>
+        ) : null}
         <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4, marginTop: 8 }}>
-          💡 立即同步只上傳本機較新與雲端缺的，並刪除墓碑中的雲端列；不會蓋掉他機較新的資料，也不會刪他機新資料。
+          💡 立即同步只上傳本機有改（dirty）與雲端缺的，並把墓碑列 stamp 軟刪；不會蓋掉他機較新的資料，也不會刪他機新資料。
         </div>
         <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4, marginTop: 4 }}>
           💡 登出只退出這台；登出所有裝置才會讓其他裝置也退出。離線時無法同步。

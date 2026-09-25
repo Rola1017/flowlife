@@ -23,7 +23,7 @@ import { patchReflection, setSessionMins, setSessionTimes, buildManualSession, s
 import { useReviewCloudSync } from "@/components/hooks/useReviewCloudSync";
 import { useSessionCloudSync } from "@/components/hooks/useSessionCloudSync";
 import { useAppStateCloudSync } from "@/components/hooks/useAppStateCloudSync";
-import { subscribeSessions, syncSessionDiffToCloud, collectSessionUuids, mergeDeletedSessionUuids, deleteSessionsCloud } from "@/lib/sessionsCloud";
+import { subscribeSessions, persistLocalSessions, syncSessionDiffToCloud, collectSessionUuids, mergeDeletedSessionUuids, deleteSessionsCloud } from "@/lib/sessionsCloud";
 import { APP_STATE_KEYS, forcePushAppStateForReset, pushAppState, subscribeAppState } from "@/lib/appStateCloud";
 import { ensureWorkplacesSeeded, ensureRoutineSeeded, ensureCourseIds } from "@/lib/schedule";
 import { nextIdleTrackStart } from "@/lib/idle";
@@ -158,7 +158,7 @@ function AppContent() {
       const next = raw.some((s) => !s.uuid || (s.cat1 && !s.cat1Id) || (s.cat1 && !s.tagIds?.length))
         ? raw.map(stampSession)
         : raw;
-      saveJSON(LS_KEYS.sessions, next);
+      persistLocalSessions(next, prev, "local");
       void syncSessionDiffToCloud(prev, next);
       return next;
     });
@@ -531,7 +531,7 @@ function AppContent() {
     const uuids = collectLiveAndTrashUuids();
     await tombstoneAndDeleteCloud(uuids);
 
-    saveJSON(LS_KEYS.sessions, []);
+    persistLocalSessions([], undefined, "cloud");
     setSessions([]);
     saveJSON(LS_KEYS.trashedSessions, []);
     setTrashedSessions([]);

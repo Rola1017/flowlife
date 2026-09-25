@@ -1,11 +1,12 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { planPushAppStateKeys, planPushReviews, planPushSessions } from "@/lib/cloudSync";
-import { tsNewer } from "@/lib/time";
+import { tsMs, tsNewer } from "@/lib/time";
 
 /**
  * 真實 Supabase 往返（紀律 §8-39）。未設 FLOWLIFE_TEST_EMAIL／PASSWORD 時 skip，
  * 並明確印出「契約測試已略過」，不得靜默跳過。
+ * 契約測試只刪自己建立的探測列。G1 schema（deleted_at）未上線時，該組 skip 並印原因。
  */
 const HAS_CREDS = Boolean(process.env.FLOWLIFE_TEST_EMAIL && process.env.FLOWLIFE_TEST_PASSWORD);
 if (!HAS_CREDS) {
@@ -20,8 +21,9 @@ const created = {
 
 let sb: SupabaseClient | null = null;
 let uid: string | null = null;
+let g1Schema = false;
 
-function sessionRow(userId: string, uuid: string, updatedAt: string) {
+function sessionRow(userId: string, uuid: string) {
   return {
     uuid,
     user_id: userId,
@@ -31,8 +33,8 @@ function sessionRow(userId: string, uuid: string, updatedAt: string) {
     cat2: "",
     cat3: "",
     cat1_id: null,
-    cat2_id: null,
     cat3_id: null,
+    cat2_id: null,
     tag_ids: null,
     mins: 1,
     rating: "",
@@ -43,7 +45,6 @@ function sessionRow(userId: string, uuid: string, updatedAt: string) {
     intention: null,
     reflection: null,
     manual: true,
-    updated_at: updatedAt,
   };
 }
 
@@ -58,6 +59,9 @@ describe.skipIf(!HAS_CREDS)("契約：雲端時間往返", () => {
     const { data, error } = await sb.auth.signInWithPassword({ email, password });
     if (error || !data.user?.id) throw new Error(error?.message ?? "signIn failed");
     uid = data.user.id;
+    const probe = await sb.from("sessions").select("deleted_at").limit(1);
+    g1Schema = !probe.error;
+    if (!g1Schema) console.log("契約測試已略過：G1 schema 未上線（無 deleted_at）");
   });
 
   afterAll(async () => {
@@ -73,53 +77,47 @@ describe.skipIf(!HAS_CREDS)("契約：雲端時間往返", () => {
     await sb.auth.signOut({ scope: "local" });
   });
 
-  it("(a)(b) app_state／sessions／reviews 寫入後 tsNewer 兩向 false，且不在 planPush", async () => {
+  it("寫入後雲端有列則不在 planPush（不dirty）；不要求裝置時間等於雲端郵戳", async () => {
     if (!sb || !uid) throw new Error("no client");
-    const sent = "2026-09-24T08:48:11.964Z";
-
     const { error: aUp } = await sb.from("app_state").upsert(
-      { user_id: uid, key: APP_KEY, value: { probe: true }, updated_at: sent },
+      { user_id: uid, key: APP_KEY, value: { probe: true } },
       { onConflict: "user_id,key" },
     );
     expect(aUp).toBeNull();
     const aSel = await sb.from("app_state").select("updated_at").eq("user_id", uid).eq("key", APP_KEY).maybeSingle();
     const aGot = aSel.data?.updated_at ?? "";
-    expect(tsNewer(sent, aGot)).toBe(false);
-    expect(tsNewer(aGot, sent)).toBe(false);
-    expect(planPushAppStateKeys([APP_KEY], { [APP_KEY]: sent }, [{ key: APP_KEY, updated_at: aGot }])).toEqual([]);
+    expect(tsMs(aGot)).not.toBeNull();
+    expect(planPushAppStateKeys([APP_KEY], { [APP_KEY]: aGot }, [{ key: APP_KEY, updated_at: aGot }])).toEqual([]);
 
     const suuid = crypto.randomUUID();
     created.sessionUuids.push(suuid);
-    const { error: sUp } = await sb.from("sessions").upsert(sessionRow(uid, suuid, sent), { onConflict: "uuid" });
+    const { error: sUp } = await sb.from("sessions").upsert(sessionRow(uid, suuid), { onConflict: "uuid" });
     expect(sUp).toBeNull();
     const sSel = await sb.from("sessions").select("updated_at").eq("user_id", uid).eq("uuid", suuid).maybeSingle();
     const sGot = sSel.data?.updated_at ?? "";
-    expect(tsNewer(sent, sGot)).toBe(false);
-    expect(tsNewer(sGot, sent)).toBe(false);
-    expect(planPushSessions([{ uuid: suuid, updatedAt: sent }], [{ uuid: suuid, updated_at: sGot }], [])).toEqual([]);
+    expect(tsMs(sGot)).not.toBeNull();
+    expect(planPushSessions([{ uuid: suuid, updatedAt: sGot }], [{ uuid: suuid, updated_at: sGot }], [])).toEqual([]);
 
     const rid = crypto.randomUUID();
     created.reviewIds.push(rid);
     const { error: rUp } = await sb.from("reviews").upsert(
-      { id: rid, user_id: uid, scope: "free", period_key: "e27-roundtrip", text: "e27", updated_at: sent },
+      { id: rid, user_id: uid, scope: "free", period_key: "e27-roundtrip", text: "e27" },
       { onConflict: "id" },
     );
     expect(rUp).toBeNull();
     const rSel = await sb.from("reviews").select("updated_at").eq("user_id", uid).eq("id", rid).maybeSingle();
     const rGot = rSel.data?.updated_at ?? "";
-    expect(tsNewer(sent, rGot)).toBe(false);
-    expect(tsNewer(rGot, sent)).toBe(false);
-    expect(planPushReviews([{ key: rid, updatedAt: sent }], [{ key: rid, updated_at: rGot }], [])).toEqual([]);
+    expect(tsMs(rGot)).not.toBeNull();
+    expect(planPushReviews([{ key: rid, updatedAt: rGot }], [{ key: rid, updated_at: rGot }], [])).toEqual([]);
   });
 
   it("(c) 批次 upsert 100 筆後 index 筆數正確", async () => {
     if (!sb || !uid) throw new Error("no client");
     const userId = uid;
-    const sent = "2026-09-24T08:48:11.964Z";
     const rows = Array.from({ length: 100 }, () => {
       const uuid = crypto.randomUUID();
       created.sessionUuids.push(uuid);
-      return sessionRow(userId, uuid, sent);
+      return sessionRow(userId, uuid);
     });
     const { error } = await sb.from("sessions").upsert(rows, { onConflict: "uuid" });
     expect(error).toBeNull();
@@ -127,5 +125,31 @@ describe.skipIf(!HAS_CREDS)("契約：雲端時間往返", () => {
     const { data, error: selErr } = await sb.from("sessions").select("uuid").eq("user_id", uid).in("uuid", ids);
     expect(selErr).toBeNull();
     expect((data ?? []).length).toBe(100);
+  });
+});
+
+describe.skipIf(!HAS_CREDS)("契約：G1 deleted_at trigger", () => {
+  it("送非 null 的 deleted_at → 雲端存伺服器時間；送 null → 清除（還原）", async () => {
+    if (!g1Schema) {
+      console.log("契約測試已略過：G1 schema 未上線（無 deleted_at）");
+      return;
+    }
+    if (!sb || !uid) throw new Error("no client");
+    const suuid = crypto.randomUUID();
+    created.sessionUuids.push(suuid);
+    const fake = "2001-01-01T00:00:00.000Z";
+    const { error: up } = await sb.from("sessions").upsert(sessionRow(uid, suuid), { onConflict: "uuid" });
+    expect(up).toBeNull();
+    const { error: delErr } = await sb.from("sessions").update({ deleted_at: fake }).eq("user_id", uid).eq("uuid", suuid);
+    expect(delErr).toBeNull();
+    const afterDel = await sb.from("sessions").select("deleted_at").eq("user_id", uid).eq("uuid", suuid).maybeSingle();
+    const got = afterDel.data?.deleted_at ?? "";
+    expect(tsMs(got)).not.toBeNull();
+    expect(tsNewer(got, fake)).toBe(true);
+
+    const { error: restErr } = await sb.from("sessions").update({ deleted_at: null }).eq("user_id", uid).eq("uuid", suuid);
+    expect(restErr).toBeNull();
+    const afterRest = await sb.from("sessions").select("deleted_at").eq("user_id", uid).eq("uuid", suuid).maybeSingle();
+    expect(afterRest.data?.deleted_at).toBeNull();
   });
 });

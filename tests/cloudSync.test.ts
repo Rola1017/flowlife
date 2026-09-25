@@ -40,9 +40,9 @@ const hoisted = vi.hoisted(() => {
     getUser: vi.fn(),
     getSession: vi.fn(),
     calls: [] as Call[],
-    sessions: new Map<string, { uuid: string; updated_at: string }>(),
+    sessions: new Map<string, { uuid: string; updated_at: string; deleted_at?: string | null }>(),
     appState: new Map<string, { key: string; updated_at: string; value: unknown }>(),
-    reviews: [] as { id: string; scope: string; period_key: string; updated_at: string }[],
+    reviews: [] as { id: string; scope: string; period_key: string; updated_at: string; deleted_at?: string | null }[],
     selectSessionsEmpty: false,
   };
   return { state };
@@ -54,7 +54,11 @@ vi.mock("@/lib/supabase/client", () => ({
     return {
       auth: { getUser: st.getUser, getSession: st.getSession },
       from(table: string) {
-        const ctx: { op: string; payload: unknown; inVals?: unknown[] } = { op: "", payload: null };
+        const ctx: { op: string; payload: unknown; inVals?: unknown[]; eqCol?: string; eqVal?: unknown } = {
+          op: "",
+          payload: null,
+        };
+        const stamp = "2026-09-25T04:00:00.000Z";
         const run = () => {
           const op = ctx.op || "select";
           st.calls.push({
@@ -70,16 +74,30 @@ vi.mock("@/lib/supabase/client", () => ({
             if (op === "upsert") {
               const rows = (Array.isArray(ctx.payload) ? ctx.payload : [ctx.payload]) as {
                 uuid?: string;
-                updated_at?: string;
               }[];
+              const out: { uuid: string; updated_at: string; deleted_at: null }[] = [];
               for (const r of rows) {
-                if (r?.uuid) st.sessions.set(r.uuid, { uuid: r.uuid, updated_at: r.updated_at ?? "" });
+                if (!r?.uuid) continue;
+                const row = { uuid: r.uuid, updated_at: stamp, deleted_at: null as null };
+                st.sessions.set(r.uuid, row);
+                out.push(row);
+              }
+              return Promise.resolve({ data: out, error: null });
+            }
+            if (op === "update") {
+              const payload = ctx.payload as { deleted_at?: string | null };
+              const ids = [
+                ...((ctx.inVals ?? []) as string[]),
+                ...(ctx.eqCol === "uuid" && typeof ctx.eqVal === "string" ? [ctx.eqVal] : []),
+              ];
+              for (const id of ids) {
+                const row = st.sessions.get(id);
+                if (row) st.sessions.set(id, { ...row, deleted_at: payload.deleted_at ?? stamp });
               }
               return Promise.resolve({ data: null, error: null });
             }
             if (op === "delete") {
-              for (const id of (ctx.inVals ?? []) as string[]) st.sessions.delete(id);
-              return Promise.resolve({ data: null, error: null });
+              throw new Error("sessions.delete 已禁止");
             }
           }
           if (table === "app_state") {
@@ -89,13 +107,22 @@ vi.mock("@/lib/supabase/client", () => ({
             if (op === "upsert") {
               const rows = (Array.isArray(ctx.payload) ? ctx.payload : [ctx.payload]) as {
                 key?: string;
-                updated_at?: string;
                 value?: unknown;
               }[];
+              const out: { key: string; updated_at: string; value: unknown }[] = [];
               for (const r of rows) {
-                if (r?.key) {
-                  st.appState.set(r.key, { key: r.key, updated_at: r.updated_at ?? "", value: r.value });
-                }
+                if (!r?.key) continue;
+                const row = { key: r.key, updated_at: stamp, value: r.value };
+                st.appState.set(r.key, row);
+                out.push(row);
+              }
+              return Promise.resolve({ data: out, error: null });
+            }
+            if (op === "update") {
+              const payload = ctx.payload as { value?: unknown };
+              if (ctx.eqCol === "key" && typeof ctx.eqVal === "string") {
+                const row = st.appState.get(ctx.eqVal);
+                if (row) st.appState.set(ctx.eqVal, { ...row, value: payload.value, updated_at: stamp });
               }
               return Promise.resolve({ data: null, error: null });
             }
@@ -104,49 +131,58 @@ vi.mock("@/lib/supabase/client", () => ({
             if (op === "select") {
               return Promise.resolve({ data: st.reviews, error: null });
             }
-            if (op === "upsert" || op === "insert") {
+            if (op === "upsert" || op === "insert" || op === "update") {
               const rows = (Array.isArray(ctx.payload) ? ctx.payload : [ctx.payload]) as {
                 id?: string;
                 scope?: string;
                 period_key?: string;
-                updated_at?: string;
+                deleted_at?: string | null;
+                text?: string;
               }[];
+              if (op === "update" && ctx.inVals?.length) {
+                for (const id of ctx.inVals as string[]) {
+                  const i = st.reviews.findIndex((x) => x.id === id);
+                  if (i >= 0) st.reviews[i] = { ...st.reviews[i], deleted_at: rows[0]?.deleted_at ?? stamp };
+                }
+                return Promise.resolve({ data: st.reviews.filter((r) => (ctx.inVals as string[]).includes(r.id)), error: null });
+              }
+              const out: typeof st.reviews = [];
               for (const r of rows) {
                 const id = r.id ?? `${r.scope}|${r.period_key}`;
                 const row = {
                   id,
                   scope: r.scope ?? "free",
                   period_key: r.period_key ?? "",
-                  updated_at: r.updated_at ?? "",
+                  updated_at: stamp,
+                  deleted_at: r.deleted_at ?? null,
                 };
                 const i = st.reviews.findIndex((x) => x.id === id);
                 if (i >= 0) st.reviews[i] = row;
                 else st.reviews.push(row);
+                out.push(row);
               }
-              return Promise.resolve({ data: null, error: null });
+              return Promise.resolve({ data: out, error: null });
             }
             if (op === "delete") {
-              const ids = (ctx.inVals ?? []) as string[];
-              if (ids.length) st.reviews = st.reviews.filter((r) => !ids.includes(r.id));
-              return Promise.resolve({ data: null, error: null });
+              throw new Error("reviews.delete 已禁止");
             }
           }
           return Promise.resolve({ data: [], error: null });
         };
         const chain = {
           select() {
-            ctx.op = "select";
+            if (!ctx.op) ctx.op = "select";
             return chain;
           },
           upsert(payload: unknown) {
             ctx.op = "upsert";
             ctx.payload = payload;
-            return run();
+            return chain;
           },
           insert(payload: unknown) {
             ctx.op = "insert";
             ctx.payload = payload;
-            return run();
+            return chain;
           },
           update(payload: unknown) {
             ctx.op = "update";
@@ -157,7 +193,9 @@ vi.mock("@/lib/supabase/client", () => ({
             ctx.op = "delete";
             return chain;
           },
-          eq() {
+          eq(col: string, val: unknown) {
+            ctx.eqCol = col;
+            ctx.eqVal = val;
             return chain;
           },
           in(_col: string, vals: unknown[]) {
@@ -234,25 +272,37 @@ describe("planPushSessions", () => {
     ).toEqual([]);
   });
 
-  it("雲端缺或本機較新才入列；相等／雲端較新不入列（property ≥500）", () => {
+  it("雲端缺或 dirty 才入列；時間比較不決定（property ≥500）", () => {
     const rnd = mulberry32(20260923);
     for (let i = 0; i < 500; i++) {
       const uuid = `u-${i}`;
       const inTomb = rnd() < 0.25;
       const cloudMissing = rnd() < 0.3;
+      const dirty = rnd() < 0.3;
       const localTs = TS[Math.floor(rnd() * TS.length)];
       const cloudTs = TS[Math.floor(rnd() * TS.length)];
       const local = [{ uuid, updatedAt: localTs }];
       const cloud = cloudMissing ? [] : [{ uuid, updated_at: cloudTs }];
       const tombs = inTomb ? [uuid] : [];
-      const got = planPushSessions(local, cloud, tombs);
+      const got = planPushSessions(local, cloud, tombs, dirty ? [uuid] : []);
       let expectPush = false;
       if (!inTomb) {
         if (cloudMissing) expectPush = true;
-        else if (localTs > cloudTs) expectPush = true;
+        else if (dirty) expectPush = true;
       }
       expect(got.includes(uuid), `i=${i}`).toBe(expectPush);
     }
+  });
+
+  it("慢鐘：本機 updatedAt 早於雲端，dirty 仍入列", () => {
+    expect(
+      planPushSessions(
+        [{ uuid: "slow", updatedAt: TS[0] }],
+        [{ uuid: "slow", updated_at: TS[5] }],
+        [],
+        ["slow"],
+      ),
+    ).toEqual(["slow"]);
   });
 });
 
@@ -289,7 +339,7 @@ describe("planDeleteSessions（E05／E06）", () => {
 });
 
 describe("planPushAppStateKeys", () => {
-  it("雲端缺或 meta 較新才入列，且不改 meta", () => {
+  it("雲端缺或 dirty 才入列，且不改 meta", () => {
     const meta = { coins: TS[5], tags: TS[1] };
     const snap = { ...meta };
     expect(planPushAppStateKeys(["coins", "tags"], meta, [{ key: "tags", updated_at: TS[3] }])).toEqual([
@@ -298,19 +348,20 @@ describe("planPushAppStateKeys", () => {
     expect(meta).toEqual(snap);
   });
 
-  it("相等或雲端較新不入列（property ≥500）", () => {
+  it("有雲端且非 dirty 不入列（property ≥500）", () => {
     const rnd = mulberry32(20260925);
     const keys = Object.values(APP_STATE_KEYS);
     for (let i = 0; i < 500; i++) {
       const key = keys[Math.floor(rnd() * keys.length)];
       const cloudMissing = rnd() < 0.3;
+      const dirty = rnd() < 0.3;
       const localTs = TS[Math.floor(rnd() * TS.length)];
       const cloudTs = TS[Math.floor(rnd() * TS.length)];
       const meta = { [key]: localTs };
       const snap = { ...meta };
       const cloud = cloudMissing ? [] : [{ key, updated_at: cloudTs }];
-      const got = planPushAppStateKeys([key], meta, cloud);
-      const expectPush = cloudMissing || localTs > cloudTs;
+      const got = planPushAppStateKeys([key], meta, cloud, dirty ? [key] : []);
+      const expectPush = cloudMissing || dirty;
       expect(got.includes(key), `i=${i}`).toBe(expectPush);
       expect(meta).toEqual(snap);
     }
@@ -389,13 +440,13 @@ describe("syncNow 網路對帳", () => {
     }
   });
 
-  it("墓碑 uuid 會從雲端刪除，且驗證後 planDelete 為空", async () => {
+  it("墓碑 uuid 會 stamp deleted_at，且驗證後 planDelete 為空", async () => {
     hoisted.state.sessions.set("dead", { uuid: "dead", updated_at: TS[0] });
     hoisted.state.sessions.set("keep", { uuid: "keep", updated_at: TS[4] });
     saveJSON(LS_KEYS.deletedSessionUuids, [{ uuid: "dead", at: TS[1] }]);
     saveJSON(LS_KEYS.sessions, [session(9, TS[4])]);
     const report = await syncNow({ timeoutMs: 30_000 });
-    expect(hoisted.state.sessions.has("dead")).toBe(false);
+    expect(hoisted.state.sessions.get("dead")?.deleted_at).toBeTruthy();
     expect(hoisted.state.sessions.has("keep")).toBe(true);
     const sessionsTarget = report.targets.find((t) => t.name === "sessions");
     expect(sessionsTarget?.deleted).toBe(1);

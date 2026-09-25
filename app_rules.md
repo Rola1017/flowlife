@@ -85,8 +85,12 @@ lib/
 ├── cloudWrite.ts ← 雲端寫入錯誤單一入口（reportCloudWriteResult／getCloudWriteFailures／uuidsOnlyInLocal）
 ├── time.ts       ← 時間比較唯一來源（tsMs／tsNewer；禁止字串直接比 timestamptz）
 ├── authState.ts  ← 登入狀態唯一來源（getLocalSession／subscribeAuth；getVerifiedUid 僅伺服器驗證；signOut 必須顯式 scope）
-├── cloudSync.ts  ← 登出／設定頁同步唯一入口（syncNow：離線立即回；否則拉→推→刪→驗證；timeout 30s）
-├── reviews.ts    ← upsertReview / addReview / removeReview / nextId（覆盤表寫入單一來源）
+├── cloudSync.ts  ← 登出／設定頁同步唯一入口（syncNow：離線立即回；否則拉→推→刪→驗證；planPush＝dirty 或雲端缺）
+├── syncDirty.ts  ← 本機 dirty 集合單一寫入口（markSyncDirty／clearSyncDirty；重開瀏覽器仍在）
+├── sessionPersist.ts ← sessions 本機持久化（local 才標 dirty；cloud 套回不標）
+├── cloudStamp.ts ← DELETED_AT_STAMP（trigger 覆寫成伺服器時間）
+├── cloudMigrateG1.ts ← G1 搬家（NEXT_PUBLIC_G1_MIGRATE；壓回前寫 g1_migrate_backup）
+├── reviews.ts    ← upsertReview / addReview / removeReview / nextId（覆盤表寫入單一來源；本機墓碑 deletedReviewKeys）
 ├── period.ts     ← mondayOf／weekKey／monthKey／quarterKey／isoWeek／daysOfWeek／weekKeysOfMonth／monthKeysOfQuarter／weekLabel／monthLabel／quarterLabel（期間 key 單一來源）
 ├── timelineActual.ts ← actSessionsFor / overridesFor / actIdleFor / buildActualSegments（VT＋迷你 bar 單一來源）
 ├── tabs.ts       ← TABS 導航設定
@@ -120,6 +124,11 @@ lib/
 | `flowlife_v1_daily_override_YYYY-MM-DD` | 行程表當天個別修改 |
 | `flowlife_v1_routine_override_YYYY-MM-DD` | 當日作息覆寫（睡眠／吃飯等不可用時間） |
 | `flowlife_v1_reviews` | 覆盤表（day/week/month/quarter/free 總結） |
+| `flowlife_v1_deleted_review_keys` | 覆盤本機墓碑（key 陣列） |
+| `flowlife_v1_sync_dirty_sessions` | 待推 sessions uuid |
+| `flowlife_v1_sync_dirty_reviews` | 待推 reviews key |
+| `flowlife_v1_sync_dirty_app_state` | 待推 app_state key |
+| `flowlife_v1_g1_migrate_result` | 搬家結果（設定頁顯示） |
 | `flowlife_v1_timeline_todo_view` | 直式行程表待辦疊圖顯示偏好 `{ pending, done }` |
 
 ---
@@ -402,15 +411,16 @@ TH.gold    = "#FBBF24"   // 金幣
 7. **改動前確認範圍** → 先說「會影響哪些檔案」，確認後再動
 8. **💡 小提示** → 每個新功能都要在 UI 就近加一行 `💡` 操作提示（`fontSize: 9`、`TH.muted`），讓使用者不用猜怎麼用
 9. **金幣記錄＝`useCoinLog` 單一真相** → 餘額＝明細 `amount` 加總；`coinIncomeLog` 只在 `App.tsx` 經 `useCoinLog()` 持有；變動只走 `appendCoinRow`／`removeCoinRows*`／`upsertCoinRowForSession`／`spendCoins` 四入口；禁止獨立餘額 state 或元件各自 load/save 金幣
-10. **番茄雲端同步＝`lib/sessionsCloud`** → 番茄上雲（push/delete/拉合併）一律走 `sessionsCloud`（uuid 主鍵、last-write-wins by `updatedAt`、localStorage 為本機快取/備援）；寫入路徑由 `App.updateSessions` 末端 `syncSessionDiffToCloud(prev,next)` 自動增量推送，禁止元件各自直連 supabase 寫 sessions
+10. **番茄雲端同步＝`lib/sessionsCloud`** → uuid 主鍵、衝突＝後送達雲端者勝；`updated_at` 由雲端蓋章（client 不送）；軟刪 `deleted_at`。本機寫入走 `persistLocalSessions` 標 dirty。INV-1：雲端 `deleted_at` 不得寫入 `Session.deletedAt`（那是進垃圾桶事件時間）。
 11. **app_state 雲端同步＝`lib/appStateCloud`** → 金幣明細（`coin_income_log`）整包上雲；餘額由明細加總、不再讀寫獨立 `coins` key（舊 `coins` 僅遷移用）；`useCoinLog` 本地變動才 `pushAppState`、訂閱套回；禁止元件各自直連 supabase 寫 app_state
-12. **登出／手動同步＝`lib/cloudSync.ts` `syncNow` 唯一入口** → 離線立即回（`offline`、`allClear=false`）；否則拉→推→刪→驗證（拉重用 `sync*FromCloud`）；時間比較走 `lib/time.ts` `tsNewer`；planPush／planDelete 皆空才全清；不得 force；新雲端表必須掛進同步目標註冊表。重置暫行 `forcePushAppStateForReset`（僅 App.tsx handleResetAllData）
+12. **登出／手動同步＝`lib/cloudSync.ts` `syncNow` 唯一入口** → 離線立即回（`offline`、`allClear=false`）；否則拉→推→刪→驗證（拉重用 `sync*FromCloud`）；`planPush`＝dirty 或雲端缺；時間比較只用於兩邊都是雲端郵戳的列；dirty 只在推送成功且 select 郵戳寫回後才清；拉取不得覆蓋 dirty。衝突＝後送達者勝（單人雙裝置可接受；G2 佇列再評估）。新雲端表必須掛進同步目標註冊表。重置暫行 `forcePushAppStateForReset`（僅 App.tsx handleResetAllData）；sessions／reviews 重置改 stamp `deleted_at`。
 13. **登入狀態＝`lib/authState.ts`** → UI 用 `getLocalSession`／`subscribeAuth`（本機、不連網）；`getUser` 僅 `getVerifiedUid`。`signOut` 預設本機 `scope: "local"`；「登出所有裝置」才 `global`。離線不得踢回登入畫面、不得顯示 ✅。
 
 ---
 
 ## 十、已完成功能 ✅
 
+- **habit-tracker18 批次 G1（2026-09-25）**：雲端蓋章（trigger 覆寫 `updated_at`／非 null `deleted_at`；還原可設 null）；sessions／reviews 軟刪；本機 dirty 集合（單一寫入口）；`planPush`＝dirty 或雲端缺；reviews 本機墓碑；搬家 `NEXT_PUBLIC_G1_MIGRATE`（正式先關，設定頁顯示結果）；壓回前寫 `g1_migrate_backup`。SQL 必須等 Vercel 新 client 上線後立刻跑。Git 交由 Rola 提交。
 - **habit-tracker18 批次 F（2026-09-24）**：登入狀態收成 `lib/authState.ts`（本機 `getSession`，斷網不當登出）；`signOut({ scope: "local" })` 只退這台，「登出所有裝置」才 `global`。離線：頂部／設定頁誠實顯示、同步鈕停用、`syncNow` 立即回 `offline`。Git 交由 Rola 提交。
 - **habit-tracker18 批次 E（2026-09-24）**：時間比較收成 `lib/time.ts`（`tsMs`／`tsNewer`）；步驟 0 證實雲端回 `+00:00`、本機 `Z`，字串 `>` 本機恆勝、`Date.parse` 相等（未跨毫秒，不加 `tsEqualish`）。`syncNow` 改拉→推→刪→驗證。契約測試 `tests/contract/cloudRoundtrip.test.ts`。業界標準（伺服器蓋章＋游標增量）列批次 G。Git 交由 Rola 提交。
 - **habit-tracker18 批次 D（2026-09-23）**：登出／設定頁同步收成 `lib/cloudSync.ts` `syncNow` 唯一入口（增量對帳：上傳＋刪除墓碑列＋不動；不蓋較新雲端；上傳後重抓 index，planPush／planDelete 皆空才 allClear）。uid 只取一次；sessions 批次 upsert ≤100；reviews free 批次 upsert、singleton 對帳後逐筆；todos 走 `mergeTodosWithTombstones`。重置暫行 `forcePushAppStateForReset`（不得給 syncNow force）。刪 `cloudFlush`／`pushAll*`／`inspectSessionCloudStatus`。逾時 30 秒 pending≠失敗。Git 交由 Rola 提交。
@@ -626,7 +636,8 @@ TH.gold    = "#FBBF24"   // 金幣
 | 決策 | 內容 |
 |------|------|
 | 重置應改為明確刪除雲端列（急救登記 §8-38） | 現況重置走 `forcePushAppStateForReset` 推本機預設值蓋雲端。**正確語意**＝明確刪除雲端 `sessions`／`app_state`／`reviews` 列，而非盲推預設。**觸發＝下次動雲端資料的批次**。 |
-| 同步時間由裝置產生（急救登記 §8-38；批次 G） | 批次 E 只止血：`tsNewer` 正規化比較＋`syncNow` 補拉。**暫行原因**＝業界標準要伺服器蓋章＋游標增量，需 schema。**觸發＝批次 G**。 |
+| 商用時是否引進現成同步引擎（本批登記，不施工） | ElectricSQL／PowerSync／Replicache 或雲端即時推播：**現在不決定**（市場變化快，提前綁定＝用不足資訊做決定）。觸發（任一）：①出現 Rola 以外的使用者或多人共用 ②常態三台以上裝置或長期離線 ③資料量大到整包下載不可接受 ④同步維護開始佔用主要開發時間。現在該做＝保持資料模型與這些引擎共通（蓋章／墓碑／書籤／待送清單），確保可替換。併同評估：多使用者權限隔離、資料表升級流程、計費。 |
+| ~~同步時間由裝置產生（急救登記 §8-38；批次 G）~~ ✅ G1 已治本（蓋章＋dirty；游標／佇列留 G2） | 批次 G1：trigger 蓋章、client 不送 `updated_at`、`planPush`＝dirty 或雲端缺。增量游標與正式佇列＝G2。 |
 | `sync*FromCloud` 收 uid（本批不做） | 批次 E 優先重用既有合併、不動結構；拉階段各自再 `getUid`。觸發＝下次動 `syncNow` 效能時。 |
 | 跨帳號汙染修復前，兩個帳號的雲端資料可能已互相混入 | 需人工清理（見下批）。本批只擋往後再汙染。 |
 | reviews 上提 App.tsx | 現況 `DayReview`／`ReviewNudgeCard` 各自 load/save 或直讀 `getReview`；暫緩原因＝覆盤頁與主頁不同 tab 不同時掛載，第三步經評估不需上提；**觸發上提時機＝未來同畫面同時出現浮現卡與覆盤編輯、需即時連動時**（附原脈絡：Batch C 走 `calIntent` 跳轉即可）。 |
@@ -654,7 +665,7 @@ TH.gold    = "#FBBF24"   // 金幣
 | ~~工作場所顏色綁分類名~~ ✅ 已解 | 3c-1b 顏色已解綁存入 `workplace.color`（`colorSeeded` 種子＋`placeColor`/`VerticalTimeline` 優先讀 color），改名不掉色。註：工作場所色與分類色現為兩套，logged 兼差時間色仍走 `CAT.cat2Color`。 |
 | 【指定日期例外排程】 | ✅ **2a+2b 完成**（`day_overrides`/`planForDate`/`shiftRangeOn`＋課表便利貼面板）。**待辦**：`reconcileOverrides`（班別刪除後孤兒便利貼清理，比照 `reconcileDayPlans`）。 |
 | ~~HTML5 拖放不支援觸控（Capacitor 手機版必壞）~~ ✅ 已治本 | 已改 `components/ui/SortableList.tsx`（dnd-kit pointer/touch/keyboard）；全庫 HTML5 `draggable` 已移除；日後排序一律套用此積木。 |
-| 墓碑保存期＝獨立墓碑 60 天 | `deleted_session_uuids` 掛載時清掉 `at` 超過 60 天者；垃圾桶仍 30 天。**觸發升級＝出現跨月未同步裝置復活案例時**：改 sessions 表加 `deleted_at`（需 schema 變更）。 |
+| 墓碑保存期＝獨立墓碑 60 天（G1 已上雲端 `deleted_at`；清理留 G2） | 本機 `deleted_session_uuids` 掛載時清掉 `at` 超過 60 天者；垃圾桶仍 30 天。雲端 `deleted_at` **本批不清理**。 |
 | ~~垃圾桶「全部永久刪除」會一併清掉墓碑~~ ✅ 已解 | `handlePurgeAll`／`handlePurgeSession` 保留／補齊獨立墓碑後才清垃圾桶。 |
 | /api/today 為第一階段「唯讀」（今天＋任意日期） | 第二階段「寫入／改行程」未做。設計前提＝「agent 提議、Rola 確認後才改」：除非 Rola 明確下指令怎麼改，否則 agent 任何自主判斷一律先問過 Rola 再動。寫入須另建後端不變式守門層，接於既有測試地基之後。 |
 | 新版 sb_secret_ key 不繞過 RLS | 與舊版 service_role JWT 不同，需顯式 policy 放行；已採 `app_state` **唯讀**最小權限（`FOR SELECT TO service_role`）。寫入階段另議精細化 policy。 |
@@ -671,7 +682,8 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ## 十一、待完成事項 ⬜
 
-- ⬜ **同步改為業界標準**：時間由伺服器蓋章並回傳、以游標做增量拉取、刪除改為雲端 tombstone 欄位；觸發＝批次 G；原因＝目前比較兩台裝置各自產生的時間戳，時鐘偏移與格式差異都會出錯（E27）。
+- ✅ **同步地基 G1（2026-09-25）**：伺服器蓋章＋雲端 `deleted_at`＋dirty＋reviews 本機墓碑＋可開關搬家。⬜ G2 增量游標／待送佇列；⬜ G3 即時推播。
+- ⬜ **tombstone 清理（GC）**：不可按固定天數；門檻＝所有裝置中「最後一次同步」最早者；保險絲＝裝置書籤早於保留期限則不得上傳，改為整包重新下載。與 G2 書籤、裝置清單一起做。
 - ⬜ **`sync*FromCloud` 收 uid**（本批不做）：批次 E 優先重用既有合併邏輯、不動結構。觸發＝下次動 `syncNow` 效能時。
 - ⬜ **重置應改為「明確刪除雲端 sessions／app_state／reviews 列」**（現況暫行 `forcePushAppStateForReset` 推本機預設值蓋上去）。觸發＝下次動雲端資料的批次；見暫緩決策帳本（紀律 §8-38 急救登記）。
 - ⬜ **新雲端資料表必須掛進 `lib/cloudSync.ts` 同步目標註冊表**（sessions／app_state／reviews）；不得另開 flush／pushAll 入口。觸發＝下次新增雲端表。
@@ -760,5 +772,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/09/24（habit-tracker18 批次 F：本機 session 當登入狀態；signOut local；離線誠實）*
+*最後更新：2026/09/25（habit-tracker18 批次 G1：雲端蓋章＋deleted_at 軟刪＋dirty＋搬家旗標）*
 *維護原則：每次完成重要功能，同步更新第十、十一、十二節*

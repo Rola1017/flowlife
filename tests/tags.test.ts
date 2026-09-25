@@ -190,9 +190,11 @@ describe("session / todo tagIds", () => {
 
     const row = sessionToRow("user-1", deep);
     expect(row.tag_ids).toEqual([LAW_SUB.id]);
-    const back = sessionFromRow(row, 1);
+    expect("updated_at" in row).toBe(false);
+    const back = sessionFromRow({ ...row, updated_at: UPDATED }, 1);
     expect(back.tagIds).toEqual([LAW_SUB.id]);
     expect(back.updatedAt).toBe(UPDATED);
+    expect(back.deletedAt).toBeUndefined();
   });
 
   it("normalizeTodo 由單層 cat 推導大分類標籤 id", () => {

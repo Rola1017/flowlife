@@ -61,6 +61,14 @@ describe("mergeSessionsWithTombstones（防復活）", () => {
     expect(toDeleteFromCloud).toEqual([]);
     expect(merged.map((x) => x.uuid)).toContain("new-local");
   });
+
+  it("dirty 列不被雲端覆蓋（慢鐘本機仍保留）", () => {
+    const local = [s({ uuid: "u1", name: "本機改", updatedAt: "2026-07-01T00:00:00.000Z" })];
+    const cloud = [s({ uuid: "u1", name: "雲端新", updatedAt: "2026-07-20T00:00:00.000Z" })];
+    const { merged, toPush } = mergeSessionsWithTombstones(local, cloud, new Set(), ["u1"]);
+    expect(merged[0].name).toBe("本機改");
+    expect(toPush.map((x) => x.uuid)).toContain("u1");
+  });
 });
 
 describe("mergeDeletedSessionUuids（清除記錄墓碑）", () => {

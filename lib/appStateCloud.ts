@@ -2,6 +2,7 @@ import { reportCloudWriteResult } from "@/lib/cloudWrite";
 import { CFG } from "@/lib/config";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { clearSyncDirty, isSyncDirty, markSyncDirty } from "@/lib/syncDirty";
 import { tsNewer } from "@/lib/time";
 import { gcTodoTombstones, mergeTodosWithTombstones, normalizeTodoList } from "@/lib/todosCloud";
 
@@ -105,19 +106,30 @@ export function notifyAppState(key: string) {
   emit(key);
 }
 
-/** 推單包到雲端（(user_id,key) 為主鍵 upsert）
- * 本機 meta 必須在 await getUid 之前蓋上，否則「本機已寫、雲端尚未 upsert」的空窗
- * 會被 sync 判定成雲端較新而覆蓋掉剛新增的 tag_groups。
+/** app_state 本機寫入標 dirty 的單一入口。禁止他處 markSyncDirty("app_state")。 */
+export function persistAppStateDirty(keys: Iterable<string>): void {
+  markSyncDirty("app_state", keys);
+}
+
+/** 推單包到雲端（(user_id,key) 為主鍵 upsert）。
+ * 先標 dirty（單一寫入口），成功 select 郵戳寫回後才清。未登入仍保留 dirty。
  */
+
 export async function pushAppState(key: string, value: unknown): Promise<boolean> {
-  const iso = new Date().toISOString();
-  setMetaTs(key, iso);
+  persistAppStateDirty([key]);
   const uid = await getUid();
   if (!uid) return false;
-  const { error } = await sb()
+  const { data, error } = await sb()
     .from("app_state")
-    .upsert({ user_id: uid, key, value, updated_at: iso }, { onConflict: "user_id,key" });
-  return reportCloudWriteResult("app_state", "upsert", { error }, key);
+    .upsert({ user_id: uid, key, value }, { onConflict: "user_id,key" })
+    .select("updated_at")
+    .maybeSingle();
+  const ok = reportCloudWriteResult("app_state", "upsert", { error }, key);
+  if (ok && data?.updated_at) {
+    setMetaTs(key, data.updated_at);
+    clearSyncDirty("app_state", [key]);
+  }
+  return ok;
 }
 
 export function loadAppStateMeta(): Record<string, string> {
@@ -153,10 +165,16 @@ export async function upsertAppStateBatch(
     user_id: uid,
     key: it.key,
     value: it.value,
-    updated_at: it.updatedAt,
   }));
-  const { error } = await sb().from("app_state").upsert(rows, { onConflict: "user_id,key" });
-  return reportCloudWriteResult("app_state", "upsert", { error });
+  const { data, error } = await sb().from("app_state").upsert(rows, { onConflict: "user_id,key" }).select("key,updated_at");
+  const ok = reportCloudWriteResult("app_state", "upsert", { error });
+  if (!ok) return false;
+  for (const row of (data ?? []) as { key?: string; updated_at?: string }[]) {
+    if (!row.key || !row.updated_at) continue;
+    setMetaTs(row.key, row.updated_at);
+    clearSyncDirty("app_state", [row.key]);
+  }
+  return true;
 }
 
 /**
@@ -221,12 +239,20 @@ export async function syncAppStateFromCloud() {
     const localTs = meta[key] ?? "";
 
     if (key === APP_STATE_KEYS.todos) {
+      if (isSyncDirty("app_state", key)) {
+        void pushAppState(key, loadJSON(ls, DEFAULT_FOR_KEY[key]));
+        continue;
+      }
       reconcileTodos(cloud, localTs);
       continue;
     }
 
+    if (isSyncDirty("app_state", key)) {
+      void pushAppState(key, loadJSON(ls, DEFAULT_FOR_KEY[key]));
+      continue;
+    }
+
     if (!cloud) {
-      // 雲端沒有 → 首次把本地值推上雲
       void pushAppState(key, loadJSON(ls, DEFAULT_FOR_KEY[key]));
       continue;
     }

@@ -285,3 +285,78 @@ describe("登入狀態單一來源（E28）", () => {
     expect(hits).toEqual([]);
   });
 });
+
+const DIRTY_MARK_ALLOWLIST = [
+  "lib/syncDirty.ts",
+  "lib/sessionPersist.ts",
+  "lib/reviews.ts",
+  "lib/appStateCloud.ts",
+];
+
+describe("G1 雲端蓋章／軟刪／dirty 守門", () => {
+  it("markSyncDirty 只准出現在單一寫入口", () => {
+    const hits: string[] = [];
+    for (const dirName of SCAN_DIRS) {
+      const dir = path.join(ROOT, dirName);
+      try {
+        statSync(dir);
+      } catch {
+        continue;
+      }
+      for (const file of walkTs(dir)) {
+        const rel = relPosix(file);
+        const text = readFileSync(file, "utf8");
+        if (!text.includes("markSyncDirty")) continue;
+        if (!DIRTY_MARK_ALLOWLIST.includes(rel)) hits.push(rel);
+      }
+    }
+    expect(hits).toEqual([]);
+  });
+
+  it("lib／components／app 不得對 sessions／reviews 呼叫 .delete()", () => {
+    const hits: string[] = [];
+    const tableRe = /\.from\(\s*["'](sessions|reviews)["']\s*\)/;
+    const deleteRe = /\.delete\s*\(\s*\)/;
+    for (const dirName of SCAN_DIRS) {
+      const dir = path.join(ROOT, dirName);
+      try {
+        statSync(dir);
+      } catch {
+        continue;
+      }
+      for (const file of walkTs(dir)) {
+        const rel = relPosix(file);
+        const text = readFileSync(file, "utf8");
+        if (tableRe.test(text) && deleteRe.test(text)) hits.push(rel);
+      }
+    }
+    expect(hits).toEqual([]);
+  });
+
+  it("sessionToRow 不得寫 updated_at；sessionFromRow 不得把 deleted_at 寫入 deletedAt", () => {
+    const text = readFileSync(path.join(ROOT, "lib/sessionsCloud.ts"), "utf8");
+    const toRow = text.slice(text.indexOf("export function sessionToRow"), text.indexOf("export function sessionFromRow"));
+    const fromRow = text.slice(text.indexOf("export function sessionFromRow"), text.indexOf("function toRow"));
+    expect(toRow).not.toMatch(/updated_at\s*:/);
+    expect(fromRow).not.toMatch(/deletedAt\s*:/);
+  });
+
+  it("push 路徑不得在 upsert／insert payload 送 updated_at", () => {
+    const files = ["lib/sessionsCloud.ts", "lib/reviews.ts", "lib/appStateCloud.ts"];
+    const hits: string[] = [];
+    for (const rel of files) {
+      const lines = readFileSync(path.join(ROOT, rel), "utf8").split(/\r?\n/);
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (/select\s*\(/.test(line)) continue;
+        if (/updated_at\s*\??\s*:\s*(string|null)/.test(line)) continue;
+        if (/\.updated_at/.test(line)) continue;
+        if (/^\s*updated_at\s*:/.test(line) || /[{,]\s*updated_at\s*:/.test(line)) {
+          hits.push(`${rel}:${i + 1}`);
+        }
+      }
+    }
+    expect(hits).toEqual([]);
+  });
+});
+

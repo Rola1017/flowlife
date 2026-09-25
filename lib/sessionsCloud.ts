@@ -1,6 +1,11 @@
 import { reportCloudWriteResult } from "@/lib/cloudWrite";
-import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
+import { DELETED_AT_STAMP } from "@/lib/cloudStamp";
+import { persistLocalSessions } from "@/lib/sessionPersist";
+
+export { persistLocalSessions };
+import { LS_KEYS, loadJSON } from "@/lib/storage";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { clearSyncDirty, loadSyncDirty } from "@/lib/syncDirty";
 import { tsNewer } from "@/lib/time";
 import type { Session } from "@/lib/types";
 
@@ -45,25 +50,47 @@ export function loadLocalSessionTombstoneUuids(): Set<string> {
   return set;
 }
 
-export type SessionIndexRow = { uuid: string; updated_at: string };
+export type SessionIndexRow = { uuid: string; updated_at: string; deleted_at: string | null };
 
 export async function fetchSessionsIndex(uid: string): Promise<SessionIndexRow[] | null> {
-  const { data, error } = await sb().from("sessions").select("uuid, updated_at").eq("user_id", uid);
+  const { data, error } = await sb()
+    .from("sessions")
+    .select("uuid, updated_at, deleted_at")
+    .eq("user_id", uid);
   if (error) return null;
   const out: SessionIndexRow[] = [];
-  for (const r of (data ?? []) as { uuid?: string; updated_at?: string }[]) {
+  for (const r of (data ?? []) as { uuid?: string; updated_at?: string; deleted_at?: string | null }[]) {
     if (!r.uuid) continue;
-    out.push({ uuid: r.uuid, updated_at: r.updated_at ?? "" });
+    out.push({ uuid: r.uuid, updated_at: r.updated_at ?? "", deleted_at: r.deleted_at ?? null });
   }
   return out;
 }
 
-/** 單批 upsert（呼叫端切 ≤100）。uid 由 syncNow 傳入，不再 getUid。 */
+function applySessionStamps(stamps: { uuid: string; updated_at: string }[]): void {
+  if (!stamps.length) return;
+  const map = new Map(stamps.map((s) => [s.uuid, s.updated_at]));
+  const local = loadLocal();
+  const next = local.map((s) =>
+    s.uuid && map.has(s.uuid) ? { ...s, updatedAt: map.get(s.uuid) } : s,
+  );
+  persistLocalSessions(next, undefined, "cloud");
+  clearSyncDirty(
+    "sessions",
+    stamps.map((s) => s.uuid),
+  );
+}
+
+/** 單批 upsert。不送 updated_at；select 取回雲端郵戳後才清 dirty。 */
 export async function upsertSessionsBatch(uid: string, sessions: Session[]): Promise<boolean> {
   const rows = sessions.filter((s) => s.uuid).map((s) => toRow(uid, s));
   if (!rows.length) return true;
-  const { error } = await sb().from("sessions").upsert(rows, { onConflict: "uuid" });
-  return reportCloudWriteResult("sessions", "upsert", { error });
+  const { data, error } = await sb().from("sessions").upsert(rows, { onConflict: "uuid" }).select("uuid,updated_at");
+  const ok = reportCloudWriteResult("sessions", "upsert", { error });
+  if (!ok) return false;
+  const stamps = ((data ?? []) as { uuid?: string; updated_at?: string }[])
+    .filter((r): r is { uuid: string; updated_at: string } => Boolean(r.uuid && r.updated_at));
+  applySessionStamps(stamps);
+  return true;
 }
 
 type SessionRow = {
@@ -87,10 +114,13 @@ type SessionRow = {
   intention: string | null;
   reflection: string | null;
   manual: boolean | null;
-  updated_at: string;
+  updated_at?: string;
+  deleted_at?: string | null;
 };
 
-export function sessionToRow(uid: string, s: Session): SessionRow {
+export type SessionWriteRow = Omit<SessionRow, "updated_at"> & { deleted_at: null };
+
+export function sessionToRow(uid: string, s: Session): SessionWriteRow {
   return {
     uuid: s.uuid as string,
     user_id: uid,
@@ -112,7 +142,7 @@ export function sessionToRow(uid: string, s: Session): SessionRow {
     intention: s.intention ?? null,
     reflection: s.reflection ?? null,
     manual: s.manual ?? null,
-    updated_at: s.updatedAt ?? new Date().toISOString(),
+    deleted_at: null,
   };
 }
 
@@ -139,10 +169,11 @@ export function sessionFromRow(r: SessionRow, localId?: number): Session {
     reflection: r.reflection ?? undefined,
     manual: r.manual ?? undefined,
     updatedAt: r.updated_at ?? undefined,
+    // INV-1：雲端 deleted_at 不得寫入 Session.deletedAt（那是進垃圾桶事件時間）
   };
 }
 
-function toRow(uid: string, s: Session): SessionRow {
+function toRow(uid: string, s: Session): SessionWriteRow {
   return sessionToRow(uid, s);
 }
 
@@ -156,16 +187,25 @@ export async function pushSessionCloud(uuid: string): Promise<boolean> {
   if (!uid) return false;
   const s = loadLocal().find((x) => x.uuid === uuid);
   if (!s) return false;
-  const { error } = await sb().from("sessions").upsert(toRow(uid, s), { onConflict: "uuid" });
-  return reportCloudWriteResult("sessions", "upsert", { error }, uuid);
+  const { data, error } = await sb().from("sessions").upsert(toRow(uid, s), { onConflict: "uuid" }).select("uuid,updated_at");
+  const ok = reportCloudWriteResult("sessions", "upsert", { error }, uuid);
+  if (!ok) return false;
+  const stamps = ((data ?? []) as { uuid?: string; updated_at?: string }[])
+    .filter((r): r is { uuid: string; updated_at: string } => Boolean(r.uuid && r.updated_at));
+  applySessionStamps(stamps);
+  return true;
 }
 
-/** 從雲端刪除某顆番茄 */
+/** 軟刪：寫 deleted_at（trigger 蓋伺服器時間）。還原則 upsert deleted_at: null。 */
 export async function deleteSessionCloud(uuid: string): Promise<boolean> {
   const uid = await getUid();
   if (!uid) return false;
-  const { error } = await sb().from("sessions").delete().eq("user_id", uid).eq("uuid", uuid);
-  return reportCloudWriteResult("sessions", "delete", { error }, uuid);
+  const { error } = await sb()
+    .from("sessions")
+    .update({ deleted_at: DELETED_AT_STAMP })
+    .eq("user_id", uid)
+    .eq("uuid", uuid);
+  return reportCloudWriteResult("sessions", "update", { error }, uuid);
 }
 
 export function collectSessionUuids(rows: { uuid?: string }[]): string[] {
@@ -205,8 +245,12 @@ export async function deleteSessionsCloud(uuids: string[], uid?: string): Promis
   let ok = true;
   for (let i = 0; i < uniq.length; i += 100) {
     const chunk = uniq.slice(i, i + 100);
-    const { error } = await sb().from("sessions").delete().eq("user_id", userId).in("uuid", chunk);
-    if (!reportCloudWriteResult("sessions", "delete", { error })) ok = false;
+    const { error } = await sb()
+      .from("sessions")
+      .update({ deleted_at: DELETED_AT_STAMP })
+      .eq("user_id", userId)
+      .in("uuid", chunk);
+    if (!reportCloudWriteResult("sessions", "update", { error })) ok = false;
   }
   return ok;
 }
@@ -234,13 +278,24 @@ async function tombstoneSet(uid: string): Promise<Set<string>> {
 
 /**
  * 同步合併純函式（無網路／無 localStorage）。
- * 等價於 syncSessionsFromCloud 的合併＋墓碑過濾：跳過墓碑雲端列、墓碑本地改刪雲、最後過濾 merged。
+ * dirty 列不得被雲端值覆蓋（本機修改優先）。
+ * cloudDeleted 視同墓碑（雲端 deleted_at），不得寫回 Session.deletedAt。
  */
 export function mergeSessionsWithTombstones(
   local: Session[],
   cloud: Session[],
   tombstones: Set<string>,
+  dirty: Iterable<string> = [],
+  cloudDeleted: Iterable<string> = [],
 ): { merged: Session[]; toPush: Session[]; toDeleteFromCloud: string[] } {
+  const dirtySet = new Set<string>();
+  for (const id of dirty) if (id) dirtySet.add(id);
+  const tombs = new Set<string>();
+  for (const u of tombstones) if (u) tombs.add(u);
+  for (const u of cloudDeleted) {
+    if (u && !dirtySet.has(u)) tombs.add(u);
+  }
+
   const map = new Map<string, Session>();
   for (const s of local) if (s.uuid) map.set(s.uuid, s);
 
@@ -248,7 +303,8 @@ export function mergeSessionsWithTombstones(
   for (const c of cloud) {
     if (!c.uuid) continue;
     cloudUuids.add(c.uuid);
-    if (tombstones.has(c.uuid)) continue; // 墓碑：不得寫回本地
+    if (tombs.has(c.uuid)) continue;
+    if (dirtySet.has(c.uuid)) continue;
     const cur = map.get(c.uuid);
     if (!cur) {
       map.set(c.uuid, c);
@@ -261,37 +317,50 @@ export function mergeSessionsWithTombstones(
   const toDeleteFromCloud: string[] = [];
   for (const s of local) {
     if (!s.uuid) continue;
-    if (tombstones.has(s.uuid)) {
+    if (tombs.has(s.uuid)) {
       toDeleteFromCloud.push(s.uuid);
       continue;
     }
     const c = cloud.find((x) => x.uuid === s.uuid);
-    if (!cloudUuids.has(s.uuid) || tsNewer(s.updatedAt, c?.updatedAt)) {
+    if (
+      dirtySet.has(s.uuid) ||
+      !cloudUuids.has(s.uuid) ||
+      tsNewer(s.updatedAt, c?.updatedAt)
+    ) {
       toPush.push(s);
     }
   }
 
-  const merged = Array.from(map.values()).filter((s) => !s.uuid || !tombstones.has(s.uuid));
+  const merged = Array.from(map.values()).filter((s) => !s.uuid || !tombs.has(s.uuid));
   return { merged, toPush, toDeleteFromCloud };
 }
 
 /** 拉＋合併（last-write-wins）＋自動把本地較新者上雲；墓碑 uuid 不得復活 */
 export async function syncSessionsFromCloud() {
   const uid = await getUid();
-  if (!uid) return; // 沒登入＝純本地
+  if (!uid) return;
   const { data: cloud, error } = await sb().from("sessions").select("*").eq("user_id", uid);
   if (error || !cloud) return;
 
   const trashed = await tombstoneSet(uid);
   const local = loadLocal();
+  const dirty = loadSyncDirty("sessions");
+  const cloudDeleted: string[] = [];
   const cloudSessions = (cloud as SessionRow[]).map((r) => {
+    if (r.deleted_at && r.uuid) cloudDeleted.push(r.uuid);
     const cur = local.find((s) => s.uuid === r.uuid);
     return fromRow(r, cur?.id);
   });
-  const { merged, toPush, toDeleteFromCloud } = mergeSessionsWithTombstones(local, cloudSessions, trashed);
+  const { merged, toPush, toDeleteFromCloud } = mergeSessionsWithTombstones(
+    local,
+    cloudSessions,
+    trashed,
+    dirty,
+    cloudDeleted,
+  );
   for (const uuid of toDeleteFromCloud) void deleteSessionCloud(uuid);
   for (const s of toPush) if (s.uuid) void pushSessionCloud(s.uuid);
-  saveJSON(LS_KEYS.sessions, merged);
+  persistLocalSessions(merged, undefined, "cloud");
   emitSessions();
 }
 
