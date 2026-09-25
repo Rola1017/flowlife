@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { TH, labelOnDark, withAlpha } from "@/lib/theme";
+import { cardStyle } from "@/lib/cardTone";
 import { CAT } from "@/lib/categories";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 import {
@@ -600,8 +601,10 @@ export function SchedulePage({
           background: col ? col + "33" : "#1C1C24",
           borderRadius: 5,
           padding: "2px 4px",
-          border: sel ? `2px solid ${TH.accent}` : `1px solid ${col ? col + "44" : TH.border}`,
-          boxShadow: sel ? `0 0 0 2px ${TH.accent}55` : "none",
+          ...cardStyle("schedule"),
+          ...(sel
+            ? { border: `2px solid ${TH.accent}`, boxShadow: `0 0 0 2px ${TH.accent}55` }
+            : {}),
           cursor: "pointer",
           overflow: "hidden",
           boxSizing: "border-box",
@@ -1067,11 +1070,12 @@ export function SchedulePage({
                             borderRadius: 5,
                             padding: "2px 6px",
                             paddingRight: c && editable ? 22 : 6,
-                            border: conflict
-                              ? `1.5px solid ${TH.red}`
+                            ...cardStyle("schedule"),
+                            ...(conflict
+                              ? { boxShadow: `inset 0 0 0 1px ${TH.red}` }
                               : ovSlotEdit === t
-                                ? `2px solid ${TH.accent}`
-                                : `1px solid ${col ? col + "44" : TH.border}`,
+                                ? { border: `2px solid ${TH.accent}` }
+                                : {}),
                             cursor: editable ? "pointer" : "default",
                             display: "flex",
                             flexDirection: "column",

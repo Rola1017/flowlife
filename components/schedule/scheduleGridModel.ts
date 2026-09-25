@@ -1,5 +1,6 @@
 import { createElement, Fragment, type CSSProperties, type ReactNode } from "react";
 import { TH } from "@/lib/theme";
+import { cardStyle } from "@/lib/cardTone";
 import { toM } from "@/lib/utils";
 import { loadRoutine, type RoutineItem, type RoutineBlock } from "@/lib/schedule";
 
@@ -119,7 +120,7 @@ export const fixedCellStyle: CSSProperties = {
   fontSize: 9,
   fontWeight: 700,
   color: TH.muted,
-  border: `1px solid ${TH.border}`,
+  ...cardStyle("routine"),
   boxSizing: "border-box",
 };
 

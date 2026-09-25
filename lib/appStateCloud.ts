@@ -32,6 +32,7 @@ export const APP_STATE_KEYS = {
   scheduleNote: "schedule_note",
   deletedTodos: "deleted_todo_ids",
   todos: "todos",
+  cardToneColors: "cardToneColors",
 } as const;
 
 type AppStateKey = (typeof APP_STATE_KEYS)[keyof typeof APP_STATE_KEYS];
@@ -53,6 +54,7 @@ const LS_FOR_KEY: Record<AppStateKey, string> = {
   [APP_STATE_KEYS.scheduleNote]: LS_KEYS.scheduleNote,
   [APP_STATE_KEYS.deletedTodos]: LS_KEYS.deletedTodoIds,
   [APP_STATE_KEYS.todos]: LS_KEYS.todos,
+  [APP_STATE_KEYS.cardToneColors]: LS_KEYS.cardToneColors,
 };
 
 const DEFAULT_FOR_KEY: Record<AppStateKey, unknown> = {
@@ -72,6 +74,7 @@ const DEFAULT_FOR_KEY: Record<AppStateKey, unknown> = {
   [APP_STATE_KEYS.scheduleNote]: "",
   [APP_STATE_KEYS.deletedTodos]: [],
   [APP_STATE_KEYS.todos]: [],
+  [APP_STATE_KEYS.cardToneColors]: {},
 };
 
 // 本地 meta：每個 key 的最後修改時間 {key: iso}

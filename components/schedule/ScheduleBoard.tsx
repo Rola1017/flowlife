@@ -2,6 +2,7 @@
 
 import type { CSSProperties, ReactNode } from "react";
 import { TH, labelOnDark } from "@/lib/theme";
+import { cardStyle } from "@/lib/cardTone";
 import { CAT } from "@/lib/categories";
 import { Chip } from "@/components/ui/Chip";
 import type { DayPick, Place, WorkplaceConfig } from "@/lib/schedule";
@@ -106,7 +107,7 @@ export function ScheduleBoard({
           background: col ? col + "33" : "#1C1C24",
           borderRadius: 5,
           padding: "2px 4px",
-          border: `1px solid ${col ? col + "44" : TH.border}`,
+          ...cardStyle("schedule"),
           cursor: onCellClick ? "pointer" : "default",
           overflow: "hidden",
           boxSizing: "border-box",
@@ -366,7 +367,7 @@ export function ScheduleBoard({
                       left: leftForDay(dayColIndex),
                       width: COL_W,
                       background: color + "33",
-                      border: `1px solid ${color}44`,
+                      ...cardStyle("shift"),
                       borderRadius: 5,
                       display: "flex",
                       flexDirection: "column",

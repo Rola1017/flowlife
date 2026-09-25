@@ -6,7 +6,8 @@ import { Card, SL } from "@/components/ui/Card";
 import { AuthPanel } from "@/components/auth/AuthPanel";
 import { CloudSyncBadge } from "@/components/ui/CloudSyncBadge";
 import { isOnline, subscribeOnline } from "@/lib/authState";
-import { CARD_TONES, CARD_TONE_COLOR, CARD_TONE_LABEL } from "@/lib/cardTone";
+import { CARD_TONES, CARD_TONE_LABEL, displayToneColor, loadCardToneOverrides, resetAllCardToneColors, resetCardToneColor, setCardToneColor, toneColor } from "@/lib/cardTone";
+import { APP_STATE_KEYS, subscribeAppState } from "@/lib/appStateCloud";
 import { TH } from "@/lib/theme";
 import { SYNC_TARGET_LABELS, syncNow, type SyncReport } from "@/lib/cloudSync";
 import type { Todo } from "@/lib/types";
@@ -29,8 +30,13 @@ export function SettingsPage({
   const [syncing, setSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState("");
   const [online, setOnline] = useState(isOnline);
+  const [toneRev, setToneRev] = useState(0);
 
   useEffect(() => subscribeOnline(setOnline), []);
+  useEffect(
+    () => subscribeAppState(APP_STATE_KEYS.cardToneColors, () => setToneRev((n) => n + 1)),
+    [],
+  );
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -267,30 +273,102 @@ export function SettingsPage({
       <Card tone="neutral">
         <SL>顏色圖例</SL>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
-          {CARD_TONES.map((t) => (
-            <div key={t} style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-              <span
-                style={{
-                  width: 14,
-                  height: 14,
-                  borderRadius: 3,
-                  background: CARD_TONE_COLOR[t],
-                  flexShrink: 0,
-                  boxSizing: "border-box",
-                }}
-              />
-              <span style={{ fontSize: 12, color: TH.text, fontWeight: 700 }}>{CARD_TONE_LABEL[t]}</span>
-            </div>
-          ))}
+          {CARD_TONES.map((t) => {
+            void toneRev;
+            const stored = toneColor(t);
+            const customized = loadCardToneOverrides()[t] != null;
+            return (
+              <div key={t} style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                <span
+                  style={{
+                    width: 14,
+                    height: 14,
+                    borderRadius: 3,
+                    background: displayToneColor(t),
+                    flexShrink: 0,
+                    boxSizing: "border-box",
+                  }}
+                />
+                <span style={{ fontSize: 12, color: TH.text, fontWeight: 700, minWidth: 0, flex: 1 }}>
+                  {CARD_TONE_LABEL[t]}
+                </span>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                    fontSize: 11,
+                    color: TH.muted,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    flexShrink: 0,
+                  }}
+                >
+                  改顏色
+                  <input
+                    type="color"
+                    aria-label={`改${CARD_TONE_LABEL[t]}顏色`}
+                    value={stored.toLowerCase()}
+                    onChange={(e) => setCardToneColor(t, e.target.value)}
+                    style={{
+                      width: 28,
+                      height: 22,
+                      padding: 0,
+                      border: `1px solid ${TH.border}`,
+                      background: "transparent",
+                      cursor: "pointer",
+                    }}
+                  />
+                </label>
+                {customized ? (
+                  <button
+                    type="button"
+                    onClick={() => resetCardToneColor(t)}
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 800,
+                      color: TH.muted,
+                      background: "transparent",
+                      border: `1px solid ${TH.border}`,
+                      borderRadius: 8,
+                      padding: "3px 8px",
+                      cursor: "pointer",
+                      flexShrink: 0,
+                    }}
+                  >
+                    恢復預設
+                  </button>
+                ) : null}
+              </div>
+            );
+          })}
         </div>
+        <button
+          type="button"
+          onClick={() => resetAllCardToneColors()}
+          style={{
+            marginTop: 10,
+            width: "100%",
+            padding: "8px 12px",
+            borderRadius: 10,
+            border: `1px solid ${TH.border}`,
+            background: "transparent",
+            color: TH.text,
+            fontSize: 12,
+            fontWeight: 800,
+            cursor: "pointer",
+          }}
+        >
+          全部恢復預設
+        </button>
         <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4, marginTop: 8 }}>
           💡 定義：外框顏色代表這張卡片屬於哪一類資料。
         </div>
         <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4, marginTop: 4 }}>
-          💡 用法：滑動時用顏色快速找到區塊。
+          💡 用法：點色塊可改成自己想要的顏色，會同步到另一台裝置。
         </div>
         <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4, marginTop: 4 }}>
-          💡 範例：黃色＝待辦、藍色＝課表。
+          💡 範例：把待辦從黃色改成粉紅色，手機與電腦都會變。
         </div>
       </Card>
       <div style={{ fontSize: 9, color: TH.muted, textAlign: "center" }}>版本 v1.0.0 · FlowLife</div>

@@ -73,7 +73,7 @@ components/
 
 lib/
 ├── theme.ts      ← TH 色彩常數（唯一來源）；withAlpha 為 hex→rgba 唯一實作
-├── cardTone.ts   ← 卡片外框色唯一來源（CardTone／cardStyle；左 3px 色帶＋1px 淡化外框）
+├── cardTone.ts   ← 卡片外框色唯一來源（CardTone／cardStyle；覆寫讀 app_state key cardToneColors，非法 hex 丟棄；顯示過暗才 liftStripeOnDark）
 ├── categories.ts ← CATEGORY_TREE + CAT helpers
 ├── config.ts     ← CFG（TODAY_STR = toLocalDateStr() 本地日期，DAY_END = "23:00"）
 ├── mock.ts       ← MOCK 假資料
@@ -133,6 +133,7 @@ supabase/
 | `flowlife_v1_sync_dirty_reviews` | 待推 reviews key |
 | `flowlife_v1_sync_dirty_app_state` | 待推 app_state key |
 | `flowlife_v1_timeline_todo_view` | 直式行程表待辦疊圖顯示偏好 `{ pending, done }` |
+| `flowlife_v1_card_tone_colors` | 卡片外框色覆寫 `{ [tone]: "#RRGGBB" }`，只存改過的 tone；走 app_state `cardToneColors` |
 
 ---
 
@@ -415,7 +416,7 @@ TH.gold    = "#FBBF24"   // 金幣
 8. **💡 小提示** → 每個新功能都要在 UI 就近加一行 `💡` 操作提示（`fontSize: 9`、`TH.muted`），讓使用者不用猜怎麼用
 9. **金幣記錄＝`useCoinLog` 單一真相** → 餘額＝明細 `amount` 加總；`coinIncomeLog` 只在 `App.tsx` 經 `useCoinLog()` 持有；變動只走 `appendCoinRow`／`removeCoinRows*`／`upsertCoinRowForSession`／`spendCoins` 四入口；禁止獨立餘額 state 或元件各自 load/save 金幣
 10. **番茄雲端同步＝`lib/sessionsCloud`** → uuid 主鍵、衝突＝後送達雲端者勝；`updated_at` 由雲端蓋章（client 不送）；軟刪 `deleted_at`。本機寫入走 `persistLocalSessions` 標 dirty。INV-1：雲端 `deleted_at` 不得寫入 `Session.deletedAt`（那是進垃圾桶事件時間）。
-11. **app_state 雲端同步＝`lib/appStateCloud`** → 金幣明細（`coin_income_log`）整包上雲；餘額由明細加總、不再讀寫獨立 `coins` key（舊 `coins` 僅遷移用）；`useCoinLog` 本地變動才 `pushAppState`、訂閱套回；禁止元件各自直連 supabase 寫 app_state
+11. **app_state 雲端同步＝`lib/appStateCloud`** → 金幣明細（`coin_income_log`）整包上雲；餘額由明細加總、不再讀寫獨立 `coins` key（舊 `coins` 僅遷移用）；`useCoinLog` 本地變動才 `pushAppState`、訂閱套回；禁止元件各自直連 supabase 寫 app_state。卡片外框覆寫＝`cardToneColors`（值 `{ [tone]: "#RRGGBB" }`，只存改過的 tone；讀取經 `lib/cardTone` 驗證）。
 12. **登出／手動同步＝`lib/cloudSync.ts` `syncNow` 唯一入口** → 離線立即回（`offline`、`allClear=false`）；否則拉→推→刪→驗證（拉重用 `sync*FromCloud`）；`planPush`＝dirty 或雲端缺；時間比較只用於兩邊都是雲端郵戳的列；dirty 只在推送成功且 select 郵戳寫回後才清；拉取不得覆蓋 dirty。衝突＝後送達者勝（單人雙裝置可接受；G2 佇列再評估）。新雲端表必須掛進同步目標註冊表。重置暫行 `forcePushAppStateForReset`（僅 App.tsx handleResetAllData）；sessions／reviews 重置改 stamp `deleted_at`。
 13. **登入狀態＝`lib/authState.ts`** → UI 用 `getLocalSession`／`subscribeAuth`（本機、不連網）；`getUser` 僅 `getVerifiedUid`。`signOut` 預設本機 `scope: "local"`；「登出所有裝置」才 `global`。離線不得踢回登入畫面、不得顯示 ✅。
 
@@ -423,6 +424,7 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ## 十、已完成功能 ✅
 
+- **habit-tracker18 批次 J（2026-09-25）**：補齊未上色區塊（直式行程表課程／班別／作息／空檔、課表格、番茄歷史列、金幣列）；卡片色可自訂（app_state `cardToneColors`、設定頁 `<input type="color">`、過暗提亮只影響顯示）。Git 交由 Rola 提交。
 - **habit-tracker18 批次 H（2026-09-25）**：卡片外框依資料種類上色（`lib/cardTone.ts` 唯一來源，沿用 TH，不新增色碼；圖示／標題保留）；設定頁顏色圖例＋💡 三件套；退役 G1 搬家程式（正式庫未來時間戳為 0）；診斷 SQL 收檔 `supabase/queries/`。Git 交由 Rola 提交。
 - **habit-tracker18 批次 G1（2026-09-25）**：雲端蓋章（trigger 覆寫 `updated_at`／非 null `deleted_at`；還原可設 null）；sessions／reviews 軟刪；本機 dirty 集合（單一寫入口）；`planPush`＝dirty 或雲端缺；reviews 本機墓碑。搬家程式已於批次 H 退役。SQL 必須等 Vercel 新 client 上線後立刻跑。Git 交由 Rola 提交。
 - **habit-tracker18 批次 F（2026-09-24）**：登入狀態收成 `lib/authState.ts`（本機 `getSession`，斷網不當登出）；`signOut({ scope: "local" })` 只退這台，「登出所有裝置」才 `global`。離線：頂部／設定頁誠實顯示、同步鈕停用、`syncNow` 立即回 `offline`。Git 交由 Rola 提交。
@@ -748,7 +750,7 @@ TH.gold    = "#FBBF24"   // 金幣
   - `cloudWrite.test.ts` — 寫入失敗計數累加／成功不累加（mock `{ error }`）；`uuidsOnlyInLocal` 只在本機
   - `overlap.test.ts` — `spansOverlap`／`findOverlaps`：相鄰不重疊、包含、部分重疊、完全相同；datetime-local 與 `"24:00"`；`rangeStrToSpan`／`rangeStrsOverlap`（空字串＝不佔時間）；三者等價性 ≥500 組；`pickOverlapsOn` 碰邊／重疊／閘門；日期字串鎖死、不用 new Date()
   - `architecture.test.ts` — 掃 `components/`＋`lib/`＋`app/`：除 `lib/overlap.ts` 外不得 `.split("~")`（防 2026-09 重疊判斷複製 6 份）；`setPointerCapture` 只准 `useHorizontalSwipe`（防 2026-09 滑動兩份、修一漏一）；`noDaySwipe`／`noWeekSwipe` 零出現；`useHorizontalSwipe` 必須 `{...swipe.bind}` 不得逐個掛（防 E23 缺 touch-action）；舊全量推送／inspect 零出現；AuthPanel／SettingsPage 只能 `syncNow`（E25）；`forcePushAppStateForReset` 只准 `appStateCloud.ts`＋`App.tsx`；`syncNow` 不得 force；除 `lib/time.ts` 外不得對 `updated_at`／`updatedAt`／`createdAt` 直接 `>`／`<`（E27；regex 避開 `safe > 1, updatedAt`）；E28：`components/` 不得 `auth.getUser()`；全庫 `.auth.signOut(` 必須顯式 `scope`（防 2026-09 斷網被當成登出、全域登出波及其他裝置）；components/ 不得字面 `#RRGGBB` 當 border／borderLeft；卡片容器不得直接 `TH.border` 當外框（改走 `cardStyle`，白名單＝chrome）
-  - `cardTone.test.ts` — 每個 tone 非空樣式；顏色來自 TH；未知 tone → neutral
+  - `cardTone.test.ts` — 每個 tone 非空樣式；顏色來自 TH；未知 tone → neutral；覆寫採用覆寫；非法值退預設；過暗提亮亮度≥門檻；恢復預設回 TH
   - `cloudSync.test.ts` — `planPush`／`planDelete`；E27：本機 Z／雲端 +00:00 同一時刻 planPush 空；墓碑永不 push、雲端獨有無墓碑永不 delete（E05／E06 property ≥500）；300 筆拉後 pending 0；驗證未清 pending>0 非 allClear；離線 `syncNow` 立即回、`allClear=false`、不等待逾時
   - `authState.test.ts` — 本機有 session 即使 getUser 失敗仍已登入；無 session＝未登入；getVerifiedUid 失敗不改本機登入狀態
   - `contract/cloudRoundtrip.test.ts` — 真實 Supabase 往返：寫入後 tsNewer 兩向 false、不在 planPush、100 筆 upsert index 筆數；無 `FLOWLIFE_TEST_EMAIL`／`PASSWORD` 時 skip 並印「契約測試已略過」
@@ -780,5 +782,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/09/25（habit-tracker18 批次 H：卡片外框上色＋退役 G1 搬家＋SQL 收檔）*
+*最後更新：2026/09/25（habit-tracker18 批次 J：補齊未上色區塊＋卡片色可自訂）*
 *維護原則：每次完成重要功能，同步更新第十、十一、十二節*

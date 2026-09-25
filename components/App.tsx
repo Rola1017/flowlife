@@ -405,6 +405,12 @@ function AppContent() {
     [],
   );
 
+  const [, bumpCardTone] = useState(0);
+  useEffect(
+    () => subscribeAppState(APP_STATE_KEYS.cardToneColors, () => bumpCardTone((n) => n + 1)),
+    [],
+  );
+
   const todaySessions = useMemo(
     () => sessions.filter((s) => s.date === CFG.TODAY_STR),
     [sessions],

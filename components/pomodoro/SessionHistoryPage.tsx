@@ -95,6 +95,7 @@ function SessionRow({
         display: "flex",
         flexDirection: "column",
         gap: 5,
+        ...cardStyle("focus"),
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>

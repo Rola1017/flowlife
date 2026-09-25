@@ -32,6 +32,39 @@ function hexToRgb(hex: string): [number, number, number] | null {
   ];
 }
 
+/** 嚴格 #RRGGBB（6 位）。其餘（空、red、#12、#RGB）一律 null。 */
+export function parseHexRRGGBB(hex: unknown): string | null {
+  if (typeof hex !== "string") return null;
+  const s = hex.trim();
+  if (!/^#[0-9a-fA-F]{6}$/.test(s)) return null;
+  return `#${s.slice(1).toUpperCase()}`;
+}
+
+/** YIQ 感知亮度 0~255；解析失敗回 null。 */
+export function yiqLum(hex: string): number | null {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return null;
+  return (rgb[0] * 299 + rgb[1] * 587 + rgb[2] * 114) / 1000;
+}
+
+/** 色帶最低亮度。低於此值才往白混（不改存檔，只影響顯示）。文字用 labelOnDark 門檻 140。 */
+export const STRIPE_MIN_LUM = 50;
+
+function mixTowardWhite(hex: string, minLum: number): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return hex;
+  const lum = yiqLum(hex);
+  if (lum == null || lum >= minLum) return hex;
+  const mix = (c: number) => Math.round(c + (255 - c) * 0.55);
+  const [r, g, b] = rgb;
+  return `#${[mix(r), mix(g), mix(b)].map((c) => c.toString(16).padStart(2, "0")).join("")}`;
+}
+
+/** 過暗色帶提亮，保留色相。不改呼叫端存的值。 */
+export function liftStripeOnDark(hex: string): string {
+  return mixTowardWhite(hex, STRIPE_MIN_LUM);
+}
+
 /** hex → rgba。a 為 0~1。失敗回原字串。唯一實作，禁止各處自寫。 */
 export function withAlpha(hex: string, a: number): string {
   const rgb = hexToRgb(hex);
@@ -44,11 +77,7 @@ export function withAlpha(hex: string, a: number): string {
 export function labelOnDark(hex: string): string {
   const rgb = hexToRgb(hex);
   if (!rgb) return "#E5E7EB";
-  const [r, g, b] = rgb;
-  const lum = (r * 299 + g * 587 + b * 114) / 1000; // 0~255
-  if (lum >= 140) return hex;
-  const mix = (c: number) => Math.round(c + (255 - c) * 0.55);
-  return `#${[mix(r), mix(g), mix(b)].map((c) => c.toString(16).padStart(2, "0")).join("")}`;
+  return mixTowardWhite(hex, 140);
 }
 
 /**

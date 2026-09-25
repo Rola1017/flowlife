@@ -41,6 +41,7 @@ export const LS_KEYS = {
   activeEnt: `${STORAGE_PREFIX}active_entertainment`,
   routine: `${STORAGE_PREFIX}routine`,
   scheduleNote: `${STORAGE_PREFIX}schedule_note`,
+  cardToneColors: `${STORAGE_PREFIX}card_tone_colors`,
   /** 本機資料歸屬帳號（不走 v1 前綴／assertVersionedKey，避免與應用資料鍵混用） */
   ownerUserId: "flowlife_owner_user_id",
 } as const;
@@ -85,6 +86,7 @@ export const APP_DATA_EXACT_KEYS: readonly string[] = [
   LS_KEYS.activeEnt,
   LS_KEYS.routine,
   LS_KEYS.scheduleNote,
+  LS_KEYS.cardToneColors,
 ];
 
 /** 帶日期後綴的鍵前綴：只掃這兩條，禁止泛用 flowlife_ 迴圈 */

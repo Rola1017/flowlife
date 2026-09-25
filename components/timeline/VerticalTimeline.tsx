@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
-import { TH, readableTextOn, labelOnDark, withAlpha } from "@/lib/theme";
+import { TH, readableTextOn, labelOnDark } from "@/lib/theme";
+import { cardStyle } from "@/lib/cardTone";
 import { CAT } from "@/lib/categories";
 import { DS, DE, toM, nowHM } from "@/lib/utils";
 import { CFG } from "@/lib/config";
@@ -327,7 +328,8 @@ export function VerticalTimeline({
                 left: 4,
                 right: "53%",
                 background: isFixed ? "#1A1A22" : col ? col + "2E" : "#1F293777",
-                border: item.kind === "shift" ? `1px solid ${col}66` : `1px solid ${TH.bg}`,
+                ...cardStyle(isFixed ? "routine" : item.kind === "shift" ? "shift" : "schedule"),
+                boxSizing: "content-box",
                 borderRadius: 5,
                 padding: "2px 5px",
                 overflow: "hidden",
@@ -569,12 +571,13 @@ export function VerticalTimeline({
                   }
                 }}
                 style={{
-                  border: `1.5px solid ${TH.yellow}`,
                   borderRadius: 4,
                   padding: "2px 6px",
                   background: "rgba(9,9,11,0.9)",
                   marginLeft: 2,
                   marginRight: 2,
+                  ...cardStyle("todo"),
+                  boxSizing: "content-box",
                   pointerEvents: onEditTodo ? "auto" : "none",
                   cursor: onEditTodo ? "pointer" : undefined,
                 }}
@@ -629,7 +632,8 @@ export function VerticalTimeline({
                 left: "47%",
                 right: 4,
                 background: "#16161B",
-                border: `1px dashed ${TH.border}`,
+                ...cardStyle("neutral"),
+                boxSizing: "content-box",
                 borderRadius: 5,
                 overflow: "hidden",
                 zIndex: 1,
@@ -658,7 +662,8 @@ export function VerticalTimeline({
                 left: "47%",
                 right: 4,
                 background: b.color,
-                border: `1px solid ${TH.bg}`,
+                ...cardStyle("focus"),
+                boxSizing: "content-box",
                 borderRadius: 5,
                 padding: "2px 5px",
                 overflow: "hidden",
@@ -713,7 +718,8 @@ export function VerticalTimeline({
                 overflow: "hidden",
                 zIndex: 3,
                 cursor: "pointer",
-                border: `1px solid ${withAlpha(TH.text, 0.13)}`,
+                ...cardStyle("focus"),
+                boxSizing: "content-box",
               }}
             >
               <div
@@ -767,10 +773,11 @@ export function VerticalTimeline({
                     }
                   }}
                   style={{
-                    border: `1px solid ${TH.border}`,
                     borderRadius: 4,
                     padding: "2px 6px",
                     background: "rgba(15,15,18,0.88)",
+                    ...cardStyle("todo"),
+                    boxSizing: "content-box",
                     pointerEvents: onEditTodo ? "auto" : "none",
                     cursor: onEditTodo ? "pointer" : undefined,
                   }}

@@ -259,7 +259,7 @@ export function CoinHistoryPage({
             background: "#0A0A0C",
             borderRadius: 8,
             padding: "7px 9px",
-            border: "none",
+            ...cardStyle("reward"),
             cursor: "pointer",
             textAlign: "left",
           }}

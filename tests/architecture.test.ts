@@ -383,7 +383,6 @@ const CARD_TH_BORDER_CHROME: Record<string, string> = {
   "components/schedule/SchedulePage.tsx": "格子／表單／chip；便利貼與整天操作走 Card.tone",
   "components/schedule/ScheduleWeekPage.tsx": "導覽鈕 chrome",
   "components/schedule/WorkplaceManager.tsx": "表單欄位；外層 Card.tone=shift",
-  "components/schedule/scheduleGridModel.ts": "課表格子 chrome",
   "components/settings/SettingsPage.tsx": "同步／取消按鈕 chrome",
   "components/timeline/RoutineEditor.tsx": "表單欄位；外層已 cardStyle",
   "components/timeline/TimelinePage.tsx": "待辦開關／表單",
