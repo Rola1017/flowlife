@@ -19,6 +19,8 @@ import { MultiCategoryFilter } from "@/components/ui/MultiCategoryFilter";
 import { TriCharts } from "@/components/charts/TriCharts";
 import { useTagsSnapshot } from "@/components/hooks/useTagsSnapshot";
 import { primaryTagColor, tagLeafLabel } from "@/lib/tagSelect";
+import { matchesTagSelection } from "@/lib/tagsCompat";
+import { resolveTodoTagIds } from "@/lib/todoTags";
 import { ReviewView } from "./ReviewView";
 import { DayReview } from "./DayReview";
 import { PeriodReview } from "./PeriodReview";
@@ -341,6 +343,7 @@ export function CalendarPage({
       map[dateStr] = { morning: [], noon: [], evening: [] };
     }
     for (const todo of todos) {
+      if (selTags.size > 0 && !matchesTagSelection(selTags, resolveTodoTagIds(todo, tags), tags)) continue;
       const slot = getWeekSlot(todo.startTime ?? "");
       if (!slot) continue;
       for (const dateStr of weekDates) {
@@ -348,7 +351,7 @@ export function CalendarPage({
       }
     }
     return map;
-  }, [todos, weekDates]);
+  }, [todos, weekDates, selTags, tags]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -879,18 +882,12 @@ export function CalendarPage({
                       >
                         <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minHeight: 0 }}>
                           {slotTodos.map((todo) => {
-                            const t = todo as {
-                              id?: number;
-                              text?: string;
-                              cat?: string;
-                              phase?: string;
-                            };
-                            const done = t.phase === "done";
-                            const col = CAT.cat1Color(t.cat ?? "") || TH.muted;
+                            const done = todo.phase === "done";
+                            const col = primaryTagColor(resolveTodoTagIds(todo, tags), tags) || CAT.cat1Color(todo.cat) || TH.muted;
                             return (
                               <div
-                                key={t.id ?? `${dateStr}-${slot.id}-${t.text}`}
-                                title={t.text}
+                                key={todo.id ?? `${dateStr}-${slot.id}-${todo.text}`}
+                                title={todo.text}
                                 style={{
                                   height: 20,
                                   borderRadius: 3,
@@ -914,7 +911,7 @@ export function CalendarPage({
                                     width: "100%",
                                   }}
                                 >
-                                  {t.text}
+                                  {todo.text}
                                 </span>
                               </div>
                             );

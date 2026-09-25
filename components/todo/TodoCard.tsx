@@ -4,7 +4,7 @@ import { useState, useEffect, type CSSProperties } from "react";
 import { CFG, reminderLabel } from "@/lib/config";
 import { cardStyle } from "@/lib/cardTone";
 import { TH, withAlpha } from "@/lib/theme";
-import { CAT } from "@/lib/categories";
+import { CatBadge } from "@/components/pomodoro/CatBadge";
 import { fmtMs, fmtElapsed } from "@/lib/utils";
 import { doneLabel } from "@/lib/todosCloud";
 import type { Todo } from "@/lib/types";
@@ -63,7 +63,7 @@ export function TodoCard({
   onEdit?: (id: number) => void;
   onDelete?: (id: number) => void;
 }) {
-  const { id, text, cat, startTime, endTime, mustDo, phase, startAt, startTs, deadline, date, endDate, estimateHours } = todo;
+  const { id, text, startTime, endTime, mustDo, phase, startAt, startTs, deadline, date, endDate, estimateHours } = todo;
   const rangeLabel = endDate && endDate > date ? `${date}～${endDate}` : null;
   const estLabel =
     estimateHours === 0.5
@@ -77,7 +77,11 @@ export function TodoCard({
             : estimateHours
               ? `${estimateHours}小時`
               : null;
-  const col = CAT.cat1Color(cat) || TH.muted;
+  const badge = (
+    <span onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+      <CatBadge tagIds={todo.tagIds} cat1={todo.cat} />
+    </span>
+  );
   const isStarted = phase === "started",
     isEnding = phase === "ending";
   const canEdit = Boolean(onEdit) && (phase === "pending" || phase === "done");
@@ -240,18 +244,7 @@ export function TodoCard({
             ) : null}
           </div>
         </div>
-        <span
-          style={{
-            fontSize: 9,
-            color: col,
-            background: col + "22",
-            padding: "2px 7px",
-            borderRadius: 6,
-            flexShrink: 0,
-          }}
-        >
-          {CAT.cat1Display(cat)}
-        </span>
+        {badge}
         {canDelete ? <DeleteBtn text={text} onClick={() => onDelete!(id)} /> : null}
       </div>
     );
@@ -318,9 +311,7 @@ export function TodoCard({
                 🔔 {reminderLabel(todo.reminder)}
               </span>
             )}
-            <span style={{ fontSize: 9, color: col, background: col + "22", padding: "1px 6px", borderRadius: 8 }}>
-              {CAT.cat1Display(cat)}
-            </span>
+            {badge}
             {mustDo && (
               <span style={{ fontSize: 9, color: TH.red, fontWeight: 700 }}>
                 必做

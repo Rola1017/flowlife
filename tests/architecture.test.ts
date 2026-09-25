@@ -464,3 +464,29 @@ describe("選色與色碼驗證單一來源", () => {
   });
 });
 
+/**
+ * Z5：待辦表單走 CategorySelector；遷移成功必須 pushAppState；結果鍵不上雲。
+ */
+describe("待辦標籤化單一來源", () => {
+  it("TodoFormFields 必須用 CategorySelector，不得 CAT.cat1List、不得 onShowCategoryManager", () => {
+    const text = readFileSync(path.join(ROOT, "components/todo/TodoFormFields.tsx"), "utf8");
+    expect(text).toContain("CategorySelector");
+    expect(text).not.toMatch(/CAT\.cat1List/);
+    expect(text).not.toContain("onShowCategoryManager");
+  });
+
+  it("ensureTodoTagsMigrated 成功寫入必須 pushAppState(todos)；遷移結果不得進 APP_STATE_KEYS", () => {
+    const migrate = readFileSync(path.join(ROOT, "lib/todoTagsMigrate.ts"), "utf8");
+    expect(migrate).toContain("pushAppState");
+    expect(migrate).toContain("APP_STATE_KEYS.todos");
+    const cloud = readFileSync(path.join(ROOT, "lib/appStateCloud.ts"), "utf8");
+    expect(cloud).not.toMatch(/todo_tags_migrate|todoTagsMigrate/);
+  });
+
+  it("CalendarPage 待辦疊圖必須 matchesTagSelection", () => {
+    const text = readFileSync(path.join(ROOT, "components/calendar/CalendarPage.tsx"), "utf8");
+    expect(text).toContain("matchesTagSelection");
+    expect(text).toContain("resolveTodoTagIds");
+  });
+});
+

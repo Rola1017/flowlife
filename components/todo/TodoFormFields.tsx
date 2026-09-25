@@ -1,10 +1,15 @@
 "use client";
 
 import { type CSSProperties } from "react";
+import { CategorySelector } from "@/components/pomodoro/CategorySelector";
+import { CatBadge } from "@/components/pomodoro/CatBadge";
 import { TodoDateRangePicker } from "@/components/ui/TodoDateRangePicker";
-import { CAT } from "@/lib/categories";
 import { CFG, TODO_REMINDER_OPTIONS, type TodoReminderId } from "@/lib/config";
+import { useTagsSnapshot } from "@/components/hooks/useTagsSnapshot";
+import { canStartWithTags, missingRequiredGroupNames, selFromTagIds } from "@/lib/tagSelect";
+import { loadTagGroups, loadTags } from "@/lib/tagsStore";
 import { TH } from "@/lib/theme";
+import { stampTodoTags, uncategorizedRootTagId } from "@/lib/todoTags";
 import type { Todo } from "@/lib/types";
 
 export type TodoFormDraft = {
@@ -16,7 +21,7 @@ export type TodoFormDraft = {
   deadline?: string;
   estimateHours?: number;
   reminder: TodoReminderId;
-  cat: string;
+  tagIds: string[];
   mustDo: boolean;
   error: string;
 };
@@ -51,6 +56,7 @@ function normalizeReminder(r: unknown): TodoReminderId {
 }
 
 export function createTodoFormDraft(defaultDate: string, extras?: Partial<TodoFormDraft>): TodoFormDraft {
+  const uncat = uncategorizedRootTagId();
   return {
     text: "",
     date: defaultDate,
@@ -60,7 +66,7 @@ export function createTodoFormDraft(defaultDate: string, extras?: Partial<TodoFo
     deadline: undefined,
     estimateHours: undefined,
     reminder: "none",
-    cat: (CAT.cat1List()[0] as string) || "未分類",
+    tagIds: uncat ? [uncat] : [],
     mustDo: true,
     error: "",
     ...extras,
@@ -77,9 +83,14 @@ export function todoToFormDraft(todo: Todo): TodoFormDraft {
     deadline: todo.deadline,
     estimateHours: todo.estimateHours,
     reminder: normalizeReminder(todo.reminder),
-    cat: todo.cat || (CAT.cat1List()[0] as string),
+    tagIds: todo.tagIds?.length ? [...todo.tagIds] : [],
     mustDo: Boolean(todo.mustDo),
   });
+}
+
+export function todoDraftCanSubmit(d: TodoFormDraft): boolean {
+  if (!d.text.trim()) return false;
+  return canStartWithTags(d.tagIds, loadTagGroups(), loadTags());
 }
 
 export function formDraftToTodoPatch(
@@ -93,7 +104,24 @@ export function formDraftToTodoPatch(
   if (sameDay && d.startTime && d.endTime && d.endTime <= d.startTime) {
     return { ok: false, error: "結束時間不能早於開始時間" };
   }
+  const tags = loadTags();
+  const groups = loadTagGroups();
+  if (!canStartWithTags(d.tagIds, groups, tags)) {
+    const missing = missingRequiredGroupNames(d.tagIds, groups, tags);
+    return { ok: false, error: missing.length ? `請選擇：${missing.join("、")}` : "請選擇標籤" };
+  }
   const deadline = d.deadline?.trim();
+  const stamped = stampTodoTags(
+    {
+      id: 0,
+      text,
+      cat: "未分類",
+      date: d.date,
+      phase: "pending",
+      tagIds: d.tagIds,
+    },
+    tags,
+  );
   return {
     ok: true,
     patch: {
@@ -105,7 +133,8 @@ export function formDraftToTodoPatch(
       deadline: deadline && /^\d{4}-\d{2}-\d{2}$/.test(deadline) ? deadline : undefined,
       estimateHours: typeof d.estimateHours === "number" && d.estimateHours > 0 ? d.estimateHours : undefined,
       reminder: d.reminder,
-      cat: d.cat,
+      tagIds: stamped.tagIds,
+      cat: stamped.cat,
       mustDo: d.mustDo,
     },
   };
@@ -124,9 +153,12 @@ export function TodoFormFields({
   defaultEndTime?: string;
   autoFocusName?: boolean;
 }) {
+  const { tags, groups } = useTagsSnapshot();
   const hours = draft.estimateHours;
   const customStr =
     hours != null && !EST_PRESETS.some((p) => p.hours === hours) ? String(hours) : hours != null ? String(hours) : "";
+  const missing = missingRequiredGroupNames(draft.tagIds, groups, tags);
+  const sel = selFromTagIds(draft.tagIds, tags);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", minWidth: 0, boxSizing: "border-box" }}>
@@ -272,18 +304,27 @@ export function TodoFormFields({
           </option>
         ))}
       </select>
-      <label style={{ fontSize: 10, color: TH.muted }}>分類</label>
-      <select
-        value={draft.cat}
-        onChange={(e) => setDraft((v) => ({ ...v, cat: e.target.value }))}
-        style={fieldStyle}
-      >
-        {CAT.cat1List().map((cat) => (
-          <option key={cat as string} value={cat as string}>
-            {CAT.cat1Display(cat as string)}
-          </option>
-        ))}
-      </select>
+      <label style={{ fontSize: 10, color: TH.muted }}>標籤</label>
+      <CategorySelector
+        tagIds={draft.tagIds}
+        cat1={sel.cat1}
+        cat2={sel.cat2}
+        cat3={sel.cat3}
+        onChange={(n) => setDraft((v) => ({ ...v, tagIds: n.tagIds, error: "" }))}
+        showQuickLane
+      />
+      {draft.tagIds.length > 0 ? (
+        <div style={{ fontSize: 10, color: TH.muted }}>
+          已選：
+          <CatBadge tagIds={draft.tagIds} />
+        </div>
+      ) : null}
+      {missing.length > 0 ? (
+        <div style={{ fontSize: 11, color: TH.red, fontWeight: 700 }}>請選擇：{missing.join("、")}</div>
+      ) : null}
+      <div style={tip}>💡 定義：待辦現在和番茄用同一套標籤。</div>
+      <div style={tip}>💡 用法：新增／編輯至少選一個領域標籤（可選「未分類」）。</div>
+      <div style={tip}>💡 範例：一則待辦同時貼「學習」和「法律」，兩邊篩選都看得到它。</div>
       <button
         type="button"
         onClick={() => setDraft((v) => ({ ...v, mustDo: !v.mustDo }))}

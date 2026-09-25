@@ -1,5 +1,6 @@
 import { CAT } from "@/lib/categories";
 import { shiftDateStr } from "@/lib/dateStr";
+import { primaryTagEmoji } from "@/lib/tagSelect";
 import type { Todo, TodoPhase } from "@/lib/types";
 
 export type TodoAlertInfo = {
@@ -14,6 +15,7 @@ export type TodoApiItem = {
   id: number;
   text: string;
   cat: string;
+  tagIds: string[];
   catEmoji: string;
   date: string;
   endDate: string | null;
@@ -78,7 +80,8 @@ export function toApiTodo(todo: Todo, nowIso: string): TodoApiItem {
     id: todo.id,
     text: todo.text,
     cat: todo.cat,
-    catEmoji: CAT.cat1Emoji(todo.cat),
+    tagIds: todo.tagIds?.length ? [...todo.tagIds] : [],
+    catEmoji: todo.tagIds?.length ? primaryTagEmoji(todo.tagIds) || CAT.cat1Emoji(todo.cat) : CAT.cat1Emoji(todo.cat),
     date: todo.date,
     endDate: todo.endDate ?? null,
     startTime: todo.startTime ?? null,

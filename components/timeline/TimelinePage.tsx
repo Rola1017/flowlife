@@ -6,6 +6,7 @@ import { TodoCard } from "@/components/todo/TodoCard";
 import {
   createTodoFormDraft,
   formDraftToTodoPatch,
+  todoDraftCanSubmit,
   TodoFormFields,
   type TodoFormDraft,
 } from "@/components/todo/TodoFormFields";
@@ -279,7 +280,6 @@ export function TimelinePage({
               createTodoFormDraft(CFG.TODAY_STR, {
                 startTime: hm,
                 endTime: addMinHM(hm, CFG.DEFAULT_TODO_DURATION_MIN),
-                cat: "未分類",
                 mustDo: true,
               }),
             );
@@ -376,16 +376,16 @@ export function TimelinePage({
               className="flowlife-pressable"
               type="button"
               onClick={submitTodo}
-              disabled={!draft.text.trim()}
+              disabled={!todoDraftCanSubmit(draft)}
               style={{
                 padding: "10px",
                 borderRadius: 10,
                 border: "none",
-                background: draft.text.trim() ? TH.accent : "#374151",
-                color: draft.text.trim() ? "#fff" : "#6B7280",
+                background: todoDraftCanSubmit(draft) ? TH.accent : "#374151",
+                color: todoDraftCanSubmit(draft) ? "#fff" : "#6B7280",
                 fontSize: 12,
                 fontWeight: 900,
-                cursor: draft.text.trim() ? "pointer" : "not-allowed",
+                cursor: todoDraftCanSubmit(draft) ? "pointer" : "not-allowed",
                 transition: "transform .12s, filter .12s",
               }}
             >
@@ -410,18 +410,18 @@ export function TimelinePage({
                 className="flowlife-pressable"
                 type="button"
                 onClick={submitQuickTodo}
-                disabled={!quickDraft.text.trim()}
+                disabled={!todoDraftCanSubmit(quickDraft)}
                 style={{
                   flex: 1,
                   minWidth: 0,
                   padding: "9px 10px",
                   borderRadius: 10,
                   border: "none",
-                  background: quickDraft.text.trim() ? TH.accent : "#374151",
-                  color: quickDraft.text.trim() ? "#fff" : "#6B7280",
+                  background: todoDraftCanSubmit(quickDraft) ? TH.accent : "#374151",
+                  color: todoDraftCanSubmit(quickDraft) ? "#fff" : "#6B7280",
                   fontSize: 12,
                   fontWeight: 900,
-                  cursor: quickDraft.text.trim() ? "pointer" : "not-allowed",
+                  cursor: todoDraftCanSubmit(quickDraft) ? "pointer" : "not-allowed",
                 }}
               >
                 新增待辦

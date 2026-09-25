@@ -10,6 +10,7 @@ import { ColorField, ColorFieldTips } from "@/components/ui/ColorField";
 import { CARD_TONES, CARD_TONE_COLOR, CARD_TONE_LABEL, displayToneColor, resetAllCardToneColors, setCardToneColor, toneColor } from "@/lib/cardTone";
 import { APP_STATE_KEYS, subscribeAppState } from "@/lib/appStateCloud";
 import { TH } from "@/lib/theme";
+import { loadTodoTagsMigrateReport } from "@/lib/todoTagsMigrate";
 import { SYNC_TARGET_LABELS, syncNow, type SyncReport } from "@/lib/cloudSync";
 import type { Todo } from "@/lib/types";
 
@@ -32,6 +33,7 @@ export function SettingsPage({
   const [syncProgress, setSyncProgress] = useState("");
   const [online, setOnline] = useState(isOnline);
   const [toneRev, setToneRev] = useState(0);
+  const todoTagsMigrate = loadTodoTagsMigrateReport();
 
   useEffect(() => subscribeOnline(setOnline), []);
   useEffect(
@@ -46,6 +48,19 @@ export function SettingsPage({
       <Card tone="neutral">
         <SL>雲端同步（測試中）</SL>
         <CloudSyncBadge />
+        {todoTagsMigrate ? (
+          <div
+            style={{
+              marginTop: 8,
+              fontSize: 11,
+              lineHeight: 1.5,
+              color: todoTagsMigrate.ok ? TH.muted : TH.yellow,
+              fontWeight: todoTagsMigrate.ok ? 400 : 800,
+            }}
+          >
+            {todoTagsMigrate.message}
+          </div>
+        ) : null}
         <AuthPanel />
         {!online ? (
           <div style={{ marginTop: 10, fontSize: 12, color: TH.yellow, fontWeight: 800, lineHeight: 1.5 }}>

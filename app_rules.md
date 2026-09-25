@@ -94,6 +94,8 @@ lib/
 ├── reviews.ts    ← upsertReview / addReview / removeReview / nextId（覆盤表寫入單一來源；本機墓碑 deletedReviewKeys）
 ├── period.ts     ← mondayOf／weekKey／monthKey／quarterKey／isoWeek／daysOfWeek／weekKeysOfMonth／monthKeysOfQuarter／weekLabel／monthLabel／quarterLabel（期間 key 單一來源）
 ├── timelineActual.ts ← actSessionsFor / overridesFor / actIdleFor / buildActualSegments（VT＋迷你 bar 單一來源）
+├── todoTags.ts   ← 待辦 tagIds 雙寫 cat（stampTodoTags／resolveTodoTagIds／hasDomainTag）
+├── todoTagsMigrate.ts ← 待辦單層 cat→領域根遷移（對不上整批 abort；結果本機 LS）
 ├── tabs.ts       ← TABS 導航設定
 └── storage.ts    ← LS_KEYS + loadJSON / saveJSON
 
@@ -135,6 +137,7 @@ supabase/
 | `flowlife_v1_sync_dirty_app_state` | 待推 app_state key |
 | `flowlife_v1_timeline_todo_view` | 直式行程表待辦疊圖顯示偏好 `{ pending, done }` |
 | `flowlife_v1_card_tone_colors` | 卡片外框色覆寫 `{ [tone]: "#RRGGBB" }`，只存改過的 tone；走 app_state `cardToneColors` |
+| `flowlife_v1_todo_tags_migrate` | 待辦標籤遷移結果（本機，**不上雲**、不進 `APP_STATE_KEYS`） |
 
 ---
 
@@ -240,7 +243,7 @@ supabase/
 - `deadline`：期限（外部約束，與 date/endDate 獨立；計畫挪動不改它）
 - `estimateHours`：預估用時（小時；UI「1天」＝8 小時工作量）
 - 顯示哪一天一律走 `todoShowsOn`（`lib/todosCloud.ts`），禁止各處自行 `t.date ===`
-- 新增／編輯共用 `TodoFormFields`（Notion 式 `TodoDateRangePicker`：日期＋結束日期開關＋包含時間開關）
+- 新增／編輯共用 `TodoFormFields`（Notion 式 `TodoDateRangePicker`：日期＋結束日期開關＋包含時間開關）。**分類＝標籤多選**：與番茄同一套 `CategorySelector`（不傳 `onShowCategoryManager`）；領域必填（可選「未分類」根）；難易度／重要性／精力選填，規則沿用 `canStartWithTags`。舊欄 `cat` 雙寫至 Z8。快捷新增（點時間軸空白）預設 `tagIds=[未分類根 id]`，不得 `[]`。
 - `reminder`：提醒設定（見第六節）；預設 `none`
 - **時段頁新增預設時間**：`lib/utils.nowHM` + `roundHM5` + `addMinHM`；開始＝當下取整 5 分、結束＝+`CFG.DEFAULT_TODO_DURATION_MIN`（60 分）；不再寫死 09:00／10:00
 
@@ -336,7 +339,7 @@ TH.gold    = "#FBBF24"   // 金幣
 **週曆**（`calView === "week"`）：
 - 每欄底部頁尾：上排專注時長 `fmt(dayFocus)`、中排 `🍅` 番茄顆數、下排 `{totalPct}%`（≥100% 藍色，可破百）
 - **繞行線三段（95/10/5 模型）**：第一圈＝可用內讀書（分類色）＋未利用（灰 `#4B5563`）剛好一圈；第二圈外圈＝加碼 off-hours 讀書（藍 `#3B82F6`，`WEEK_BORDER_SEG_OUTER` 不重疊）；資料來自 `lib/idle.splitSessionsByAvailability`
-- 待辦完整顯示：早／午／晚時段無 3 筆上限、無 `+N`；`minHeight: 40` 隨內容長高
+- 待辦完整顯示：早／午／晚時段無 3 筆上限、無 `+N`；`minHeight: 40` 隨內容長高。**分類篩選連待辦疊圖一起濾**（`matchesTagSelection`＋`resolveTodoTagIds`）；圓餅／熱圖仍只算番茄分鐘，不用 `estimateHours` 冒充分鐘。
 - 標頭時段標籤：早 06-12／午 12-18／晚 **18-24**；唯讀班別 `{place}{shifts}`（如「彩晚」「診晚」），來自 `dayPlans`
 
 **可用時間**（`lib/schedule.ts` → `availableMinutesFor` / `blockedRanges`）：
@@ -425,6 +428,7 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ## 十、已完成功能 ✅
 
+- **habit-tracker18 批次 Z5（2026-09-25）**：待辦單層 `cat` → 標籤多選（與番茄同一套 `CategorySelector`／`CatBadge`／`matchesTagSelection`）。領域必填；快捷新增預設未分類根；`stampTodoTags` 雙寫 `cat`（Z8 前不刪欄）；遷移對不上整批 abort、零寫入、設定頁可見結果（本機 `flowlife_v1_todo_tags_migrate`，不上雲）。待辦不進分鐘統計。Git 交由 Rola 提交。
 - **habit-tracker18 批次 K（2026-09-25）**：全 App 選色走 `ColorField`（取色器＋色碼輸入＋預覽）；`normalizeHex` 唯一驗證（大寫 `#RRGGBB`，三碼展開，非法退回原值）；設定圖例／標籤／場所／課程一律換用。Git 交由 Rola 提交。
 - **habit-tracker18 批次 J（2026-09-25）**：補齊未上色區塊（直式行程表課程／班別／作息／空檔、課表格、番茄歷史列、金幣列）；卡片色可自訂（app_state `cardToneColors`、設定頁 ColorField、過暗提亮只影響顯示）。Git 交由 Rola 提交。
 - **habit-tracker18 批次 H（2026-09-25）**：卡片外框依資料種類上色（`lib/cardTone.ts` 唯一來源，沿用 TH，不新增色碼；圖示／標題保留）；設定頁顏色圖例＋💡 三件套；退役 G1 搬家程式（正式庫未來時間戳為 0）；診斷 SQL 收檔 `supabase/queries/`。Git 交由 Rola 提交。
@@ -643,7 +647,7 @@ TH.gold    = "#FBBF24"   // 金幣
 
 | 決策 | 內容 |
 |------|------|
-| 重置應改為明確刪除雲端列（急救登記 §8-38） | 現況重置走 `forcePushAppStateForReset` 推本機預設值蓋雲端。**正確語意**＝明確刪除雲端 `sessions`／`app_state`／`reviews` 列，而非盲推預設。**觸發＝下次動雲端資料的批次**。 |
+| 待辦主鍵為 `Date.now()` 產生的 number | 兩台裝置同一毫秒新增會撞 id，較新者整筆覆蓋另一筆。機率極低但後果是靜默資料遺失。**觸發＝出現疑似待辦消失、或改用多裝置／匯入資料時**。修法方向＝改用 uuid 主鍵並在合併時保留兩筆。本批不動主鍵（§8-34：不可逆與高風險另批）。 |
 | 商用時是否引進現成同步引擎（本批登記，不施工） | ElectricSQL／PowerSync／Replicache 或雲端即時推播：**現在不決定**（市場變化快，提前綁定＝用不足資訊做決定）。觸發（任一）：①出現 Rola 以外的使用者或多人共用 ②常態三台以上裝置或長期離線 ③資料量大到整包下載不可接受 ④同步維護開始佔用主要開發時間。現在該做＝保持資料模型與這些引擎共通（蓋章／墓碑／書籤／待送清單），確保可替換。併同評估：多使用者權限隔離、資料表升級流程、計費。 |
 | ~~同步時間由裝置產生（急救登記 §8-38；批次 G）~~ ✅ G1 已治本（蓋章＋dirty；游標／佇列留 G2） | 批次 G1：trigger 蓋章、client 不送 `updated_at`、`planPush`＝dirty 或雲端缺。增量游標與正式佇列＝G2。 |
 | `sync*FromCloud` 收 uid（本批不做） | 批次 E 優先重用既有合併、不動結構；拉階段各自再 `getUid`。觸發＝下次動 `syncNow` 效能時。 |
@@ -700,8 +704,8 @@ TH.gold    = "#FBBF24"   // 金幣
 - ⬜ **新雲端資料表必須掛進 `lib/cloudSync.ts` 同步目標註冊表**（sessions／app_state／reviews）；不得另開 flush／pushAll 入口。觸發＝下次新增雲端表。
 - ⬜ **課表格改掛 trackId**（課程身分＝科目 track，即《讀書章節與覆盤系統設計》的 tracks）：目前 week_schedule／day_overrides 每半小時一格各發一個 course id，覆盤會分裂；改為每格記 trackId、章節掛在 track 下；排在 Z6（課表標籤化）之前；便利貼 addOvCourse 缺 id 併入該批。
 - ⬜ **重疊檢測其餘寫入點**（本批只修番茄手動補/改）：課表課格同格覆蓋無警告、班別已擋、作息已警告、便利貼課↔班衝突／課↔課無、待辦只驗同日 end>start、時間軸 ACT 補登無、健身 stub、即時番茄/娛樂 session 無。待 Rola 決定是否接 `lib/overlap`。
-- ✅ **Z2 標籤管理頁**（群組＋無限層樹編輯器、`isTimeDestination`、軟刪除＋影響範圍）。✅ **Z3 番茄區標籤化**。✅ **說明卡層級寫法＋互動預覽＋葉標籤標題**。✅ **移除專案快捷**。✅ **主維度天藍色＋預覽收折＋維度標題單行**。✅ **Z4 統計與篩選區標籤化**（分攤＋統計維度切換器＋MultiCategoryFilter 吃 tagIds）。⬜ **Z5～Z7 未執行**。超過三層的降級位置（本批只顯示前三層，供 Z5～Z7 改走標籤樹）：`CAT.cats()`／`categoriesFromDomainTags`（只投影 root→mid→sub）；`SchedulePage` 編輯卡片 cat1/2/3；`SessionHistoryPage` 篩選仍可能 cat；待辦 `TodoFormFields` 單層 cat；商店／娛樂 `cat1/2/3`；`legacyPath` 只取祖先前三層；`stampSessionCatIds`／`resolveCatIds` 三層名稱仍雙寫。
-- ⬜ **Z5～Z8 其餘分類標籤化**，見 FlowLife_分類標籤化設計.md §4。
+- ✅ **Z2 標籤管理頁**（群組＋無限層樹編輯器、`isTimeDestination`、軟刪除＋影響範圍）。✅ **Z3 番茄區標籤化**。✅ **說明卡層級寫法＋互動預覽＋葉標籤標題**。✅ **移除專案快捷**。✅ **主維度天藍色＋預覽收折＋維度標題單行**。✅ **Z4 統計與篩選區標籤化**（分攤＋統計維度切換器＋MultiCategoryFilter 吃 tagIds）。✅ **Z5 待辦區標籤化**（表單／卡片／行事曆疊圖篩選／快捷新增預設未分類根／遷移閘門）。⬜ **Z6～Z7 未執行**。超過三層的降級位置（本批只顯示前三層，供 Z6～Z7 改走標籤樹）：`CAT.cats()`／`categoriesFromDomainTags`（只投影 root→mid→sub）；`SchedulePage` 編輯卡片 cat1/2/3；`SessionHistoryPage` 篩選仍可能 cat；商店／娛樂 `cat1/2/3`；`legacyPath` 只取祖先前三層；`stampSessionCatIds`／`resolveCatIds` 三層名稱仍雙寫。待辦舊欄 `cat` 雙寫至 Z8 才刪。
+- ⬜ **Z6～Z8 其餘分類標籤化**，見 FlowLife_分類標籤化設計.md §4。
 - ⬜ 待辦提醒：依 `reminder` 觸發推播／系統通知（目前僅儲存設定）
 - ⬜ 健康模組
 - ⬜ 閱讀模組
@@ -751,7 +755,7 @@ TH.gold    = "#FBBF24"   // 金幣
   - `time.test.ts` — `tsMs`／`tsNewer`：同一時刻 `Z` 與 `+00:00` 相等、微秒與毫秒相等、空字串→0；property ≥500 兩向皆 false；日期字串鎖死
   - `cloudWrite.test.ts` — 寫入失敗計數累加／成功不累加（mock `{ error }`）；`uuidsOnlyInLocal` 只在本機
   - `overlap.test.ts` — `spansOverlap`／`findOverlaps`：相鄰不重疊、包含、部分重疊、完全相同；datetime-local 與 `"24:00"`；`rangeStrToSpan`／`rangeStrsOverlap`（空字串＝不佔時間）；三者等價性 ≥500 組；`pickOverlapsOn` 碰邊／重疊／閘門；日期字串鎖死、不用 new Date()
-  - `architecture.test.ts` — 掃 `components/`＋`lib/`＋`app/`：除 `lib/overlap.ts` 外不得 `.split("~")`（防 2026-09 重疊判斷複製 6 份）；`setPointerCapture` 只准 `useHorizontalSwipe`（防 2026-09 滑動兩份、修一漏一）；`noDaySwipe`／`noWeekSwipe` 零出現；`useHorizontalSwipe` 必須 `{...swipe.bind}` 不得逐個掛（防 E23 缺 touch-action）；舊全量推送／inspect 零出現；AuthPanel／SettingsPage 只能 `syncNow`（E25）；`forcePushAppStateForReset` 只准 `appStateCloud.ts`＋`App.tsx`；`syncNow` 不得 force；除 `lib/time.ts` 外不得對 `updated_at`／`updatedAt`／`createdAt` 直接 `>`／`<`（E27；regex 避開 `safe > 1, updatedAt`）；E28：`components/` 不得 `auth.getUser()`；全庫 `.auth.signOut(` 必須顯式 `scope`（防 2026-09 斷網被當成登出、全域登出波及其他裝置）；components/ 不得字面 `#RRGGBB` 當 border／borderLeft；卡片容器不得直接 `TH.border` 當外框（改走 `cardStyle`，白名單＝chrome）；選色與色碼驗證單一來源：components/ 除 ColorField 外不得 `type="color"`、不得自寫 hex 驗證 regex
+  - `architecture.test.ts` — 掃 `components/`＋`lib/`＋`app/`：除 `lib/overlap.ts` 外不得 `.split("~")`（防 2026-09 重疊判斷複製 6 份）；`setPointerCapture` 只准 `useHorizontalSwipe`（防 2026-09 滑動兩份、修一漏一）；`noDaySwipe`／`noWeekSwipe` 零出現；`useHorizontalSwipe` 必須 `{...swipe.bind}` 不得逐個掛（防 E23 缺 touch-action）；舊全量推送／inspect 零出現；AuthPanel／SettingsPage 只能 `syncNow`（E25）；`forcePushAppStateForReset` 只准 `appStateCloud.ts`＋`App.tsx`；`syncNow` 不得 force；除 `lib/time.ts` 外不得對 `updated_at`／`updatedAt`／`createdAt` 直接 `>`／`<`（E27；regex 避開 `safe > 1, updatedAt`）；E28：`components/` 不得 `auth.getUser()`；全庫 `.auth.signOut(` 必須顯式 `scope`（防 2026-09 斷網被當成登出、全域登出波及其他裝置）；components/ 不得字面 `#RRGGBB` 當 border／borderLeft；卡片容器不得直接 `TH.border` 當外框（改走 `cardStyle`，白名單＝chrome）；選色與色碼驗證單一來源：components/ 除 ColorField 外不得 `type="color"`、不得自寫 hex 驗證 regex；Z5：TodoFormFields 必須 CategorySelector、不得 CAT.cat1List／onShowCategoryManager；遷移成功必須 pushAppState(todos)；遷移結果鍵不得進 APP_STATE_KEYS；CalendarPage 待辦疊圖必須 matchesTagSelection
   - `colorField.test.ts` — `normalizeHex`：接受 `#abc`／`abc`／`#AABBCC`／`AABBCC`；拒絕 `""`／`red`／`#12`／`#GGGGGG`／超長；三碼展開；輸出大寫 `#RRGGBB`
   - `cardTone.test.ts` — 每個 tone 非空樣式；顏色來自 TH；未知 tone → neutral；覆寫採用覆寫；非法值退預設；過暗提亮亮度≥門檻；恢復預設回 TH
   - `cloudSync.test.ts` — `planPush`／`planDelete`；E27：本機 Z／雲端 +00:00 同一時刻 planPush 空；墓碑永不 push、雲端獨有無墓碑永不 delete（E05／E06 property ≥500）；300 筆拉後 pending 0；驗證未清 pending>0 非 allClear；離線 `syncNow` 立即回、`allClear=false`、不等待逾時
@@ -768,7 +772,8 @@ TH.gold    = "#FBBF24"   // 金幣
   - `sessionsCloud.test.ts` — `mergeSessionsWithTombstones` 墓碑防復活；`mergeDeletedSessionUuids` 清除記錄墓碑含全部 uuid
   - `today.test.ts` — `buildTodayBlocks`（重疊不裁決、便利貼覆蓋、空資料回退、未來日期週三鎖死時區）
   - `todos.test.ts` — 待辦墓碑防復活、同名不同 id、normalize deadline／endDate／estimateHours／doneDate／doneTime、updatedAt LWW、todoShowsOn 跨日含首尾（不受 doneDate 影響）、挪 date 不改 deadline、applyTodoComplete／Uncomplete 完成日語意、resolveDoneDate（hint vs 今天）、resolveDoneTime（僅今天自動填）、doneLabel 三態＋時間（日期字串鎖死、不用 Date.now()）
-  - `todosApi.test.ts` — `computeAlert` 門檻／過期／無期限、`todoInWindow` 跨日交集與僅 deadline 命中（nowIso 字串鎖死）
+  - `todosApi.test.ts` — `computeAlert` 門檻／過期／無期限、`todoInWindow` 跨日交集與僅 deadline 命中、`toApiTodo` 輸出 tagIds 且雙寫 cat（nowIso 字串鎖死）
+  - `todoTagsMigrate.test.ts` — 筆數閘門／孤兒「生活」abort 零寫入／冪等 written=0／缺領域就補其餘保留／已有領域不動／stampTodoTags 雙寫／快捷新增預設未分類根／ensure 失敗不改 LS
   - `freeSlots.test.ts` — `availableSegmentsWith`／`toFreeSlots`：全空整天、作息切段邊界、班別∪作息聯集、minMinutes 濾碎片、`"24:00"`=1440、空檔＋佔用＝視窗長不變式（日期字串鎖死、不用 Date.now()）
   - `tagSelect.test.ts` — canStart／missingRequired、combo 去重上限 5、toggle 取消、`tagLeafLabel` 最深層／空＝未分類／已刪、`groupTitleLabel` 必填+多選／皆否
   - `tagTree.test.ts` — 樹操作／成環／`sortGroupsForSelector` 必填置頂／`childrenOfForPicker` 未分類釘根層最前
@@ -785,5 +790,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/09/25（habit-tracker18 批次 K：全 App 選色 ColorField＋色碼輸入）*
+*最後更新：2026/09/25（habit-tracker18 批次 Z5：待辦單層 cat → 標籤多選）*
 *維護原則：每次完成重要功能，同步更新第十、十一、十二節*

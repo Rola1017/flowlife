@@ -17,6 +17,7 @@ import { TABS } from "@/lib/tabs";
 import { LS_KEYS, loadJSON, saveJSON, clearAllAppData, COIN_LEDGER_MIGRATED_KEY } from "@/lib/storage";
 import { migrateCategoryIds, saveCategories, DEFAULT_CATEGORIES } from "@/lib/categories";
 import { ensureTagsMigrated } from "@/lib/tagsMigrate";
+import { ensureTodoTagsMigrated } from "@/lib/todoTagsMigrate";
 import { clearReviewsCloud } from "@/lib/reviews";
 import type { Session, ActiveEntertainment, ShopItem } from "@/lib/types";
 import { patchReflection, setSessionMins, setSessionTimes, buildManualSession, stampSession, ensureSessionUuid, splitSpanByDay } from "@/lib/sessions";
@@ -191,6 +192,7 @@ function AppContent() {
   useEffect(() => {
     migrateCategoryIds();
     ensureTagsMigrated();
+    ensureTodoTagsMigrated();
     ensureWorkplacesSeeded();
     ensureRoutineSeeded();
     ensureCourseIds();
@@ -514,6 +516,7 @@ function AppContent() {
 
     saveCategories(DEFAULT_CATEGORIES);
     ensureTagsMigrated();
+    ensureTodoTagsMigrated();
     saveJSON(LS_KEYS.deletedSessionUuids, tombs);
     await forcePushAppStateForReset();
     resetCoinLog();

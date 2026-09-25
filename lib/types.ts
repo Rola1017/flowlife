@@ -67,7 +67,7 @@ export type Todo = {
   id: number;
   text: string;
   cat: string;
-  /** Z1 標籤 id 陣列（待辦由單層 cat 推導對應大分類標籤 id） */
+  /** 標籤 id（寫入權威；Z8 前 cat 雙寫單層名） */
   tagIds?: string[];
   /** 已排定執行日（打算哪天做；可改、可挪） */
   date: string; // YYYY-MM-DD

@@ -2,6 +2,7 @@ import type { Todo, TodoPhase, TodoTombstone } from "@/lib/types";
 import { formatMd } from "@/lib/dateStr";
 import { LS_KEYS, loadJSON } from "@/lib/storage";
 import { tsNewer } from "@/lib/time";
+import { stampTodoTags } from "@/lib/todoTags";
 
 const PHASES: TodoPhase[] = ["pending", "started", "ending", "done"];
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -130,7 +131,7 @@ export function normalizeTodo(raw: unknown, today: string): Todo | null {
     (c) => c.name === cat,
   )?.id;
   const tagIds = rawTagIds?.length ? rawTagIds : derivedCat1Id ? [derivedCat1Id] : undefined;
-  return {
+  const out: Todo = {
     id,
     text: typeof r.text === "string" ? r.text : "",
     cat,
@@ -152,6 +153,7 @@ export function normalizeTodo(raw: unknown, today: string): Todo | null {
     updatedAt,
     tagIds,
   };
+  return stampTodoTags(out);
 }
 
 export function normalizeTodoList(raw: unknown, today: string): Todo[] {

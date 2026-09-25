@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { computeAlert, todoInWindow } from "@/lib/todosApi";
+import { computeAlert, toApiTodo, todoInWindow } from "@/lib/todosApi";
+import type { Todo } from "@/lib/types";
 
 /** 鎖死時間，禁止 Date.now()／new Date() */
 const NOW = "2026-09-13T07:40:00+08:00";
@@ -56,5 +57,21 @@ describe("todoInWindow", () => {
     const t = { date: "2026-10-20", deadline: "2026-09-20" };
     expect(todoInWindow(t, "2026-09-13", "2026-10-13")).toBe(true);
     expect(todoInWindow({ date: "2026-10-20" }, "2026-09-13", "2026-10-13")).toBe(false);
+  });
+});
+
+describe("toApiTodo tagIds 雙寫", () => {
+  it("輸出 tagIds 且仍帶 cat", () => {
+    const todo: Todo = {
+      id: 1,
+      text: "取件",
+      cat: "學習",
+      tagIds: ["learn"],
+      date: "2026-09-13",
+      phase: "pending",
+    };
+    const item = toApiTodo(todo, NOW);
+    expect(item.tagIds).toEqual(["learn"]);
+    expect(item.cat).toBe("學習");
   });
 });

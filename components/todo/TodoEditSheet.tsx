@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type CSSProperties } from "react";
 import { Card, SL } from "@/components/ui/Card";
-import { formDraftToTodoPatch, TodoFormFields, todoToFormDraft } from "@/components/todo/TodoFormFields";
+import { formDraftToTodoPatch, todoDraftCanSubmit, TodoFormFields, todoToFormDraft } from "@/components/todo/TodoFormFields";
 import { TH } from "@/lib/theme";
 import type { Todo } from "@/lib/types";
 
@@ -44,6 +44,7 @@ export function TodoEditSheet({
   const id = todo.id;
   const canDelete = Boolean(onDelete) && (todo.phase === "pending" || todo.phase === "done");
   const isDone = todo.phase === "done";
+  const canSave = todoDraftCanSubmit(draft);
 
   const submit = () => {
     const result = formDraftToTodoPatch(draft);
@@ -155,18 +156,18 @@ export function TodoEditSheet({
                   className="flowlife-pressable"
                   type="button"
                   onClick={submit}
-                  disabled={!draft.text.trim()}
+                  disabled={!canSave}
                   style={{
                     flex: 1,
                     minWidth: 0,
                     padding: "10px",
                     borderRadius: 10,
                     border: "none",
-                    background: draft.text.trim() ? TH.accent : "#374151",
-                    color: draft.text.trim() ? "#fff" : "#6B7280",
+                    background: canSave ? TH.accent : "#374151",
+                    color: canSave ? "#fff" : "#6B7280",
                     fontSize: 12,
                     fontWeight: 900,
-                    cursor: draft.text.trim() ? "pointer" : "not-allowed",
+                    cursor: canSave ? "pointer" : "not-allowed",
                   }}
                 >
                   儲存
