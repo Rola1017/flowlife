@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { BackBtn } from "@/components/ui/BackBtn";
 import { Card, SL } from "@/components/ui/Card";
 import { SortableList } from "@/components/ui/SortableList";
-import { TH } from "@/lib/theme";
+import { ColorField } from "@/components/ui/ColorField";
+import { TH, normalizeHex } from "@/lib/theme";
 import { CAT, categoriesFromDomainTags, saveCategoriesOnly } from "@/lib/categories";
 import { persistLocalSessions } from "@/lib/sessionPersist";
 import { cardStyle } from "@/lib/cardTone";
@@ -257,7 +258,7 @@ function ColorPicker({
                 setSelectedPaletteIndex(null);
               } else {
                 setSelectedPaletteIndex(index);
-                onChange(c);
+                onChange(normalizeHex(c) ?? c);
               }
             }}
             style={{
@@ -276,14 +277,8 @@ function ColorPicker({
       <p style={{ fontSize: 9, color: TH.muted, margin: "0 0 8px", lineHeight: 1.4 }}>
         點選格子後，用下方色輪調整，顏色會固定在那一格
       </p>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-        <input
-          type="color"
-          value={value}
-          onChange={(e) => handleColorInput(e.target.value)}
-          style={{ width: 36, height: 28, border: "none", padding: 0, cursor: "pointer" }}
-        />
-        <span style={{ fontSize: 10, color: TH.muted, fontFamily: "monospace" }}>{value}</span>
+      <div style={{ marginBottom: 8 }}>
+        <ColorField value={value} onChange={handleColorInput} showHint />
       </div>
       <button
         type="button"

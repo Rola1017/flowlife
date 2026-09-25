@@ -1,6 +1,7 @@
 "use client";
 
 import type { CSSProperties, ReactNode } from "react";
+import { ColorField } from "@/components/ui/ColorField";
 import { TH, withAlpha } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { Card, SL } from "@/components/ui/Card";
@@ -220,7 +221,7 @@ export function CourseEditPanel({
         )}
         <div style={{ marginBottom: 8 }}>
           <div style={fieldLabelStyle}>顏色（同一分類下不同科目可各自上色）</div>
-          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <button
               type="button"
               onPointerDown={stopSwipe}
@@ -234,44 +235,19 @@ export function CourseEditPanel({
                 background: draft.color === "" ? TH.accent + "22" : "transparent",
                 color: draft.color === "" ? TH.accent : TH.muted,
                 fontWeight: 700,
+                alignSelf: "flex-start",
               }}
             >
               跟隨分類
             </button>
-            {PRESET_COLORS.map((c) => (
-              <button
-                key={c}
-                type="button"
-                onPointerDown={stopSwipe}
-                onClick={() => onChange({ ...draft, color: c })}
-                aria-label={c}
-                style={{
-                  width: 22,
-                  height: 22,
-                  borderRadius: "50%",
-                  background: c,
-                  cursor: "pointer",
-                  border: draft.color === c ? `2px solid ${TH.text}` : `1px solid ${TH.border}`,
-                  boxShadow: draft.color === c ? `0 0 0 3px ${c}44` : "none",
-                  padding: 0,
-                }}
-              />
-            ))}
-            <input
-              type="color"
-              value={draft.color || "#3B82F6"}
-              onChange={(e) => onChange({ ...draft, color: e.target.value })}
+            <ColorField
+              value={draft.color}
+              onChange={(hex) => onChange({ ...draft, color: hex })}
+              presets={PRESET_COLORS}
+              fallback="#3B82F6"
+              allowEmpty
+              showHint
               onPointerDown={stopSwipe}
-              title="自訂顏色"
-              style={{
-                width: 28,
-                height: 24,
-                background: "transparent",
-                border: `1px solid ${TH.border}`,
-                borderRadius: 6,
-                padding: 0,
-                cursor: "pointer",
-              }}
             />
           </div>
           <div style={{ fontSize: 9, color: TH.muted, marginTop: 4 }}>

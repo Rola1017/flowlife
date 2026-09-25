@@ -6,7 +6,8 @@ import { Card, SL } from "@/components/ui/Card";
 import { AuthPanel } from "@/components/auth/AuthPanel";
 import { CloudSyncBadge } from "@/components/ui/CloudSyncBadge";
 import { isOnline, subscribeOnline } from "@/lib/authState";
-import { CARD_TONES, CARD_TONE_LABEL, displayToneColor, loadCardToneOverrides, resetAllCardToneColors, resetCardToneColor, setCardToneColor, toneColor } from "@/lib/cardTone";
+import { ColorField, ColorFieldTips } from "@/components/ui/ColorField";
+import { CARD_TONES, CARD_TONE_COLOR, CARD_TONE_LABEL, displayToneColor, resetAllCardToneColors, setCardToneColor, toneColor } from "@/lib/cardTone";
 import { APP_STATE_KEYS, subscribeAppState } from "@/lib/appStateCloud";
 import { TH } from "@/lib/theme";
 import { SYNC_TARGET_LABELS, syncNow, type SyncReport } from "@/lib/cloudSync";
@@ -276,7 +277,6 @@ export function SettingsPage({
           {CARD_TONES.map((t) => {
             void toneRev;
             const stored = toneColor(t);
-            const customized = loadCardToneOverrides()[t] != null;
             return (
               <div key={t} style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                 <span
@@ -289,56 +289,18 @@ export function SettingsPage({
                     boxSizing: "border-box",
                   }}
                 />
-                <span style={{ fontSize: 12, color: TH.text, fontWeight: 700, minWidth: 0, flex: 1 }}>
+                <span style={{ fontSize: 12, color: TH.text, fontWeight: 700, minWidth: 0, flexShrink: 0 }}>
                   {CARD_TONE_LABEL[t]}
                 </span>
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 4,
-                    fontSize: 11,
-                    color: TH.muted,
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    flexShrink: 0,
-                  }}
-                >
-                  改顏色
-                  <input
-                    type="color"
-                    aria-label={`改${CARD_TONE_LABEL[t]}顏色`}
-                    value={stored.toLowerCase()}
-                    onChange={(e) => setCardToneColor(t, e.target.value)}
-                    style={{
-                      width: 28,
-                      height: 22,
-                      padding: 0,
-                      border: `1px solid ${TH.border}`,
-                      background: "transparent",
-                      cursor: "pointer",
-                    }}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <ColorField
+                    value={stored}
+                    onChange={(hex) => setCardToneColor(t, hex)}
+                    defaultValue={CARD_TONE_COLOR[t]}
+                    fallback={CARD_TONE_COLOR[t]}
+                    showHint={false}
                   />
-                </label>
-                {customized ? (
-                  <button
-                    type="button"
-                    onClick={() => resetCardToneColor(t)}
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 800,
-                      color: TH.muted,
-                      background: "transparent",
-                      border: `1px solid ${TH.border}`,
-                      borderRadius: 8,
-                      padding: "3px 8px",
-                      cursor: "pointer",
-                      flexShrink: 0,
-                    }}
-                  >
-                    恢復預設
-                  </button>
-                ) : null}
+                </div>
               </div>
             );
           })}
@@ -370,6 +332,7 @@ export function SettingsPage({
         <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4, marginTop: 4 }}>
           💡 範例：把待辦從黃色改成粉紅色，手機與電腦都會變。
         </div>
+        <ColorFieldTips />
       </Card>
       <div style={{ fontSize: 9, color: TH.muted, textAlign: "center" }}>版本 v1.0.0 · FlowLife</div>
     </div>

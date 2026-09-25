@@ -32,12 +32,20 @@ function hexToRgb(hex: string): [number, number, number] | null {
   ];
 }
 
-/** 嚴格 #RRGGBB（6 位）。其餘（空、red、#12、#RGB）一律 null。 */
+/** 色碼正規化：接受 #RGB／RGB／#RRGGBB／RRGGBB（大小寫、可省略 #）。輸出大寫 #RRGGBB；非法回 null。 */
+export function normalizeHex(input: unknown): string | null {
+  if (typeof input !== "string") return null;
+  let h = input.trim().replace(/^#/, "").toUpperCase();
+  if (h.length === 3 && /^[0-9A-F]{3}$/.test(h)) {
+    h = h.split("").map((c) => c + c).join("");
+  }
+  if (h.length !== 6 || !/^[0-9A-F]{6}$/.test(h)) return null;
+  return `#${h}`;
+}
+
+/** 嚴格 6 位或可展開的 3 位；實作＝normalizeHex（讀取正規化）。 */
 export function parseHexRRGGBB(hex: unknown): string | null {
-  if (typeof hex !== "string") return null;
-  const s = hex.trim();
-  if (!/^#[0-9a-fA-F]{6}$/.test(s)) return null;
-  return `#${s.slice(1).toUpperCase()}`;
+  return normalizeHex(hex);
 }
 
 /** YIQ 感知亮度 0~255；解析失敗回 null。 */

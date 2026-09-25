@@ -1,6 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
+import { ColorField, ColorFieldTips } from "@/components/ui/ColorField";
 import { TH, withAlpha } from "@/lib/theme";
 import { Card, SL } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
@@ -275,6 +276,7 @@ export function WorkplaceManager({
       <div style={{ fontSize: 10, color: TH.muted, marginTop: 4 }}>
         💡 「🟢 可上班日」＝這個班排在哪些天；下面設「幾點到幾點」。點亮可上班日後，去課表勾選即顯示。只有要「同一個班、不同日子用不同時間」時，才按「＋不同日子不同時間」。
       </div>
+      <ColorFieldTips />
 
       {workplaces.map((w) => (
         <div key={w.id} style={{ marginTop: 12 }}>
@@ -283,20 +285,6 @@ export function WorkplaceManager({
               value={w.name}
               onChange={(e) => setName(w.id, e.target.value)}
               style={nameInputStyle}
-            />
-            <input
-              type="color"
-              value={w.color ?? "#888888"}
-              onChange={(e) => setColor(w.id, e.target.value)}
-              style={{
-                width: 30,
-                height: 26,
-                padding: 0,
-                border: `1px solid ${TH.border}`,
-                borderRadius: 6,
-                background: "transparent",
-                cursor: "pointer",
-              }}
             />
             <button
               type="button"
@@ -311,6 +299,14 @@ export function WorkplaceManager({
             >
               刪除此場所
             </button>
+          </div>
+          <div style={{ marginTop: 6 }}>
+            <ColorField
+              value={w.color ?? "#888888"}
+              onChange={(hex) => setColor(w.id, hex)}
+              fallback="#888888"
+              showHint={false}
+            />
           </div>
 
           {w.shifts.map((s) => (

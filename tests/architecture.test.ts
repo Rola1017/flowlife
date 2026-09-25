@@ -440,3 +440,27 @@ describe("卡片外框走 cardStyle", () => {
   });
 });
 
+/**
+ * 選色與色碼驗證單一來源。
+ * 除 ColorField 與 lib/theme.ts 外，components/ 不得 type="color"，亦不得自寫 hex 驗證 regex。
+ */
+const TYPE_COLOR_RE = /type\s*=\s*["']color["']/;
+const HOMEMADE_HEX_VALIDATE_RE = /\/[^/\n]*\[0-9a-fA-F\][^/\n]*\//;
+
+describe("選色與色碼驗證單一來源", () => {
+  it("components/ 除 ColorField 外不得 type=color，亦不得自寫 hex 驗證 regex", () => {
+    const colorHits: string[] = [];
+    const regexHits: string[] = [];
+    const dir = path.join(ROOT, "components");
+    for (const file of walkTs(dir)) {
+      const rel = relPosix(file);
+      if (rel === "components/ui/ColorField.tsx") continue;
+      const text = readFileSync(file, "utf8");
+      if (TYPE_COLOR_RE.test(text)) colorHits.push(rel);
+      if (HOMEMADE_HEX_VALIDATE_RE.test(text)) regexHits.push(rel);
+    }
+    expect(colorHits).toEqual([]);
+    expect(regexHits).toEqual([]);
+  });
+});
+
