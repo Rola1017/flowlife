@@ -4,7 +4,13 @@ import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { clearSyncDirty, isSyncDirty, markSyncDirty } from "@/lib/syncDirty";
 import { tsNewer } from "@/lib/time";
-import { gcTodoTombstones, mergeTodosWithTombstones, normalizeTodoList } from "@/lib/todosCloud";
+import {
+  gcTodoTombstones,
+  mergeTodoTombstones,
+  mergeTodosWithTombstones,
+  normalizeTodoList,
+} from "@/lib/todosCloud";
+import type { TodoTombstone } from "@/lib/types";
 
 function sb() {
   return createSupabaseBrowserClient();
@@ -36,6 +42,13 @@ export const APP_STATE_KEYS = {
 } as const;
 
 type AppStateKey = (typeof APP_STATE_KEYS)[keyof typeof APP_STATE_KEYS];
+
+/** 清單型 key：一律先合併再推；dirty 不得跳過合併。新增清單型 key 必須加入此集合。 */
+export const APP_STATE_LIST_KEYS = [APP_STATE_KEYS.todos, APP_STATE_KEYS.deletedTodos] as const;
+
+export function isAppStateListKey(key: string): key is (typeof APP_STATE_LIST_KEYS)[number] {
+  return (APP_STATE_LIST_KEYS as readonly string[]).includes(key);
+}
 
 const LS_FOR_KEY: Record<AppStateKey, string> = {
   [APP_STATE_KEYS.coins]: LS_KEYS.coins,
@@ -192,8 +205,14 @@ export async function forcePushAppStateForReset(): Promise<void> {
 
 type AppStateRow = { key: string; value: unknown; updated_at: string };
 
+function tombstonesDiffer(a: TodoTombstone[], b: TodoTombstone[]): boolean {
+  if (a.length !== b.length) return true;
+  const map = new Map(b.map((t) => [t.id, t.at]));
+  return a.some((t) => map.get(t.id) !== t.at);
+}
+
 /** todos 走逐筆 LWW＋墓碑過濾；不得把已刪 id 整包推回。deletedTodos 須已先寫入 LS。 */
-function reconcileTodos(cloud: AppStateRow | undefined, localTs: string) {
+function reconcileTodos(cloud: AppStateRow | undefined, localTs: string, forcePush: boolean) {
   const rawTombs = loadJSON<unknown>(LS_KEYS.deletedTodoIds, []);
   const tombs = gcTodoTombstones(rawTombs, Date.now());
   if (tombs.length !== (Array.isArray(rawTombs) ? rawTombs.length : 0)) {
@@ -204,26 +223,40 @@ function reconcileTodos(cloud: AppStateRow | undefined, localTs: string) {
   const remote = cloud ? normalizeTodoList(cloud.value, CFG.TODAY_STR) : [];
   const { merged, toPush, strippedRemote } = mergeTodosWithTombstones(local, remote, tombs);
 
+  saveJSON(LS_KEYS.todos, merged);
+  emit(APP_STATE_KEYS.todos);
+
   if (!cloud) {
-    saveJSON(LS_KEYS.todos, merged);
     void pushAppState(APP_STATE_KEYS.todos, merged);
     return;
   }
   const cloudTs = cloud.updated_at ?? "";
-  if (tsNewer(cloudTs, localTs)) {
-    saveJSON(LS_KEYS.todos, merged);
-    setMetaTs(APP_STATE_KEYS.todos, cloudTs);
-    emit(APP_STATE_KEYS.todos);
-    if (strippedRemote || toPush.length) void pushAppState(APP_STATE_KEYS.todos, merged);
-    return;
-  }
-  if (tsNewer(localTs, cloudTs)) {
-    saveJSON(LS_KEYS.todos, merged);
+  if (tsNewer(cloudTs, localTs)) setMetaTs(APP_STATE_KEYS.todos, cloudTs);
+  if (forcePush || tsNewer(localTs, cloudTs) || strippedRemote || toPush.length) {
     void pushAppState(APP_STATE_KEYS.todos, merged);
   }
 }
 
-/** 拉＋合併（last-write-wins by updated_at） */
+/** 墓碑聯集；同 id 取較早 at；dirty 時合併後強制推。 */
+function reconcileTodoTombstones(cloud: AppStateRow | undefined, localTs: string, forcePush: boolean) {
+  const local = gcTodoTombstones(loadJSON(LS_KEYS.deletedTodoIds, []), Date.now());
+  const remote = cloud ? gcTodoTombstones(cloud.value, Date.now()) : [];
+  const merged = gcTodoTombstones(mergeTodoTombstones(local, remote), Date.now());
+  saveJSON(LS_KEYS.deletedTodoIds, merged);
+  emit(APP_STATE_KEYS.deletedTodos);
+
+  if (!cloud) {
+    void pushAppState(APP_STATE_KEYS.deletedTodos, merged);
+    return;
+  }
+  const cloudTs = cloud.updated_at ?? "";
+  if (tsNewer(cloudTs, localTs)) setMetaTs(APP_STATE_KEYS.deletedTodos, cloudTs);
+  if (forcePush || tsNewer(localTs, cloudTs) || tombstonesDiffer(merged, remote)) {
+    void pushAppState(APP_STATE_KEYS.deletedTodos, merged);
+  }
+}
+
+/** 拉＋合併（last-write-wins by updated_at；清單型 key 先合併再推） */
 export async function syncAppStateFromCloud() {
   const uid = await getUid();
   if (!uid) return; // 未登入＝純本地
@@ -241,12 +274,10 @@ export async function syncAppStateFromCloud() {
     const cloud = rows.find((r) => r.key === key);
     const localTs = meta[key] ?? "";
 
-    if (key === APP_STATE_KEYS.todos) {
-      if (isSyncDirty("app_state", key)) {
-        void pushAppState(key, loadJSON(ls, DEFAULT_FOR_KEY[key]));
-        continue;
-      }
-      reconcileTodos(cloud, localTs);
+    if (isAppStateListKey(key)) {
+      const forcePush = isSyncDirty("app_state", key);
+      if (key === APP_STATE_KEYS.todos) reconcileTodos(cloud, localTs, forcePush);
+      else reconcileTodoTombstones(cloud, localTs, forcePush);
       continue;
     }
 

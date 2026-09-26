@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useHorizontalSwipe } from "@/components/hooks/useHorizontalSwipe";
 import { Card, SL } from "@/components/ui/Card";
+import { PanelDismissButton } from "@/components/ui/PanelDismissButton";
 import { TodoCard } from "@/components/todo/TodoCard";
 import {
   createTodoFormDraft,
@@ -65,6 +66,51 @@ const navArrow: CSSProperties = {
   fontWeight: 800,
 };
 
+function findScrollParent(el: HTMLElement | null): HTMLElement | null {
+  let cur: HTMLElement | null = el?.parentElement ?? null;
+  while (cur) {
+    const oy = getComputedStyle(cur).overflowY;
+    if (oy === "auto" || oy === "scroll") return cur;
+    cur = cur.parentElement;
+  }
+  const root = document.scrollingElement;
+  return root instanceof HTMLElement ? root : document.documentElement;
+}
+
+function DayShiftArrows({
+  viewDate,
+  onShift,
+}: {
+  viewDate: string;
+  onShift: (delta: number) => void;
+}) {
+  return (
+    <>
+      <button type="button" aria-label="前一天" onClick={() => onShift(-1)} style={navArrow}>
+        ‹
+      </button>
+      <div
+        style={{
+          flex: 1,
+          minWidth: 0,
+          textAlign: "center",
+          fontSize: 13,
+          fontWeight: 600,
+          color: TH.muted,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {formatYmdLabel(viewDate)}
+      </div>
+      <button type="button" aria-label="後一天" onClick={() => onShift(1)} style={navArrow}>
+        ›
+      </button>
+    </>
+  );
+}
+
 export function DayViewPage({
   date,
   todos,
@@ -93,9 +139,36 @@ export function DayViewPage({
   const [quickDraft, setQuickDraft] = useState<TodoFormDraft | null>(null);
   const [now, setNow] = useState(getCurrentMinutes);
   const nowPct = ((now - DS) / DT) * 100;
+  const rootRef = useRef<HTMLDivElement>(null);
+  const scrollRestoreRef = useRef<{ top: number; fromBottom: number } | null>(null);
+
+  const shiftViewDate = (delta: number) => {
+    const scroller = findScrollParent(rootRef.current);
+    if (scroller) {
+      scrollRestoreRef.current = {
+        top: scroller.scrollTop,
+        fromBottom: scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight,
+      };
+    }
+    setViewDate((d) => shiftDateStr(d, delta));
+  };
+
   const swipe = useHorizontalSwipe((dir) => {
-    setViewDate((d) => shiftDateStr(d, dir === "left" ? 1 : -1));
+    shiftViewDate(dir === "left" ? 1 : -1);
   });
+
+  useLayoutEffect(() => {
+    const saved = scrollRestoreRef.current;
+    if (!saved) return;
+    scrollRestoreRef.current = null;
+    const scroller = findScrollParent(rootRef.current);
+    if (!scroller) return;
+    if (saved.fromBottom <= 24) {
+      scroller.scrollTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight - saved.fromBottom);
+    } else {
+      scroller.scrollTop = saved.top;
+    }
+  }, [viewDate]);
 
   useEffect(() => {
     const syncNow = () => setNow(getCurrentMinutes());
@@ -160,6 +233,7 @@ export function DayViewPage({
 
   return (
     <div
+      ref={rootRef}
       {...swipe.bind}
       style={{
         display: "flex",
@@ -186,37 +260,7 @@ export function DayViewPage({
         <button type="button" aria-label="返回" onClick={onBack} style={navHit}>
           ←
         </button>
-        <button
-          type="button"
-          aria-label="前一天"
-          onClick={() => setViewDate((d) => shiftDateStr(d, -1))}
-          style={navArrow}
-        >
-          ‹
-        </button>
-        <div
-          style={{
-            flex: 1,
-            minWidth: 0,
-            textAlign: "center",
-            fontSize: 13,
-            fontWeight: 600,
-            color: TH.muted,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {formatYmdLabel(viewDate)}
-        </div>
-        <button
-          type="button"
-          aria-label="後一天"
-          onClick={() => setViewDate((d) => shiftDateStr(d, 1))}
-          style={navArrow}
-        >
-          ›
-        </button>
+        <DayShiftArrows viewDate={viewDate} onShift={shiftViewDate} />
       </div>
       <div style={{ fontSize: 9, color: TH.muted, textAlign: "center", lineHeight: 1.4 }}>
         💡 左右滑動或點箭頭可切換日期
@@ -387,6 +431,7 @@ export function DayViewPage({
             >
               確認新增
             </button>
+            <PanelDismissButton onClick={() => setAddOpen(false)} />
           </div>
         )}
       </Card>
@@ -401,48 +446,45 @@ export function DayViewPage({
               defaultEndTime={addMinHM("09:00", CFG.DEFAULT_TODO_DURATION_MIN)}
               autoFocusName
             />
-            <div style={{ display: "flex", gap: 8, minWidth: 0 }}>
-              <button
-                className="flowlife-pressable"
-                type="button"
-                onClick={submitQuickTodo}
-                disabled={!todoDraftCanSubmit(quickDraft)}
-                style={{
-                  flex: 1,
-                  minWidth: 0,
-                  padding: "9px 10px",
-                  borderRadius: 10,
-                  border: "none",
-                  background: todoDraftCanSubmit(quickDraft) ? TH.accent : "#374151",
-                  color: todoDraftCanSubmit(quickDraft) ? "#fff" : "#6B7280",
-                  fontSize: 12,
-                  fontWeight: 900,
-                  cursor: todoDraftCanSubmit(quickDraft) ? "pointer" : "not-allowed",
-                }}
-              >
-                新增待辦
-              </button>
-              <button
-                type="button"
-                onClick={() => setQuickDraft(null)}
-                style={{
-                  padding: "9px 12px",
-                  borderRadius: 10,
-                  border: `1px solid ${TH.border}`,
-                  background: "transparent",
-                  color: TH.muted,
-                  fontSize: 12,
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  flexShrink: 0,
-                }}
-              >
-                取消
-              </button>
-            </div>
+            <button
+              className="flowlife-pressable"
+              type="button"
+              onClick={submitQuickTodo}
+              disabled={!todoDraftCanSubmit(quickDraft)}
+              style={{
+                width: "100%",
+                padding: "9px 10px",
+                borderRadius: 10,
+                border: "none",
+                background: todoDraftCanSubmit(quickDraft) ? TH.accent : "#374151",
+                color: todoDraftCanSubmit(quickDraft) ? "#fff" : "#6B7280",
+                fontSize: 12,
+                fontWeight: 900,
+                cursor: todoDraftCanSubmit(quickDraft) ? "pointer" : "not-allowed",
+              }}
+            >
+              新增待辦
+            </button>
+            <PanelDismissButton onClick={() => setQuickDraft(null)} />
           </div>
         </Card>
       )}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          minWidth: 0,
+          width: "100%",
+          boxSizing: "border-box",
+          paddingTop: 8,
+        }}
+      >
+        <DayShiftArrows viewDate={viewDate} onShift={shiftViewDate} />
+      </div>
+      <div style={{ fontSize: 9, color: TH.muted, textAlign: "center", lineHeight: 1.4 }}>
+        💡 底部也能換日，方便連續查看每天的待辦
+      </div>
     </div>
   );
 }

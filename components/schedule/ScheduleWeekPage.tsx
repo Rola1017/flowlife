@@ -6,6 +6,7 @@ import { CAT } from "@/lib/categories";
 import { CFG } from "@/lib/config";
 import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 import { Card, SL } from "@/components/ui/Card";
+import { PanelDismissButton } from "@/components/ui/PanelDismissButton";
 import {
   type CourseInfo,
   type DayOverride,
@@ -361,14 +362,9 @@ export function ScheduleWeekPage({ onShowCategoryManager }: { onShowCategoryMana
           <div style={{ fontSize: 9, color: TH.muted, marginTop: 8, lineHeight: 1.4 }}>
             💡 只會讓這一天空下來，常用模板不受影響；可用「恢復成常用模板」還原
           </div>
-          <button
-            type="button"
-            onPointerDown={stopSwipe}
-            onClick={() => setDayPanel(null)}
-            style={{ marginTop: 8, background: "none", border: "none", color: TH.muted, fontSize: 11, cursor: "pointer" }}
-          >
-            關閉
-          </button>
+          <div data-no-swipe="1" onPointerDown={stopSwipe} style={{ marginTop: 8 }}>
+            <PanelDismissButton label="關閉" onClick={() => setDayPanel(null)} />
+          </div>
         </Card>
         </div>
       )}

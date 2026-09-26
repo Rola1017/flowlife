@@ -33,6 +33,7 @@ export function SettingsPage({
   const [syncProgress, setSyncProgress] = useState("");
   const [online, setOnline] = useState(isOnline);
   const [toneRev, setToneRev] = useState(0);
+  const [migrateOrphansOpen, setMigrateOrphansOpen] = useState(false);
   const todoTagsMigrate = loadTodoTagsMigrateReport();
 
   useEffect(() => subscribeOnline(setOnline), []);
@@ -58,7 +59,44 @@ export function SettingsPage({
               fontWeight: todoTagsMigrate.ok ? 400 : 800,
             }}
           >
-            {todoTagsMigrate.message}
+            <div>{todoTagsMigrate.message}</div>
+            {!todoTagsMigrate.ok && todoTagsMigrate.orphans.length > 0 ? (
+              <div style={{ marginTop: 6 }}>
+                <button
+                  type="button"
+                  onClick={() => setMigrateOrphansOpen((o) => !o)}
+                  style={{
+                    minHeight: 44,
+                    minWidth: 44,
+                    padding: "8px 10px",
+                    borderRadius: 8,
+                    border: `1px solid ${TH.border}`,
+                    background: "transparent",
+                    color: TH.yellow,
+                    fontSize: 11,
+                    fontWeight: 800,
+                    cursor: "pointer",
+                  }}
+                >
+                  {migrateOrphansOpen ? "收合明細" : "查看明細"}
+                </button>
+                {migrateOrphansOpen ? (
+                  <div style={{ marginTop: 8, fontWeight: 400, color: TH.text }}>
+                    {todoTagsMigrate.orphans.map((o) => {
+                      const text = o.text.length > 24 ? `${o.text.slice(0, 24)}…` : o.text;
+                      return (
+                        <div key={o.id} style={{ fontSize: 11, lineHeight: 1.6 }}>
+                          {text || "（無文字）"}　·　{o.cat}
+                        </div>
+                      );
+                    })}
+                    <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4, marginTop: 8 }}>
+                      💡 這些待辦的分類找不到對應標籤。請打開它們重新選一次分類，再重新整理頁面，遷移就會自動完成。
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         ) : null}
         <AuthPanel />

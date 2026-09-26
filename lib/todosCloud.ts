@@ -1,7 +1,7 @@
 import type { Todo, TodoPhase, TodoTombstone } from "@/lib/types";
 import { formatMd } from "@/lib/dateStr";
 import { LS_KEYS, loadJSON } from "@/lib/storage";
-import { tsNewer } from "@/lib/time";
+import { tsMs, tsNewer } from "@/lib/time";
 import { stampTodoTags } from "@/lib/todoTags";
 
 const PHASES: TodoPhase[] = ["pending", "started", "ending", "done"];
@@ -211,4 +211,18 @@ export function mergeTodosWithTombstones(
     return !r || tsNewer(t.updatedAt, r.updatedAt);
   });
   return { merged, toPush, strippedRemote };
+}
+
+/** 墓碑聯集：同 id 取較早的 at。gc 由呼叫端套用。 */
+export function mergeTodoTombstones(
+  local: TodoTombstone[],
+  remote: TodoTombstone[],
+): TodoTombstone[] {
+  const map = new Map<number, TodoTombstone>();
+  for (const t of [...local, ...remote]) {
+    if (typeof t?.id !== "number" || typeof t.at !== "string" || !t.at) continue;
+    const cur = map.get(t.id);
+    if (!cur || tsMs(t.at) < tsMs(cur.at)) map.set(t.id, { id: t.id, at: t.at });
+  }
+  return [...map.values()];
 }

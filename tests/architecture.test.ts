@@ -490,3 +490,77 @@ describe("待辦標籤化單一來源", () => {
   });
 });
 
+const PANEL_DISMISS = "components/ui/PanelDismissButton.tsx";
+const PANEL_DISMISS_CONSUMERS = [
+  "components/timeline/TimelinePage.tsx",
+  "components/calendar/DayViewPage.tsx",
+  "components/calendar/CalendarPage.tsx",
+  "components/schedule/SchedulePage.tsx",
+  "components/schedule/ScheduleWeekPage.tsx",
+  "components/shop/ShopPage.tsx",
+];
+
+describe("批次 L：清單型 key 與面板關閉單一來源", () => {
+  it("syncAppStateFromCloud 內清單型 key 不得 dirty → 直接 pushAppState", () => {
+    const text = readFileSync(path.join(ROOT, "lib/appStateCloud.ts"), "utf8");
+    const start = text.indexOf("export async function syncAppStateFromCloud");
+    expect(start).toBeGreaterThan(-1);
+    const nextExport = text.indexOf("\nexport ", start + 10);
+    const fn = text.slice(start, nextExport < 0 ? text.length : nextExport);
+    expect(fn).toMatch(/if\s*\(\s*isAppStateListKey\(\s*key\s*\)\s*\)/);
+    expect(fn).toContain("reconcileTodos");
+    expect(fn).toContain("reconcileTodoTombstones");
+    const listIdx = fn.indexOf("isAppStateListKey");
+    const listContinue = fn.indexOf("continue", listIdx);
+    const listBlock = fn.slice(listIdx, listContinue);
+    expect(listBlock).not.toMatch(/pushAppState\(\s*key\s*,/);
+    expect(listBlock).not.toMatch(/loadJSON\(\s*ls/);
+    expect(text).toMatch(/APP_STATE_LIST_KEYS\s*=\s*\[\s*APP_STATE_KEYS\.todos\s*,\s*APP_STATE_KEYS\.deletedTodos/);
+  });
+
+  it("data-panel-dismiss 只准出現在 PanelDismissButton", () => {
+    const hits: string[] = [];
+    for (const dirName of SCAN_DIRS) {
+      const dir = path.join(ROOT, dirName);
+      try {
+        statSync(dir);
+      } catch {
+        continue;
+      }
+      for (const file of walkTs(dir)) {
+        const rel = relPosix(file);
+        const text = readFileSync(file, "utf8");
+        if (text.includes("data-panel-dismiss")) hits.push(rel);
+      }
+    }
+    expect(hits).toEqual([PANEL_DISMISS]);
+  });
+
+  it("指定可開關面板必須用 PanelDismissButton，不得各自手寫", () => {
+    for (const rel of PANEL_DISMISS_CONSUMERS) {
+      const text = readFileSync(path.join(ROOT, rel), "utf8");
+      expect(text, rel).toContain('from "@/components/ui/PanelDismissButton"');
+      expect(text, rel).toContain("<PanelDismissButton");
+    }
+  });
+
+  it("DayView 換日只准一個 shiftViewDate；捲動還原不得在 useLayoutEffect 內 setState", () => {
+    const text = readFileSync(path.join(ROOT, "components/calendar/DayViewPage.tsx"), "utf8");
+    expect(text.match(/const shiftViewDate/g)?.length).toBe(1);
+    expect(text.match(/<DayShiftArrows/g)?.length).toBe(2);
+    const layoutStart = text.indexOf("useLayoutEffect(() =>");
+    expect(layoutStart).toBeGreaterThan(-1);
+    const layoutEnd = text.indexOf("}, [viewDate]");
+    const layout = text.slice(layoutStart, layoutEnd);
+    expect(layout).not.toMatch(/\bset[A-Z]/);
+    expect(layout).toContain("scrollRestoreRef");
+  });
+
+  it("SettingsPage 遷移失敗可展開明細（文字＋舊分類）", () => {
+    const text = readFileSync(path.join(ROOT, "components/settings/SettingsPage.tsx"), "utf8");
+    expect(text).toContain("查看明細");
+    expect(text).toContain("o.cat");
+    expect(text).toContain("這些待辦的分類找不到對應標籤");
+  });
+});
+

@@ -56,6 +56,12 @@ describe("applyTodoTagsMigration", () => {
     expect(r.message).toBe("待辦標籤遷移：已停止，有 1 筆分類對不上，資料未變更");
   });
 
+  it("孤兒明細含完整文字與舊分類名（截斷只在 UI）", () => {
+    const long = "買菜要記得帶環保袋而且文字很長超過二十四字";
+    const r = applyTodoTagsMigration([todo({ id: 9, cat: "生活", text: long })], TAGS, AT);
+    expect(r.orphans).toEqual([{ id: 9, text: long, cat: "生活" }]);
+  });
+
   it("第二次跑全部沿用、written=0", () => {
     const first = applyTodoTagsMigration([todo({ id: 1, cat: "學習" })], TAGS, AT);
     expect(first.written).toBe(1);

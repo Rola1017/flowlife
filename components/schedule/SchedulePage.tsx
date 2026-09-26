@@ -52,6 +52,7 @@ import {
 } from "./scheduleGridModel";
 import { toM } from "@/lib/utils";
 import { Card, SL } from "@/components/ui/Card";
+import { PanelDismissButton } from "@/components/ui/PanelDismissButton";
 import { Chip } from "@/components/ui/Chip";
 import { BackBtn } from "@/components/ui/BackBtn";
 import { CourseEditPanel, type CourseDraft, type CourseHistoryItem } from "./CourseEditPanel";
@@ -1245,22 +1246,8 @@ export function SchedulePage({
                       </option>
                     ))}
                   </select>
-                  <button
-                    type="button"
-                    onClick={() => setOvSlotEdit(null)}
-                    style={{
-                      fontSize: 11,
-                      padding: "4px 10px",
-                      borderRadius: 8,
-                      border: `1px solid ${TH.border}`,
-                      background: "transparent",
-                      color: TH.muted,
-                      cursor: "pointer",
-                    }}
-                  >
-                    關閉
-                  </button>
                 </div>
+                <PanelDismissButton label="關閉" onClick={() => setOvSlotEdit(null)} />
               </div>
             )}
           </div>
@@ -1321,21 +1308,9 @@ export function SchedulePage({
                 🗑 撕掉便利貼
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => setShowDateOv(false)}
-              style={{
-                padding: "7px 10px",
-                borderRadius: 8,
-                background: "transparent",
-                border: `1px solid ${TH.border}`,
-                color: TH.muted,
-                fontSize: 11,
-                cursor: "pointer",
-              }}
-            >
-              關閉
-            </button>
+          </div>
+          <div style={{ marginTop: 8 }}>
+            <PanelDismissButton label="關閉" onClick={() => setShowDateOv(false)} />
           </div>
 
           {Object.keys(dayOverrides).length > 0 && (
@@ -1625,25 +1600,16 @@ export function SchedulePage({
             >
               🗑 清空此日課程
             </button>
-            <button
-              type="button"
+          </div>
+          <div style={{ marginTop: 8 }}>
+            <PanelDismissButton
+              label="關閉"
               onClick={() => {
                 setDayMenu(null);
                 setPasteTargets(new Set());
                 setPasteNotice(null);
               }}
-              style={{
-                padding: 8,
-                borderRadius: 8,
-                border: `1px solid ${TH.border}`,
-                background: "transparent",
-                color: TH.muted,
-                fontSize: 11,
-                cursor: "pointer",
-              }}
-            >
-              關閉
-            </button>
+            />
           </div>
         </Card>
       )}

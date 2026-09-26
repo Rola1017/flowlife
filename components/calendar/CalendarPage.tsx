@@ -16,6 +16,7 @@ import { todoShowsOn } from "@/lib/todosCloud";
 import type { Session, Todo } from "@/lib/types";
 import { fmt, fmtIdleHM, getDaysInMonth, getFirstDow } from "@/lib/utils";
 import { MultiCategoryFilter } from "@/components/ui/MultiCategoryFilter";
+import { PanelDismissButton } from "@/components/ui/PanelDismissButton";
 import { TriCharts } from "@/components/charts/TriCharts";
 import { useTagsSnapshot } from "@/components/hooks/useTagsSnapshot";
 import { primaryTagColor, tagLeafLabel } from "@/lib/tagSelect";
@@ -429,10 +430,14 @@ export function CalendarPage({
               background: TH.card,
               borderRadius: 12,
               padding: 10,
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
               ...cardStyle("focus"),
             }}
           >
             <MultiCategoryFilter selected={selTags} onChange={setSelTags} />
+            <PanelDismissButton label="關閉" onClick={() => setFilterOpen(false)} />
           </div>
         )}
       </div>

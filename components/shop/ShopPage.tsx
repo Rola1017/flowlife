@@ -7,6 +7,7 @@ import { LS_KEYS, loadJSON, saveJSON } from "@/lib/storage";
 import { APP_STATE_KEYS, pushAppState, subscribeAppState } from "@/lib/appStateCloud";
 import type { ShopItem } from "@/lib/types";
 import { Card } from "@/components/ui/Card";
+import { PanelDismissButton } from "@/components/ui/PanelDismissButton";
 import { BackBtn } from "@/components/ui/BackBtn";
 import { CategorySelector } from "@/components/pomodoro/CategorySelector";
 import type { CoinIncomeLogRow } from "@/components/pomodoro/usePomodoro";
@@ -309,6 +310,14 @@ export function ShopPage({
           >
             {editingId ? "儲存修改" : "新增"}
           </button>
+          <div style={{ marginTop: 8 }}>
+            <PanelDismissButton
+              onClick={() => {
+                setAddOpen(false);
+                setEditingId(null);
+              }}
+            />
+          </div>
         </Card>
       )}
       {items.map((item) => {

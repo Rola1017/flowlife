@@ -12,6 +12,7 @@ import {
 } from "@/components/todo/TodoFormFields";
 import { VerticalTimeline } from "@/components/timeline/VerticalTimeline";
 import { RoutineEditor } from "@/components/timeline/RoutineEditor";
+import { PanelDismissButton } from "@/components/ui/PanelDismissButton";
 import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
 import { todoShowsOn } from "@/lib/todosCloud";
@@ -391,6 +392,7 @@ export function TimelinePage({
             >
               確認新增
             </button>
+            <PanelDismissButton onClick={() => setAddOpen(false)} />
           </div>
         )}
       </Card>
@@ -405,45 +407,26 @@ export function TimelinePage({
               defaultEndTime={defaultTodoEndTime()}
               autoFocusName
             />
-            <div style={{ display: "flex", gap: 8, minWidth: 0 }}>
-              <button
-                className="flowlife-pressable"
-                type="button"
-                onClick={submitQuickTodo}
-                disabled={!todoDraftCanSubmit(quickDraft)}
-                style={{
-                  flex: 1,
-                  minWidth: 0,
-                  padding: "9px 10px",
-                  borderRadius: 10,
-                  border: "none",
-                  background: todoDraftCanSubmit(quickDraft) ? TH.accent : "#374151",
-                  color: todoDraftCanSubmit(quickDraft) ? "#fff" : "#6B7280",
-                  fontSize: 12,
-                  fontWeight: 900,
-                  cursor: todoDraftCanSubmit(quickDraft) ? "pointer" : "not-allowed",
-                }}
-              >
-                新增待辦
-              </button>
-              <button
-                type="button"
-                onClick={() => setQuickDraft(null)}
-                style={{
-                  padding: "9px 12px",
-                  borderRadius: 10,
-                  border: `1px solid ${TH.border}`,
-                  background: "transparent",
-                  color: TH.muted,
-                  fontSize: 12,
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  flexShrink: 0,
-                }}
-              >
-                取消
-              </button>
-            </div>
+            <button
+              className="flowlife-pressable"
+              type="button"
+              onClick={submitQuickTodo}
+              disabled={!todoDraftCanSubmit(quickDraft)}
+              style={{
+                width: "100%",
+                padding: "9px 10px",
+                borderRadius: 10,
+                border: "none",
+                background: todoDraftCanSubmit(quickDraft) ? TH.accent : "#374151",
+                color: todoDraftCanSubmit(quickDraft) ? "#fff" : "#6B7280",
+                fontSize: 12,
+                fontWeight: 900,
+                cursor: todoDraftCanSubmit(quickDraft) ? "pointer" : "not-allowed",
+              }}
+            >
+              新增待辦
+            </button>
+            <PanelDismissButton onClick={() => setQuickDraft(null)} />
           </div>
         </Card>
       )}
