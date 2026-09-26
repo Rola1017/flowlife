@@ -29,6 +29,8 @@
 - **【跨系統邊界需契約測試（§8-39）】**：對真實外部系統（如 Supabase timestamptz 往返）寫契約測試；未設測試帳號時必須明確印「契約測試已略過」，不得靜默 skip、不得用 mock 冒充往返。
 - **【外部值先正規化（§8-40）】**：跨系統邊界的值（時間戳格式、UUID 大小寫等）先正規化再比較；禁止直接比對方的字串表象。時間比較唯一來源＝`lib/time.ts`（`tsMs`／`tsNewer`）。
 - **【外部預設值須逐一檢視（§8-41）】**：第三方 API 的預設行為（如 `signOut` 預設 `scope: "global"`）必須逐一核對，不得假設「合理預設＝本專案要的語意」。登入狀態唯一來源＝`lib/authState.ts`（本機 `getSession`；`getUser` 僅伺服器驗證）。
+- **【危險操作固定置底】**：設定頁「重置所有資料」必須是最後一個子區塊（`data-danger-zone="1"`）；日後新增區塊一律插在它之前。
+- **【切換分頁回頂端】**：底部分頁／子頁 push／pop 時主捲動容器一律 `resetMainScroll`（`lib/mainScroll.ts`，只准 `App.tsx` 呼叫）；例外只有日詳情同一頁內換日（批次 L 捲動保留）。
 
 ---
 
@@ -41,11 +43,12 @@ app/
 ├── globals.css
 
 components/
-├── App.tsx               ← 根元件，管理全域狀態 + 頁面路由（subPage state）
+├── App.tsx               ← 根元件，管理全域狀態 + 頁面路由（subPage state）；分頁／push／pop 呼叫 resetMainScroll
 ├── Header.tsx            ← 固定頂部，動態顯示今天日期，右上角設定按鈕（無 😤🙂😴）
 ├── useCoinLog.ts         ← 金幣單一真相（明細帳＋餘額＝加總；append/remove/upsert/spend）
 ├── hooks/
 │   ├── useHorizontalSwipe.ts ← 水平滑動唯一實作（classifySwipe／useHorizontalSwipe）；回傳 bind（含 touchAction pan-y）
+│   ├── useActionCooldown.ts ← 換日後動作鈕誤觸防護（ACTION_COOLDOWN_MS=400；arm／wrap；唯一計時器）
 │   ├── useAppStateCloudSync.ts
 │   ├── useSessionCloudSync.ts
 │   ├── useReviewCloudSync.ts
@@ -69,7 +72,7 @@ components/
 ├── calendar/（CalendarPage / DayViewPage）
 ├── todo/（TodoCard / useTodos.ts）
 ├── schedule/（SchedulePage / CourseBanner）
-├── settings/（SettingsPage — 重置、顏色圖例 ColorField、顯示 v1.0.0）
+├── settings/（SettingsPage — 雲端同步卡含本機資料筆數；危險操作固定置底 data-danger-zone；顏色圖例 ColorField、顯示 v1.0.0）
 └── shop/（ShopPage）
 
 lib/
@@ -97,6 +100,9 @@ lib/
 ├── timelineActual.ts ← actSessionsFor / overridesFor / actIdleFor / buildActualSegments（VT＋迷你 bar 單一來源）
 ├── todoTags.ts   ← 待辦 tagIds 雙寫 cat（stampTodoTags／resolveTodoTagIds／hasDomainTag）
 ├── todoTagsMigrate.ts ← 待辦單層 cat→領域根遷移（對不上整批 abort；結果本機 LS）
+├── localCounts.ts ← 本機資料筆數（待辦未完成／已完成、番茄、垃圾桶；不上雲）
+├── mainScroll.ts ← 主捲動回頂端唯一實作（resetMainScroll；日詳情換日不得呼叫）
+├── weekTodoSlot.ts ← 週檢視待辦格（untimed／morning／noon／evening；無時間仍畫）
 ├── tabs.ts       ← TABS 導航設定
 └── storage.ts    ← LS_KEYS + loadJSON / saveJSON
 
@@ -244,7 +250,7 @@ supabase/
 - `deadline`：期限（外部約束，與 date/endDate 獨立；計畫挪動不改它）
 - `estimateHours`：預估用時（小時；UI「1天」＝8 小時工作量）
 - 顯示哪一天一律走 `todoShowsOn`（`lib/todosCloud.ts`），禁止各處自行 `t.date ===`
-- 新增／編輯共用 `TodoFormFields`（Notion 式 `TodoDateRangePicker`：日期＋結束日期開關＋包含時間開關）。**分類＝標籤多選**：與番茄同一套 `CategorySelector`（不傳 `onShowCategoryManager`）；領域必填（可選「未分類」根）；難易度／重要性／精力選填，規則沿用 `canStartWithTags`。舊欄 `cat` 雙寫至 Z8。快捷新增（點時間軸空白）預設 `tagIds=[未分類根 id]`，不得 `[]`。
+- 新增／編輯共用 `TodoFormFields`（Notion 式 `TodoDateRangePicker`：日期＋結束日期開關＋包含時間開關）。**分類＝標籤多選**：與番茄同一套 `CategorySelector`（不傳 `onShowCategoryManager`）；領域必填（可選「未分類」根）；難易度／重要性／精力選填，規則沿用 `canStartWithTags`。舊欄 `cat` 雙寫至 Z8。快捷新增（點時間軸空白）預設 `tagIds=[未分類根 id]`，不得 `[]`。標籤區塊在名稱欄正下方（難易度等往下捲即見）。日詳情換日後 400ms 內待辦卡開始／完成／刪除忽略點擊（`useActionCooldown`）；誤按開始可再按「進行中（取消）」復原。
 - `reminder`：提醒設定（見第六節）；預設 `none`
 - **時段頁新增預設時間**：`lib/utils.nowHM` + `roundHM5` + `addMinHM`；開始＝當下取整 5 分、結束＝+`CFG.DEFAULT_TODO_DURATION_MIN`（60 分）；不再寫死 09:00／10:00
 
@@ -340,8 +346,8 @@ TH.gold    = "#FBBF24"   // 金幣
 **週曆**（`calView === "week"`）：
 - 每欄底部頁尾：上排專注時長 `fmt(dayFocus)`、中排 `🍅` 番茄顆數、下排 `{totalPct}%`（≥100% 藍色，可破百）
 - **繞行線三段（95/10/5 模型）**：第一圈＝可用內讀書（分類色）＋未利用（灰 `#4B5563`）剛好一圈；第二圈外圈＝加碼 off-hours 讀書（藍 `#3B82F6`，`WEEK_BORDER_SEG_OUTER` 不重疊）；資料來自 `lib/idle.splitSessionsByAvailability`
-- 待辦完整顯示：早／午／晚時段無 3 筆上限、無 `+N`；`minHeight: 40` 隨內容長高。**分類篩選連待辦疊圖一起濾**（`matchesTagSelection`＋`resolveTodoTagIds`）；圓餅／熱圖仍只算番茄分鐘，不用 `estimateHours` 冒充分鐘。
-- 標頭時段標籤：早 06-12／午 12-18／晚 **18-24**；唯讀班別 `{place}{shifts}`（如「彩晚」「診晚」），來自 `dayPlans`
+- 待辦完整顯示：未排（無時間或 06 前）／早／午／晚，無 3 筆上限、無 `+N`；色塊走 `cardStyle("todo")`＋左側標籤色。**分類篩選**同時濾週曆待辦疊圖（`matchesTagSelection`）與番茄統計／圈圈／圖表／覆盤明細；**月曆不畫待辦色塊**。圓餅／熱圖仍只算番茄分鐘，不用 `estimateHours` 冒充分鐘。
+- 標頭時段標籤：未排 無時間／早 06-12／午 12-18／晚 **18-24**；唯讀班別 `{place}{shifts}`（如「彩晚」「診晚」），來自 `dayPlans`
 
 **可用時間**（`lib/schedule.ts` → `availableMinutesFor` / `blockedRanges`）：
 - 不可用區間單一來源：`blockedRanges(date)`＝當日作息（`routineFor` → 預設 `FIXED_ROUTINE`，或 `routine_override_YYYY-MM-DD` 覆寫）∪ 當日班別（已合併）
@@ -429,6 +435,7 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ## 十、已完成功能 ✅
 
+- **habit-tracker18 批次 M（2026-09-26）**：快捷 vs 底部新增同步路徑查無缺口（兩裝置合併測試）；設定頁雲端卡本機資料筆數；快捷面板完整 CategorySelector；孤兒待辦可開啟編輯／刪除（TodoEditSheet＋deleteTodo 墓碑）；日詳情換日 400ms 動作鈕誤觸防護；設定重置置底；分頁切換主捲動回頂；週曆待辦色塊含未排＋cardStyle(todo)。Git 交由 Rola 提交。
 - **habit-tracker18 批次 L（2026-09-26）**：app_state 清單型 key（todos／deleted_todo_ids）一律先合併再推，dirty 不得跳過合併（修雙裝置待辦靜默覆蓋／墓碑被蓋掉復活）；設定頁遷移失敗可展開孤兒明細；可開關面板關閉鈕收成 `PanelDismissButton`；日詳情底部換日且保持捲動位置。Git 交由 Rola 提交。
 - **habit-tracker18 批次 Z5（2026-09-25）**：待辦單層 `cat` → 標籤多選（與番茄同一套 `CategorySelector`／`CatBadge`／`matchesTagSelection`）。領域必填；快捷新增預設未分類根；`stampTodoTags` 雙寫 `cat`（Z8 前不刪欄）；遷移對不上整批 abort、零寫入、設定頁可見結果（本機 `flowlife_v1_todo_tags_migrate`，不上雲）。待辦不進分鐘統計。Git 交由 Rola 提交。
 - **habit-tracker18 批次 K（2026-09-25）**：全 App 選色走 `ColorField`（取色器＋色碼輸入＋預覽）；`normalizeHex` 唯一驗證（大寫 `#RRGGBB`，三碼展開，非法退回原值）；設定圖例／標籤／場所／課程一律換用。Git 交由 Rola 提交。
@@ -758,7 +765,11 @@ TH.gold    = "#FBBF24"   // 金幣
   - `time.test.ts` — `tsMs`／`tsNewer`：同一時刻 `Z` 與 `+00:00` 相等、微秒與毫秒相等、空字串→0；property ≥500 兩向皆 false；日期字串鎖死
   - `cloudWrite.test.ts` — 寫入失敗計數累加／成功不累加（mock `{ error }`）；`uuidsOnlyInLocal` 只在本機
   - `overlap.test.ts` — `spansOverlap`／`findOverlaps`：相鄰不重疊、包含、部分重疊、完全相同；datetime-local 與 `"24:00"`；`rangeStrToSpan`／`rangeStrsOverlap`（空字串＝不佔時間）；三者等價性 ≥500 組；`pickOverlapsOn` 碰邊／重疊／閘門；日期字串鎖死、不用 new Date()
-  - `architecture.test.ts` — 掃 `components/`＋`lib/`＋`app/`：除 `lib/overlap.ts` 外不得 `.split("~")`（防 2026-09 重疊判斷複製 6 份）；`setPointerCapture` 只准 `useHorizontalSwipe`（防 2026-09 滑動兩份、修一漏一）；`noDaySwipe`／`noWeekSwipe` 零出現；`useHorizontalSwipe` 必須 `{...swipe.bind}` 不得逐個掛（防 E23 缺 touch-action）；舊全量推送／inspect 零出現；AuthPanel／SettingsPage 只能 `syncNow`（E25）；`forcePushAppStateForReset` 只准 `appStateCloud.ts`＋`App.tsx`；`syncNow` 不得 force；除 `lib/time.ts` 外不得對 `updated_at`／`updatedAt`／`createdAt` 直接 `>`／`<`（E27；regex 避開 `safe > 1, updatedAt`）；E28：`components/` 不得 `auth.getUser()`；全庫 `.auth.signOut(` 必須顯式 `scope`（防 2026-09 斷網被當成登出、全域登出波及其他裝置）；components/ 不得字面 `#RRGGBB` 當 border／borderLeft；卡片容器不得直接 `TH.border` 當外框（改走 `cardStyle`，白名單＝chrome）；選色與色碼驗證單一來源：components/ 除 ColorField 外不得 `type="color"`、不得自寫 hex 驗證 regex；Z5：TodoFormFields 必須 CategorySelector、不得 CAT.cat1List／onShowCategoryManager；遷移成功必須 pushAppState(todos)；遷移結果鍵不得進 APP_STATE_KEYS；CalendarPage 待辦疊圖必須 matchesTagSelection；**L：syncAppStateFromCloud 清單型 key 不得 dirty 盲推；data-panel-dismiss 只准 PanelDismissButton；指定面板必須用該元件；DayView 單一 shiftViewDate＋捲動還原不得在 useLayoutEffect setState；Settings 遷移明細可展開**
+  - `architecture.test.ts` — 掃 `components/`＋`lib/`＋`app/`：除 `lib/overlap.ts` 外不得 `.split("~")`（防 2026-09 重疊判斷複製 6 份）；`setPointerCapture` 只准 `useHorizontalSwipe`（防 2026-09 滑動兩份、修一漏一）；`noDaySwipe`／`noWeekSwipe` 零出現；`useHorizontalSwipe` 必須 `{...swipe.bind}` 不得逐個掛（防 E23 缺 touch-action）；舊全量推送／inspect 零出現；AuthPanel／SettingsPage 只能 `syncNow`（E25）；`forcePushAppStateForReset` 只准 `appStateCloud.ts`＋`App.tsx`；`syncNow` 不得 force；除 `lib/time.ts` 外不得對 `updated_at`／`updatedAt`／`createdAt` 直接 `>`／`<`（E27；regex 避開 `safe > 1, updatedAt`）；E28：`components/` 不得 `auth.getUser()`；全庫 `.auth.signOut(` 必須顯式 `scope`（防 2026-09 斷網被當成登出、全域登出波及其他裝置）；components/ 不得字面 `#RRGGBB` 當 border／borderLeft；卡片容器不得直接 `TH.border` 當外框（改走 `cardStyle`，白名單＝chrome）；選色與色碼驗證單一來源：components/ 除 ColorField 外不得 `type="color"`、不得自寫 hex 驗證 regex；Z5：TodoFormFields 必須 CategorySelector、不得 CAT.cat1List／onShowCategoryManager；遷移成功必須 pushAppState(todos)；遷移結果鍵不得進 APP_STATE_KEYS；CalendarPage 待辦疊圖必須 matchesTagSelection；**L：syncAppStateFromCloud 清單型 key 不得 dirty 盲推；data-panel-dismiss 只准 PanelDismissButton；指定面板必須用該元件；DayView 單一 shiftViewDate＋捲動還原不得在 useLayoutEffect setState；Settings 遷移明細可展開**；**M：Settings data-danger-zone 置底；scrollTop=0 只准 mainScroll；resetMainScroll 只准 App；useActionCooldown 唯一；孤兒編輯／刪除走既有入口；快捷與底部皆 TodoFormFields；週曆 weekTodoSlot＋未排＋cardStyle(todo)**
+  - `quickTodoSync.test.ts` — 兩裝置快捷（startTime/endTime/mustDo、date=今天）vs 底部新增，雙向合併兩筆都在；property ≥200 亂序；normalizeTodo／todoShowsOn 不因 mustDo／startTime 過濾
+  - `localCounts.test.ts` — 未完成含 started／ending；已完成＝phase done；垃圾桶＝傳入 trash 長度；非陣列當空
+  - `actionCooldown.test.ts` — ACTION_COOLDOWN_MS=400；until 前擋、剛好到點放行；arm 後 399ms 擋、400ms 恢復
+  - `weekTodoSlot.test.ts` — 無時間／06 前＝untimed；早午晚分界
   - `colorField.test.ts` — `normalizeHex`：接受 `#abc`／`abc`／`#AABBCC`／`AABBCC`；拒絕 `""`／`red`／`#12`／`#GGGGGG`／超長；三碼展開；輸出大寫 `#RRGGBB`
   - `cardTone.test.ts` — 每個 tone 非空樣式；顏色來自 TH；未知 tone → neutral；覆寫採用覆寫；非法值退預設；過暗提亮亮度≥門檻；恢復預設回 TH
   - `cloudSync.test.ts` — `planPush`／`planDelete`；E27：本機 Z／雲端 +00:00 同一時刻 planPush 空；墓碑永不 push、雲端獨有無墓碑永不 delete（E05／E06 property ≥500）；300 筆拉後 pending 0；驗證未清 pending>0 非 allClear；離線 `syncNow` 立即回、`allClear=false`、不等待逾時
@@ -794,5 +805,5 @@ TH.gold    = "#FBBF24"   // 金幣
 
 ---
 
-*最後更新：2026/09/26（habit-tracker18 批次 L：清單型 key 先合併再推＋遷移明細＋面板關閉＋日詳情底部換日）*
+*最後更新：2026/09/26（habit-tracker18 批次 M：快捷同步查證＋資料筆數＋子標籤＋孤兒處理＋誤觸防護＋分頁回頂＋重置置底＋週曆待辦色塊）*
 *維護原則：每次完成重要功能，同步更新第十、十一、十二節*

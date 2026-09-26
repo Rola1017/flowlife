@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CFG } from "@/lib/config";
 import { cardStyle } from "@/lib/cardTone";
+import { weekTodoSlot } from "@/lib/weekTodoSlot";
 import { TH } from "@/lib/theme";
 import { CAT } from "@/lib/categories";
 import { buildCalendarStats, datesInPeriod, distributeAndFilter, periodRange, sessionMatches } from "@/lib/analytics";
@@ -52,9 +53,10 @@ function idleReviewMeta(
 const DOW = ["一", "二", "三", "四", "五", "六", "日"] as const;
 
 const WEEK_SLOTS = [
-  { id: "morning" as const, bg: "#F59E0B08" },
-  { id: "noon" as const, bg: "#22C55E08" },
-  { id: "evening" as const, bg: "#3B82F608" },
+  { id: "untimed" as const, label: "未排", bg: "transparent" },
+  { id: "morning" as const, label: "早", bg: "#F59E0B08" },
+  { id: "noon" as const, label: "午", bg: "#22C55E08" },
+  { id: "evening" as const, label: "晚", bg: "#3B82F608" },
 ];
 
 type WeekSlotId = (typeof WEEK_SLOTS)[number]["id"];
@@ -142,16 +144,6 @@ function sessionsInMonth(sessions: Session[], y: number, m: number) {
     const [sy, sm] = s.date.split("-").map(Number);
     return sy === y && sm === m;
   });
-}
-
-function getWeekSlot(startTime: string): WeekSlotId | null {
-  if (!startTime?.trim()) return null;
-  const h = parseInt(startTime.split(":")[0], 10);
-  if (Number.isNaN(h)) return null;
-  if (h >= 6 && h < 12) return "morning";
-  if (h >= 12 && h < 18) return "noon";
-  if (h >= 18 && h <= 23) return "evening";
-  return null;
 }
 
 export function CalendarPage({
@@ -341,12 +333,11 @@ export function CalendarPage({
   const todosByDateSlot = useMemo(() => {
     const map: Record<string, Record<WeekSlotId, Todo[]>> = {};
     for (const dateStr of weekDates) {
-      map[dateStr] = { morning: [], noon: [], evening: [] };
+      map[dateStr] = { untimed: [], morning: [], noon: [], evening: [] };
     }
     for (const todo of todos) {
       if (selTags.size > 0 && !matchesTagSelection(selTags, resolveTodoTagIds(todo, tags), tags)) continue;
-      const slot = getWeekSlot(todo.startTime ?? "");
-      if (!slot) continue;
+      const slot = weekTodoSlot(todo.startTime);
       for (const dateStr of weekDates) {
         if (todoShowsOn(todo, dateStr)) map[dateStr][slot].push(todo);
       }
@@ -708,7 +699,7 @@ export function CalendarPage({
               padding: "2px 0 4px",
             }}
           >
-            {([["早", "06-12"], ["午", "12-18"], ["晚", "18-24"]] as const).map(([label, range]) => (
+            {([["未排", "無時間"], ["早", "06-12"], ["午", "12-18"], ["晚", "18-24"]] as const).map(([label, range]) => (
               <span key={label} style={{ fontSize: 9, color: TH.muted }}>
                 {label} {range}
               </span>
@@ -894,21 +885,23 @@ export function CalendarPage({
                                 key={todo.id ?? `${dateStr}-${slot.id}-${todo.text}`}
                                 title={todo.text}
                                 style={{
-                                  height: 20,
-                                  borderRadius: 3,
-                                  background: col,
-                                  opacity: done ? 0.4 : 1,
-                                  padding: "0 3px",
+                                  minHeight: 22,
+                                  borderRadius: 6,
+                                  background: TH.card,
+                                  opacity: done ? 0.55 : 1,
+                                  padding: "2px 5px",
                                   display: "flex",
                                   alignItems: "center",
                                   overflow: "hidden",
                                   flexShrink: 0,
+                                  ...cardStyle("todo"),
+                                  borderLeft: `3px solid ${col}`,
                                 }}
                               >
                                 <span
                                   style={{
-                                    fontSize: 7,
-                                    color: "#111111",
+                                    fontSize: 9,
+                                    color: TH.text,
                                     fontWeight: 700,
                                     whiteSpace: "nowrap",
                                     overflow: "hidden",

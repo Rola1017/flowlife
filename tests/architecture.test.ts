@@ -564,3 +564,117 @@ describe("批次 L：清單型 key 與面板關閉單一來源", () => {
   });
 });
 
+const COOLDOWN_HOOK = "components/hooks/useActionCooldown.ts";
+
+describe("批次 M：危險置底／分頁回頂／誤觸防護單一來源", () => {
+  it("SettingsPage data-danger-zone 必須是最後一個子區塊", () => {
+    const text = readFileSync(path.join(ROOT, "components/settings/SettingsPage.tsx"), "utf8");
+    expect(text).toContain("危險操作固定置底，日後新增區塊一律插在它之前");
+    const ret = text.indexOf("return (");
+    expect(ret).toBeGreaterThan(-1);
+    const body = text.slice(ret);
+    const danger = body.lastIndexOf('data-danger-zone="1"');
+    expect(danger).toBeGreaterThan(-1);
+    const after = body.slice(danger);
+    const lastCardClose = after.lastIndexOf("</Card>");
+    expect(lastCardClose).toBeGreaterThan(-1);
+    expect(after.slice(lastCardClose + "</Card>".length)).not.toMatch(/<Card\b/);
+  });
+
+  it("scrollTop=0 只准 lib/mainScroll.ts；App 分頁／push／pop 呼叫；DayView 換日不得呼叫", () => {
+    const hits: string[] = [];
+    const resetHits: string[] = [];
+    for (const dirName of SCAN_DIRS) {
+      const dir = path.join(ROOT, dirName);
+      try {
+        statSync(dir);
+      } catch {
+        continue;
+      }
+      for (const file of walkTs(dir)) {
+        const rel = relPosix(file);
+        const text = readFileSync(file, "utf8");
+        if (/scrollTop\s*=\s*0\b/.test(text)) hits.push(rel);
+        if (text.includes("resetMainScroll")) resetHits.push(rel);
+      }
+    }
+    expect(hits).toEqual(["lib/mainScroll.ts"]);
+    expect(resetHits.sort()).toEqual(["components/App.tsx", "lib/mainScroll.ts"].sort());
+    const app = readFileSync(path.join(ROOT, "components/App.tsx"), "utf8");
+    expect(app.match(/scrollMainToTop\s*\(\s*\)/g)?.length).toBe(3);
+    expect(app).toMatch(/const push[\s\S]*scrollMainToTop\s*\(\s*\)/);
+    expect(app).toMatch(/const pop[\s\S]*scrollMainToTop\s*\(\s*\)/);
+    expect(app).toMatch(/setTab\(t\.id\)[\s\S]*scrollMainToTop\s*\(\s*\)/);
+    const day = readFileSync(path.join(ROOT, "components/calendar/DayViewPage.tsx"), "utf8");
+    expect(day).not.toContain("resetMainScroll");
+    expect(day).not.toContain("scrollMainToTop");
+  });
+
+  it("誤觸防護只准 useActionCooldown；DayView 換日 arm、動作鈕 wrap、編輯與換日鍵不 wrap", () => {
+    const defs: string[] = [];
+    const uses: string[] = [];
+    for (const dirName of SCAN_DIRS) {
+      const dir = path.join(ROOT, dirName);
+      try {
+        statSync(dir);
+      } catch {
+        continue;
+      }
+      for (const file of walkTs(dir)) {
+        const rel = relPosix(file);
+        const text = readFileSync(file, "utf8");
+        if (/export function useActionCooldown/.test(text)) defs.push(rel);
+        if (rel !== COOLDOWN_HOOK && /useActionCooldown\s*\(/.test(text)) uses.push(rel);
+      }
+    }
+    expect(defs).toEqual([COOLDOWN_HOOK]);
+    expect(uses).toEqual(["components/calendar/DayViewPage.tsx"]);
+    const dv = readFileSync(path.join(ROOT, "components/calendar/DayViewPage.tsx"), "utf8");
+    expect(dv).toContain("cooldown.arm()");
+    expect(dv).toContain("onStart={onStartGuarded}");
+    expect(dv).toContain("onEnd={onEndGuarded}");
+    expect(dv).toContain("onToggleDone={onToggleDoneGuarded}");
+    expect(dv).toContain("onDelete={onDeleteGuarded}");
+    expect(dv).toContain("onEdit={onEditTodo}");
+    expect(dv).not.toMatch(/onEdit=\{[^}]*Guarded/);
+    const shift = dv.slice(dv.indexOf("const shiftViewDate"), dv.indexOf("const swipe"));
+    expect(shift).toContain("cooldown.arm()");
+    expect(shift).not.toMatch(/onStartGuarded|onEndGuarded|onToggleDoneGuarded|onDeleteGuarded/);
+  });
+
+  it("Settings 孤兒可開啟編輯／刪除這筆（confirm＋onDeleteTodo，不得 saveJSON todos）", () => {
+    const text = readFileSync(path.join(ROOT, "components/settings/SettingsPage.tsx"), "utf8");
+    expect(text).toContain("開啟編輯");
+    expect(text).toContain("刪除這筆");
+    expect(text).toContain("window.confirm");
+    expect(text).toContain("onEditTodo(o.id)");
+    expect(text).toContain("onDeleteTodo(o.id)");
+    expect(text).not.toMatch(/saveJSON\s*\(\s*LS_KEYS\.todos/);
+    const app = readFileSync(path.join(ROOT, "components/App.tsx"), "utf8");
+    expect(app).toContain("<TodoEditSheet");
+  });
+
+  it("快捷與底部新增都用完整 TodoFormFields／CategorySelector；日詳情快捷 date＝viewDate", () => {
+    for (const rel of ["components/timeline/TimelinePage.tsx", "components/calendar/DayViewPage.tsx"]) {
+      const text = readFileSync(path.join(ROOT, rel), "utf8");
+      expect((text.match(/<TodoFormFields/g) || []).length, rel).toBe(2);
+      expect(text, rel).not.toMatch(/CAT\.cat1List/);
+    }
+    const fields = readFileSync(path.join(ROOT, "components/todo/TodoFormFields.tsx"), "utf8");
+    expect(fields).toContain("CategorySelector");
+    expect(fields).toContain("showQuickLane");
+    const day = readFileSync(path.join(ROOT, "components/calendar/DayViewPage.tsx"), "utf8");
+    expect(day).toMatch(/createTodoFormDraft\(\s*viewDate\s*,/);
+    const tl = readFileSync(path.join(ROOT, "components/timeline/TimelinePage.tsx"), "utf8");
+    expect(tl).toMatch(/createTodoFormDraft\(\s*CFG\.TODAY_STR\s*,/);
+  });
+
+  it("週檢視待辦必須 weekTodoSlot＋未排格＋cardStyle(todo)", () => {
+    const text = readFileSync(path.join(ROOT, "components/calendar/CalendarPage.tsx"), "utf8");
+    expect(text).toContain("weekTodoSlot");
+    expect(text).toContain('id: "untimed"');
+    expect(text).toContain('cardStyle("todo")');
+  });
+});
+
+

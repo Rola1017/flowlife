@@ -14,6 +14,7 @@ import {
 import { CFG } from "@/lib/config";
 import { TH } from "@/lib/theme";
 import { TABS } from "@/lib/tabs";
+import { resetMainScroll } from "@/lib/mainScroll";
 import { LS_KEYS, loadJSON, saveJSON, clearAllAppData, COIN_LEDGER_MIGRATED_KEY } from "@/lib/storage";
 import { migrateCategoryIds, saveCategories, DEFAULT_CATEGORIES } from "@/lib/categories";
 import { ensureTagsMigrated } from "@/lib/tagsMigrate";
@@ -105,6 +106,8 @@ function AppContent() {
   const [scheduleView, setScheduleView] = useState<ScheduleHubView>("calendar");
   const [calIntent, setCalIntent] = useState<{ review: "day" } | null>(null);
   const [subPage, setSubPage] = useState<{ type: string; props?: Record<string, unknown> } | null>(null);
+  const mainScrollRef = useRef<HTMLDivElement>(null);
+  const scrollMainToTop = () => resetMainScroll(mainScrollRef.current);
   const [quote, setQuote] = useState("每一顆番茄鐘，都是打下江山的一刀。");
   const {
     coinIncomeLog,
@@ -478,8 +481,14 @@ function AppContent() {
     return () => clearInterval(t);
   }, [pomoRunning, ent, restEndAt]);
 
-  const push = (type: string, props: Record<string, unknown> = {}) => setSubPage({ type, props });
-  const pop = () => setSubPage(null);
+  const push = (type: string, props: Record<string, unknown> = {}) => {
+    setSubPage({ type, props });
+    scrollMainToTop();
+  };
+  const pop = () => {
+    setSubPage(null);
+    scrollMainToTop();
+  };
 
   /** 為即將清除的番茄寫墓碑並刪雲端。不得把墓碑清空，否則其他裝置會推回。 */
   const tombstoneAndDeleteCloud = async (uuids: string[]) => {
@@ -724,6 +733,11 @@ function AppContent() {
         onResetAllData={handleResetAllData}
         onResetTodos={resetTodos}
         onClearRecords={handleClearRecords}
+        todos={todos}
+        sessions={sessions}
+        trashedSessions={trashedSessions}
+        onEditTodo={todoProps.onEditTodo}
+        onDeleteTodo={deleteTodo}
       />
     ),
     categoryManager: (props = {}) => (
@@ -904,6 +918,7 @@ function AppContent() {
     >
       <Header quote={quote} setQuote={setQuote} onShowSettings={() => push("settings")} />
       <div
+        ref={mainScrollRef}
         style={{
           flex: 1,
           overflowY: "auto",
@@ -948,6 +963,7 @@ function AppContent() {
               setTab(t.id);
               setSubPage(null);
               if (t.id === "schedule") setScheduleView("calendar");
+              scrollMainToTop();
             }}
             style={{
               flex: 1,
@@ -1047,14 +1063,19 @@ function AppContent() {
         <TodoEditSheet
           key={editTodoId}
           todo={editingTodo}
-          onClose={() => setEditTodoId(null)}
+          onClose={() => {
+            setEditTodoId(null);
+            ensureTodoTagsMigrated();
+          }}
           onSave={(id, patch) => {
             updateTodo(id, patch);
             setEditTodoId(null);
+            ensureTodoTagsMigrated();
           }}
           onDelete={(id) => {
             deleteTodo(id);
             setEditTodoId(null);
+            ensureTodoTagsMigrated();
           }}
         />
       )}

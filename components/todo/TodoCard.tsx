@@ -389,6 +389,9 @@ export function TodoCard({
           <span style={{ position: "relative", zIndex: 1 }}>{isEnding ? "■ 再點取消" : "■ 結束"}</span>
         </button>
       </div>
+      {isStarted ? (
+        <div style={{ fontSize: 9, color: TH.muted, lineHeight: 1.4 }}>💡 誤按開始的話，再按一次「進行中（取消）」即可復原</div>
+      ) : null}
       {startAt && (
         <div
           style={{

@@ -169,6 +169,27 @@ export function TodoFormFields({
         autoFocus={autoFocusName}
         style={fieldStyle}
       />
+      <label style={{ fontSize: 10, color: TH.muted }}>標籤</label>
+      <CategorySelector
+        tagIds={draft.tagIds}
+        cat1={sel.cat1}
+        cat2={sel.cat2}
+        cat3={sel.cat3}
+        onChange={(n) => setDraft((v) => ({ ...v, tagIds: n.tagIds, error: "" }))}
+        showQuickLane
+      />
+      {draft.tagIds.length > 0 ? (
+        <div style={{ fontSize: 10, color: TH.muted }}>
+          已選：
+          <CatBadge tagIds={draft.tagIds} />
+        </div>
+      ) : null}
+      {missing.length > 0 ? (
+        <div style={{ fontSize: 11, color: TH.red, fontWeight: 700 }}>請選擇：{missing.join("、")}</div>
+      ) : null}
+      <div style={tip}>💡 定義：待辦現在和番茄用同一套標籤。</div>
+      <div style={tip}>💡 用法：新增／編輯至少選一個領域標籤（可選「未分類」）。難易度／重要性／精力就在領域下面，往下捲就看得到。</div>
+      <div style={tip}>💡 範例：一則待辦同時貼「學習」和「法律」，兩邊篩選都看得到它。</div>
       <TodoDateRangePicker
         value={{
           date: draft.date,
@@ -304,27 +325,6 @@ export function TodoFormFields({
           </option>
         ))}
       </select>
-      <label style={{ fontSize: 10, color: TH.muted }}>標籤</label>
-      <CategorySelector
-        tagIds={draft.tagIds}
-        cat1={sel.cat1}
-        cat2={sel.cat2}
-        cat3={sel.cat3}
-        onChange={(n) => setDraft((v) => ({ ...v, tagIds: n.tagIds, error: "" }))}
-        showQuickLane
-      />
-      {draft.tagIds.length > 0 ? (
-        <div style={{ fontSize: 10, color: TH.muted }}>
-          已選：
-          <CatBadge tagIds={draft.tagIds} />
-        </div>
-      ) : null}
-      {missing.length > 0 ? (
-        <div style={{ fontSize: 11, color: TH.red, fontWeight: 700 }}>請選擇：{missing.join("、")}</div>
-      ) : null}
-      <div style={tip}>💡 定義：待辦現在和番茄用同一套標籤。</div>
-      <div style={tip}>💡 用法：新增／編輯至少選一個領域標籤（可選「未分類」）。</div>
-      <div style={tip}>💡 範例：一則待辦同時貼「學習」和「法律」，兩邊篩選都看得到它。</div>
       <button
         type="button"
         onClick={() => setDraft((v) => ({ ...v, mustDo: !v.mustDo }))}

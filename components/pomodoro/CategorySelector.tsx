@@ -463,7 +463,7 @@ function TagTreePicker({
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 80,
+        zIndex: 210,
         background: "rgba(0,0,0,0.58)",
         display: "flex",
         alignItems: "flex-end",

@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useHorizontalSwipe } from "@/components/hooks/useHorizontalSwipe";
+import { useActionCooldown } from "@/components/hooks/useActionCooldown";
 import { Card, SL } from "@/components/ui/Card";
 import { PanelDismissButton } from "@/components/ui/PanelDismissButton";
 import { TodoCard } from "@/components/todo/TodoCard";
@@ -141,6 +142,11 @@ export function DayViewPage({
   const nowPct = ((now - DS) / DT) * 100;
   const rootRef = useRef<HTMLDivElement>(null);
   const scrollRestoreRef = useRef<{ top: number; fromBottom: number } | null>(null);
+  const cooldown = useActionCooldown();
+  const onStartGuarded = cooldown.wrap(onStart);
+  const onEndGuarded = cooldown.wrap(onEnd);
+  const onToggleDoneGuarded = cooldown.wrap(onToggleDone);
+  const onDeleteGuarded = cooldown.wrap(onDeleteTodo);
 
   const shiftViewDate = (delta: number) => {
     const scroller = findScrollParent(rootRef.current);
@@ -150,6 +156,7 @@ export function DayViewPage({
         fromBottom: scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight,
       };
     }
+    cooldown.arm();
     setViewDate((d) => shiftDateStr(d, delta));
   };
 
@@ -341,11 +348,11 @@ export function DayViewPage({
               key={t.id as number}
               todo={t}
               viewDate={viewDate}
-              onStart={onStart}
-              onEnd={onEnd}
-              onToggleDone={onToggleDone}
+              onStart={onStartGuarded}
+              onEnd={onEndGuarded}
+              onToggleDone={onToggleDoneGuarded}
               onEdit={onEditTodo}
-              onDelete={onDeleteTodo}
+              onDelete={onDeleteGuarded}
             />
           ))}
         </div>
@@ -358,11 +365,11 @@ export function DayViewPage({
                   key={t.id as number}
                   todo={t}
                   viewDate={viewDate}
-                  onStart={onStart}
-                  onEnd={onEnd}
-                  onToggleDone={onToggleDone}
+                  onStart={onStartGuarded}
+                  onEnd={onEndGuarded}
+                  onToggleDone={onToggleDoneGuarded}
                   onEdit={onEditTodo}
-                  onDelete={onDeleteTodo}
+                  onDelete={onDeleteGuarded}
                 />
               ))}
             </div>
